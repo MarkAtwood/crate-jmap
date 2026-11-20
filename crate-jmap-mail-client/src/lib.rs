@@ -99,6 +99,7 @@ impl JmapMailExt for jmap_base_client::JmapClient {
             client: self.clone(),
             session,
             i18n: None,
+            mail_share: false,
         }
     }
 }

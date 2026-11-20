@@ -189,3 +189,87 @@ fn mailbox_rights_may_set_metadata_typed_and_optional() {
     assert_eq!(r.may_set_metadata, None);
     assert_eq!(serde_json::to_value(&r).unwrap(), without);
 }
+
+// ── draft-ietf-jmap-mail-sharing-02 §2 ──────────────────────────────────
+//
+// "*shareWith*: Id[MailboxRights]|null (default: null)  This is a map
+// configuring who the mailbox is shared with, or null if it is not shared
+// with anyone. Each key in the map is the id of a Principal with whom the
+// mailbox is shared. The value for each key is the set of access rights
+// that Principal has for the mailbox."
+//
+// "*mayShare*: Boolean  The user may modify the shareWith property for
+// this mailbox."
+
+/// A shared Mailbox as the draft describes it: `shareWith` and `mayShare`
+/// are typed, not left in `extra`, and the value round-trips.
+#[test]
+fn share_with_and_may_share_are_typed() {
+    let raw = serde_json::json!({
+        "id": "m1", "name": "Team", "parentId": null, "role": null,
+        "sortOrder": 0, "totalEmails": 0, "unreadEmails": 0,
+        "totalThreads": 0, "unreadThreads": 0,
+        "myRights": {
+            "mayReadItems": true, "mayAddItems": true, "mayRemoveItems": true,
+            "maySetSeen": true, "maySetKeywords": true, "mayCreateChild": true,
+            "mayRename": true, "mayDelete": true, "maySubmit": true,
+            "mayShare": true
+        },
+        "isSubscribed": true,
+        "shareWith": {
+            "P2": {
+                "mayReadItems": true, "mayAddItems": false, "mayRemoveItems": false,
+                "maySetSeen": true, "maySetKeywords": false, "mayCreateChild": false,
+                "mayRename": false, "mayDelete": false, "maySubmit": false,
+                "mayShare": false
+            }
+        }
+    });
+    let mb: Mailbox = serde_json::from_value(raw.clone()).unwrap();
+    assert_eq!(mb.my_rights.may_share, Some(true));
+    let share_with = mb.share_with.as_ref().unwrap();
+    let p2 = &share_with[&jmap_types::Id::from("P2")];
+    assert!(p2.may_read_items && p2.may_set_seen && !p2.may_delete);
+    assert_eq!(p2.may_share, Some(false));
+    assert!(mb.extra.is_empty() && mb.my_rights.extra.is_empty());
+    assert_eq!(serde_json::to_value(&mb).unwrap(), raw);
+}
+
+/// `null`, "not shared with anyone", and an absent `shareWith` (an RFC
+/// 8621 server without the extension) both decode as `None`; `None` is not
+/// serialized. An absent `mayShare` is `None`.
+#[test]
+fn share_with_null_or_absent_is_none() {
+    let mut raw = serde_json::json!({
+        "id": "m1", "name": "Solo", "parentId": null, "role": null,
+        "sortOrder": 0, "totalEmails": 0, "unreadEmails": 0,
+        "totalThreads": 0, "unreadThreads": 0,
+        "myRights": {
+            "mayReadItems": true, "mayAddItems": true, "mayRemoveItems": true,
+            "maySetSeen": true, "maySetKeywords": true, "mayCreateChild": true,
+            "mayRename": true, "mayDelete": true, "maySubmit": true
+        },
+        "isSubscribed": true
+    });
+    let absent: Mailbox = serde_json::from_value(raw.clone()).unwrap();
+    assert_eq!(absent.share_with, None);
+    assert_eq!(absent.my_rights.may_share, None);
+    assert_eq!(serde_json::to_value(&absent).unwrap(), raw);
+    raw["shareWith"] = serde_json::Value::Null;
+    let null: Mailbox = serde_json::from_value(raw).unwrap();
+    assert_eq!(null.share_with, None);
+}
+
+/// Workspace policy (AGENTS.md, wire maps are `BTreeMap`): `shareWith`
+/// keys serialize sorted. Oracle: the hand-written sorted JSON below.
+#[test]
+fn share_with_serializes_sorted() {
+    let rights = r#"{"mayReadItems":true,"mayAddItems":false,"mayRemoveItems":false,"maySetSeen":false,"maySetKeywords":false,"mayCreateChild":false,"mayRename":false,"mayDelete":false,"maySubmit":false}"#;
+    let input = format!(r#"{{"zed":{rights},"amy":{rights}}}"#);
+    let map: std::collections::BTreeMap<jmap_types::Id, MailboxRights> =
+        serde_json::from_str(&input).unwrap();
+    assert_eq!(
+        serde_json::to_string(&map).unwrap(),
+        format!(r#"{{"amy":{rights},"zed":{rights}}}"#)
+    );
+}

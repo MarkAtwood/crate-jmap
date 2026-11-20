@@ -5,8 +5,9 @@ re-exports `jmap-sharing-types` (always), `jmap-sharing-client` (`client`
 feature) and `jmap-sharing-server` (`server`; `memory` adds its reference
 backend), the same set as the `jmap-sharing` umbrella, plus `CAPABILITY`
 (`urn:ietf:params:jmap:mail:share`), the one item the 0.0.1 placeholder
-published. The Mailbox `shareWith` / `mayShare` properties are not typed in
-`jmap-mail-types` yet. It holds no logic: change the component crates, not
+published. The Mailbox `shareWith` / `mayShare` properties are typed in
+`jmap-mail-types` and enforced by `jmap-mail-server` (bd JMAP-irij), not
+here. It holds no logic: change the component crates, not
 this one. It copies the shape of `jmap-quotas`, the workspace's first
 umbrella, and replaces the 0.0.1 name-claim placeholder (bd JMAP-gs76.15,
 DECISIONS.md decision 50).

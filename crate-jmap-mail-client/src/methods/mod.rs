@@ -570,6 +570,8 @@ pub struct SessionClient {
     pub(crate) session: jmap_base_client::Session,
     /// Set by [`SessionClient::with_i18n`].
     pub(crate) i18n: Option<jmap_base_client::I18nSetting>,
+    /// Set by [`SessionClient::with_mail_sharing`].
+    pub(crate) mail_share: bool,
 }
 
 impl std::fmt::Debug for SessionClient {
@@ -655,14 +657,53 @@ impl SessionClient {
         api_url: &str,
         req: &jmap_types::JmapRequest,
     ) -> Result<jmap_types::JmapResponse, jmap_base_client::ClientError> {
-        match &self.i18n {
-            Some(i18n) => {
-                let mut req = req.clone();
-                i18n.add_to_using(&mut req);
-                self.client.call(api_url, &req).await
-            }
-            None => self.client.call(api_url, req).await,
+        if self.i18n.is_none() && !self.mail_share {
+            return self.client.call(api_url, req).await;
         }
+        let mut req = req.clone();
+        if let Some(i18n) = &self.i18n {
+            i18n.add_to_using(&mut req);
+        }
+        if self.mail_share
+            && !req
+                .using
+                .iter()
+                .any(|u| u == jmap_mail_types::JMAP_MAIL_SHARE_URI)
+        {
+            req.using
+                .push(jmap_mail_types::JMAP_MAIL_SHARE_URI.to_owned());
+        }
+        self.client.call(api_url, &req).await
+    }
+
+    /// Use `urn:ietf:params:jmap:mail:share`
+    /// (draft-ietf-jmap-mail-sharing-02) on every call of this client.
+    ///
+    /// The capability is added to `using`, so `Mailbox` objects carry
+    /// `shareWith` (§2) and [`Self::mailbox_set`] may write it, in `create`
+    /// or as an `update` patch such as `{"shareWith/P2": rights}`. Only a
+    /// user with `myRights.mayShare` may change it; the owner's Principal
+    /// "MUST NOT be in the map".
+    ///
+    /// # Errors
+    ///
+    /// [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    /// when the bound Session does not advertise the capability: a request
+    /// naming an unsupported capability in `using` fails as a whole (RFC
+    /// 8620 §3.6.1 `unknownCapability`).
+    pub fn with_mail_sharing(mut self) -> Result<Self, jmap_base_client::ClientError> {
+        if !self
+            .session
+            .capabilities
+            .contains_key(jmap_mail_types::JMAP_MAIL_SHARE_URI)
+        {
+            return Err(jmap_base_client::ClientError::InvalidSession(format!(
+                "the session does not advertise {}",
+                jmap_mail_types::JMAP_MAIL_SHARE_URI
+            )));
+        }
+        self.mail_share = true;
+        Ok(self)
     }
 
     /// Use `urn:ietf:params:jmap:i18n` (draft-atwood-jmap-updates-00) on

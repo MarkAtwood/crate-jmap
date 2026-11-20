@@ -79,6 +79,11 @@ use jmap_server::{SetError, SetErrorType};
 /// returns each Mailbox's single-language view
 /// ([`jmap_server::I18nProjection`]).
 ///
+/// `shareWith` (draft-ietf-jmap-mail-sharing-02 §2) is returned only with
+/// `urn:ietf:params:jmap:mail:share` in `using` (§1.2.1); with it, an
+/// unshared Mailbox has `shareWith: null`. `myRights/mayShare` is the
+/// backend's.
+///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_mailbox_get<B: MailBackend>(
     backend: &B,
@@ -159,6 +164,7 @@ pub async fn handle_mailbox_get<B: MailBackend>(
             // `localizations` even when the client did not ask for it.
             if let Value::Object(m) = &mut val {
                 i18n.apply(m);
+                share_view(m, using, true);
             }
             let mut out = match &prop_set {
                 Some(set) => filter_properties(&val, set),
@@ -645,6 +651,10 @@ fn parents_first(creates: &serde_json::Map<String, Value>) -> Vec<(&String, &Val
 ///   `urn:ietf:params:jmap:metadata` in `using` (pass
 ///   [`jmap_server::CallContext::using`]), as is `null` for either in a
 ///   create; the backend validates the rest
+/// - draft-ietf-jmap-mail-sharing-02 §1.2.1: a write to `shareWith` is
+///   `invalidProperties` without `urn:ietf:params:jmap:mail:share` in
+///   `using`, and the echoes carry `shareWith` only with it. Who may change `shareWith` (§2: "only ... if the user has the
+///   mayShare right") is the backend's check, atomic with the write.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_mailbox_set<B: MailBackend>(
@@ -774,6 +784,14 @@ pub(crate) async fn mailbox_set<B: MailBackend>(
                 not_created.insert(create_id.clone(), serde_json::Value::from(&*err));
                 continue;
             }
+            if props
+                .as_object()
+                .is_some_and(|o| o.contains_key("shareWith"))
+                && !shares(using)
+            {
+                not_created.insert(create_id.clone(), share_with_invalid());
+                continue;
+            }
             let mut props = props.clone();
             if let Value::Object(m) = &mut props
                 && let Err(err) = i18n_set.check_create(m)
@@ -874,6 +892,9 @@ pub(crate) async fn mailbox_set<B: MailBackend>(
                         Ok((id, obj)) => {
                             let mut obj_val = jmap_server::serialize_value(&obj)?;
                             i18n_set.echo(&mut obj_val);
+                            if let Value::Object(m) = &mut obj_val {
+                                share_view(m, using, true);
+                            }
                             created_ids.insert(Id::from(create_id.as_str()), id);
                             created.insert(create_id.clone(), obj_val);
                         }
@@ -969,7 +990,17 @@ pub(crate) async fn mailbox_set<B: MailBackend>(
         // patch is clean. Used in both passes.
         // The same for `locale` and `localizations` without the i18n
         // capability (draft-atwood-jmap-updates-00 §3).
+        // The same for `shareWith` without the mail:share capability
+        // (draft-ietf-jmap-mail-sharing-02 §1.2.1).
         let metadata_error = |patch: &PatchObject| -> Option<Value> {
+            if !shares(using)
+                && patch
+                    .as_map()
+                    .keys()
+                    .any(|k| k == "shareWith" || k.starts_with("shareWith/"))
+            {
+                return Some(share_with_invalid());
+            }
             check_metadata_entry(patch.as_map(), false, using)
                 .and_then(|()| i18n_set.check_patch(patch.as_map()))
                 .err()
@@ -1055,6 +1086,9 @@ pub(crate) async fn mailbox_set<B: MailBackend>(
                         .transpose()?
                         .unwrap_or(Value::Null);
                     i18n_set.echo(&mut entry);
+                    if let Value::Object(m) = &mut entry {
+                        share_view(m, using, false);
+                    }
                     updated.insert(id_str, entry);
                     if let Some(role) = current_role {
                         roles_successfully_vacated.insert(role);
@@ -1174,6 +1208,9 @@ pub(crate) async fn mailbox_set<B: MailBackend>(
                         .transpose()?
                         .unwrap_or(Value::Null);
                     i18n_set.echo(&mut entry);
+                    if let Value::Object(m) = &mut entry {
+                        share_view(m, using, false);
+                    }
                     updated.insert(id_str, entry);
                 }
                 Err(e) => {
@@ -1579,6 +1616,10 @@ fn build_mailbox_from_props(
         typed_prop(props, "locale").map_err(|e| serde_json::Value::from(&*e))?;
     let localizations: Option<jmap_types::i18n::Localizations> =
         typed_prop(props, "localizations").map_err(|e| serde_json::Value::from(&*e))?;
+    // draft-ietf-jmap-mail-sharing-02 §2: `Id[MailboxRights]|null`; the
+    // backend checks who may set it and that the owner is not in it.
+    let share_with: Option<BTreeMap<Id, jmap_mail_types::MailboxRights>> =
+        typed_prop(props, "shareWith").map_err(|e| serde_json::Value::from(&*e))?;
 
     Ok(move |id: &Id| {
         let mut mailbox = Mailbox::new(
@@ -1601,8 +1642,43 @@ fn build_mailbox_from_props(
         mailbox.private_metadata = private_metadata;
         mailbox.locale = locale;
         mailbox.localizations = localizations;
+        mailbox.share_with = share_with;
         mailbox
     })
+}
+
+/// Whether the request uses `urn:ietf:params:jmap:mail:share`.
+fn shares(using: &[String]) -> bool {
+    using
+        .iter()
+        .any(|u| u == jmap_mail_types::JMAP_MAIL_SHARE_URI)
+}
+
+/// The SetError for a write to `shareWith` without the mail:share
+/// capability: the property does not exist for the request.
+fn share_with_invalid() -> Value {
+    serde_json::Value::from(
+        &SetError::new(SetErrorType::InvalidProperties).with_properties(["shareWith"]),
+    )
+}
+
+/// Shape a Mailbox for the request's `using`
+/// (draft-ietf-jmap-mail-sharing-02 §1.2.1): without the mail:share
+/// capability, drop `shareWith`; with it and `fill`, give a Mailbox without
+/// `shareWith` the default `null` (§2).
+///
+/// `myRights/mayShare` stays whatever the backend says, as
+/// `maySetMetadata` does: `myRights` is server-set, and a client that
+/// echoes the `/get` value in an update must send what the backend holds
+/// (RFC 8620 §5.3).
+fn share_view(m: &mut serde_json::Map<String, Value>, using: &[String], fill: bool) {
+    if shares(using) {
+        if fill && m.contains_key("id") {
+            m.entry("shareWith").or_insert(Value::Null);
+        }
+    } else {
+        m.remove("shareWith");
+    }
 }
 
 /// `props[name]` decoded as `Option<T>`: absent and `null` are `None`.

@@ -57,12 +57,18 @@ the shared `jmap-*` line.
 
 ## Gotchas
 
-- The Mailbox side of the draft is not typed yet: `jmap-mail-types` has no
-  `shareWith` field on `Mailbox` and no `mayShare` field on
-  `MailboxRights`. Both ride in the types' `extra` maps, and
-  `jmap-mail-server` does not check `mayShare` before a Mailbox
-  `shareWith` change. `CAPABILITY` is
-  the only place the workspace names `urn:ietf:params:jmap:mail:share`.
+- The Mailbox side of the draft lives in the mail crates, not here:
+  `jmap-mail-types` has `Mailbox::share_with` and
+  `MailboxRights::may_share`, and `JMAP_MAIL_SHARE_URI`, the same string
+  as `CAPABILITY`. `jmap-mail-server` returns `shareWith` and accepts a
+  write to it only with that URI in `using`, and its `MailBackend`
+  contract requires `mayShare` for a `shareWith` change; its reference
+  `MemoryBackend<Id>` enforces it, computes `myRights` per caller from
+  `shareWith`, keeps `isSubscribed` per user and reports `Mailbox/changes`
+  per user. `jmap-mail-client`'s `SessionClient::with_mail_sharing` adds
+  the URI to `using`.
+- The reference mail backend shares Mailboxes only: a sharee reads no
+  Email there, and it creates no ShareNotification.
 - `server` alone does not build the reference backend; enable `memory` for
   `server::memory::MemoryBackend` (demonstration quality, not production).
 - Depending on this crate and on a component crate at a different version

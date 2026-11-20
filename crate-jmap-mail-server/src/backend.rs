@@ -61,7 +61,11 @@ use jmap_server::{BackendSetError, JmapBackend, JmapObject, SetObject};
 ///
 /// - Mailbox create: `mayCreateChild` on the parent, or the account's
 ///   `mayCreateTopLevelMailbox` (RFC 8621 §1.3.1) when `parentId` is null.
-/// - Mailbox update: `mayRename` to change `name` or `parentId`.
+/// - Mailbox update: `mayRename` to change `name` or `parentId`; `mayShare`
+///   to change `shareWith` (draft-ietf-jmap-mail-sharing-02 §2: "The
+///   property may only be modified if the user has the mayShare right"),
+///   in a create too. `shareWith` never names the account's owner (§2,
+///   `invalidProperties`), whose rights are implicit (§3.6).
 /// - Mailbox destroy: `mayDelete`.
 /// - Email create, import or copy: `mayAddItems` on every Mailbox in
 ///   `mailboxIds`.

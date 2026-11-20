@@ -85,6 +85,41 @@ wire behaviour that a conforming peer can observe.
   and Scene's `advertise`, are documented public API too (Scene's was the
   hidden `advertise_capability`, renamed to the name the other two use).
 
+- **jmap-mail-types**, **jmap-mail-server**, **jmap-mail-client**: the
+  Mailbox side of draft-ietf-jmap-mail-sharing-02 (bd:JMAP-irij).
+  `Mailbox::share_with` (`Id[MailboxRights]|null`, §2),
+  `MailboxRights::may_share` (§2), `MailboxProperty::ShareWith`, `shareWith`
+  in Mailbox's `CLIENT_SETTABLE`, and `JMAP_MAIL_SHARE_URI` (§1.2.1, also
+  re-exported by jmap-mail-server); both properties used to survive only in
+  `extra`. `Mailbox/get` and the `Mailbox/set` echoes carry `shareWith`
+  (`null` when unshared) only with `urn:ietf:params:jmap:mail:share` in
+  `using`, and a `shareWith` write without it is `invalidProperties`. The
+  `MailBackend` contract now lists `mayShare` for a `shareWith` change and
+  forbids the owner in the map. `SessionClient::with_mail_sharing` adds the
+  URI to `using` (refused when the Session does not advertise it).
+- **BREAKING** **jmap-mail-server** (`memory`): per-user Mailbox sharing in
+  the reference `MemoryBackend` (bd:JMAP-irij). `MemoryBackend<C = ()>`
+  takes its `CallerCtx` from the new `MemoryCaller` trait: `()` (the
+  default; `MemoryBackend::new()`), whose caller acts as the owner, or a
+  Principal `Id` (`MemoryBackend::<Id>::default()`; `principal_id` returns
+  it). `with_account_owner` names an account's owner (else the account id).
+  The owner has every right and `mayShare`; another user has its
+  `shareWith` entry's rights, sees the Mailboxes shared with it and their
+  ancestors (the latter with no rights), sees only its own `shareWith`
+  entry without `mayShare`, and has its own `isSubscribed` (default
+  `false`). Writes re-check under the store lock: `shareWith` needs
+  `mayShare`; `name`, `parentId`, `role`, `sortOrder`, `locale`,
+  `localizations` need `mayRename`; a parent needs `mayCreateChild`;
+  destroy needs `mayDelete`; only the owner works at the top level;
+  `shareWith` naming the owner is `invalidProperties`. `Mailbox/changes`
+  is per user (visibility gained or lost is created or destroyed for that
+  user). A sharee sees no object of any other type (Email, Thread,
+  Identity, blobs, history, ...): `notFound`, `forbidden` or
+  `cannotCalculateChanges`. A Mailbox destroy that would leave Email in it
+  is now `mailboxHasEmail` in the backend. `myRights` stored in a Mailbox
+  (by `seed_object` or a `create_object` builder) is no longer shown or
+  honoured; restricted rights come from `shareWith`. `EmailPushBackend`
+  lists only the caller's own accounts.
 - **jmap-types**: data-type registry rows for TaskList, Task and
   TaskNotification (`urn:ietf:params:jmap:tasks`; Supports History Yes,
   Yes, No; Task can reference blobs), from crate-jmap's local Tasks profile

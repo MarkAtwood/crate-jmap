@@ -21,6 +21,11 @@ pub const JMAP_SUBMISSION_URI: &str = "urn:ietf:params:jmap:submission";
 /// Capability URI for the JMAP Vacation Response extension (RFC 8621 §1.3.3).
 pub const JMAP_VACATIONRESPONSE_URI: &str = "urn:ietf:params:jmap:vacationresponse";
 
+/// Capability URI for JMAP Mail Sharing (draft-ietf-jmap-mail-sharing-02
+/// §1.2.1): the Mailbox has the `shareWith` property and MailboxRights the
+/// `mayShare` right.
+pub const JMAP_MAIL_SHARE_URI: &str = "urn:ietf:params:jmap:mail:share";
+
 /// Session-level Mail capability (RFC 8621 §1.3.1).
 ///
 /// The value of `capabilities["urn:ietf:params:jmap:mail"]` in the JMAP
@@ -182,5 +187,12 @@ mod tests {
             JMAP_VACATIONRESPONSE_URI,
             "urn:ietf:params:jmap:vacationresponse"
         );
+    }
+
+    /// Oracle: draft-ietf-jmap-mail-sharing-02 §4.1 registers
+    /// "*Capability Name:* urn:ietf:params:jmap:mail:share".
+    #[test]
+    fn mail_share_uri_matches_the_draft() {
+        assert_eq!(JMAP_MAIL_SHARE_URI, "urn:ietf:params:jmap:mail:share");
     }
 }

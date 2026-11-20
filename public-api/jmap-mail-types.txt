@@ -277,6 +277,7 @@ pub jmap_mail_types::MailboxProperty::MyRights
 pub jmap_mail_types::MailboxProperty::Name
 pub jmap_mail_types::MailboxProperty::ParentId
 pub jmap_mail_types::MailboxProperty::Role
+pub jmap_mail_types::MailboxProperty::ShareWith
 pub jmap_mail_types::MailboxProperty::SortOrder
 pub jmap_mail_types::MailboxProperty::TotalEmails
 pub jmap_mail_types::MailboxProperty::TotalThreads
@@ -1015,6 +1016,7 @@ pub jmap_mail_types::Mailbox::name: alloc::string::String
 pub jmap_mail_types::Mailbox::parent_id: core::option::Option<jmap_types::id::Id>
 pub jmap_mail_types::Mailbox::private_metadata: core::option::Option<serde_json::map::Map<alloc::string::String, serde_json::value::Value>>
 pub jmap_mail_types::Mailbox::role: core::option::Option<jmap_mail_types::MailboxRole>
+pub jmap_mail_types::Mailbox::share_with: core::option::Option<alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_mail_types::MailboxRights>>
 pub jmap_mail_types::Mailbox::sort_order: u32
 pub jmap_mail_types::Mailbox::total_emails: u32
 pub jmap_mail_types::Mailbox::total_threads: u32
@@ -1105,6 +1107,7 @@ pub jmap_mail_types::MailboxRights::may_rename: bool
 pub jmap_mail_types::MailboxRights::may_set_keywords: bool
 pub jmap_mail_types::MailboxRights::may_set_metadata: core::option::Option<bool>
 pub jmap_mail_types::MailboxRights::may_set_seen: bool
+pub jmap_mail_types::MailboxRights::may_share: core::option::Option<bool>
 pub jmap_mail_types::MailboxRights::may_submit: bool
 impl core::clone::Clone for jmap_mail_types::MailboxRights
 pub fn jmap_mail_types::MailboxRights::clone(&self) -> jmap_mail_types::MailboxRights
@@ -1450,6 +1453,7 @@ pub const jmap_mail_types::EMAIL_PUSH_PROPERTY: &str
 pub const jmap_mail_types::FLAGGED: &str
 pub const jmap_mail_types::FORWARDED: &str
 pub const jmap_mail_types::JMAP_EMAILPUSH_URI: &str
+pub const jmap_mail_types::JMAP_MAIL_SHARE_URI: &str
 pub const jmap_mail_types::JMAP_MAIL_URI: &str
 pub const jmap_mail_types::JMAP_MDN_URI: &str
 pub const jmap_mail_types::JMAP_SIEVE_SCRIPTS_URI: &str

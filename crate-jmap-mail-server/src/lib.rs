@@ -124,7 +124,9 @@ pub use jmap_mail_types::{
     EmailProperty, EmailSubmissionProperty, IdentityProperty, MailboxProperty,
     SearchSnippetProperty, ThreadProperty, VacationResponseProperty,
 };
-pub use jmap_mail_types::{JMAP_MAIL_URI, JMAP_SUBMISSION_URI, JMAP_VACATIONRESPONSE_URI};
+pub use jmap_mail_types::{
+    JMAP_MAIL_SHARE_URI, JMAP_MAIL_URI, JMAP_SUBMISSION_URI, JMAP_VACATIONRESPONSE_URI,
+};
 pub use mailbox::{
     handle_mailbox_changes, handle_mailbox_get, handle_mailbox_query, handle_mailbox_query_changes,
     handle_mailbox_set,

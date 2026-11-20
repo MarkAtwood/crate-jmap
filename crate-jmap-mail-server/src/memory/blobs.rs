@@ -26,7 +26,7 @@ use jmap_server::{JmapObject, ScopeGate, ScopedState};
 use jmap_types::Id;
 use serde_json::Value;
 
-use super::{Inner, MemoryBackend};
+use super::{Inner, MemoryBackend, MemoryCaller};
 
 /// A blob store [`MemoryBackend`] reads and writes instead of its own map
 /// ([`MemoryBackend::with_blob_store`]).
@@ -69,7 +69,7 @@ fn mentions_blob(v: &Value, blob_id: &str) -> bool {
     }
 }
 
-impl MemoryBackend {
+impl<C: MemoryCaller> MemoryBackend<C> {
     /// Read and write blobs through `store` instead of the backend's own
     /// map. Call before cloning the backend and before storing any blob.
     #[must_use]
@@ -88,6 +88,7 @@ impl MemoryBackend {
         Self {
             inner: ScopedState::with_gate(value, gate),
             blob_store: self.blob_store,
+            caller: std::marker::PhantomData,
         }
     }
 

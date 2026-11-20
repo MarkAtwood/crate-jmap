@@ -18,8 +18,7 @@ use jmap_server::{
 use jmap_types::{Id, PushSubscription, PushVerification, State, UTCDate};
 use serde::Deserialize;
 
-use super::{MemoryBackend, MemoryError};
-use crate::MailBackend;
+use super::{MemoryBackend, MemoryCaller, MemoryError};
 use crate::emailpush::{
     DeliveredEmail, EmailPushAccount, EmailPushBackend, EmailPushBatch, OutboundEmailPush,
     check_email_push_change, email_pushes_for, prune_email_push,
@@ -60,7 +59,7 @@ impl Default for PushState {
     }
 }
 
-impl MemoryBackend {
+impl<C: MemoryCaller> MemoryBackend<C> {
     /// Removes and returns the PushVerification objects queued by
     /// `PushSubscription/set` creates, oldest first. A client sets the
     /// code on its subscription to verify it (RFC 8620 §7.2.2).
@@ -100,7 +99,7 @@ impl MemoryBackend {
         );
         let now = UTCDate::from(crate::helpers::now_utc_string().as_ref());
         let (email_id, email) = self
-            .import_email(&(), account_id, &blob_id, mailbox_ids, keywords, Some(&now))
+            .import_email_unchecked(account_id, &blob_id, mailbox_ids, keywords, Some(&now))
             .await?;
         let (state, thread): (State, Vec<BTreeMap<Keyword, bool>>) = {
             let mut inner = self.inner.lock().await;
@@ -120,7 +119,7 @@ impl MemoryBackend {
                 .collect();
             (state, thread)
         };
-        let accounts = self.email_push_accounts(&()).await.unwrap_or_default();
+        let accounts = self.push_accounts(None).await;
         let Some(account) = accounts.get(account_id) else {
             // A revoked account gets no EmailPush (-05 §4: "MUST stop").
             return Ok((email_id, Vec::new()));
@@ -152,7 +151,7 @@ impl MemoryBackend {
 }
 
 #[cfg(feature = "test-helpers")]
-impl MemoryBackend {
+impl<C: MemoryCaller> MemoryBackend<C> {
     /// Overrides what `account_id` supports for EmailPush; `None` revokes
     /// it (the user lost access, or the account lost the capability).
     /// Registered accounts default to mail and ObjectID, with Email history
@@ -182,7 +181,7 @@ impl MemoryBackend {
     }
 }
 
-impl PushSubscriptionBackend for MemoryBackend {
+impl<C: MemoryCaller> PushSubscriptionBackend for MemoryBackend<C> {
     const PUSH_SUBSCRIPTION_EXTENSION_CAPABILITIES: &'static [(&'static str, &'static str)] = &[(
         jmap_mail_types::EMAIL_PUSH_PROPERTY,
         jmap_mail_types::JMAP_EMAILPUSH_URI,
@@ -192,7 +191,7 @@ impl PushSubscriptionBackend for MemoryBackend {
     /// pruned from `emailPush`.
     async fn list_push_subscriptions(
         &self,
-        caller: &(),
+        caller: &C,
     ) -> Result<Vec<StoredPushSubscription>, MemoryError> {
         let accounts = self.email_push_accounts(caller).await?;
         let mut subs: Vec<StoredPushSubscription> = self
@@ -215,7 +214,7 @@ impl PushSubscriptionBackend for MemoryBackend {
     /// returns `overQuota` at [`MAX_PUSH_SUBSCRIPTIONS`].
     async fn create_push_subscription(
         &self,
-        caller: &(),
+        caller: &C,
         mut new: PushSubscription,
     ) -> Result<StoredPushSubscription, BackendSetError<MemoryError>> {
         check_email_push_change(self, caller, None, &mut new).await?;
@@ -245,7 +244,7 @@ impl PushSubscriptionBackend for MemoryBackend {
     /// it.
     async fn update_push_subscription(
         &self,
-        caller: &(),
+        caller: &C,
         mut sub: PushSubscription,
     ) -> Result<PushSubscription, BackendSetError<MemoryError>> {
         let not_found =
@@ -269,7 +268,7 @@ impl PushSubscriptionBackend for MemoryBackend {
 
     async fn destroy_push_subscription(
         &self,
-        _caller: &(),
+        _caller: &C,
         id: &Id,
     ) -> Result<(), BackendSetError<MemoryError>> {
         self.inner
@@ -285,14 +284,27 @@ impl PushSubscriptionBackend for MemoryBackend {
     }
 }
 
-impl EmailPushBackend for MemoryBackend {
-    /// Every registered account, as mail with ObjectID, with Email history
+impl<C: MemoryCaller> EmailPushBackend for MemoryBackend<C> {
+    /// Every registered account the caller owns (all of them for a caller
+    /// without a principal), as mail with ObjectID, with Email history
     /// when its object-history capability lists Email, unless a test
-    /// override changes or revokes it.
+    /// override changes or revokes it. A sharee reads no Email in this
+    /// backend, so no shared account is listed.
     async fn email_push_accounts(
         &self,
-        _caller: &(),
+        caller: &C,
     ) -> Result<BTreeMap<Id, EmailPushAccount>, MemoryError> {
+        Ok(self.push_accounts(caller.principal()).await)
+    }
+}
+
+impl<C: MemoryCaller> MemoryBackend<C> {
+    /// [`EmailPushBackend::email_push_accounts`] for `principal`: the
+    /// accounts it owns, or every account for `None`.
+    pub(super) async fn push_accounts(
+        &self,
+        principal: Option<&Id>,
+    ) -> BTreeMap<Id, EmailPushAccount> {
         let inner = self.inner.lock().await;
         // Email history exactly when the object-history capability lists
         // Email, so `objectHistory` is accepted in a config where Email/get
@@ -301,9 +313,10 @@ impl EmailPushBackend for MemoryBackend {
             .history
             .as_ref()
             .is_some_and(|h| h.capability().supports::<Email>());
-        Ok(inner
+        inner
             .known_accounts
             .iter()
+            .filter(|a| inner.is_owner(a, principal))
             .map(|a| Id::from(a.as_str()))
             .filter_map(|id| {
                 let account = match inner.push.accounts.get(&id) {
@@ -316,7 +329,7 @@ impl EmailPushBackend for MemoryBackend {
                 };
                 account.map(|a| (id, a))
             })
-            .collect())
+            .collect()
     }
 }
 

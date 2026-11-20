@@ -36,6 +36,8 @@ pub enum MailboxProperty {
     MyRights,
     /// The `isSubscribed` property (RFC 8621 §2).
     IsSubscribed,
+    /// The `shareWith` property (draft-ietf-jmap-mail-sharing-02 §2).
+    ShareWith,
 }
 
 /// Property selector for [`crate::Thread`] `/get`.
@@ -226,6 +228,8 @@ impl jmap_object_history_types::HistoryObject for crate::Mailbox {}
 /// "(immutable; server-set)"; the four counts and `myRights` are
 /// "(server-set)". draft-ietf-jmap-metadata-05 §3.2: clients write
 /// `metadata` and `privateMetadata` through `Foo/set`.
+/// draft-ietf-jmap-mail-sharing-02 §2: `shareWith` "may only be modified if
+/// the user has the mayShare right", so it is client-settable.
 impl SetObject for crate::Mailbox {
     type Patch = PatchObject;
     const SERVER_SET: &'static [&'static str] = &[
@@ -242,6 +246,7 @@ impl SetObject for crate::Mailbox {
         "role",
         "sortOrder",
         "isSubscribed",
+        "shareWith",
         "metadata",
         "privateMetadata",
         "locale",
@@ -509,6 +514,11 @@ mod tests {
             unread_threads: 1,
             my_rights: crate::MailboxRights::default(),
             is_subscribed: true,
+            share_with: Some(de(json!({"P2": {
+                "mayReadItems": true, "mayAddItems": false, "mayRemoveItems": false,
+                "maySetSeen": false, "maySetKeywords": false, "mayCreateChild": false,
+                "mayRename": false, "mayDelete": false, "maySubmit": false
+            }}))),
             metadata: Some(de(json!({"acme.example.com": {"memo": "m"}}))),
             private_metadata: Some(de(json!({"acme.example.com": {"memo": "p"}}))),
             locale: Some(de(json!("en"))),

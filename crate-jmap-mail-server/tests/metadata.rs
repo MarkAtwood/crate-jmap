@@ -67,19 +67,14 @@ fn error_type(err: JmapError) -> Value {
     serde_json::to_value(&err).unwrap()["type"].clone()
 }
 
-/// Store a Mailbox whose `myRights.maySetMetadata` is `may_set_metadata`
-/// (server-set, so not writable through Mailbox/set) and return its id.
-async fn mailbox_fixture(backend: &MemoryBackend, name: &str, may_set_metadata: bool) -> String {
-    mailbox_fixture_in(backend, ACCOUNT_ID, name, may_set_metadata).await
+/// Store a Mailbox named `name` and return its id. Its stored `myRights`
+/// is never shown: the caller, the owner, holds every right.
+async fn mailbox_fixture(backend: &MemoryBackend, name: &str) -> String {
+    mailbox_fixture_in(backend, ACCOUNT_ID, name).await
 }
 
 /// [`mailbox_fixture`] in `account`.
-async fn mailbox_fixture_in(
-    backend: &MemoryBackend,
-    account: &str,
-    name: &str,
-    may_set_metadata: bool,
-) -> String {
+async fn mailbox_fixture_in(backend: &MemoryBackend, account: &str, name: &str) -> String {
     let name = name.to_owned();
     let (id, _) = MailBackend::create_object::<Mailbox, _>(
         backend,
@@ -97,8 +92,7 @@ async fn mailbox_fixture_in(
                 "myRights": {
                     "mayReadItems": true, "mayAddItems": true, "mayRemoveItems": true,
                     "maySetSeen": true, "maySetKeywords": true, "mayCreateChild": true,
-                    "mayRename": true, "mayDelete": true, "maySubmit": true,
-                    "maySetMetadata": may_set_metadata
+                    "mayRename": true, "mayDelete": true, "maySubmit": true
                 },
                 "isSubscribed": true
             }))
@@ -239,8 +233,8 @@ async fn mailbox_query_metadata_exists() {
 #[tokio::test]
 async fn email_query_combines_mailbox_and_text_contains() {
     let backend = backend();
-    let inbox = mailbox_fixture(&backend, "Inbox", true).await;
-    let other = mailbox_fixture(&backend, "Other", true).await;
+    let inbox = mailbox_fixture(&backend, "Inbox").await;
+    let other = mailbox_fixture(&backend, "Other").await;
     let hit = create_email(
         &backend,
         &inbox,
@@ -266,7 +260,7 @@ async fn email_query_combines_mailbox_and_text_contains() {
 #[tokio::test]
 async fn email_query_text_equals_under_not() {
     let backend = backend();
-    let inbox = mailbox_fixture(&backend, "Inbox", true).await;
+    let inbox = mailbox_fixture(&backend, "Inbox").await;
     let exact = create_email(&backend, &inbox, json!({ NS: { "tag": "Urgent" } })).await;
     let other_case = create_email(&backend, &inbox, json!({ NS: { "tag": "urgent" } })).await;
 
@@ -486,100 +480,6 @@ async fn unlisted_type_rejects_metadata_write() {
     assert_eq!(resp["notCreated"]["c"]["properties"], json!(["metadata"]));
 }
 
-/// -05 §4.1: "A write to metadata without maySetMetadata MUST be rejected
-/// with a "forbidden" SetError." A Mailbox carries its own right; other
-/// properties stay writable.
-#[tokio::test]
-#[ignore = "the owner holds every right; restricted rights need a sharee (bd JMAP-irij)"]
-async fn mailbox_without_may_set_metadata_is_forbidden() {
-    let backend = backend();
-    let id = mailbox_fixture(&backend, "locked", false).await;
-    let resp = mailbox_set(
-        &backend,
-        json!({ "update": { &id: { "metadata/acme.example.com": { "k": 1 } } } }),
-        &using(),
-    )
-    .await;
-    assert_eq!(
-        resp["notUpdated"][&id]["type"],
-        json!("forbidden"),
-        "{resp}"
-    );
-
-    update_mailbox(&backend, &id, json!({ "name": "renamed" })).await;
-}
-
-/// -05 §4.1: an Email "takes the right from its containers. Modifying its
-/// metadata requires maySetMetadata on every container it belongs to; when
-/// the same update changes its containers, on every container both before
-/// and after the change; and on create, on the containers given in the
-/// create."
-#[tokio::test]
-#[ignore = "the owner holds every right; restricted rights need a sharee (bd JMAP-irij)"]
-async fn email_metadata_needs_right_on_every_container() {
-    let backend = backend();
-    let open = mailbox_fixture(&backend, "open", true).await;
-    let locked = mailbox_fixture(&backend, "locked", false).await;
-    let email = create_email(&backend, &open, json!({})).await;
-
-    // Moving into a locked mailbox while writing metadata.
-    let resp = email_set(
-        &backend,
-        json!({ "update": { &email: {
-            format!("mailboxIds/{locked}"): true,
-            "metadata/acme.example.com": { "k": 1 }
-        } } }),
-        &using(),
-    )
-    .await;
-    assert_eq!(
-        resp["notUpdated"][&email]["type"],
-        json!("forbidden"),
-        "{resp}"
-    );
-
-    // The same move without a metadata write is allowed.
-    let resp = email_set(
-        &backend,
-        json!({ "update": { &email: { format!("mailboxIds/{locked}"): true } } }),
-        &using(),
-    )
-    .await;
-    assert_eq!(resp["updated"], json!({ &email: null }), "{resp}");
-
-    // Now in the locked mailbox: leaving it in the same update still needs
-    // the right "before ... the change".
-    let resp = email_set(
-        &backend,
-        json!({ "update": { &email: {
-            format!("mailboxIds/{locked}"): null,
-            "metadata/acme.example.com": { "k": 1 }
-        } } }),
-        &using(),
-    )
-    .await;
-    assert_eq!(
-        resp["notUpdated"][&email]["type"],
-        json!("forbidden"),
-        "{resp}"
-    );
-
-    // On create.
-    let create = json!({
-        "mailboxIds": { &open: true, &locked: true },
-        "subject": "s",
-        "textBody": [{ "partId": "1", "type": "text/plain" }],
-        "bodyValues": { "1": { "value": "b" } },
-        "metadata": { NS: { "k": 1 } },
-    });
-    let resp = email_set(&backend, json!({ "create": { "c": create } }), &using()).await;
-    assert_eq!(
-        resp["notCreated"]["c"]["type"],
-        json!("forbidden"),
-        "{resp}"
-    );
-}
-
 /// -05 §3.2 rule 1: "If the user cannot read the related object, reject
 /// with "notFound". If the write targets metadata and the user lacks
 /// maySetMetadata (Section 4.1), reject with "forbidden"" — in that order.
@@ -607,11 +507,11 @@ async fn missing_object_is_not_found_before_forbidden() {
 #[tokio::test]
 async fn request_only_patch_error_precedes_rule_1() {
     let backend = backend();
-    let locked = mailbox_fixture(&backend, "locked", false).await;
-    let open = mailbox_fixture(&backend, "open", true).await;
+    let other = mailbox_fixture(&backend, "other").await;
+    let open = mailbox_fixture(&backend, "open").await;
     let email = create_email(&backend, &open, json!({})).await;
 
-    for id in [locked.as_str(), "nope"] {
+    for id in [other.as_str(), "nope"] {
         let resp = mailbox_set(
             &backend,
             json!({ "update": { id: {
@@ -747,7 +647,7 @@ async fn excluded_ids_do_not_count_toward_max_changes() {
 #[tokio::test]
 async fn metadata_only_email_changes() {
     let backend = backend();
-    let inbox = mailbox_fixture(&backend, "Inbox", true).await;
+    let inbox = mailbox_fixture(&backend, "Inbox").await;
     let e1 = create_email(&backend, &inbox, json!({})).await;
     let e2 = create_email(&backend, &inbox, json!({})).await;
     let resp = email_set(
@@ -1066,7 +966,7 @@ async fn email_copy_keeps_metadata_and_takes_override() {
     let backend = backend();
     let mailbox = create_mailbox(&backend, json!({ "name": "m" })).await;
     let email = create_email(&backend, &mailbox, json!({ NS: { "k": 1 } })).await;
-    let target = mailbox_fixture_in(&backend, OTHER_ID, "t", true).await;
+    let target = mailbox_fixture_in(&backend, OTHER_ID, "t").await;
 
     let plain = json!({ "id": &email, "mailboxIds": { &target: true } });
     let resp = email_copy(&backend, plain.clone(), &using()).await;
@@ -1102,17 +1002,15 @@ async fn email_copy_keeps_metadata_and_takes_override() {
 /// "A value of null for either property MUST be rejected with an
 /// "invalidProperties" SetError"; rule 2 (L609-610) privateMetadata when
 /// supportsPrivate is false; rule 3 (L621-622) an unsupported namespace;
-/// rule 4 (L625-626) maxDepth, here 2; and §4.1 / rule 1 (L606-607)
-/// "forbidden" without maySetMetadata on the container given in the
-/// create.
+/// rule 4 (L625-626) maxDepth, here 2. (Rule 1's "forbidden" needs a
+/// container without maySetMetadata, which a caller who may write Email
+/// in this backend, the owner, never meets.)
 #[tokio::test]
-#[ignore = "the owner holds every right; restricted rights need a sharee (bd JMAP-irij)"]
 async fn email_copy_override_follows_set_create_rules() {
     let backend = backend();
     let mailbox = create_mailbox(&backend, json!({ "name": "m" })).await;
     let email = create_email(&backend, &mailbox, json!({})).await;
-    let open = mailbox_fixture_in(&backend, OTHER_ID, "open", true).await;
-    let locked = mailbox_fixture_in(&backend, OTHER_ID, "locked", false).await;
+    let open = mailbox_fixture_in(&backend, OTHER_ID, "open").await;
 
     let cases = [
         (
@@ -1144,13 +1042,6 @@ async fn email_copy_override_follows_set_create_rules() {
             &open,
             "invalidProperties",
         ),
-        (
-            "metadata",
-            json!({ NS: { "k": 1 } }),
-            using(),
-            &locked,
-            "forbidden",
-        ),
     ];
     for (property, value, using, target, expected) in cases {
         let resp = email_copy(
@@ -1166,11 +1057,11 @@ async fn email_copy_override_follows_set_create_rules() {
         );
     }
 
-    // Copying into the locked mailbox without an override writes no
-    // metadata from the create object.
+    // Copying without an override writes no metadata from the create
+    // object.
     let resp = email_copy(
         &backend,
-        json!({ "id": &email, "mailboxIds": { &locked: true } }),
+        json!({ "id": &email, "mailboxIds": { &open: true } }),
         &using(),
     )
     .await;

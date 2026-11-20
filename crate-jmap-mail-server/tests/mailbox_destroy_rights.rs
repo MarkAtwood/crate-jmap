@@ -4,30 +4,33 @@
 //! Oracles: RFC 8621 §2 myRights mayDelete "The user may delete the
 //! Mailbox itself"; RFC 8620 §5.3 a destroy that "would violate an ACL or
 //! other permissions policy" fails with "forbidden"; RFC 8621 §2.5 the
-//! Emails are removed as part of destroying the Mailbox.
-
-mod common;
+//! Emails are removed as part of destroying the Mailbox;
+//! draft-ietf-jmap-mail-sharing-02 §2 `shareWith` gives a sharee "the set
+//! of access rights that Principal has for the mailbox".
 
 use std::collections::BTreeMap;
 
-use common::{FaultyBackend, with_principal};
+use jmap_mail_server::memory::MemoryBackend;
 use jmap_mail_server::{handle_email_get, handle_email_set, handle_mailbox_set};
 use jmap_types::Id;
 use serde_json::json;
 
 #[tokio::test]
-#[ignore = "the owner holds every right; restricted rights need a sharee (bd JMAP-irij)"]
 async fn forbidden_destroy_keeps_the_emails() {
-    with_principal();
-    let b = FaultyBackend::new();
-    b.inner.register_account(&Id::from("acc"));
-    // The memory backend gives a new Mailbox all-false myRights.
+    let alice = Id::from("acc");
+    let bob = Id::from("bob");
+    let b = MemoryBackend::<Id>::default().with_account(&alice);
+    // Bob may remove items but not delete the Mailbox.
     let out = handle_mailbox_set(
         &b,
-        &(),
+        &alice,
         &BTreeMap::new(),
-        json!({"accountId": "acc", "create": {"m": {"name": "M"}}}),
-        &[],
+        json!({"accountId": "acc", "create": {"m": {"name": "M", "shareWith": {"bob": {
+            "mayReadItems": true, "mayAddItems": true, "mayRemoveItems": true,
+            "maySetSeen": true, "maySetKeywords": true, "mayCreateChild": false,
+            "mayRename": false, "mayDelete": false, "maySubmit": false
+        }}}}}),
+        &["urn:ietf:params:jmap:mail:share".to_owned()],
     )
     .await
     .unwrap();
@@ -37,7 +40,7 @@ async fn forbidden_destroy_keeps_the_emails() {
         .to_owned();
     let out = handle_email_set(
         &b,
-        &(),
+        &alice,
         &BTreeMap::new(),
         json!({"accountId": "acc", "create": {"e": {"mailboxIds": {m.clone(): true}}}}),
         &[],
@@ -51,7 +54,7 @@ async fn forbidden_destroy_keeps_the_emails() {
 
     let resp = handle_mailbox_set(
         &b,
-        &(),
+        &bob,
         &BTreeMap::new(),
         json!({"accountId": "acc", "destroy": [m.clone()], "onDestroyRemoveEmails": true}),
         &[],
@@ -62,7 +65,7 @@ async fn forbidden_destroy_keeps_the_emails() {
     assert_eq!(resp["notDestroyed"][&m]["type"], "forbidden", "{resp}");
     let got = handle_email_get(
         &b,
-        &(),
+        &alice,
         json!({"accountId": "acc", "ids": [e.clone()]}),
         &[],
     )

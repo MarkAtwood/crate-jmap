@@ -3,6 +3,8 @@
 //! Provides [`Mailbox`], [`MailboxRole`], and [`MailboxRights`].
 //! Mailboxes are the folder containers for [`crate::Email`] objects.
 
+use std::collections::BTreeMap;
+
 use jmap_metadata_types::MetadataTextMatch;
 use jmap_types::{Id, impl_string_enum};
 use serde::{Deserialize, Serialize};
@@ -112,6 +114,12 @@ pub struct MailboxRights {
     /// metadata capability lists this type or a type it contains (§4.1).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub may_set_metadata: Option<bool>,
+    /// "The user may modify the shareWith property for this mailbox"
+    /// (draft-ietf-jmap-mail-sharing-02 §2; IMAP ACL "a" right, RFC 4314).
+    /// `None` when the server omits it, as a server without
+    /// `urn:ietf:params:jmap:mail:share` does.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub may_share: Option<bool>,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
@@ -154,6 +162,16 @@ pub struct Mailbox {
     pub my_rights: MailboxRights,
     /// Whether the user has subscribed to this Mailbox.
     pub is_subscribed: bool,
+    /// Who the Mailbox is shared with: each key is a Principal id, each
+    /// value "the set of access rights that Principal has for the
+    /// mailbox" (draft-ietf-jmap-mail-sharing-02 §2,
+    /// `Id[MailboxRights]|null`, default `null`). The owner's Principal
+    /// "MUST NOT be in the map". `None` when the Mailbox is not shared or
+    /// the server omits the property (a server without
+    /// `urn:ietf:params:jmap:mail:share`); `None` is not serialized, and
+    /// `null` decodes as `None`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub share_with: Option<BTreeMap<Id, MailboxRights>>,
     /// Shared metadata, keyed by namespace identifier
     /// (draft-ietf-jmap-metadata-05 §2). Each value is a JSON object (§2.1).
     /// `None` when absent, which -05 §2 treats as `{}`; in an update a
@@ -187,7 +205,7 @@ pub struct Mailbox {
 impl Mailbox {
     /// Construct a [`Mailbox`] from its required fields.
     ///
-    /// `parent_id` and `role` default to `None`.
+    /// `parent_id`, `role` and `share_with` default to `None`.
     // Nine arguments because Mailbox has nine required RFC 8621 properties; all
     // are needed for construction since #[non_exhaustive] prevents struct
     // literals outside this crate.
@@ -213,6 +231,7 @@ impl Mailbox {
             unread_threads,
             my_rights,
             is_subscribed,
+            share_with: None,
             parent_id: None,
             role: None,
             metadata: None,

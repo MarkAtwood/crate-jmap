@@ -22,12 +22,14 @@ use jmap_metadata_types::DataTypeMetadataInfo;
 use jmap_types::Id;
 use serde_json::{Value, json};
 
-/// Every RFC 8621 §2 MailboxRights property (rfc8621.txt:627-689), true.
+/// Every RFC 8621 §2 MailboxRights property (rfc8621.txt:627-689) and the
+/// draft-ietf-jmap-mail-sharing-02 §2 `mayShare` right, true.
 fn all_rights() -> Value {
     json!({
         "mayReadItems": true, "mayAddItems": true, "mayRemoveItems": true,
         "maySetSeen": true, "maySetKeywords": true, "mayCreateChild": true,
-        "mayRename": true, "mayDelete": true, "maySubmit": true
+        "mayRename": true, "mayDelete": true, "maySubmit": true,
+        "mayShare": true
     })
 }
 

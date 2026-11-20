@@ -17,10 +17,12 @@
 //!   reference backend.
 //!
 //! It also keeps [`CAPABILITY`], the one item the 0.0.1 placeholder
-//! published. No other workspace crate names that URI yet, and the
-//! Mailbox `shareWith` and `mayShare` properties are not typed fields of
-//! `jmap-mail-types`: they ride in `Mailbox::extra` and
-//! `MailboxRights::extra`.
+//! published. The Mailbox side of the draft lives in the mail crates:
+//! `jmap-mail-types` types `Mailbox::share_with` and
+//! `MailboxRights::may_share` and names the URI `JMAP_MAIL_SHARE_URI`;
+//! `jmap-mail-server` enforces `mayShare` (its reference backend computes
+//! `myRights` per caller from `shareWith`); `jmap-mail-client`'s
+//! `SessionClient::with_mail_sharing` puts the URI in `using`.
 //!
 //! The component crates version in lockstep with this one.
 //!

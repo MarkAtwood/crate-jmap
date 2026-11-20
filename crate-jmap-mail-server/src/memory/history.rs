@@ -23,9 +23,10 @@ use jmap_types::{Id, JmapObject, PatchObject, State, UTCDate};
 use serde::Deserialize;
 use serde_json::{Map, Value};
 
+use super::sharing::{Audience, MailboxChange};
 use super::{
-    ChangeEntry, Inner, MemoryBackend, MemoryError, ThreadIndex, mailbox_matches_condition, retype,
-    sort_email_ids,
+    ChangeEntry, Inner, MemoryBackend, MemoryCaller, MemoryError, ThreadIndex,
+    mailbox_matches_condition, retype, sort_email_ids,
 };
 
 impl Inner {
@@ -72,7 +73,7 @@ impl Inner {
     }
 }
 
-impl MemoryBackend {
+impl<C: MemoryCaller> MemoryBackend<C> {
     /// Keep object history for the types `capability.supportedTypes` lists,
     /// in every account, with `retention`; `capability` is also what
     /// [`ObjectHistoryBackend::object_history_capability`] advertises.
@@ -380,6 +381,7 @@ impl Inner {
             };
             self.change_log_mut("Thread", account.as_ref())
                 .push(ChangeEntry {
+                    audience: Audience::default(),
                     new_state: state,
                     created,
                     updated,
@@ -425,14 +427,17 @@ impl Inner {
     }
 }
 
-impl ObjectHistoryBackend for MemoryBackend {
+impl<C: MemoryCaller> ObjectHistoryBackend for MemoryBackend<C> {
+    /// The owner's only: a sharee has no object history.
     fn object_history_capability(
         &self,
-        _caller: &(),
+        caller: &C,
         account_id: &Id,
     ) -> Option<ObjectHistoryAccountCapability> {
         let inner = self.inner.lock_unscoped();
-        if !inner.known_accounts.contains(account_id.as_ref()) {
+        if !inner.known_accounts.contains(account_id.as_ref())
+            || !inner.is_owner(account_id.as_ref(), caller.principal())
+        {
             return None;
         }
         inner.history.as_ref().map(|h| h.capability().clone())
@@ -440,12 +445,18 @@ impl ObjectHistoryBackend for MemoryBackend {
 
     async fn get_object_history<O: HistoryObject>(
         &self,
-        _caller: &(),
+        caller: &C,
         account_id: &Id,
         params: HistoryGetParams<'_>,
     ) -> Result<HistoryGetResult<O>, BackendQueryError<MemoryError>> {
         let mut inner = self.inner.lock().await;
         inner.prune_history();
+        if !inner.is_owner(account_id.as_ref(), caller.principal()) {
+            return Ok(HistoryGetResult::new(
+                Vec::new(),
+                params.ids.map(<[Id]>::to_vec).unwrap_or_default(),
+            ));
+        }
         let empty = HashMap::new();
         let live = inner
             .objects_ref(O::TYPE_NAME, account_id.as_ref())
@@ -460,9 +471,11 @@ impl ObjectHistoryBackend for MemoryBackend {
             .select(O::TYPE_NAME, account_id, params.ids, live, params.arguments)
             .map_err(|e| BackendQueryError::Method(bad_date(&e)))?;
         let mut entries = Vec::with_capacity(rows.len());
+        let viewer = inner.viewer(account_id.as_ref(), caller.principal());
         for (snapshot, info) in rows {
-            let object = O::deserialize(&inner.view(O::TYPE_NAME, &snapshot))
-                .map_err(|e| BackendQueryError::Other(serde_fail(&e)))?;
+            let view = viewer.view(O::TYPE_NAME, &snapshot).unwrap_or(snapshot);
+            let object =
+                O::deserialize(&view).map_err(|e| BackendQueryError::Other(serde_fail(&e)))?;
             entries.push(HistoryEntry::new(object, info));
         }
         Ok(HistoryGetResult::new(entries, not_found))
@@ -470,12 +483,21 @@ impl ObjectHistoryBackend for MemoryBackend {
 
     async fn query_destroyed<O: HistoryObject + QueryObject>(
         &self,
-        _caller: &(),
+        caller: &C,
         account_id: &Id,
         params: DestroyedQueryParams<'_, O>,
     ) -> Result<QueryResult, BackendQueryError<MemoryError>> {
         let mut inner = self.inner.lock().await;
         inner.prune_history();
+        if !inner.is_owner(account_id.as_ref(), caller.principal()) {
+            return Ok(QueryResult::new(
+                Vec::new(),
+                0,
+                Some(0),
+                State::from(String::new()),
+                true,
+            ));
+        }
         let q = &params.query;
         let all = inner.destroyed_results::<O>(
             account_id,
@@ -510,12 +532,15 @@ impl ObjectHistoryBackend for MemoryBackend {
 
     async fn query_destroyed_changes<O: HistoryObject + QueryObject>(
         &self,
-        _caller: &(),
+        caller: &C,
         account_id: &Id,
         params: DestroyedQueryChangesParams<'_, O>,
     ) -> Result<QueryChangesResult, BackendChangesError<MemoryError>> {
         let mut inner = self.inner.lock().await;
         inner.prune_history();
+        if !inner.is_owner(account_id.as_ref(), caller.principal()) {
+            return Err(BackendChangesError::CannotCalculate);
+        }
         let q = &params.query_changes;
         let all = inner
             .destroyed_results::<O>(
@@ -575,13 +600,17 @@ impl ObjectHistoryBackend for MemoryBackend {
 
     async fn restore_object<O: HistoryObject + SetObject>(
         &self,
-        _caller: &(),
+        caller: &C,
         account_id: &Id,
         id: &Id,
         patch: Option<PatchObject>,
     ) -> Result<Restored<O>, BackendSetError<MemoryError>> {
         let mut inner = self.inner.lock().await;
         inner.require_account_for_target(account_id.as_ref())?;
+        if !inner.is_owner(account_id.as_ref(), caller.principal()) {
+            return Err(not_found());
+        }
+        let before = inner.sharee_visibility(account_id.as_ref());
         inner.prune_history();
         if inner
             .objects_ref(O::TYPE_NAME, account_id.as_ref())
@@ -635,20 +664,34 @@ impl ObjectHistoryBackend for MemoryBackend {
         {
             inner.sort_thread_email_ids(account_id.as_ref(), &thread);
         }
-        let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
-        inner
-            .change_log_mut(O::TYPE_NAME, account_id.as_ref())
-            .push(ChangeEntry {
-                new_state,
-                created: vec![],
-                updated: vec![],
-                destroyed: vec![],
-                restored: vec![id.clone()],
-                updated_props: None,
-            });
+        if O::TYPE_NAME == Mailbox::TYPE_NAME {
+            inner.log_mailbox_change(
+                account_id.as_ref(),
+                MailboxChange::Restored,
+                id,
+                None,
+                &before,
+                None,
+            );
+        } else {
+            let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
+            inner
+                .change_log_mut(O::TYPE_NAME, account_id.as_ref())
+                .push(ChangeEntry {
+                    audience: Audience::default(),
+                    new_state,
+                    created: vec![],
+                    updated: vec![],
+                    destroyed: vec![],
+                    restored: vec![id.clone()],
+                    updated_props: None,
+                });
+        }
         if O::TYPE_NAME == Email::TYPE_NAME || O::TYPE_NAME == Mailbox::TYPE_NAME {
             inner.recount_mailboxes(account_id.as_ref());
         }
+        // The object as stored, so the echo names only what the restore
+        // changed; `/get` computes a Mailbox's `myRights` for the caller.
         Ok(Restored::new(object, baseline))
     }
 }

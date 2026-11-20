@@ -85,8 +85,9 @@ pub use backend::{
     SearchSnippetProperty, ThreadProperty, VacationResponseProperty,
 };
 pub use capability::{
-    JMAP_MAIL_URI, JMAP_SUBMISSION_URI, JMAP_VACATIONRESPONSE_URI, MailAccountCapability,
-    MailCapability, SubmissionAccountCapability, SubmissionCapability, VacationResponseCapability,
+    JMAP_MAIL_SHARE_URI, JMAP_MAIL_URI, JMAP_SUBMISSION_URI, JMAP_VACATIONRESPONSE_URI,
+    MailAccountCapability, MailCapability, SubmissionAccountCapability, SubmissionCapability,
+    VacationResponseCapability,
 };
 pub use email::{
     Email, EmailAddress, EmailAddressGroup, EmailBodyPart, EmailBodyValue, EmailHeader,

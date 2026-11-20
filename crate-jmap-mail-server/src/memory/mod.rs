@@ -69,12 +69,57 @@
 //!
 //! # Caller context and rights
 //!
-//! `CallerCtx` is `()`: every caller acts as the account owner, who
-//! "always has implicit full rights to the mailbox"
-//! (draft-ietf-jmap-mail-sharing-02 §3.6). A Mailbox's `myRights` is
-//! computed for the caller on every read and in the `/set` echoes, never
-//! taken from the stored object, so the owner sees every RFC 8621 §2 right
-//! true (and `maySetMetadata` true when metadata is on).
+//! `CallerCtx` is a type implementing [`MemoryCaller`](crate::memory::MemoryCaller): `()` (the default,
+//! [`MemoryBackend::new`](crate::memory::MemoryBackend::new)), a deployment without identity whose every
+//! caller acts as the account owner, or [`Id`](jmap_types::Id), the caller's Principal id
+//! (`MemoryBackend::<Id>::default()`), which
+//! [`JmapAccounts::principal_id`](jmap_server::JmapAccounts::principal_id) returns. Each account has an owner: the
+//! account id, or the Principal [`MemoryBackend::with_account_owner`](crate::memory::MemoryBackend::with_account_owner)
+//! names.
+//!
+//! Mailboxes are shared as draft-ietf-jmap-mail-sharing-02 describes:
+//!
+//! - The owner "always has implicit full rights to the mailbox" (§3.6):
+//!   every RFC 8621 §2 right, `mayShare`, and `maySetMetadata` when
+//!   metadata is on. Any other user has the rights its id is given in the
+//!   Mailbox's `shareWith` (§2), an absent right being false. `myRights`
+//!   is computed for the caller on every read and `/set` echo, never taken
+//!   from the stored object.
+//! - A sharee sees the Mailboxes whose `shareWith` names it and their
+//!   ancestors, which it sees with every right false (RFC 8621 §2
+//!   mayReadItems: "If a sub-Mailbox is shared but not the parent Mailbox,
+//!   this may be false"). Any other Mailbox does not exist for it (§3.1,
+//!   §3.4): `/get` answers `notFound`, an update or destroy `notFound`.
+//! - It sees the whole `shareWith` only with `mayShare`; without it, only
+//!   its own entry.
+//! - `isSubscribed` is per user (RFC 8621 §2 "MUST be stored separately per
+//!   user"): the stored value is the owner's, and a sharee's starts `false`
+//!   ("SHOULD default to false for Mailboxes in shared accounts"). Setting
+//!   it needs no right.
+//! - Writes re-check the rights under the store lock: `shareWith` needs
+//!   `mayShare` (§2, §3.6); `name`, `parentId`, `role`, `sortOrder`,
+//!   `locale` and `localizations` need `mayRename`; a new parent needs
+//!   `mayCreateChild`; destroy needs `mayDelete`; only the owner creates or
+//!   moves a Mailbox at the top level (RFC 8621 §1.3.1
+//!   `mayCreateTopLevelMailbox`). A sharee's create takes the parent's
+//!   `shareWith` unless it gives one (which needs `mayShare` on the
+//!   parent), so the creator keeps access, and gives no `role`, which is
+//!   the account's (RFC 8621 §2). Anyone's `shareWith` must not
+//!   name the owner (§2), and an empty map is stored as `null`.
+//! - A Mailbox destroy that would leave Email in it is `mailboxHasEmail`,
+//!   whoever asks.
+//! - `Mailbox/changes` is per user: a Mailbox that becomes visible to a
+//!   sharee is reported to it as created, one that stops being visible as
+//!   destroyed, and a sharee's own `isSubscribed` change to it alone.
+//!
+//! The backend shares Mailboxes only. A sharee reads and writes no object
+//! of any other type: Email, Thread, Identity, EmailSubmission,
+//! VacationResponse, SieveScript, blobs, snippets and object history do
+//! not exist for it, and their `/changes` are `cannotCalculateChanges`.
+//! This is narrower than RFC 8621 §2 allows (a sharee with `mayReadItems`
+//! may read the Mailbox's Email), never wider. There is no Principal
+//! store: `shareWith` ids are not checked, and no ShareNotification (RFC
+//! 9670 §3) is created.
 //!
 //! # Tracking
 //!
@@ -90,12 +135,14 @@ mod history;
 #[cfg(feature = "emailpush")]
 mod push;
 pub mod seed;
+mod sharing;
 
 pub use blobs::ExternalBlobStore;
 #[cfg(feature = "emailpush")]
 pub use push::{MAX_PUSH_SUBSCRIPTIONS, PUSH_PLAINTEXT_BYTES};
 
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+use std::marker::PhantomData;
 
 use crate::MailBackend;
 use crate::filter::try_rfc3339_to_epoch_secs;
@@ -125,6 +172,7 @@ use jmap_server::{
 };
 use jmap_types::{Id, State, UTCDate};
 use serde::Deserialize;
+use sharing::{Audience, MailboxChange};
 
 // ---------------------------------------------------------------------------
 // Internal state
@@ -146,6 +194,8 @@ struct ChangeEntry {
     /// draft-ietf-jmap-metadata-05 §3.3 `ignoreMetadataOnlyChanges` and
     /// `updatedProperties`.
     updated_props: Option<BTreeSet<String>>,
+    /// Who `/changes` reports this entry to.
+    audience: Audience,
 }
 
 /// Shared inner state, behind a [`ScopedState`] so a conditional Foo/set
@@ -173,6 +223,13 @@ struct Inner {
     message_id_index: HashMap<String, HashMap<String, Id>>,
     /// explicitly registered account ids (accounts may exist with no objects yet)
     known_accounts: HashSet<String>,
+    /// account id → its owner, when [`MemoryBackend::with_account_owner`]
+    /// named one; otherwise the account id is the owner's Principal id.
+    account_owners: HashMap<String, Id>,
+    /// (account, Mailbox, sharee) → that sharee's own `isSubscribed`, once
+    /// set (RFC 8621 §2: "This MUST be stored separately per user"). The
+    /// stored Mailbox holds the owner's.
+    subscriptions: HashMap<(String, Id, Id), bool>,
     /// `type_name` → the draft-ietf-jmap-metadata-05 §1.2.1
     /// DataTypeMetadataInfo set by [`MemoryBackend::with_metadata_info`].
     /// A type without an entry does not have the metadata properties.
@@ -332,6 +389,7 @@ impl Inner {
 
         let new_email_state = self.bump_state("Email", account);
         self.change_log_mut("Email", account).push(ChangeEntry {
+            audience: Audience::default(),
             new_state: new_email_state,
             created: vec![email_id.clone()],
             updated: vec![],
@@ -346,6 +404,7 @@ impl Inner {
             (vec![thread_id.clone()], vec![])
         };
         self.change_log_mut("Thread", account).push(ChangeEntry {
+            audience: Audience::default(),
             new_state: new_thread_state,
             created,
             updated,
@@ -442,24 +501,36 @@ impl Inner {
         }
         changed.sort();
         let new_state = self.bump_state("Mailbox", account);
-        self.change_log_mut("Mailbox", account).push(ChangeEntry {
-            new_state,
-            created: vec![],
-            updated: changed,
-            destroyed: vec![],
-            restored: vec![],
-            updated_props: Some(
-                [
-                    "totalEmails",
-                    "unreadEmails",
-                    "totalThreads",
-                    "unreadThreads",
-                ]
-                .into_iter()
-                .map(str::to_owned)
-                .collect(),
-            ),
-        });
+        // One entry per Mailbox, each reported to the sharees who see it.
+        let visibility = self.sharee_visibility(account);
+        let props: BTreeSet<String> = [
+            "totalEmails",
+            "unreadEmails",
+            "totalThreads",
+            "unreadThreads",
+        ]
+        .into_iter()
+        .map(str::to_owned)
+        .collect();
+        let entries: Vec<ChangeEntry> = changed
+            .into_iter()
+            .map(|id| ChangeEntry {
+                audience: Audience::Owner(
+                    visibility
+                        .iter()
+                        .filter(|(_, v)| v.contains(&id))
+                        .map(|(u, _)| u.clone())
+                        .collect(),
+                ),
+                new_state,
+                created: vec![],
+                updated: vec![id],
+                destroyed: vec![],
+                restored: vec![],
+                updated_props: Some(props.clone()),
+            })
+            .collect();
+        self.change_log_mut("Mailbox", account).extend(entries);
     }
 
     /// Take a destroyed Email out of its Thread (destroying the Thread when
@@ -497,6 +568,7 @@ impl Inner {
                 (vec![thread_id], vec![])
             };
             self.change_log_mut("Thread", account).push(ChangeEntry {
+                audience: Audience::default(),
                 new_state,
                 created: vec![],
                 updated,
@@ -606,13 +678,62 @@ enum IdFate {
 /// with MemoryBackend.
 ///
 /// Cloning is cheap and **shared-state**; see the [`Clone`] impl.
-#[derive(Default)]
+///
+/// `C` is the [`JmapAccounts::CallerCtx`]: `()` by default, a deployment
+/// without identity whose every caller acts as the account owner, or
+/// [`Id`], the caller's Principal id (see the module documentation,
+/// "Caller context and rights").
 #[non_exhaustive]
-pub struct MemoryBackend {
+pub struct MemoryBackend<C = ()> {
     inner: ScopedState<Inner>,
     /// The shared blob store, once [`MemoryBackend::with_blob_store`] sets
     /// one.
     blob_store: blobs::BlobStore,
+    caller: PhantomData<fn() -> C>,
+}
+
+/// An empty backend: [`MemoryBackend::new`] for any caller context, such
+/// as `MemoryBackend::<Id>::default()` for Principal-id callers.
+impl<C> Default for MemoryBackend<C> {
+    fn default() -> Self {
+        Self {
+            inner: ScopedState::default(),
+            blob_store: blobs::BlobStore::default(),
+            caller: PhantomData,
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Caller context
+// ---------------------------------------------------------------------------
+
+/// A caller context the memory backend accepts as its
+/// [`JmapAccounts::CallerCtx`]: anything that names the caller's Principal,
+/// or names none.
+///
+/// [`JmapAccounts::principal_id`] returns [`MemoryCaller::principal`]. A
+/// caller that names the account owner, or names no principal, has all
+/// rights; any other has the rights its id is given in a Mailbox's
+/// `shareWith` (draft-ietf-jmap-mail-sharing-02 §2).
+pub trait MemoryCaller: Clone + Send + Sync + 'static {
+    /// The caller's Principal id, or `None` for a deployment without
+    /// identity, whose every caller acts as the account owner.
+    fn principal(&self) -> Option<&Id>;
+}
+
+/// The caller is the Principal with this id.
+impl MemoryCaller for Id {
+    fn principal(&self) -> Option<&Id> {
+        Some(self)
+    }
+}
+
+/// A single-user deployment: every caller acts as the account owner.
+impl MemoryCaller for () {
+    fn principal(&self) -> Option<&Id> {
+        None
+    }
 }
 
 /// Manual `Clone` impl, not `#[derive(Clone)]`: cloning is **shared-state**.
@@ -622,22 +743,27 @@ pub struct MemoryBackend {
 /// one handle can seed or inspect state while another serves requests. This
 /// impl must never become a deep copy; for independent state construct a
 /// fresh [`MemoryBackend::new`] instead of calling `.clone()`.
-impl Clone for MemoryBackend {
+impl<C> Clone for MemoryBackend<C> {
     fn clone(&self) -> Self {
         Self {
             inner: self.inner.clone(),
             blob_store: self.blob_store.clone(),
+            caller: PhantomData,
         }
     }
 }
 
 impl MemoryBackend {
     /// Construct an empty [`MemoryBackend`] with no accounts, blobs, or
-    /// stored objects. Equivalent to [`Self::default`].
+    /// stored objects, whose callers act as the account owner (`C = ()`).
+    /// Equivalent to [`Self::default`]; `MemoryBackend::<Id>::default()`
+    /// takes Principal-id callers.
     pub fn new() -> Self {
         Self::default()
     }
+}
 
+impl<C: MemoryCaller> MemoryBackend<C> {
     /// Give `data_type` the draft-ietf-jmap-metadata-05 `metadata`
     /// property, configured by `info` (the DataTypeMetadataInfo of -05
     /// §1.2.1).
@@ -652,17 +778,17 @@ impl MemoryBackend {
     /// session is the server's job: list `info` under `data_type` in the
     /// account's `urn:ietf:params:jmap:metadata` `dataTypes`.
     ///
-    /// Mailbox writes need `myRights.maySetMetadata` on the Mailbox, and
-    /// Email writes need it on every Mailbox the Email is in before and
-    /// after the update (-05 §4.1). An absent `maySetMetadata` allows the
-    /// write.
+    /// Mailbox writes need the caller's `myRights.maySetMetadata` on the
+    /// Mailbox, and Email writes need it on every Mailbox the Email is in
+    /// before and after the update (-05 §4.1). The owner holds it; a sharee
+    /// holds it when its `shareWith` entry grants it.
     ///
     /// # Panics
     ///
     /// Panics if `data_type` is not `"Email"` or `"Mailbox"`, the two
     /// types this backend supports metadata on, or if
-    /// `info.supports_private` is true: this backend has no per-user
-    /// identity (`CallerCtx` is `()`) to own `privateMetadata` (-05 §2).
+    /// `info.supports_private` is true: this backend keeps no per-user
+    /// `privateMetadata` (-05 §2).
     #[must_use]
     pub fn with_metadata_info(self, data_type: &str, info: DataTypeMetadataInfo) -> Self {
         let type_name = match data_type {
@@ -738,6 +864,48 @@ impl MemoryBackend {
     pub fn with_account(self, account_id: &Id) -> Self {
         self.register_account(account_id);
         self
+    }
+
+    /// Register `account_id` as owned by Principal `owner`, and return
+    /// `self`. The owner has every right on the account's Mailboxes;
+    /// [`Self::with_account`] makes the account id the owner's Principal
+    /// id.
+    ///
+    /// # Panics
+    ///
+    /// In debug builds, if `account_id` is the empty string (RFC 8620
+    /// §1.2, bd:JMAP-dx0s).
+    #[must_use]
+    pub fn with_account_owner(self, account_id: &Id, owner: &Id) -> Self {
+        self.register_account(account_id);
+        self.inner
+            .lock_unscoped()
+            .account_owners
+            .insert(account_id.as_ref().to_owned(), owner.clone());
+        self
+    }
+
+    /// Whether `caller` acts as the owner of `account_id`.
+    async fn owns(&self, caller: &C, account_id: &Id) -> bool {
+        self.inner
+            .lock()
+            .await
+            .is_owner(account_id.as_ref(), caller.principal())
+    }
+
+    /// `Err` with a `kind` SetError unless `caller` acts as the owner of
+    /// `account_id`: a sharee reads and writes only Mailboxes.
+    async fn require_owner(
+        &self,
+        caller: &C,
+        account_id: &Id,
+        kind: SetErrorType,
+    ) -> Result<(), BackendSetError<MemoryError>> {
+        if self.owns(caller, account_id).await {
+            Ok(())
+        } else {
+            Err(BackendSetError::SetError(Box::new(SetError::new(kind))))
+        }
     }
 
     /// Seed a pre-existing object into the store without bumping the
@@ -873,6 +1041,7 @@ impl MemoryBackend {
     #[allow(clippy::too_many_arguments)]
     async fn query_mailboxes(
         &self,
+        principal: Option<&Id>,
         account_id: &Id,
         filter: Option<&MailboxFilter>,
         sort: &[MailboxComparator],
@@ -886,11 +1055,15 @@ impl MemoryBackend {
         // sort on `name` compare the name the `/get` view would show.
         let (mut matching, state_n): (Vec<(Mailbox, String)>, u64) = {
             let inner = self.inner.lock().await;
+            // The caller's view: its Mailboxes, its `isSubscribed`.
+            let viewer = inner.viewer(account_id.as_ref(), principal);
             let mailboxes: Vec<(Mailbox, String)> = inner
                 .objects_ref("Mailbox", account_id.as_ref())
                 .map(|map| {
                     map.values()
+                        .filter_map(|val| viewer.view(Mailbox::TYPE_NAME, val))
                         .filter_map(|val| {
+                            let val = &val;
                             let m = Mailbox::deserialize(val).ok()?;
                             let name = language
                                 .zip(val.as_object())
@@ -1171,57 +1344,6 @@ fn invalid_metadata_property(property: &str, description: &str) -> BackendSetErr
 }
 
 impl Inner {
-    /// The Mailbox `myRights` of the account owner: every RFC 8621 §2
-    /// right true. `maySetMetadata` is present, and true, only when
-    /// [`MemoryBackend::with_metadata_info`] lists Mailbox or Email (-05
-    /// §4.1: the right exists for a type the capability lists "or a type it
-    /// contains").
-    fn owner_mailbox_rights(&self) -> serde_json::Value {
-        let mut rights: serde_json::Map<String, serde_json::Value> = [
-            "mayReadItems",
-            "mayAddItems",
-            "mayRemoveItems",
-            "maySetSeen",
-            "maySetKeywords",
-            "mayCreateChild",
-            "mayRename",
-            "mayDelete",
-            "maySubmit",
-        ]
-        .into_iter()
-        .map(|k| (k.to_owned(), serde_json::Value::Bool(true)))
-        .collect();
-        if self.metadata_info.contains_key(Mailbox::TYPE_NAME)
-            || self.metadata_info.contains_key(Email::TYPE_NAME)
-        {
-            rights.insert("maySetMetadata".to_owned(), serde_json::Value::Bool(true));
-        }
-        serde_json::Value::Object(rights)
-    }
-
-    /// The caller's view of a stored Mailbox: `myRights` is computed for
-    /// the caller, never read from storage (RFC 8621 §2: "The set of
-    /// rights ... the user has in relation to this Mailbox"). Every caller
-    /// of this backend acts as the account owner, who "always has implicit
-    /// full rights to the mailbox" (draft-ietf-jmap-mail-sharing-02 §3.6).
-    fn view_mailbox(&self, stored: &serde_json::Value) -> serde_json::Value {
-        let mut view = stored.clone();
-        if let serde_json::Value::Object(m) = &mut view {
-            m.insert("myRights".to_owned(), self.owner_mailbox_rights());
-        }
-        view
-    }
-
-    /// The caller's view of a stored `type_name` object: a Mailbox through
-    /// [`Self::view_mailbox`], anything else as stored.
-    fn view(&self, type_name: &str, stored: &serde_json::Value) -> serde_json::Value {
-        if type_name == Mailbox::TYPE_NAME {
-            self.view_mailbox(stored)
-        } else {
-            stored.clone()
-        }
-    }
-
     /// draft-ietf-jmap-metadata-05 §3.2 rules 1 to 3 for a metadata write
     /// on a `type_name` object, before the write is applied. Returns the
     /// type's DataTypeMetadataInfo for the rule 4 check after applying,
@@ -1231,9 +1353,11 @@ impl Inner {
     /// before an update (`None` on create), and `containers` the Mailbox
     /// ids whose `maySetMetadata` an Email write needs (-05 §4.1). Rule 1's
     /// `notFound` is the caller's: this backend has no read rights, so only
-    /// a missing object is unreadable.
+    /// a missing object is unreadable. The rights are `principal`'s.
+    #[allow(clippy::too_many_arguments)]
     fn check_metadata_set(
         &self,
+        principal: Option<&Id>,
         type_name: &'static str,
         account_id: &str,
         kind: SetKind,
@@ -1269,20 +1393,25 @@ impl Inner {
         };
         // The rights are the caller's (`view_mailbox`), not the stored
         // `myRights`.
-        let rights_of =
-            |mailbox: &serde_json::Value| self.view_mailbox(mailbox)["myRights"].clone();
+        let viewer = self.viewer(account_id, principal);
+        let rights_of = |mailbox: &serde_json::Value| viewer.rights(mailbox);
         let forbidden = writes_shared
             && if type_name == Mailbox::TYPE_NAME {
                 denies(
                     stored
-                        .map(|m| rights_of(&serde_json::Value::Object(m.clone())))
+                        .and_then(|m| rights_of(&serde_json::Value::Object(m.clone())))
                         .as_ref(),
                 )
             } else {
                 let mailboxes = self.objects_ref(Mailbox::TYPE_NAME, account_id);
-                containers
-                    .iter()
-                    .any(|id| denies(mailboxes.and_then(|m| m.get(*id)).map(rights_of).as_ref()))
+                containers.iter().any(|id| {
+                    denies(
+                        mailboxes
+                            .and_then(|m| m.get(*id))
+                            .and_then(rights_of)
+                            .as_ref(),
+                    )
+                })
             };
         if forbidden {
             return Err(BackendSetError::SetError(Box::new(
@@ -1354,6 +1483,7 @@ fn check_metadata_create(
         Vec::new()
     };
     if let Some(info) = inner.check_metadata_set(
+        None,
         type_name,
         account_id,
         SetKind::Create,
@@ -1390,14 +1520,19 @@ fn retype<A: serde::Serialize, B: serde::de::DeserializeOwned>(
 /// (draft-atwood-jmap-updates-00 §4.1 MAY).
 const MAX_LOCALIZATIONS: usize = 32;
 
-impl JmapAccounts for MemoryBackend {
+impl<C: MemoryCaller> JmapAccounts for MemoryBackend<C> {
     type Error = MemoryError;
-    type CallerCtx = ();
+    type CallerCtx = C;
+
+    /// [`MemoryCaller::principal`].
+    fn principal_id(caller: &C) -> Option<&Id> {
+        caller.principal()
+    }
 
     /// Every account supports localizations
     /// (draft-atwood-jmap-updates-00), with at most 32 localizations per
     /// Mailbox.
-    fn i18n_info(&self, _caller: &(), _account_id: &Id) -> Option<jmap_server::I18nInfo> {
+    fn i18n_info(&self, _caller: &C, _account_id: &Id) -> Option<jmap_server::I18nInfo> {
         Some(jmap_server::I18nInfo::new().with_max_localizations(Some(MAX_LOCALIZATIONS)))
     }
 
@@ -1405,7 +1540,7 @@ impl JmapAccounts for MemoryBackend {
     /// every account.
     fn metadata_info<O: JmapObject>(
         &self,
-        _caller: &(),
+        _caller: &C,
         _account_id: &Id,
     ) -> Option<DataTypeMetadataInfo> {
         self.inner
@@ -1415,25 +1550,28 @@ impl JmapAccounts for MemoryBackend {
             .cloned()
     }
 
-    async fn account_exists(&self, _caller: &(), account_id: &Id) -> Result<bool, Self::Error> {
+    async fn account_exists(&self, _caller: &C, account_id: &Id) -> Result<bool, Self::Error> {
         let inner = self.inner.lock().await;
         Ok(inner.known_accounts.contains(account_id.as_ref()))
     }
 }
 
-impl JmapReads for MemoryBackend {
+impl<C: MemoryCaller> JmapReads for MemoryBackend<C> {
     // -----------------------------------------------------------------------
     // get_objects
     // -----------------------------------------------------------------------
 
     async fn get_objects<O: GetObject + Send + Sync>(
         &self,
-        _caller: &(),
+        caller: &C,
         account_id: &Id,
         ids: Option<&[Id]>,
         _properties: Option<&[String]>,
     ) -> Result<(Vec<O>, Vec<Id>), Self::Error> {
         let inner = self.inner.lock().await;
+        // The caller's view: what it cannot see does not exist
+        // (draft-ietf-jmap-mail-sharing-02 §3.1).
+        let viewer = inner.viewer(account_id.as_ref(), caller.principal());
         let store = match inner.objects_ref(O::TYPE_NAME, account_id.as_ref()) {
             Some(s) => s,
             None => return Ok((vec![], ids.map(|s| s.to_vec()).unwrap_or_default())),
@@ -1444,9 +1582,9 @@ impl JmapReads for MemoryBackend {
 
         if let Some(ids) = ids {
             for id in ids {
-                match store.get(id) {
+                match store.get(id).and_then(|v| viewer.view(O::TYPE_NAME, v)) {
                     Some(val) => {
-                        let val = &inner.view(O::TYPE_NAME, val);
+                        let val = &val;
                         let obj: O = O::deserialize(val).map_err(|e| {
                             MemoryError::serde(format_args!("deserialize {}", O::TYPE_NAME), &e)
                         })?;
@@ -1457,7 +1595,10 @@ impl JmapReads for MemoryBackend {
             }
         } else {
             for val in store.values() {
-                let val = &inner.view(O::TYPE_NAME, val);
+                let Some(val) = viewer.view(O::TYPE_NAME, val) else {
+                    continue;
+                };
+                let val = &val;
                 let obj: O = O::deserialize(val).map_err(|e| {
                     MemoryError::serde(format_args!("deserialize {}", O::TYPE_NAME), &e)
                 })?;
@@ -1474,7 +1615,7 @@ impl JmapReads for MemoryBackend {
 
     async fn get_state<O: JmapObject + Send + Sync>(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
     ) -> Result<State, Self::Error> {
         let inner = self.inner.lock().await;
@@ -1488,7 +1629,7 @@ impl JmapReads for MemoryBackend {
 
     async fn get_changes<O: JmapObject + Send + Sync>(
         &self,
-        _caller: &(),
+        caller: &C,
         account_id: &Id,
         params: jmap_server::ChangesParams<'_>,
     ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
@@ -1518,6 +1659,13 @@ impl JmapReads for MemoryBackend {
             if since > inner.current_state(O::TYPE_NAME, account_id.as_ref()) {
                 return Err(BackendChangesError::CannotCalculate);
             }
+            // A sharee sees only Mailboxes, and only the entries reported
+            // to it (`Audience`).
+            let viewer = inner.viewer(account_id.as_ref(), caller.principal());
+            let sharee = viewer.sharee().cloned();
+            if sharee.is_some() && O::TYPE_NAME != Mailbox::TYPE_NAME {
+                return Err(BackendChangesError::CannotCalculate);
+            }
             let log = inner
                 .change_log
                 .get(O::TYPE_NAME)
@@ -1537,6 +1685,9 @@ impl JmapReads for MemoryBackend {
             let mut counted = 0usize;
             let mut has_more = false;
             for entry in &log[start..] {
+                if !entry.audience.includes(sharee.as_ref()) {
+                    continue;
+                }
                 if !(mode == MetadataOnlyChanges::Ignore && entry.is_metadata_only_update()) {
                     if counted == limit {
                         has_more = true;
@@ -1546,11 +1697,20 @@ impl JmapReads for MemoryBackend {
                 }
                 entries.push(entry.clone());
             }
-            // If nothing changed, new_state == since_state (client is already up to date).
-            let new_state = entries
-                .last()
-                .map(|e| State::from(e.new_state.to_string()))
-                .unwrap_or_else(|| since_state.clone());
+            // With more to come, the state after the last entry returned;
+            // else the current state, entries not reported to the caller
+            // included. With nothing changed at all, since_state.
+            let current = inner.current_state(O::TYPE_NAME, account_id.as_ref());
+            let new_state = if has_more {
+                entries
+                    .last()
+                    .map(|e| State::from(e.new_state.to_string()))
+                    .unwrap_or_else(|| since_state.clone())
+            } else if current == since {
+                since_state.clone()
+            } else {
+                State::from(current.to_string())
+            };
             (entries, has_more, new_state)
         };
 
@@ -1664,10 +1824,24 @@ impl JmapReads for MemoryBackend {
 
     async fn query_objects<O: QueryObject + Send + Sync>(
         &self,
-        _caller: &(),
+        caller: &C,
         account_id: &Id,
         params: QueryParams<'_, O>,
     ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
+        // A sharee finds no object of another type (module docs).
+        if O::TYPE_NAME != Mailbox::TYPE_NAME {
+            let inner = self.inner.lock().await;
+            if !inner.is_owner(account_id.as_ref(), caller.principal()) {
+                let state = inner.current_state(O::TYPE_NAME, account_id.as_ref());
+                return Ok(QueryResult::new(
+                    Vec::new(),
+                    0,
+                    Some(0),
+                    State::from(state.to_string()),
+                    true,
+                ));
+            }
+        }
         let QueryParams {
             filter,
             sort,
@@ -1715,6 +1889,7 @@ impl JmapReads for MemoryBackend {
                 sort.map(retype).transpose()?.unwrap_or_default();
             return self
                 .query_mailboxes(
+                    caller.principal(),
                     account_id,
                     mailbox_filter.as_ref(),
                     &mailbox_sort,
@@ -1880,7 +2055,7 @@ impl JmapReads for MemoryBackend {
 
     async fn query_changes<O: QueryObject + Send + Sync>(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         params: QueryChangesParams<'_, O>,
     ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
@@ -1997,14 +2172,14 @@ impl JmapReads for MemoryBackend {
 // MailBackend impl (write-side and mail-specific)
 // ---------------------------------------------------------------------------
 
-impl MailBackend for MemoryBackend {
+impl<C: MemoryCaller> MailBackend for MemoryBackend<C> {
     // -----------------------------------------------------------------------
     // create_object
     // -----------------------------------------------------------------------
 
     async fn create_object<O, F>(
         &self,
-        _caller: &(),
+        caller: &C,
         account_id: &Id,
         _create_id: &str,
         build: F,
@@ -2019,16 +2194,24 @@ impl MailBackend for MemoryBackend {
         } else {
             Id::from(uuid::Uuid::new_v4().to_string())
         };
-        let val = serde_json::to_value(build(&id))
+        let mut val = serde_json::to_value(build(&id))
             .map_err(|e| BackendSetError::Other(MemoryError::serde("serialize", &e)))?;
 
         let mut inner = self.inner.lock().await;
         inner.require_account(account_id.as_ref())?;
-        // The echo is the caller's view: a new Mailbox's `myRights` are the
-        // creator's, not the placeholder the handler built (RFC 8621 §2).
-        let created_obj: O = O::deserialize(&inner.view(O::TYPE_NAME, &val)).map_err(|e| {
-            BackendSetError::Other(MemoryError::serde("deserialize after create", &e))
-        })?;
+        let account = account_id.as_ref();
+        // The caller's rights, under the lock (MailBackend "Permission
+        // enforcement"): a sharee creates only Mailboxes.
+        let subscription = if O::TYPE_NAME == Mailbox::TYPE_NAME {
+            inner.check_mailbox_create(account, caller.principal(), &mut val)?
+        } else if !inner.is_owner(account, caller.principal()) {
+            return Err(BackendSetError::SetError(Box::new(SetError::new(
+                SetErrorType::Forbidden,
+            ))));
+        } else {
+            None
+        };
+        let before = inner.sharee_visibility(account);
         // Object history §5.1: never reuse the id of a destroyed object with
         // retained history. A fresh v4 UUID cannot collide; the singleton
         // VacationResponse is never destroyed.
@@ -2046,19 +2229,38 @@ impl MailBackend for MemoryBackend {
             })?;
             return Ok((id, existing_obj));
         }
-        objects.insert(id.clone(), val);
-        let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
-        inner
-            .change_log_mut(O::TYPE_NAME, account_id.as_ref())
-            .push(ChangeEntry {
-                new_state,
-                created: vec![id.clone()],
-                updated: vec![],
-                destroyed: vec![],
-                restored: vec![],
-                updated_props: None,
-            });
+        objects.insert(id.clone(), val.clone());
+        if O::TYPE_NAME == Mailbox::TYPE_NAME {
+            if let Some((user, subscribed)) = subscription {
+                inner
+                    .subscriptions
+                    .insert((account.to_owned(), id.clone(), user), subscribed);
+            }
+            inner.log_mailbox_change(account, MailboxChange::Created, &id, None, &before, None);
+        } else {
+            let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
+            inner
+                .change_log_mut(O::TYPE_NAME, account_id.as_ref())
+                .push(ChangeEntry {
+                    audience: Audience::default(),
+                    new_state,
+                    created: vec![id.clone()],
+                    updated: vec![],
+                    destroyed: vec![],
+                    restored: vec![],
+                    updated_props: None,
+                });
+        }
 
+        // The echo is the caller's view: a new Mailbox's `myRights` are the
+        // creator's, not the placeholder the handler built (RFC 8621 §2).
+        let view = inner
+            .viewer(account, caller.principal())
+            .view(O::TYPE_NAME, &val)
+            .unwrap_or(val);
+        let created_obj: O = O::deserialize(&view).map_err(|e| {
+            BackendSetError::Other(MemoryError::serde("deserialize after create", &e))
+        })?;
         Ok((id, created_obj))
     }
 
@@ -2068,7 +2270,7 @@ impl MailBackend for MemoryBackend {
 
     async fn create_email<F>(
         &self,
-        _caller: &(),
+        caller: &C,
         account_id: &Id,
         _create_id: &str,
         message: Vec<u8>,
@@ -2077,6 +2279,8 @@ impl MailBackend for MemoryBackend {
     where
         F: FnOnce(&Id, &Id, &[u8]) -> Email + Send,
     {
+        self.require_owner(caller, account_id, SetErrorType::Forbidden)
+            .await?;
         let email_id = Id::from(uuid::Uuid::new_v4().to_string());
         let blob_id = Id::from(uuid::Uuid::new_v4().to_string());
         let email = build(&email_id, &blob_id, &message);
@@ -2106,10 +2310,13 @@ impl MailBackend for MemoryBackend {
 
     async fn read_blob(
         &self,
-        _caller: &(),
+        caller: &C,
         account_id: &Id,
         blob_id: &Id,
     ) -> Result<Option<Vec<u8>>, Self::Error> {
+        if !self.owns(caller, account_id).await {
+            return Ok(None);
+        }
         Ok(self.blob_bytes(account_id, blob_id).await)
     }
 
@@ -2119,7 +2326,7 @@ impl MailBackend for MemoryBackend {
 
     async fn update_object<O: SetObject + Send + Sync>(
         &self,
-        _caller: &(),
+        caller: &C,
         account_id: &Id,
         id: &Id,
         patch: O::Patch,
@@ -2141,6 +2348,15 @@ impl MailBackend for MemoryBackend {
 
         let mut inner = self.inner.lock().await;
         inner.require_account_for_target(account_id.as_ref())?;
+        let account = account_id.as_ref();
+        // A sharee updates only Mailboxes it can see (checked below); any
+        // other object does not exist for it.
+        if O::TYPE_NAME != Mailbox::TYPE_NAME && !inner.is_owner(account, caller.principal()) {
+            return Err(BackendSetError::SetError(Box::new(SetError::new(
+                SetErrorType::NotFound,
+            ))));
+        }
+        let before = inner.sharee_visibility(account);
         // draft-ietf-jmap-metadata-05 §3.2 rule 1: "If the user cannot read
         // the related object, reject with "notFound"" comes before
         // "forbidden". Here only a missing object is unreadable.
@@ -2159,9 +2375,23 @@ impl MailBackend for MemoryBackend {
         // unchanged.
         let mut updated_props = None;
         let mut echo = None;
+        let mut subscription = None;
+        let mut own_change_only = false;
         if let serde_json::Value::Object(base) = existing
-            && let serde_json::Value::Object(patch_map) = patch_val
+            && let serde_json::Value::Object(mut patch_map) = patch_val
         {
+            // The caller's Mailbox rights, under the lock (MailBackend
+            // "Permission enforcement"); a sharee's `isSubscribed` is its
+            // own and leaves the patch.
+            if O::TYPE_NAME == Mailbox::TYPE_NAME {
+                subscription = inner.check_mailbox_update(
+                    account,
+                    caller.principal(),
+                    &serde_json::Value::Object(base.clone()),
+                    &mut patch_map,
+                )?;
+                own_change_only = subscription.is_some() && patch_map.is_empty();
+            }
             // -05 §3.2 rules 1 to 3 run before the patch is applied.
             let metadata_info =
                 if O::TYPE_NAME == Email::TYPE_NAME || O::TYPE_NAME == Mailbox::TYPE_NAME {
@@ -2171,6 +2401,7 @@ impl MailBackend for MemoryBackend {
                         Vec::new()
                     };
                     inner.check_metadata_set(
+                        caller.principal(),
                         O::TYPE_NAME,
                         account_id.as_ref(),
                         SetKind::Update,
@@ -2231,17 +2462,20 @@ impl MailBackend for MemoryBackend {
                 check_metadata_depth(&patch_map, &patched, info)
                     .map_err(|e| invalid_metadata_property(e.property(), e.description()))?;
             }
+            if O::TYPE_NAME == Mailbox::TYPE_NAME {
+                inner.check_share_with(account, &mut patched)?;
+            }
             updated_props = Some(changed_properties(&before, &patched));
             // A null or wrong-typed value on a required property must
             // not reach storage, or every later /get fails to decode it.
             let patched = serde_json::Value::Object(patched);
-            let Ok(decoded) = O::deserialize(&inner.view(O::TYPE_NAME, &patched)) else {
+            if O::deserialize(&patched).is_err() {
                 return Err(invalid_patched_properties(O::TYPE_NAME, &patch_map));
-            };
+            }
             // `localized_update` contract: return the object when pruning
             // removed anything, so the handler echoes `localizations`.
             if pruned {
-                echo = Some(decoded);
+                echo = Some(patched.clone());
             }
             inner.record_replace(O::TYPE_NAME, account_id, id, previous);
             inner
@@ -2249,24 +2483,50 @@ impl MailBackend for MemoryBackend {
                 .insert(id.clone(), patched);
         }
 
-        let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
-        inner
-            .change_log_mut(O::TYPE_NAME, account_id.as_ref())
-            .push(ChangeEntry {
-                new_state,
-                created: vec![],
-                updated: vec![id.clone()],
-                destroyed: vec![],
-                restored: vec![],
+        if O::TYPE_NAME == Mailbox::TYPE_NAME {
+            let only = subscription.as_ref().map(|(u, _)| u.clone());
+            if let Some((user, subscribed)) = subscription {
+                inner
+                    .subscriptions
+                    .insert((account.to_owned(), id.clone(), user), subscribed);
+            }
+            inner.log_mailbox_change(
+                account,
+                MailboxChange::Updated,
+                id,
                 updated_props,
-            });
+                &before,
+                only.as_ref().filter(|_| own_change_only),
+            );
+        } else {
+            let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
+            inner
+                .change_log_mut(O::TYPE_NAME, account_id.as_ref())
+                .push(ChangeEntry {
+                    audience: Audience::default(),
+                    new_state,
+                    created: vec![],
+                    updated: vec![id.clone()],
+                    destroyed: vec![],
+                    restored: vec![],
+                    updated_props,
+                });
+        }
         if O::TYPE_NAME == Email::TYPE_NAME {
             inner.recount_mailboxes(account_id.as_ref());
         }
 
         // MemoryBackend echoes the object only after pruning stale
-        // localizations (draft-atwood-jmap-updates-00 §4.1).
-        Ok(echo)
+        // localizations (draft-atwood-jmap-updates-00 §4.1), as the
+        // caller sees it.
+        let viewer = inner.viewer(account, caller.principal());
+        echo.and_then(|patched| viewer.view(O::TYPE_NAME, &patched))
+            .map(|v| {
+                O::deserialize(&v).map_err(|e| {
+                    BackendSetError::Other(MemoryError::serde("deserialize updated object", &e))
+                })
+            })
+            .transpose()
     }
 
     // -----------------------------------------------------------------------
@@ -2275,12 +2535,23 @@ impl MailBackend for MemoryBackend {
 
     async fn destroy_object<O: SetObject + Send + Sync>(
         &self,
-        _caller: &(),
+        caller: &C,
         account_id: &Id,
         id: &Id,
     ) -> Result<(), BackendSetError<Self::Error>> {
         let mut inner = self.inner.lock().await;
         inner.require_account_for_target(account_id.as_ref())?;
+        let account = account_id.as_ref();
+        // The caller's rights, under the lock (MailBackend "Permission
+        // enforcement").
+        if O::TYPE_NAME == Mailbox::TYPE_NAME {
+            inner.check_mailbox_destroy(account, caller.principal(), id)?;
+        } else if !inner.is_owner(account, caller.principal()) {
+            return Err(BackendSetError::SetError(Box::new(SetError::new(
+                SetErrorType::NotFound,
+            ))));
+        }
+        let before = inner.sharee_visibility(account);
         let store = inner.objects_mut(O::TYPE_NAME, account_id.as_ref());
         let removed = store.remove(id).ok_or_else(|| {
             BackendSetError::SetError(Box::new(SetError::new(SetErrorType::NotFound)))
@@ -2289,17 +2560,25 @@ impl MailBackend for MemoryBackend {
             inner.detach_email(account_id.as_ref(), &removed);
         }
         inner.record_destroy(O::TYPE_NAME, account_id, id, removed);
-        let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
-        inner
-            .change_log_mut(O::TYPE_NAME, account_id.as_ref())
-            .push(ChangeEntry {
-                new_state,
-                created: vec![],
-                updated: vec![],
-                destroyed: vec![id.clone()],
-                restored: vec![],
-                updated_props: None,
-            });
+        if O::TYPE_NAME == Mailbox::TYPE_NAME {
+            inner
+                .subscriptions
+                .retain(|(a, m, _), _| !(a == account && m == id));
+            inner.log_mailbox_change(account, MailboxChange::Destroyed, id, None, &before, None);
+        } else {
+            let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
+            inner
+                .change_log_mut(O::TYPE_NAME, account_id.as_ref())
+                .push(ChangeEntry {
+                    audience: Audience::default(),
+                    new_state,
+                    created: vec![],
+                    updated: vec![],
+                    destroyed: vec![id.clone()],
+                    restored: vec![],
+                    updated_props: None,
+                });
+        }
         if O::TYPE_NAME == Email::TYPE_NAME {
             inner.recount_mailboxes(account_id.as_ref());
         }
@@ -2312,13 +2591,308 @@ impl MailBackend for MemoryBackend {
 
     async fn import_email(
         &self,
-        _caller: &(),
+        caller: &C,
         account_id: &Id,
         blob_id: &Id,
         mailbox_ids: &[Id],
         keywords: &[Keyword],
         received_at: Option<&UTCDate>,
     ) -> Result<(Id, Email), BackendSetError<Self::Error>> {
+        self.require_owner(caller, account_id, SetErrorType::Forbidden)
+            .await?;
+        self.import_email_unchecked(account_id, blob_id, mailbox_ids, keywords, received_at)
+            .await
+    }
+
+    // -----------------------------------------------------------------------
+    // find_thread_by_message_ids
+    // -----------------------------------------------------------------------
+
+    async fn find_thread_by_message_ids(
+        &self,
+        _caller: &C,
+        account_id: &Id,
+        message_ids: &[&str],
+    ) -> Result<Option<Id>, Self::Error> {
+        if message_ids.is_empty() {
+            return Ok(None);
+        }
+        let inner = self.inner.lock().await;
+        let store = match inner.objects_ref("Email", account_id.as_ref()) {
+            Some(s) => s,
+            None => return Ok(None),
+        };
+        for val in store.values() {
+            if let Some(ids) = val.get("messageId").and_then(|v| v.as_array()) {
+                for id in ids {
+                    if let Some(s) = id.as_str()
+                        && message_ids.contains(&s)
+                        && let Some(tid) = val.get("threadId").and_then(|v| v.as_str())
+                    {
+                        return Ok(Some(Id::from(tid)));
+                    }
+                }
+            }
+        }
+        Ok(None)
+    }
+
+    // -----------------------------------------------------------------------
+    // blob_exists / parse_email
+    // -----------------------------------------------------------------------
+
+    async fn blob_exists(
+        &self,
+        caller: &C,
+        account_id: &Id,
+        blob_id: &Id,
+    ) -> Result<bool, Self::Error> {
+        Ok(self.owns(caller, account_id).await
+            && self.blob_bytes(account_id, blob_id).await.is_some())
+    }
+
+    async fn parse_email(
+        &self,
+        caller: &C,
+        account_id: &Id,
+        blob_id: &Id,
+    ) -> Result<Email, Self::Error> {
+        let bytes = self
+            .read_blob(caller, account_id, blob_id)
+            .await?
+            .ok_or_else(|| MemoryError::new("blob not found"))?;
+
+        let parsed = crate::parse::parse_rfc5322_headers(&bytes);
+
+        // parse_email does not store — use a synthetic id.
+        let email_id = Id::from(format!("parse-{blob_id}"));
+        // Assign a thread id based on account state but do not store the thread.
+        let thread_id = {
+            let inner = self.inner.lock().await;
+            assign_thread_inner(&inner, account_id, &parsed.in_reply_to, &parsed.references)
+        };
+
+        let mailbox_map = BTreeMap::new();
+        let received = UTCDate::from("1970-01-01T00:00:00Z");
+        let mut email = Email::new(
+            email_id,
+            blob_id.clone(),
+            thread_id,
+            mailbox_map,
+            bytes.len() as u64,
+            received,
+        );
+        crate::parse::fill_from_message(&mut email, parsed, &bytes, blob_id);
+
+        Ok(email)
+    }
+
+    // -----------------------------------------------------------------------
+    // copy_object
+    // -----------------------------------------------------------------------
+
+    /// Blob ids are shared across accounts in this backend, so a copied
+    /// Email keeps its `blobId`. A copied Email is stored through
+    /// `Inner::insert_email`, so it joins its `threadId` in the
+    /// destination and updates the destination Mailbox counts and
+    /// Message-ID index as an import does. The `metadata` and
+    /// `privateMetadata` of `create` are checked against the destination
+    /// as a `Foo/set` create is (-05 §3.4).
+    async fn copy_object<O: SetObject + Send + Sync>(
+        &self,
+        caller: &C,
+        from_account_id: &Id,
+        to_account_id: &Id,
+        obj: O,
+        create: &serde_json::Value,
+    ) -> Result<(Id, O), BackendSetError<Self::Error>> {
+        // A sharee reads no source object and writes none (module docs).
+        self.require_owner(caller, from_account_id, SetErrorType::NotFound)
+            .await?;
+        self.require_owner(caller, to_account_id, SetErrorType::Forbidden)
+            .await?;
+        let new_id = Id::from(uuid::Uuid::new_v4().to_string());
+        let mut val = serde_json::to_value(&obj).map_err(|e| {
+            BackendSetError::Other(MemoryError::serde("serialize copied object", &e))
+        })?;
+        if let serde_json::Value::Object(map) = &mut val {
+            map.insert(
+                "id".to_owned(),
+                serde_json::Value::String(new_id.to_string()),
+            );
+        }
+        let stored: O = O::deserialize(&val).map_err(|e| {
+            BackendSetError::Other(MemoryError::serde("deserialize copied object", &e))
+        })?;
+
+        let mut inner = self.inner.lock().await;
+        inner.require_account(to_account_id.as_ref())?;
+        if O::TYPE_NAME == Email::TYPE_NAME {
+            check_metadata_create(&inner, O::TYPE_NAME, to_account_id.as_ref(), create, &val)?;
+            let email = Email::deserialize(&val).map_err(|e| {
+                BackendSetError::Other(MemoryError::serde("deserialize copied Email", &e))
+            })?;
+            inner.insert_email(to_account_id, &email, val);
+            return Ok((new_id, stored));
+        }
+        inner
+            .objects_mut(O::TYPE_NAME, to_account_id.as_ref())
+            .insert(new_id.clone(), val);
+        let new_state = inner.bump_state(O::TYPE_NAME, to_account_id.as_ref());
+        inner
+            .change_log_mut(O::TYPE_NAME, to_account_id.as_ref())
+            .push(ChangeEntry {
+                audience: Audience::default(),
+                new_state,
+                created: vec![new_id.clone()],
+                updated: vec![],
+                destroyed: vec![],
+                restored: vec![],
+                updated_props: None,
+            });
+
+        Ok((new_id, stored))
+    }
+
+    // -----------------------------------------------------------------------
+    // search_snippets
+    // -----------------------------------------------------------------------
+
+    async fn search_snippets(
+        &self,
+        caller: &C,
+        account_id: &Id,
+        email_ids: &[Id],
+        filter: Option<&EmailFilterCondition>,
+    ) -> Result<Vec<SearchSnippet>, Self::Error> {
+        if !self.owns(caller, account_id).await {
+            return Ok(Vec::new());
+        }
+        let text_needle = filter.and_then(|f| f.text.as_deref());
+        let subject_needle = filter.and_then(|f| f.subject.as_deref());
+        let body_needle = filter.and_then(|f| f.body.as_deref());
+
+        let inner = self.inner.lock().await;
+        let store = inner.objects_ref("Email", account_id.as_ref());
+
+        let mut snippets = Vec::new();
+        for id in email_ids {
+            let mut snippet = SearchSnippet::new(id.clone());
+
+            if let Some(store) = store
+                && let Some(val) = store.get(id)
+            {
+                let subject = val.get("subject").and_then(|s| s.as_str()).unwrap_or("");
+                let preview = val.get("preview").and_then(|s| s.as_str()).unwrap_or("");
+
+                // Build subject snippet.
+                let subj_needle = subject_needle.or(text_needle);
+                if let Some(needle) = subj_needle
+                    && !subject.is_empty()
+                {
+                    snippet.subject = Some(highlight(subject, needle));
+                }
+
+                // Build preview snippet from preview or body needle.
+                let prev_needle = body_needle.or(text_needle);
+                if let Some(needle) = prev_needle
+                    && !preview.is_empty()
+                {
+                    snippet.preview = Some(highlight(preview, needle));
+                }
+            }
+
+            snippets.push(snippet);
+        }
+
+        Ok(snippets)
+    }
+
+    // -----------------------------------------------------------------------
+    // batch_destroy_emails
+    // -----------------------------------------------------------------------
+
+    async fn batch_destroy_emails(
+        &self,
+        caller: &C,
+        account_id: &Id,
+        email_ids: &[Id],
+    ) -> Vec<(Id, Option<BackendSetError<Self::Error>>)> {
+        let mut inner = self.inner.lock().await;
+        // No Email exists for a sharee.
+        if !inner.is_owner(account_id.as_ref(), caller.principal()) {
+            return email_ids
+                .iter()
+                .map(|id| {
+                    let e =
+                        BackendSetError::SetError(Box::new(SetError::new(SetErrorType::NotFound)));
+                    (id.clone(), Some(e))
+                })
+                .collect();
+        }
+        let account_str = account_id.to_string();
+        let mut results = Vec::with_capacity(email_ids.len());
+        for id in email_ids {
+            let removed = inner
+                .objects
+                .get_mut("Email")
+                .and_then(|m| m.get_mut(&account_str))
+                .and_then(|store| store.remove(id));
+            let err = if let Some(last) = removed {
+                inner.detach_email(&account_str, &last);
+                inner.record_destroy(Email::TYPE_NAME, account_id, id, last);
+                let new_state = inner.bump_state("Email", &account_str);
+                inner
+                    .change_log_mut("Email", &account_str)
+                    .push(ChangeEntry {
+                        audience: Audience::default(),
+                        new_state,
+                        created: vec![],
+                        updated: vec![],
+                        destroyed: vec![id.clone()],
+                        restored: vec![],
+                        updated_props: None,
+                    });
+                None
+            } else {
+                Some(BackendSetError::SetError(Box::new(SetError::new(
+                    SetErrorType::NotFound,
+                ))))
+            };
+            results.push((id.clone(), err));
+        }
+        inner.recount_mailboxes(&account_str);
+        results
+    }
+
+    // -----------------------------------------------------------------------
+    // supports_type
+    // -----------------------------------------------------------------------
+
+    fn supports_type<O: JmapObject>(&self, _caller: &C, _account_id: &Id) -> bool {
+        true
+    }
+
+    async fn search_capability(
+        &self,
+        _caller: &C,
+        _account_id: &Id,
+    ) -> Result<Option<jmap_search::SearchCapability>, MemoryError> {
+        Ok(self.inner.lock().await.search.clone())
+    }
+}
+
+impl<C: MemoryCaller> MemoryBackend<C> {
+    /// [`MailBackend::import_email`] without the caller's rights check,
+    /// for deliveries.
+    pub(crate) async fn import_email_unchecked(
+        &self,
+        account_id: &Id,
+        blob_id: &Id,
+        mailbox_ids: &[Id],
+        keywords: &[Keyword],
+        received_at: Option<&UTCDate>,
+    ) -> Result<(Id, Email), BackendSetError<MemoryError>> {
         let bytes = self.blob_bytes(account_id, blob_id).await.ok_or_else(|| {
             BackendSetError::SetError(Box::new(SetError::new(SetErrorType::BlobNotFound)))
         })?;
@@ -2390,261 +2964,6 @@ impl MailBackend for MemoryBackend {
         };
 
         Ok((email_id, email))
-    }
-
-    // -----------------------------------------------------------------------
-    // find_thread_by_message_ids
-    // -----------------------------------------------------------------------
-
-    async fn find_thread_by_message_ids(
-        &self,
-        _caller: &(),
-        account_id: &Id,
-        message_ids: &[&str],
-    ) -> Result<Option<Id>, Self::Error> {
-        if message_ids.is_empty() {
-            return Ok(None);
-        }
-        let inner = self.inner.lock().await;
-        let store = match inner.objects_ref("Email", account_id.as_ref()) {
-            Some(s) => s,
-            None => return Ok(None),
-        };
-        for val in store.values() {
-            if let Some(ids) = val.get("messageId").and_then(|v| v.as_array()) {
-                for id in ids {
-                    if let Some(s) = id.as_str()
-                        && message_ids.contains(&s)
-                        && let Some(tid) = val.get("threadId").and_then(|v| v.as_str())
-                    {
-                        return Ok(Some(Id::from(tid)));
-                    }
-                }
-            }
-        }
-        Ok(None)
-    }
-
-    // -----------------------------------------------------------------------
-    // blob_exists / parse_email
-    // -----------------------------------------------------------------------
-
-    async fn blob_exists(
-        &self,
-        _caller: &(),
-        account_id: &Id,
-        blob_id: &Id,
-    ) -> Result<bool, Self::Error> {
-        Ok(self.blob_bytes(account_id, blob_id).await.is_some())
-    }
-
-    async fn parse_email(
-        &self,
-        _caller: &(),
-        account_id: &Id,
-        blob_id: &Id,
-    ) -> Result<Email, Self::Error> {
-        let bytes = self
-            .blob_bytes(account_id, blob_id)
-            .await
-            .ok_or_else(|| MemoryError::new("blob not found"))?;
-
-        let parsed = crate::parse::parse_rfc5322_headers(&bytes);
-
-        // parse_email does not store — use a synthetic id.
-        let email_id = Id::from(format!("parse-{blob_id}"));
-        // Assign a thread id based on account state but do not store the thread.
-        let thread_id = {
-            let inner = self.inner.lock().await;
-            assign_thread_inner(&inner, account_id, &parsed.in_reply_to, &parsed.references)
-        };
-
-        let mailbox_map = BTreeMap::new();
-        let received = UTCDate::from("1970-01-01T00:00:00Z");
-        let mut email = Email::new(
-            email_id,
-            blob_id.clone(),
-            thread_id,
-            mailbox_map,
-            bytes.len() as u64,
-            received,
-        );
-        crate::parse::fill_from_message(&mut email, parsed, &bytes, blob_id);
-
-        Ok(email)
-    }
-
-    // -----------------------------------------------------------------------
-    // copy_object
-    // -----------------------------------------------------------------------
-
-    /// Blob ids are shared across accounts in this backend, so a copied
-    /// Email keeps its `blobId`. A copied Email is stored through
-    /// `Inner::insert_email`, so it joins its `threadId` in the
-    /// destination and updates the destination Mailbox counts and
-    /// Message-ID index as an import does. The `metadata` and
-    /// `privateMetadata` of `create` are checked against the destination
-    /// as a `Foo/set` create is (-05 §3.4).
-    async fn copy_object<O: SetObject + Send + Sync>(
-        &self,
-        _caller: &(),
-        _from_account_id: &Id,
-        to_account_id: &Id,
-        obj: O,
-        create: &serde_json::Value,
-    ) -> Result<(Id, O), BackendSetError<Self::Error>> {
-        let new_id = Id::from(uuid::Uuid::new_v4().to_string());
-        let mut val = serde_json::to_value(&obj).map_err(|e| {
-            BackendSetError::Other(MemoryError::serde("serialize copied object", &e))
-        })?;
-        if let serde_json::Value::Object(map) = &mut val {
-            map.insert(
-                "id".to_owned(),
-                serde_json::Value::String(new_id.to_string()),
-            );
-        }
-        let stored: O = O::deserialize(&val).map_err(|e| {
-            BackendSetError::Other(MemoryError::serde("deserialize copied object", &e))
-        })?;
-
-        let mut inner = self.inner.lock().await;
-        inner.require_account(to_account_id.as_ref())?;
-        if O::TYPE_NAME == Email::TYPE_NAME {
-            check_metadata_create(&inner, O::TYPE_NAME, to_account_id.as_ref(), create, &val)?;
-            let email = Email::deserialize(&val).map_err(|e| {
-                BackendSetError::Other(MemoryError::serde("deserialize copied Email", &e))
-            })?;
-            inner.insert_email(to_account_id, &email, val);
-            return Ok((new_id, stored));
-        }
-        inner
-            .objects_mut(O::TYPE_NAME, to_account_id.as_ref())
-            .insert(new_id.clone(), val);
-        let new_state = inner.bump_state(O::TYPE_NAME, to_account_id.as_ref());
-        inner
-            .change_log_mut(O::TYPE_NAME, to_account_id.as_ref())
-            .push(ChangeEntry {
-                new_state,
-                created: vec![new_id.clone()],
-                updated: vec![],
-                destroyed: vec![],
-                restored: vec![],
-                updated_props: None,
-            });
-
-        Ok((new_id, stored))
-    }
-
-    // -----------------------------------------------------------------------
-    // search_snippets
-    // -----------------------------------------------------------------------
-
-    async fn search_snippets(
-        &self,
-        _caller: &(),
-        account_id: &Id,
-        email_ids: &[Id],
-        filter: Option<&EmailFilterCondition>,
-    ) -> Result<Vec<SearchSnippet>, Self::Error> {
-        let text_needle = filter.and_then(|f| f.text.as_deref());
-        let subject_needle = filter.and_then(|f| f.subject.as_deref());
-        let body_needle = filter.and_then(|f| f.body.as_deref());
-
-        let inner = self.inner.lock().await;
-        let store = inner.objects_ref("Email", account_id.as_ref());
-
-        let mut snippets = Vec::new();
-        for id in email_ids {
-            let mut snippet = SearchSnippet::new(id.clone());
-
-            if let Some(store) = store
-                && let Some(val) = store.get(id)
-            {
-                let subject = val.get("subject").and_then(|s| s.as_str()).unwrap_or("");
-                let preview = val.get("preview").and_then(|s| s.as_str()).unwrap_or("");
-
-                // Build subject snippet.
-                let subj_needle = subject_needle.or(text_needle);
-                if let Some(needle) = subj_needle
-                    && !subject.is_empty()
-                {
-                    snippet.subject = Some(highlight(subject, needle));
-                }
-
-                // Build preview snippet from preview or body needle.
-                let prev_needle = body_needle.or(text_needle);
-                if let Some(needle) = prev_needle
-                    && !preview.is_empty()
-                {
-                    snippet.preview = Some(highlight(preview, needle));
-                }
-            }
-
-            snippets.push(snippet);
-        }
-
-        Ok(snippets)
-    }
-
-    // -----------------------------------------------------------------------
-    // batch_destroy_emails
-    // -----------------------------------------------------------------------
-
-    async fn batch_destroy_emails(
-        &self,
-        _caller: &(),
-        account_id: &Id,
-        email_ids: &[Id],
-    ) -> Vec<(Id, Option<BackendSetError<Self::Error>>)> {
-        let mut inner = self.inner.lock().await;
-        let account_str = account_id.to_string();
-        let mut results = Vec::with_capacity(email_ids.len());
-        for id in email_ids {
-            let removed = inner
-                .objects
-                .get_mut("Email")
-                .and_then(|m| m.get_mut(&account_str))
-                .and_then(|store| store.remove(id));
-            let err = if let Some(last) = removed {
-                inner.detach_email(&account_str, &last);
-                inner.record_destroy(Email::TYPE_NAME, account_id, id, last);
-                let new_state = inner.bump_state("Email", &account_str);
-                inner
-                    .change_log_mut("Email", &account_str)
-                    .push(ChangeEntry {
-                        new_state,
-                        created: vec![],
-                        updated: vec![],
-                        destroyed: vec![id.clone()],
-                        restored: vec![],
-                        updated_props: None,
-                    });
-                None
-            } else {
-                Some(BackendSetError::SetError(Box::new(SetError::new(
-                    SetErrorType::NotFound,
-                ))))
-            };
-            results.push((id.clone(), err));
-        }
-        inner.recount_mailboxes(&account_str);
-        results
-    }
-
-    // -----------------------------------------------------------------------
-    // supports_type
-    // -----------------------------------------------------------------------
-
-    fn supports_type<O: JmapObject>(&self, _caller: &(), _account_id: &Id) -> bool {
-        true
-    }
-
-    async fn search_capability(
-        &self,
-        _caller: &(),
-        _account_id: &Id,
-    ) -> Result<Option<jmap_search::SearchCapability>, MemoryError> {
-        Ok(self.inner.lock().await.search.clone())
     }
 }
 
@@ -3297,18 +3616,20 @@ use crate::mdn::{MdnParseResult, MdnSendResult};
 use jmap_mail_types::Mdn;
 
 #[cfg(feature = "mdn")]
-impl MdnBackend for MemoryBackend {
+impl<C: MemoryCaller> MdnBackend for MemoryBackend<C> {
     // -----------------------------------------------------------------------
     // send_mdns
     // -----------------------------------------------------------------------
 
     async fn send_mdns(
         &self,
-        _caller: &(),
+        caller: &C,
         account_id: &jmap_types::Id,
         _identity_id: &jmap_types::Id,
         send: BTreeMap<String, (jmap_mail_types::Mdn, jmap_mail_types::Email)>,
     ) -> Result<MdnSendResult, jmap_server::BackendSetError<Self::Error>> {
+        self.require_owner(caller, account_id, SetErrorType::Forbidden)
+            .await?;
         let mut sent: BTreeMap<String, Mdn> = BTreeMap::new();
         let mut not_sent: BTreeMap<String, SetError> = BTreeMap::new();
 
@@ -3464,7 +3785,7 @@ impl MdnBackend for MemoryBackend {
 
     async fn parse_mdns(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &jmap_types::Id,
         blob_ids: &[jmap_types::Id],
     ) -> Result<MdnParseResult, Self::Error> {
@@ -3483,7 +3804,7 @@ impl MdnBackend for MemoryBackend {
             // "disposition:", the blob can't be an MDN — skip it without
             // loading the rest.
             let header_bytes = self
-                .get_blob_header_bytes(&(), account_id, &blob_id, HEADER_LIMIT)
+                .get_blob_header_bytes(_caller, account_id, &blob_id, HEADER_LIMIT)
                 .await?;
             match header_bytes {
                 None => {
@@ -3500,7 +3821,7 @@ impl MdnBackend for MemoryBackend {
             }
 
             // Full fetch for actual parsing.
-            let bytes = self.read_blob(&(), account_id, &blob_id).await?;
+            let bytes = self.read_blob(_caller, account_id, &blob_id).await?;
             match bytes {
                 None => {
                     not_found.push(blob_id);
@@ -3653,10 +3974,10 @@ fn parse_disposition_field(value: &str) -> Option<serde_json::Value> {
 use crate::SieveBackend;
 
 #[cfg(feature = "sieve")]
-impl SieveBackend for MemoryBackend {
+impl<C: MemoryCaller> SieveBackend for MemoryBackend<C> {
     fn max_sieve_script_bytes(
         &self,
-        _caller: &(),
+        _caller: &C,
         _account_id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = Result<Option<u64>, Self::Error>> + Send {
         let limit = self.inner.lock_unscoped().max_sieve_script_limit;
@@ -3665,7 +3986,7 @@ impl SieveBackend for MemoryBackend {
 
     fn max_sieve_scripts_per_account(
         &self,
-        _caller: &(),
+        _caller: &C,
         _account_id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = Result<usize, Self::Error>> + Send {
         let limit = self.inner.lock_unscoped().max_sieve_scripts_limit;
@@ -3674,7 +3995,7 @@ impl SieveBackend for MemoryBackend {
 
     fn validate_sieve_script(
         &self,
-        _caller: &(),
+        _caller: &C,
         _account_id: &jmap_types::Id,
         script: &[u8],
     ) -> impl std::future::Future<Output = Result<Option<String>, Self::Error>> + Send {
@@ -3702,10 +4023,10 @@ impl SieveBackend for MemoryBackend {
 /// handlers leave to it under `atomic` against the final state
 /// (`final_state_failures`). Nothing here has an external effect to
 /// defer: EmailSubmission/set only records submissions.
-impl ConditionalBackend for MemoryBackend {
+impl<C: MemoryCaller> ConditionalBackend for MemoryBackend<C> {
     async fn begin_set(
         &self,
-        _caller: &(),
+        _caller: &C,
         request: SetScopeRequest<'_>,
     ) -> Result<Box<dyn SetScope>, BeginSetError<MemoryError>> {
         Ok(self.inner.open(request, final_state_failures).await)

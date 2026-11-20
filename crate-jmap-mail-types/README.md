@@ -14,7 +14,7 @@ between `jmap-types` (shared wire primitives from RFC 8620) and `jmap-mail-serve
 
 | Type | RFC 8621 § | Description |
 |------|-----------|-------------|
-| `Mailbox` | §2 | Folder/label container: `id`, `name`, `role`, `sortOrder`, `totalEmails`, `unreadEmails`, `totalThreads`, `unreadThreads`, `myRights`, `isSubscribed` |
+| `Mailbox` | §2 | Folder/label container: `id`, `name`, `role`, `sortOrder`, `totalEmails`, `unreadEmails`, `totalThreads`, `unreadThreads`, `myRights`, `isSubscribed`; `shareWith` and `myRights.mayShare` (draft-ietf-jmap-mail-sharing-02 §2) |
 | `MailboxRights` | §2.1 | Per-mailbox ACL: `mayReadItems`, `mayAddItems`, `mayRemoveItems`, `maySetSeen`, `maySetKeywords`, `mayCreateChild`, `mayRename`, `mayDelete`, `maySubmit` |
 | `MailboxRole` | §2.1 | Typed enum: `Inbox`, `Drafts`, `Sent`, `Trash`, `Junk`, `Archive`, `Flagged`, `Important`, `All`, `Other(String)` |
 | `MailboxFilterCondition` | §2.3 | Filter condition for `Mailbox/query` |
