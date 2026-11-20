@@ -338,3 +338,60 @@ async fn email_query_sends_anchor_window_and_collapse_threads() {
         })
     );
 }
+
+/// The `using` array of the first recorded request.
+async fn sent_using(server: &MockServer) -> Vec<String> {
+    let reqs = server
+        .received_requests()
+        .await
+        .expect("must have recorded requests");
+    let body: serde_json::Value =
+        serde_json::from_slice(&reqs[0].body).expect("request body must be valid JSON");
+    serde_json::from_value(body["using"].clone()).expect("using must be a String[]")
+}
+
+/// A JMAP Search `where`, even nested in a FilterOperator, adds
+/// `urn:ietf:params:jmap:search` to `using`; a filter without one does not.
+///
+/// Oracle: crate-jmap docs/specs/jmap-search.md §Opting In a Data Type, a
+/// data type accepts `where` "only in requests whose `using` includes
+/// `urn:ietf:params:jmap:search`".
+#[tokio::test]
+async fn email_query_with_where_adds_search_to_using() {
+    const SEARCH: &str = "urn:ietf:params:jmap:search";
+    let server = mount_email_query().await;
+    let sc = helpers::make_client(&server);
+    let mut cond = EmailFilterCondition::default();
+    cond.where_ = Some(json!({ "/size": { "$gt": 1000000 } }));
+    let filter = Filter::Operator(FilterOperator::new(
+        Operator::And,
+        vec![Filter::Condition(cond)],
+    ));
+    sc.email_query(
+        Some(&filter),
+        None,
+        &jmap_base_client::QueryParams::default(),
+        None,
+    )
+    .await
+    .expect("email_query: must succeed");
+    assert!(sent_using(&server).await.iter().any(|u| u == SEARCH));
+    assert_eq!(
+        sent_filter(&server).await["conditions"][0],
+        json!({ "where": { "/size": { "$gt": 1000000 } } })
+    );
+
+    let server = mount_email_query().await;
+    let sc = helpers::make_client(&server);
+    let mut cond = EmailFilterCondition::default();
+    cond.has_keyword = Some(Keyword::from("$seen"));
+    sc.email_query(
+        Some(&Filter::Condition(cond)),
+        None,
+        &jmap_base_client::QueryParams::default(),
+        None,
+    )
+    .await
+    .expect("email_query: must succeed");
+    assert!(!sent_using(&server).await.iter().any(|u| u == SEARCH));
+}

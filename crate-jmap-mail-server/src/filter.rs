@@ -82,6 +82,8 @@ pub enum EmailCondition {
     MetadataTextEquals,
     /// `privateMetadataTextEquals`
     PrivateMetadataTextEquals,
+    /// `where` (JMAP Search, crate-jmap docs/specs/jmap-search.md)
+    Where,
 }
 
 impl EmailCondition {
@@ -257,6 +259,7 @@ fn condition_kinds(c: &EmailFilterCondition) -> impl Iterator<Item = EmailCondit
             c.private_metadata_text_equals.is_some(),
             C::PrivateMetadataTextEquals,
         ),
+        (c.where_.is_some(), C::Where),
     ]
     .into_iter()
     .filter_map(|(set, kind)| set.then_some(kind))
@@ -305,6 +308,11 @@ fn condition_matches(
     {
         return Ok(false);
     }
+    if let Some(w) = &c.where_
+        && !where_matches(email, w)?
+    {
+        return Ok(false);
+    }
     let empty = Map::new();
     let metadata = email.metadata.as_ref().unwrap_or(&empty);
     let private = email.private_metadata.as_ref().unwrap_or(&empty);
@@ -335,6 +343,39 @@ fn condition_matches(
         && text_match(private, c.private_metadata_text_contains.as_ref(), metadata_text_contains)
         && text_match(metadata, c.metadata_text_equals.as_ref(), metadata_text_equals)
         && text_match(private, c.private_metadata_text_equals.as_ref(), metadata_text_equals))
+}
+
+/// JMAP Search `where` (crate-jmap docs/specs/jmap-search.md) on `email`.
+///
+/// The candidate is the Email's serialized form, its `Email/get`
+/// representation, with `bodyValues` empty (§Addressable Properties:
+/// "`bodyValues` of an Email is empty because `fetchTextBodyValues`
+/// defaults to `false`"). `$text` is the RFC 8621 §4.4.1 `text` condition
+/// (§Full-Text Matching: it "SHOULD match as that property does").
+///
+/// # Errors
+///
+/// [`FilterError::Unsupported`] when `where_` does not parse (the handler
+/// checks it first) or the Email does not serialize.
+fn where_matches(email: &Email, where_: &Value) -> Result<bool, FilterError> {
+    struct EmailCandidate<'a> {
+        json: Value,
+        email: &'a Email,
+    }
+    impl jmap_search::Candidate for EmailCandidate<'_> {
+        fn field(&self, pointer: &str) -> Option<&Value> {
+            self.json.pointer(pointer)
+        }
+        fn matches_text(&self, text: &str) -> bool {
+            text_matches(self.email, text)
+        }
+    }
+    let expr = jmap_search::Expression::parse(where_).map_err(|_| FilterError::Unsupported)?;
+    let mut json = serde_json::to_value(email).map_err(|_| FilterError::Unsupported)?;
+    if let Some(bv) = json.get_mut("bodyValues") {
+        *bv = Value::Object(Map::new());
+    }
+    Ok(expr.matches(&EmailCandidate { json, email }))
 }
 
 /// RFC 8621 §4.1.1: "a keyword is a case-insensitive string".

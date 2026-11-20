@@ -164,6 +164,15 @@ fn condition_supported(
     metadata: Metadata<'_>,
 ) -> bool {
     use EmailCondition as C;
+    // ponytail: a JMAP Search `where` (crate-jmap docs/specs/jmap-search.md)
+    // is refused in an EmailPush filter, even on a mail account, because
+    // this check has no `urn:ietf:params:jmap:search` capability to judge
+    // the expression against. Upgrade path: an `EmailPushAccount` field
+    // carrying the account's `SearchCapability`, checked with
+    // `jmap_search::check_where`.
+    if c == C::Where {
+        return false;
+    }
     let private = matches!(
         c,
         C::PrivateMetadataExists | C::PrivateMetadataTextContains | C::PrivateMetadataTextEquals

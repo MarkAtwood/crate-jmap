@@ -722,3 +722,30 @@ async fn update_of_other_property_ignores_pruned_and_stale_configs() {
             .is_ok()
     );
 }
+
+/// A JMAP Search `where` (crate-jmap docs/specs/jmap-search.md) is refused
+/// in an EmailPush filter, even on a mail account or one declaring the
+/// condition: the config check has no search capability to judge it by
+/// (a stated limitation of this crate, not a draft rule).
+#[tokio::test]
+async fn where_is_refused() {
+    let m = Mock::with(&[
+        ("A", mail_account()),
+        (
+            "I",
+            EmailPushAccount::new(false).with_filter_conditions([EmailCondition::Where]),
+        ),
+    ]);
+    for a in ["A", "I"] {
+        let mut config = serde_json::Map::new();
+        config.insert(
+            a.to_owned(),
+            json!({"filter": {"where": {"/size": {"$gt": 1}}}}),
+        );
+        assert_eq!(
+            create(&m, Value::Object(config)).await,
+            paths(&["emailPush", &format!("emailPush/{a}/filter")]),
+            "{a}"
+        );
+    }
+}

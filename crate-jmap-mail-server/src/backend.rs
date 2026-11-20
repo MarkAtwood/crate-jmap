@@ -658,6 +658,39 @@ pub trait MailBackend: JmapBackend {
         65_536
     }
 
+    /// The account-level `urn:ietf:params:jmap:search` capability object
+    /// (crate-jmap docs/specs/jmap-search.md §Account-Level Capability
+    /// Object) the consumer advertises for `account_id`, or `None` when it
+    /// does not advertise the capability.
+    ///
+    /// With `None`, or without `"Email"` in its `dataTypes`, an
+    /// `Email/query` or `Email/queryChanges` filter that sets `where` is
+    /// `unsupportedFilter`, as it is when the request's `using` lacks
+    /// `urn:ietf:params:jmap:search` (§Opting In a Data Type). With it, the
+    /// handlers check every `where` against it
+    /// ([`jmap_search::check_where_filter`]), report `canCalculateChanges:
+    /// false` from `Email/query` and answer `Email/queryChanges` with
+    /// `cannotCalculateChanges` ("Servers MAY return
+    /// `cannotCalculateChanges` for any `/queryChanges` call whose filter
+    /// uses `where`", §Query Changes). `query_objects` then evaluates
+    /// `where` over the Emails the caller may fetch, each as the caller
+    /// would receive it from `Email/get` (§Visibility, §Addressable
+    /// Properties).
+    ///
+    /// # Default implementation
+    ///
+    /// Returns `Ok(None)`: no search.
+    fn search_capability(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+    ) -> impl std::future::Future<
+        Output = Result<Option<jmap_search::SearchCapability>, Self::Error>,
+    > + Send {
+        let _ = (caller, account_id);
+        async { Ok(None) }
+    }
+
     /// Maximum bytes of body value text to return per `EmailBodyPart`.
     ///
     /// A value of `0` means unlimited. Used with `maxBodyValueBytes` in

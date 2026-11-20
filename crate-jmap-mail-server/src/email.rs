@@ -283,6 +283,33 @@ fn email_sort_arg(
     Ok(Some(sort))
 }
 
+/// Check every JMAP Search `where` in the undecoded Email `filter`
+/// against `using` and [`MailBackend::search_capability`], and return
+/// whether there was one (crate-jmap docs/specs/jmap-search.md §Errors,
+/// §Opting In a Data Type). The capability is read only for a filter with
+/// `where`.
+///
+/// # Errors
+///
+/// As [`jmap_search::check_where_filter`] for the `"Email"` data type, and
+/// `serverFail` when the backend fails.
+async fn check_email_search<B: MailBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    filter: Option<&Value>,
+    using: &[String],
+) -> Result<bool, JmapError> {
+    if !filter.is_some_and(jmap_search::filter_uses_where) {
+        return Ok(false);
+    }
+    let cap = backend
+        .search_capability(caller, account_id)
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?;
+    jmap_search::check_where_filter(filter, "Email", using, cap.as_ref())
+}
+
 /// Handle an `Email/query` method call (RFC 8621 §4.4).
 ///
 /// `args` is the RFC 8620 §5.5 `/query` request shape (`accountId`, optional
@@ -296,7 +323,12 @@ fn email_sort_arg(
 /// `using` is the request's capability list (pass
 /// [`jmap_server::CallContext::using`]); without
 /// `urn:ietf:params:jmap:metadata` a draft-ietf-jmap-metadata-05 §3.6
-/// filter condition is `unsupportedFilter` (-05 §3).
+/// filter condition is `unsupportedFilter` (-05 §3). A JMAP Search
+/// `where` (crate-jmap docs/specs/jmap-search.md) needs
+/// `urn:ietf:params:jmap:search` in `using` and `"Email"` in
+/// [`MailBackend::search_capability`], else `unsupportedFilter`; it is
+/// checked with [`jmap_search::check_where_filter`] and makes
+/// `canCalculateChanges` `false`.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_email_query<B: MailBackend>(
@@ -314,6 +346,8 @@ pub async fn handle_email_query<B: MailBackend>(
         return Err(JmapError::account_not_found());
     }
 
+    let searched =
+        check_email_search(backend, caller, &account_id, args.get("filter"), using).await?;
     let filter: Option<jmap_mail_types::EmailFilter> = filter_arg(&mut args)?;
     reject_metadata_filter_without_capability(
         filter.as_ref(),
@@ -401,7 +435,7 @@ pub async fn handle_email_query<B: MailBackend>(
             return Ok(HandlerOutput::new(serde_json::json!({
                 "accountId": account_id.as_ref(),
                 "queryState": empty.query_state.as_ref(),
-                "canCalculateChanges": empty.can_calculate_changes,
+                "canCalculateChanges": empty.can_calculate_changes && !searched,
                 "position": 0u64,
                 "ids": [],
             })));
@@ -501,7 +535,7 @@ pub async fn handle_email_query<B: MailBackend>(
     let mut resp = json!({
         "accountId": account_id.as_ref(),
         "queryState": query_state.as_ref(),
-        "canCalculateChanges": can_calculate_changes,
+        "canCalculateChanges": can_calculate_changes && !searched,
         "position": reported_position,
         "ids": ids.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
     });
@@ -533,7 +567,9 @@ pub async fn handle_email_query<B: MailBackend>(
 /// `using` is the request's capability list (pass
 /// [`jmap_server::CallContext::using`]); without
 /// `urn:ietf:params:jmap:metadata` a draft-ietf-jmap-metadata-05 §3.6
-/// filter condition is `unsupportedFilter` (-05 §3).
+/// filter condition is `unsupportedFilter` (-05 §3). A filter with a
+/// JMAP Search `where` is checked as for [`handle_email_query`] and then
+/// answered with `cannotCalculateChanges` (jmap-search §Query Changes).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_email_query_changes<B: MailBackend>(
@@ -556,6 +592,8 @@ pub async fn handle_email_query_changes<B: MailBackend>(
         _ => return Err(JmapError::invalid_arguments("sinceQueryState is required")),
     };
 
+    let searched =
+        check_email_search(backend, caller, &account_id, args.get("filter"), using).await?;
     let filter: Option<jmap_mail_types::EmailFilter> = filter_arg(&mut args)?;
     reject_metadata_filter_without_capability(
         filter.as_ref(),
@@ -564,6 +602,12 @@ pub async fn handle_email_query_changes<B: MailBackend>(
     )?;
 
     let sort = email_sort_arg(&mut args)?;
+    // jmap-search §Query Changes: "Servers MAY return
+    // `cannotCalculateChanges` for any `/queryChanges` call whose filter
+    // uses `where`".
+    if searched {
+        return Err(JmapError::cannot_calculate_changes());
+    }
 
     let max_changes = jmap_server::parse_max_changes(args.remove("maxChanges").as_ref())?;
 

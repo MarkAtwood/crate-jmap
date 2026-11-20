@@ -15,7 +15,7 @@ exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
 # draft-ietf-jmap-emailpush-05: EmailPushBackend, validation and delivery
 # (`pub mod emailpush`). jmap-metadata-server provides the case-insensitive
 # text matching of the filter evaluator.
-emailpush = ["jmap-mail-types/emailpush", "dep:jmap-metadata-server"]
+emailpush = ["jmap-mail-types/emailpush", "dep:jmap-metadata-server", "jmap-search/eval"]
 mdn = ["jmap-mail-types/mdn"]
 sieve = ["jmap-mail-types/sieve"]
 # Public, feature-gated in-memory reference implementation of MailBackend
@@ -24,6 +24,7 @@ sieve = ["jmap-mail-types/sieve"]
 # documentation example. API stability is opt-in via this feature and may
 # break across minor versions pre-1.0.
 memory = [
+    "jmap-search/eval",
     "dep:uuid",
     "dep:getrandom",
     "dep:jmap-metadata-server",
@@ -43,6 +44,9 @@ jmap-server = { workspace = true }
 # (serde-only); the /set handlers check `using` against the URI.
 jmap-metadata-types = { workspace = true }
 jmap-object-history-types = { workspace = true }
+# urn:ietf:params:jmap:search `where` on Email/query (public dependency:
+# MailBackend::search_capability returns its SearchCapability).
+jmap-search = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 # mime-tree is the workspace's single gateway to RFC 5322 parsing. Used

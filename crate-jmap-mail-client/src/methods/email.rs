@@ -266,7 +266,8 @@ impl super::SessionClient {
         if let Some(ct) = collapse_threads {
             args["collapseThreads"] = ct.into();
         }
-        let req = super::build_request("Email/query", args, super::USING_MAIL);
+        let using = super::using_with_search(super::USING_MAIL, &args);
+        let req = super::build_request("Email/query", args, &using);
         let resp = self.call_internal(api_url, &req).await?;
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
@@ -355,7 +356,8 @@ impl super::SessionClient {
         if let Some(ct) = collapse_threads {
             args["collapseThreads"] = ct.into();
         }
-        let req = super::build_request("Email/queryChanges", args, super::USING_MAIL);
+        let using = super::using_with_search(super::USING_MAIL, &args);
+        let req = super::build_request("Email/queryChanges", args, &using);
         let resp = self.call_internal(api_url, &req).await?;
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }

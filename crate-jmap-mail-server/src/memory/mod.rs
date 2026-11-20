@@ -168,6 +168,9 @@ struct Inner {
     /// DataTypeMetadataInfo set by [`MemoryBackend::with_metadata_info`].
     /// A type without an entry does not have the metadata properties.
     metadata_info: HashMap<&'static str, DataTypeMetadataInfo>,
+    /// The `urn:ietf:params:jmap:search` capability of every account, set
+    /// by [`MemoryBackend::with_search_capability`].
+    search: Option<jmap_search::SearchCapability>,
     /// Object history, once [`MemoryBackend::with_object_history`] turns it
     /// on.
     history: Option<jmap_object_history_server::HistoryStore>,
@@ -668,6 +671,21 @@ impl MemoryBackend {
             .lock_unscoped()
             .metadata_info
             .insert(type_name, info);
+        self
+    }
+
+    /// Advertise JMAP Search (`urn:ietf:params:jmap:search`, crate-jmap
+    /// docs/specs/jmap-search.md) with `capability` for every account:
+    /// [`MailBackend::search_capability`] returns it.
+    ///
+    /// When `capability` lists `"Email"` in `dataTypes`, `Email/query`
+    /// evaluates `where` over the account's Emails, each as its
+    /// `Email/get` representation with `bodyValues` empty, and `$text` as
+    /// the RFC 8621 `text` condition. Advertising the capability in the
+    /// session is the server's job.
+    #[must_use]
+    pub fn with_search_capability(self, capability: jmap_search::SearchCapability) -> Self {
+        self.inner.lock_unscoped().search = Some(capability);
         self
     }
 
@@ -1654,6 +1672,10 @@ impl JmapReads for MemoryBackend {
             metadata_info.as_ref(),
         )?;
         check_email_filter_dates(email_filter.as_ref())?;
+        if let Some(ef) = &email_filter {
+            let search = self.inner.lock().await.search.clone();
+            check_email_where(ef, search.as_ref())?;
+        }
         let email_sort: Option<Vec<EmailComparator>> = if O::TYPE_NAME == "Email" {
             sort.map(retype).transpose()?
         } else {
@@ -2547,6 +2569,14 @@ impl MailBackend for MemoryBackend {
     fn supports_type<O: JmapObject>(&self, _caller: &(), _account_id: &Id) -> bool {
         true
     }
+
+    async fn search_capability(
+        &self,
+        _caller: &(),
+        _account_id: &Id,
+    ) -> Result<Option<jmap_search::SearchCapability>, MemoryError> {
+        Ok(self.inner.lock().await.search.clone())
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -2709,6 +2739,31 @@ pub(super) fn check_email_filter_dates(
                 "filter before/after is not a UTCDate (RFC 8620 §1.4)",
             ),
         ));
+    }
+    Ok(())
+}
+
+/// Every JMAP Search `where` in `filter` checked against `search`, the
+/// backend's capability (crate-jmap docs/specs/jmap-search.md §Errors), so
+/// a direct `query_objects` call cannot evaluate an expression the
+/// handlers would refuse. `unsupportedFilter` without the capability.
+pub(super) fn check_email_where(
+    filter: &EmailFilter,
+    search: Option<&jmap_search::SearchCapability>,
+) -> Result<(), BackendQueryError<MemoryError>> {
+    let json = serde_json::to_value(filter).map_err(|e| {
+        BackendQueryError::Other(MemoryError::serde(
+            format_args!("serialize EmailFilter"),
+            &e,
+        ))
+    })?;
+    for w in jmap_search::where_values(&json) {
+        let Some(cap) = search else {
+            return Err(BackendQueryError::Method(
+                jmap_types::JmapError::unsupported_filter(),
+            ));
+        };
+        jmap_search::check_where(w, "Email", cap).map_err(BackendQueryError::Method)?;
     }
     Ok(())
 }
