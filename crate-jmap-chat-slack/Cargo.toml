@@ -1,0 +1,37 @@
+[package]
+name = "jmap-chat-slack"
+version = "0.5.0"
+authors.workspace = true
+repository.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Presents one Slack workspace as a JMAP Chat Space: a jmap-chat-server ChatBackend over the Slack Web API and Events API"
+keywords = ["jmap", "chat", "slack", "bridge"]
+categories = ["network-programming", "asynchronous"]
+exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
+
+[dependencies]
+jmap-types = { workspace = true }
+jmap-chat-types = { workspace = true }
+jmap-server = { workspace = true }
+# `DataTypeMetadataInfo` in the `JmapAccounts::metadata_info` forward.
+jmap-metadata-types = { workspace = true }
+# The local store: the bridge embeds the reference MemoryBackend for JMAP
+# state, ids and change logs, and delegates the hook traits it does not
+# override (docs/design/chat-backend-split.md §3.2).
+jmap-chat-server = { workspace = true, features = ["memory"] }
+reqwest = { workspace = true }
+# HMAC-SHA256 for the Events API request signature (v0), with a
+# constant-time verify. Already in the tree as the rustls crypto provider.
+ring = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+# `time` sleeps out a 429 Retry-After; `sync` guards the bridge mapping.
+tokio = { workspace = true, features = ["sync", "time"] }
+url = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+wiremock = { workspace = true }

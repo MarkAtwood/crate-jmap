@@ -58,6 +58,7 @@ members = [
     "crate-jmap-chat-calendars-server",
     "crate-jmap-chat-tasks-server",
     "crate-jmap-chat-federation-server",
+    "crate-jmap-chat-slack",
     "crate-jmap-scene-vtc-server",
     "crate-jmap-base-client",
     "crate-jmap-chat-client",
