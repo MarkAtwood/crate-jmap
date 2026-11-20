@@ -699,6 +699,7 @@ pub jmap_mail_types::EmailFilterCondition::some_in_thread_have_keyword: core::op
 pub jmap_mail_types::EmailFilterCondition::subject: core::option::Option<alloc::string::String>
 pub jmap_mail_types::EmailFilterCondition::text: core::option::Option<alloc::string::String>
 pub jmap_mail_types::EmailFilterCondition::to: core::option::Option<alloc::string::String>
+pub jmap_mail_types::EmailFilterCondition::where_: core::option::Option<serde_json::value::Value>
 impl jmap_mail_types::EmailFilterCondition
 pub fn jmap_mail_types::EmailFilterCondition::has_metadata_condition(&self) -> bool
 impl core::clone::Clone for jmap_mail_types::EmailFilterCondition

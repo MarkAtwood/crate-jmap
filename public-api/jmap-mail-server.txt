@@ -40,6 +40,7 @@ pub jmap_mail_server::emailpush::EmailCondition::SomeInThreadHaveKeyword
 pub jmap_mail_server::emailpush::EmailCondition::Subject
 pub jmap_mail_server::emailpush::EmailCondition::Text
 pub jmap_mail_server::emailpush::EmailCondition::To
+pub jmap_mail_server::emailpush::EmailCondition::Where
 impl jmap_mail_server::emailpush::EmailCondition
 pub fn jmap_mail_server::emailpush::EmailCondition::is_metadata(self) -> bool
 impl core::clone::Clone for jmap_mail_server::emailpush::EmailCondition
@@ -218,6 +219,7 @@ pub fn jmap_mail_server::memory::MemoryBackend::seed_object(&self, &jmap_types::
 pub fn jmap_mail_server::memory::MemoryBackend::store_blob(&self, &jmap_types::id::Id, alloc::vec::Vec<u8>)
 pub fn jmap_mail_server::memory::MemoryBackend::with_account(self, &jmap_types::id::Id) -> Self
 pub fn jmap_mail_server::memory::MemoryBackend::with_metadata_info(self, &str, jmap_metadata_types::capability::DataTypeMetadataInfo) -> Self
+pub fn jmap_mail_server::memory::MemoryBackend::with_search_capability(self, jmap_search::capability::SearchCapability) -> Self
 impl jmap_mail_server::memory::MemoryBackend
 pub fn jmap_mail_server::memory::MemoryBackend::set_email_push_account_for_test(&self, &jmap_types::id::Id, core::option::Option<jmap_mail_server::emailpush::EmailPushAccount>)
 pub fn jmap_mail_server::memory::MemoryBackend::set_push_max_bytes_for_test(&self, usize)
@@ -241,6 +243,7 @@ pub fn jmap_mail_server::memory::MemoryBackend::max_collapse_threads_emails(&sel
 pub fn jmap_mail_server::memory::MemoryBackend::max_delayed_send_seconds(&self, &Self::CallerCtx, &jmap_types::id::Id) -> u64
 pub async fn jmap_mail_server::memory::MemoryBackend::parse_email(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<jmap_mail_types::email::Email, Self::Error>
 pub async fn jmap_mail_server::memory::MemoryBackend::read_blob(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<core::option::Option<alloc::vec::Vec<u8>>, Self::Error>
+pub async fn jmap_mail_server::memory::MemoryBackend::search_capability(&self, &(), &jmap_types::id::Id) -> core::result::Result<core::option::Option<jmap_search::capability::SearchCapability>, jmap_mail_server::memory::MemoryError>
 pub async fn jmap_mail_server::memory::MemoryBackend::search_snippets(&self, &(), &jmap_types::id::Id, &[jmap_types::id::Id], core::option::Option<&jmap_mail_types::query::EmailFilterCondition>) -> core::result::Result<alloc::vec::Vec<jmap_mail_types::snippet::SearchSnippet>, Self::Error>
 pub fn jmap_mail_server::memory::MemoryBackend::supports_type<O: jmap_types::backend::JmapObject>(&self, &(), &jmap_types::id::Id) -> bool
 pub async fn jmap_mail_server::memory::MemoryBackend::update_object<O: jmap_types::backend::SetObject + core::marker::Send + core::marker::Sync>(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id, <O as jmap_types::backend::SetObject>::Patch) -> core::result::Result<core::option::Option<O>, jmap_server::backend::BackendSetError<Self::Error>>
@@ -311,6 +314,7 @@ pub fn jmap_mail_server::MailBackend::max_collapse_threads_emails(&self, &Self::
 pub fn jmap_mail_server::MailBackend::max_delayed_send_seconds(&self, &Self::CallerCtx, &jmap_types::id::Id) -> u64
 pub fn jmap_mail_server::MailBackend::parse_email(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<jmap_mail_types::email::Email, Self::Error>> + core::marker::Send
 pub fn jmap_mail_server::MailBackend::read_blob(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<core::option::Option<alloc::vec::Vec<u8>>, Self::Error>> + core::marker::Send
+pub fn jmap_mail_server::MailBackend::search_capability(&self, &Self::CallerCtx, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<core::option::Option<jmap_search::capability::SearchCapability>, Self::Error>> + core::marker::Send
 pub fn jmap_mail_server::MailBackend::search_snippets(&self, &Self::CallerCtx, &jmap_types::id::Id, &[jmap_types::id::Id], core::option::Option<&jmap_mail_types::query::EmailFilterCondition>) -> impl core::future::future::Future<Output = core::result::Result<alloc::vec::Vec<jmap_mail_types::snippet::SearchSnippet>, Self::Error>> + core::marker::Send
 pub fn jmap_mail_server::MailBackend::supports_type<O: jmap_types::backend::JmapObject>(&self, &Self::CallerCtx, &jmap_types::id::Id) -> bool
 pub fn jmap_mail_server::MailBackend::update_object<O: jmap_types::backend::SetObject + core::marker::Send + core::marker::Sync>(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id, <O as jmap_types::backend::SetObject>::Patch) -> impl core::future::future::Future<Output = core::result::Result<core::option::Option<O>, jmap_server::backend::BackendSetError<Self::Error>>> + core::marker::Send
@@ -329,6 +333,7 @@ pub fn jmap_mail_server::memory::MemoryBackend::max_collapse_threads_emails(&sel
 pub fn jmap_mail_server::memory::MemoryBackend::max_delayed_send_seconds(&self, &Self::CallerCtx, &jmap_types::id::Id) -> u64
 pub async fn jmap_mail_server::memory::MemoryBackend::parse_email(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<jmap_mail_types::email::Email, Self::Error>
 pub async fn jmap_mail_server::memory::MemoryBackend::read_blob(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<core::option::Option<alloc::vec::Vec<u8>>, Self::Error>
+pub async fn jmap_mail_server::memory::MemoryBackend::search_capability(&self, &(), &jmap_types::id::Id) -> core::result::Result<core::option::Option<jmap_search::capability::SearchCapability>, jmap_mail_server::memory::MemoryError>
 pub async fn jmap_mail_server::memory::MemoryBackend::search_snippets(&self, &(), &jmap_types::id::Id, &[jmap_types::id::Id], core::option::Option<&jmap_mail_types::query::EmailFilterCondition>) -> core::result::Result<alloc::vec::Vec<jmap_mail_types::snippet::SearchSnippet>, Self::Error>
 pub fn jmap_mail_server::memory::MemoryBackend::supports_type<O: jmap_types::backend::JmapObject>(&self, &(), &jmap_types::id::Id) -> bool
 pub async fn jmap_mail_server::memory::MemoryBackend::update_object<O: jmap_types::backend::SetObject + core::marker::Send + core::marker::Sync>(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id, <O as jmap_types::backend::SetObject>::Patch) -> core::result::Result<core::option::Option<O>, jmap_server::backend::BackendSetError<Self::Error>>

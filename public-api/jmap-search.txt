@@ -1,1 +1,138 @@
 pub mod jmap_search
+#[non_exhaustive] pub enum jmap_search::Bound
+pub jmap_search::Bound::Number(serde_json::number::Number)
+pub jmap_search::Bound::String(alloc::string::String)
+impl core::clone::Clone for jmap_search::Bound
+pub fn jmap_search::Bound::clone(&self) -> jmap_search::Bound
+impl core::cmp::Eq for jmap_search::Bound
+impl core::cmp::PartialEq for jmap_search::Bound
+pub fn jmap_search::Bound::eq(&self, &jmap_search::Bound) -> bool
+impl core::fmt::Debug for jmap_search::Bound
+pub fn jmap_search::Bound::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_search::Bound
+#[non_exhaustive] pub enum jmap_search::WhereError
+pub jmap_search::WhereError::Malformed(alloc::string::String)
+pub jmap_search::WhereError::UnknownOperator(alloc::string::String)
+impl jmap_search::WhereError
+pub fn jmap_search::WhereError::malformed(impl core::convert::Into<alloc::string::String>) -> Self
+impl core::clone::Clone for jmap_search::WhereError
+pub fn jmap_search::WhereError::clone(&self) -> jmap_search::WhereError
+impl core::cmp::Eq for jmap_search::WhereError
+impl core::cmp::PartialEq for jmap_search::WhereError
+pub fn jmap_search::WhereError::eq(&self, &jmap_search::WhereError) -> bool
+impl core::convert::From<jmap_search::WhereError> for jmap_types::error::JmapError
+pub fn jmap_types::error::JmapError::from(jmap_search::WhereError) -> Self
+impl core::error::Error for jmap_search::WhereError
+impl core::fmt::Debug for jmap_search::WhereError
+pub fn jmap_search::WhereError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_search::WhereError
+pub fn jmap_search::WhereError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_search::WhereError
+#[non_exhaustive] pub struct jmap_search::DataTypeSearchInfo
+pub jmap_search::DataTypeSearchInfo::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_search::DataTypeSearchInfo::supports_text: bool
+impl jmap_search::DataTypeSearchInfo
+pub fn jmap_search::DataTypeSearchInfo::new(bool) -> Self
+impl core::clone::Clone for jmap_search::DataTypeSearchInfo
+pub fn jmap_search::DataTypeSearchInfo::clone(&self) -> jmap_search::DataTypeSearchInfo
+impl core::cmp::Eq for jmap_search::DataTypeSearchInfo
+impl core::cmp::PartialEq for jmap_search::DataTypeSearchInfo
+pub fn jmap_search::DataTypeSearchInfo::eq(&self, &jmap_search::DataTypeSearchInfo) -> bool
+impl core::default::Default for jmap_search::DataTypeSearchInfo
+pub fn jmap_search::DataTypeSearchInfo::default() -> jmap_search::DataTypeSearchInfo
+impl core::fmt::Debug for jmap_search::DataTypeSearchInfo
+pub fn jmap_search::DataTypeSearchInfo::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_search::DataTypeSearchInfo
+impl serde_core::ser::Serialize for jmap_search::DataTypeSearchInfo
+pub fn jmap_search::DataTypeSearchInfo::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_search::DataTypeSearchInfo
+pub fn jmap_search::DataTypeSearchInfo::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_search::Expression
+pub jmap_search::Expression::and: core::option::Option<alloc::vec::Vec<jmap_search::Expression>>
+pub jmap_search::Expression::fields: alloc::collections::btree::map::BTreeMap<alloc::string::String, jmap_search::FieldTest>
+pub jmap_search::Expression::not: core::option::Option<alloc::boxed::Box<jmap_search::Expression>>
+pub jmap_search::Expression::or: core::option::Option<alloc::vec::Vec<jmap_search::Expression>>
+pub jmap_search::Expression::text: core::option::Option<alloc::string::String>
+impl jmap_search::Expression
+pub fn jmap_search::Expression::depth(&self) -> u64
+pub fn jmap_search::Expression::parse(&serde_json::value::Value) -> core::result::Result<Self, jmap_search::WhereError>
+pub fn jmap_search::Expression::to_value(&self) -> serde_json::value::Value
+pub fn jmap_search::Expression::visit(&self, &mut impl core::ops::function::FnMut(&jmap_search::Expression))
+impl jmap_search::Expression
+pub fn jmap_search::Expression::matches<C: jmap_search::Candidate + ?core::marker::Sized>(&self, &C) -> bool
+impl core::clone::Clone for jmap_search::Expression
+pub fn jmap_search::Expression::clone(&self) -> jmap_search::Expression
+impl core::cmp::PartialEq for jmap_search::Expression
+pub fn jmap_search::Expression::eq(&self, &jmap_search::Expression) -> bool
+impl core::default::Default for jmap_search::Expression
+pub fn jmap_search::Expression::default() -> jmap_search::Expression
+impl core::fmt::Debug for jmap_search::Expression
+pub fn jmap_search::Expression::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_search::Expression
+#[non_exhaustive] pub struct jmap_search::FieldTest
+pub jmap_search::FieldTest::collation: core::option::Option<alloc::string::String>
+pub jmap_search::FieldTest::contains: core::option::Option<alloc::string::String>
+pub jmap_search::FieldTest::eq: core::option::Option<serde_json::value::Value>
+pub jmap_search::FieldTest::exists: core::option::Option<bool>
+pub jmap_search::FieldTest::gt: core::option::Option<jmap_search::Bound>
+pub jmap_search::FieldTest::gte: core::option::Option<jmap_search::Bound>
+pub jmap_search::FieldTest::in_: core::option::Option<alloc::vec::Vec<serde_json::value::Value>>
+pub jmap_search::FieldTest::lt: core::option::Option<jmap_search::Bound>
+pub jmap_search::FieldTest::lte: core::option::Option<jmap_search::Bound>
+pub jmap_search::FieldTest::ne: core::option::Option<serde_json::value::Value>
+pub jmap_search::FieldTest::nin: core::option::Option<alloc::vec::Vec<serde_json::value::Value>>
+pub jmap_search::FieldTest::prefix: core::option::Option<alloc::string::String>
+impl jmap_search::FieldTest
+pub fn jmap_search::FieldTest::equal_to(serde_json::value::Value) -> Self
+pub fn jmap_search::FieldTest::parse(&serde_json::value::Value) -> core::result::Result<Self, jmap_search::WhereError>
+pub fn jmap_search::FieldTest::to_value(&self) -> serde_json::value::Value
+impl jmap_search::FieldTest
+pub fn jmap_search::FieldTest::matches(&self, core::option::Option<&serde_json::value::Value>) -> bool
+impl core::clone::Clone for jmap_search::FieldTest
+pub fn jmap_search::FieldTest::clone(&self) -> jmap_search::FieldTest
+impl core::cmp::Eq for jmap_search::FieldTest
+impl core::cmp::PartialEq for jmap_search::FieldTest
+pub fn jmap_search::FieldTest::eq(&self, &jmap_search::FieldTest) -> bool
+impl core::default::Default for jmap_search::FieldTest
+pub fn jmap_search::FieldTest::default() -> jmap_search::FieldTest
+impl core::fmt::Debug for jmap_search::FieldTest
+pub fn jmap_search::FieldTest::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_search::FieldTest
+#[non_exhaustive] pub struct jmap_search::SearchCapability
+pub jmap_search::SearchCapability::data_types: alloc::collections::btree::map::BTreeMap<alloc::string::String, jmap_search::DataTypeSearchInfo>
+pub jmap_search::SearchCapability::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_search::SearchCapability::max_depth: u64
+impl jmap_search::SearchCapability
+pub fn jmap_search::SearchCapability::data_type(&self, &str) -> core::option::Option<&jmap_search::DataTypeSearchInfo>
+pub fn jmap_search::SearchCapability::new(u64) -> Self
+pub fn jmap_search::SearchCapability::with_data_type(self, &str, jmap_search::DataTypeSearchInfo) -> Self
+impl core::clone::Clone for jmap_search::SearchCapability
+pub fn jmap_search::SearchCapability::clone(&self) -> jmap_search::SearchCapability
+impl core::cmp::Eq for jmap_search::SearchCapability
+impl core::cmp::PartialEq for jmap_search::SearchCapability
+pub fn jmap_search::SearchCapability::eq(&self, &jmap_search::SearchCapability) -> bool
+impl core::default::Default for jmap_search::SearchCapability
+pub fn jmap_search::SearchCapability::default() -> jmap_search::SearchCapability
+impl core::fmt::Debug for jmap_search::SearchCapability
+pub fn jmap_search::SearchCapability::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_search::SearchCapability
+impl serde_core::ser::Serialize for jmap_search::SearchCapability
+pub fn jmap_search::SearchCapability::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_search::SearchCapability
+pub fn jmap_search::SearchCapability::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub const jmap_search::COLLATIONS: &[&str]
+pub const jmap_search::JMAP_SEARCH_URI: &str
+pub const jmap_search::QUERY_TOO_COMPLEX: &str
+pub trait jmap_search::Candidate
+pub fn jmap_search::Candidate::field(&self, &str) -> core::option::Option<&serde_json::value::Value>
+pub fn jmap_search::Candidate::matches_text(&self, &str) -> bool
+impl jmap_search::Candidate for serde_json::value::Value
+pub fn serde_json::value::Value::field(&self, &str) -> core::option::Option<&serde_json::value::Value>
+pub fn serde_json::value::Value::matches_text(&self, &str) -> bool
+pub fn jmap_search::check_where(&serde_json::value::Value, &str, &jmap_search::SearchCapability) -> core::result::Result<jmap_search::Expression, jmap_types::error::JmapError>
+pub fn jmap_search::check_where_filter(core::option::Option<&serde_json::value::Value>, &str, &[alloc::string::String], core::option::Option<&jmap_search::SearchCapability>) -> core::result::Result<bool, jmap_types::error::JmapError>
+pub fn jmap_search::collate<'s>(&'s str, core::option::Option<&str>) -> alloc::borrow::Cow<'s, str>
+pub fn jmap_search::filter_uses_where(&serde_json::value::Value) -> bool
+pub fn jmap_search::is_json_pointer(&str) -> bool
+pub fn jmap_search::is_supported_collation(&str) -> bool
+pub fn jmap_search::where_values(&serde_json::value::Value) -> alloc::vec::Vec<&serde_json::value::Value>

@@ -39,6 +39,7 @@ pub fn jmap_chat_server::memory::MemoryBackend::with_account(self, &jmap_types::
 pub fn jmap_chat_server::memory::MemoryBackend::with_change_log_limit(self, usize) -> Self
 pub fn jmap_chat_server::memory::MemoryBackend::with_event_limit(self, usize) -> Self
 pub fn jmap_chat_server::memory::MemoryBackend::with_metadata_info(self, &str, jmap_metadata_types::capability::DataTypeMetadataInfo) -> Self
+pub fn jmap_chat_server::memory::MemoryBackend::with_search_capability(self, jmap_search::capability::SearchCapability) -> Self
 impl core::clone::Clone for jmap_chat_server::memory::MemoryBackend
 pub fn jmap_chat_server::memory::MemoryBackend::clone(&self) -> Self
 impl core::default::Default for jmap_chat_server::memory::MemoryBackend
@@ -76,6 +77,7 @@ pub fn jmap_chat_server::memory::MemoryBackend::limits(&self, &(), &jmap_types::
 pub fn jmap_chat_server::memory::MemoryBackend::maintains_unread_count(&self) -> bool
 pub async fn jmap_chat_server::memory::MemoryBackend::owner_user_id(&self, &(), &jmap_types::id::Id) -> core::result::Result<core::option::Option<alloc::string::String>, Self::Error>
 pub fn jmap_chat_server::memory::MemoryBackend::retains_edit_history(&self) -> bool
+pub async fn jmap_chat_server::memory::MemoryBackend::search_capability(&self, &(), &jmap_types::id::Id) -> core::result::Result<core::option::Option<jmap_search::capability::SearchCapability>, Self::Error>
 impl jmap_chat_server::ChatSpaces for jmap_chat_server::memory::MemoryBackend
 pub async fn jmap_chat_server::memory::MemoryBackend::apply_space_metadata_patch(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id, jmap_chat_types::space_set::SpaceMetadataPatch) -> core::result::Result<core::option::Option<jmap_chat_types::space::Space>, jmap_server::backend::BackendSetError<Self::Error>>
 pub async fn jmap_chat_server::memory::MemoryBackend::apply_space_patch(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id, alloc::vec::Vec<jmap_chat_types::space_set::SpacePatchOp>) -> core::result::Result<alloc::vec::Vec<jmap_chat_server::OpResult>, jmap_server::backend::BackendSetError<Self::Error>>
@@ -639,16 +641,19 @@ pub fn jmap_chat_server::ChatSettings::limits(&self, &Self::CallerCtx, &jmap_typ
 pub fn jmap_chat_server::ChatSettings::maintains_unread_count(&self) -> bool
 pub fn jmap_chat_server::ChatSettings::owner_user_id(&self, &Self::CallerCtx, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<core::option::Option<alloc::string::String>, Self::Error>> + core::marker::Send
 pub fn jmap_chat_server::ChatSettings::retains_edit_history(&self) -> bool
+pub fn jmap_chat_server::ChatSettings::search_capability(&self, &Self::CallerCtx, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<core::option::Option<jmap_search::capability::SearchCapability>, Self::Error>> + core::marker::Send
 impl jmap_chat_server::ChatSettings for jmap_chat_server::memory::MemoryBackend
 pub fn jmap_chat_server::memory::MemoryBackend::limits(&self, &(), &jmap_types::id::Id) -> jmap_chat_server::ChatLimits
 pub fn jmap_chat_server::memory::MemoryBackend::maintains_unread_count(&self) -> bool
 pub async fn jmap_chat_server::memory::MemoryBackend::owner_user_id(&self, &(), &jmap_types::id::Id) -> core::result::Result<core::option::Option<alloc::string::String>, Self::Error>
 pub fn jmap_chat_server::memory::MemoryBackend::retains_edit_history(&self) -> bool
+pub async fn jmap_chat_server::memory::MemoryBackend::search_capability(&self, &(), &jmap_types::id::Id) -> core::result::Result<core::option::Option<jmap_search::capability::SearchCapability>, Self::Error>
 impl<T: jmap_chat_server::DelegateChatSettings> jmap_chat_server::ChatSettings for T
 pub fn T::limits(&self, &Self::CallerCtx, &jmap_types::id::Id) -> jmap_chat_server::ChatLimits
 pub fn T::maintains_unread_count(&self) -> bool
 pub fn T::owner_user_id(&self, &Self::CallerCtx, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<core::option::Option<alloc::string::String>, Self::Error>> + core::marker::Send
 pub fn T::retains_edit_history(&self) -> bool
+pub fn T::search_capability(&self, &Self::CallerCtx, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<core::option::Option<jmap_search::capability::SearchCapability>, Self::Error>> + core::marker::Send
 pub trait jmap_chat_server::ChatSpaces: jmap_server::backend::JmapBackend
 pub fn jmap_chat_server::ChatSpaces::apply_space_metadata_patch(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id, jmap_chat_types::space_set::SpaceMetadataPatch) -> impl core::future::future::Future<Output = core::result::Result<core::option::Option<jmap_chat_types::space::Space>, jmap_server::backend::BackendSetError<Self::Error>>> + core::marker::Send
 pub fn jmap_chat_server::ChatSpaces::apply_space_patch(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id, alloc::vec::Vec<jmap_chat_types::space_set::SpacePatchOp>) -> impl core::future::future::Future<Output = core::result::Result<alloc::vec::Vec<jmap_chat_server::OpResult>, jmap_server::backend::BackendSetError<Self::Error>>> + core::marker::Send

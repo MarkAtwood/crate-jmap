@@ -1,7 +1,11 @@
 pub mod jmap_graph_types
+pub use jmap_graph_types::Bound
+pub use jmap_graph_types::FieldTest
 pub use jmap_graph_types::Filter
 pub use jmap_graph_types::FilterOperator
 pub use jmap_graph_types::Operator
+pub use jmap_graph_types::QUERY_TOO_COMPLEX
+pub use jmap_graph_types::WhereError
 pub mod jmap_graph_types::provenance_property
 pub const jmap_graph_types::provenance_property::BASIS: &str
 pub const jmap_graph_types::provenance_property::CONFIDENCE: &str
@@ -15,17 +19,6 @@ pub const jmap_graph_types::provenance_property::RETENTION: &str
 pub const jmap_graph_types::provenance_property::STATUS: &str
 pub const jmap_graph_types::provenance_property::VALID_FOR: &str
 pub const jmap_graph_types::provenance_property::VALID_UNTIL: &str
-#[non_exhaustive] pub enum jmap_graph_types::Bound
-pub jmap_graph_types::Bound::Number(serde_json::number::Number)
-pub jmap_graph_types::Bound::String(alloc::string::String)
-impl core::clone::Clone for jmap_graph_types::Bound
-pub fn jmap_graph_types::Bound::clone(&self) -> jmap_graph_types::Bound
-impl core::cmp::Eq for jmap_graph_types::Bound
-impl core::cmp::PartialEq for jmap_graph_types::Bound
-pub fn jmap_graph_types::Bound::eq(&self, &jmap_graph_types::Bound) -> bool
-impl core::fmt::Debug for jmap_graph_types::Bound
-pub fn jmap_graph_types::Bound::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
-impl core::marker::StructuralPartialEq for jmap_graph_types::Bound
 pub enum jmap_graph_types::CandidateKind
 pub jmap_graph_types::CandidateKind::Edge
 pub jmap_graph_types::CandidateKind::Node
@@ -279,22 +272,6 @@ impl serde_core::ser::Serialize for jmap_graph_types::RecordStatus
 pub fn jmap_graph_types::RecordStatus::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
 impl<'de> serde_core::de::Deserialize<'de> for jmap_graph_types::RecordStatus
 pub fn jmap_graph_types::RecordStatus::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
-#[non_exhaustive] pub enum jmap_graph_types::WhereError
-pub jmap_graph_types::WhereError::Malformed(alloc::string::String)
-pub jmap_graph_types::WhereError::UnknownOperator(alloc::string::String)
-impl core::clone::Clone for jmap_graph_types::WhereError
-pub fn jmap_graph_types::WhereError::clone(&self) -> jmap_graph_types::WhereError
-impl core::cmp::Eq for jmap_graph_types::WhereError
-impl core::cmp::PartialEq for jmap_graph_types::WhereError
-pub fn jmap_graph_types::WhereError::eq(&self, &jmap_graph_types::WhereError) -> bool
-impl core::convert::From<jmap_graph_types::WhereError> for jmap_types::error::JmapError
-pub fn jmap_types::error::JmapError::from(jmap_graph_types::WhereError) -> Self
-impl core::error::Error for jmap_graph_types::WhereError
-impl core::fmt::Debug for jmap_graph_types::WhereError
-pub fn jmap_graph_types::WhereError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
-impl core::fmt::Display for jmap_graph_types::WhereError
-pub fn jmap_graph_types::WhereError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
-impl core::marker::StructuralPartialEq for jmap_graph_types::WhereError
 #[non_exhaustive] pub struct jmap_graph_types::EdgeTest
 pub jmap_graph_types::EdgeTest::direction: jmap_graph_types::Direction
 pub jmap_graph_types::EdgeTest::edge: core::option::Option<jmap_graph_types::Expression>
@@ -312,7 +289,7 @@ impl core::marker::StructuralPartialEq for jmap_graph_types::EdgeTest
 #[non_exhaustive] pub struct jmap_graph_types::Expression
 pub jmap_graph_types::Expression::and: core::option::Option<alloc::vec::Vec<jmap_graph_types::Expression>>
 pub jmap_graph_types::Expression::edge: core::option::Option<alloc::boxed::Box<jmap_graph_types::EdgeTest>>
-pub jmap_graph_types::Expression::fields: alloc::collections::btree::map::BTreeMap<alloc::string::String, jmap_graph_types::FieldTest>
+pub jmap_graph_types::Expression::fields: alloc::collections::btree::map::BTreeMap<alloc::string::String, jmap_search::expr::FieldTest>
 pub jmap_graph_types::Expression::from: core::option::Option<alloc::boxed::Box<jmap_graph_types::Expression>>
 pub jmap_graph_types::Expression::not: core::option::Option<alloc::boxed::Box<jmap_graph_types::Expression>>
 pub jmap_graph_types::Expression::or: core::option::Option<alloc::vec::Vec<jmap_graph_types::Expression>>
@@ -320,7 +297,7 @@ pub jmap_graph_types::Expression::reachable: core::option::Option<alloc::boxed::
 pub jmap_graph_types::Expression::text: core::option::Option<alloc::string::String>
 pub jmap_graph_types::Expression::to: core::option::Option<alloc::boxed::Box<jmap_graph_types::Expression>>
 impl jmap_graph_types::Expression
-pub fn jmap_graph_types::Expression::parse(&serde_json::value::Value, jmap_graph_types::CandidateKind) -> core::result::Result<Self, jmap_graph_types::WhereError>
+pub fn jmap_graph_types::Expression::parse(&serde_json::value::Value, jmap_graph_types::CandidateKind) -> core::result::Result<Self, jmap_search::expr::WhereError>
 pub fn jmap_graph_types::Expression::to_value(&self) -> serde_json::value::Value
 pub fn jmap_graph_types::Expression::traversal_depth(&self) -> u64
 impl core::clone::Clone for jmap_graph_types::Expression
@@ -332,31 +309,6 @@ pub fn jmap_graph_types::Expression::default() -> jmap_graph_types::Expression
 impl core::fmt::Debug for jmap_graph_types::Expression
 pub fn jmap_graph_types::Expression::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for jmap_graph_types::Expression
-#[non_exhaustive] pub struct jmap_graph_types::FieldTest
-pub jmap_graph_types::FieldTest::collation: core::option::Option<alloc::string::String>
-pub jmap_graph_types::FieldTest::contains: core::option::Option<alloc::string::String>
-pub jmap_graph_types::FieldTest::eq: core::option::Option<serde_json::value::Value>
-pub jmap_graph_types::FieldTest::exists: core::option::Option<bool>
-pub jmap_graph_types::FieldTest::gt: core::option::Option<jmap_graph_types::Bound>
-pub jmap_graph_types::FieldTest::gte: core::option::Option<jmap_graph_types::Bound>
-pub jmap_graph_types::FieldTest::in_: core::option::Option<alloc::vec::Vec<serde_json::value::Value>>
-pub jmap_graph_types::FieldTest::lt: core::option::Option<jmap_graph_types::Bound>
-pub jmap_graph_types::FieldTest::lte: core::option::Option<jmap_graph_types::Bound>
-pub jmap_graph_types::FieldTest::ne: core::option::Option<serde_json::value::Value>
-pub jmap_graph_types::FieldTest::nin: core::option::Option<alloc::vec::Vec<serde_json::value::Value>>
-pub jmap_graph_types::FieldTest::prefix: core::option::Option<alloc::string::String>
-impl jmap_graph_types::FieldTest
-pub fn jmap_graph_types::FieldTest::equal_to(serde_json::value::Value) -> Self
-impl core::clone::Clone for jmap_graph_types::FieldTest
-pub fn jmap_graph_types::FieldTest::clone(&self) -> jmap_graph_types::FieldTest
-impl core::cmp::Eq for jmap_graph_types::FieldTest
-impl core::cmp::PartialEq for jmap_graph_types::FieldTest
-pub fn jmap_graph_types::FieldTest::eq(&self, &jmap_graph_types::FieldTest) -> bool
-impl core::default::Default for jmap_graph_types::FieldTest
-pub fn jmap_graph_types::FieldTest::default() -> jmap_graph_types::FieldTest
-impl core::fmt::Debug for jmap_graph_types::FieldTest
-pub fn jmap_graph_types::FieldTest::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
-impl core::marker::StructuralPartialEq for jmap_graph_types::FieldTest
 #[non_exhaustive] pub struct jmap_graph_types::Graph
 pub jmap_graph_types::Graph::annotations: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
 pub jmap_graph_types::Graph::created: jmap_types::id::UTCDate
@@ -943,6 +895,5 @@ pub const jmap_graph_types::JMAP_URI_GRAPH_TYPE: &str
 pub const jmap_graph_types::MAX_EVIDENCE_EDGES: usize
 pub const jmap_graph_types::MAX_PURPOSES: usize
 pub const jmap_graph_types::OPS_COMPACTED: &str
-pub const jmap_graph_types::QUERY_TOO_COMPLEX: &str
 pub const jmap_graph_types::RETENTION_DAYS: core::ops::range::RangeInclusive<u64>
 pub type jmap_graph_types::GraphFilter = jmap_types::query::Filter<jmap_graph_types::GraphFilterCondition>

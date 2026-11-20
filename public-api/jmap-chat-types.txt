@@ -1658,6 +1658,7 @@ pub jmap_chat_types::MessageFilterCondition::private_metadata_text_equals: core:
 pub jmap_chat_types::MessageFilterCondition::text: core::option::Option<alloc::string::String>
 pub jmap_chat_types::MessageFilterCondition::thread_root_id: core::option::Option<jmap_types::id::Id>
 pub jmap_chat_types::MessageFilterCondition::topic_id: core::option::Option<alloc::string::String>
+pub jmap_chat_types::MessageFilterCondition::where_: core::option::Option<serde_json::value::Value>
 impl jmap_chat_types::MessageFilterCondition
 pub fn jmap_chat_types::MessageFilterCondition::has_metadata_condition(&self) -> bool
 impl core::clone::Clone for jmap_chat_types::MessageFilterCondition
