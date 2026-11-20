@@ -3,11 +3,13 @@
   "title": "vtc spec: recording pause capability, push-mode schemes, layout (from broadcast research)",
   "description": "From docs/design/vtc-broadcast-research.md (JMAP-po6q.3-.5). For jmap-chat-spec (xpzz is closed): S1 add supportsRecordingPause (pause fits only GStreamer natively); S2 livestreamPushSchemes + streamKey placement per protocol; G1 optional layout property or state layout is deployment policy. Also crate side for po6q.2: start media in post-commit hooks, not inside create_object's atomic step; add a server-initiated media_report path via update_object_if. Mark's call on the spec items.",
   "notes": "2026-11-20: Mark decided S1 capability flag supportsRecordingPause, S2 livestreamPushSchemes + stream key presentation, G1 optional layout + account layouts. Spec text approved and pushed as jmap-chat-spec 125749a. Crate implementation running in a worktree agent.",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "task",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-20T00:53:32.943657796Z",
   "created_by": "Mark Atwood",
-  "updated_at": "2026-11-20T06:02:07.379063509Z"
+  "updated_at": "2026-11-20T06:35:54.762095537Z",
+  "closed_at": "2026-11-20T06:35:54.762095537Z",
+  "close_reason": "Spec jmap-chat-spec 125749a; crates landed (VTC capability fields, layout, pause/scheme/layout checks, media effects). Workspace 8508 passed 0 failed."
 }
