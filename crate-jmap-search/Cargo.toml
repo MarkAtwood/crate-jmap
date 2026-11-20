@@ -6,13 +6,28 @@ repository.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
-description = "JMAP search (planned): reserved umbrella for a generic filter-expression extension; no public items yet"
-keywords = ["jmap", "search", "query"]
-categories = ["network-programming"]
+description = "JMAP Search (urn:ietf:params:jmap:search): one where filter language for every data type's /query — capability, expression AST, checks and evaluator"
+keywords = ["jmap", "search", "query", "filter"]
+categories = ["encoding", "network-programming"]
 exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
 
-# No dependencies: the jmap-search-types, -client and -server crates this
-# umbrella will re-export do not exist in the workspace yet (bd JMAP-nn3i).
+[features]
+# The evaluator (`Candidate`, `Expression::matches`, `FieldTest::matches`,
+# `collate`). Off by default so type and client crates that only build or
+# check expressions do not pull in the ICU collation data.
+eval = ["dep:icu_casemap", "dep:icu_normalizer"]
+
+[dependencies]
+jmap-types = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+# RFC 5051 i;unicode-casemap for `$collation` (docs/specs/jmap-search.md
+# §Collation), as in jmap-metadata-server.
+icu_casemap = { workspace = true, optional = true }
+icu_normalizer = { workspace = true, optional = true }
+
+[dev-dependencies]
+jmap-search = { path = ".", features = ["eval"] }
 
 [package.metadata.docs.rs]
 all-features = true
