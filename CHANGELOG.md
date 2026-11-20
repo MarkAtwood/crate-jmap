@@ -1248,6 +1248,37 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-vtc-types**: recording pause capability, push
+  schemes and composition layouts (jmap-chat-spec 125749a,
+  bd:JMAP-4j03). `VtcCapability` gains `supports_recording_pause`
+  (`supportsRecordingPause`, optional on the wire, default `true`) and the
+  required `livestream_push_schemes` (`livestreamPushSchemes`) and
+  `layouts`, so a capability object without the last two no longer
+  deserializes; `VtcCapability::accepts_push_scheme` compares a scheme
+  case-insensitively. New open string enum `CompositionLayout` (`grid`,
+  `speaker`, `single-speaker`, `Other` for reverse-domain layouts).
+  `VtcRecording` and `VtcLivestream` gain `layout:
+  Option<CompositionLayout>` (absent reads as `null`, always serialized);
+  `layout` is client-settable on both.
+- **BREAKING** **jmap-vtc-server**: `VTCRecording/set` refuses
+  `"recording"` → `"paused"` with `invalidProperties` naming `state` when
+  the account's `supportsRecordingPause` is `false`. `VTCLivestream/set`
+  refuses a push-mode `streamUri` whose scheme is not in
+  `livestreamPushSchemes` (`invalidProperties` naming `streamUri`), so an
+  account with an empty list accepts no push livestream. Both take an
+  optional `layout`, which must be `null` or listed in the account's
+  `layouts`, on create and on update; an update changes it only while a
+  recording is `"recording"` or `"paused"` and a livestream `"starting"` or
+  `"live"`, checked again by `update_object_if` with the write, else
+  `invalidProperties` naming `layout`. New `MediaEffect` variants
+  `ChangeRecordingLayout` and `ChangeLivestreamLayout` request the new
+  layout from the media plane; the start effects carry the create's
+  layout. A media plane that cannot pause advertises
+  `supportsRecordingPause: false` through `VtcBackend::vtc_capability`
+  (documented on `MediaEffect::PauseRecording`); the jmap-vtc-aws docs say
+  what an IVS deployment advertises (hosted only, no push schemes, layout
+  left to the compositor). (bd:JMAP-4j03)
+
 - **BREAKING** **jmap-server**, every reference `MemoryBackend`: one caller
   type for all the in-memory backends, so one `Dispatcher<C>` hosts every
   family's handlers, conditional-02 `SetSupport` included, without a

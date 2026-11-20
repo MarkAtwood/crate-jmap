@@ -25,6 +25,14 @@
 //!    the deployment calls [`IvsLivestreams::stop`] (`StopStream`, then
 //!    `DeleteChannel`).
 //!
+//! The channel only ingests the feed the deployment's compositor makes, so
+//! the livestream's `layout` and
+//! [`MediaEffect::ChangeLivestreamLayout`](jmap_vtc_server::MediaEffect::ChangeLivestreamLayout)
+//! are the compositor's, not this module's. A deployment using this module
+//! alone advertises `livestreamModes: ["hosted"]` and
+//! `livestreamPushSchemes: []`: [`IvsLivestreams::start`] refuses push
+//! mode.
+//!
 //! [`IvsClient`] is the API underneath, usable on its own.
 
 mod api;

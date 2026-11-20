@@ -23,6 +23,8 @@ fn capability(may_create: bool) -> VtcCapability {
         "supportsRecording": false,
         "supportsLivestream": false,
         "livestreamModes": [],
+        "livestreamPushSchemes": [],
+        "layouts": [],
         "supportsLobby": false,
         "supportsBreakoutRooms": false,
         "supportedMediaTypes": ["audio"]

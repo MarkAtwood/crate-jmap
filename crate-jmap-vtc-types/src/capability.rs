@@ -93,6 +93,8 @@ impl_string_enum!(GatewayProtocol, "a VTC gateway protocol string",
 ///     "supportsRecording": false,
 ///     "supportsLivestream": false,
 ///     "livestreamModes": [],
+///     "livestreamPushSchemes": [],
+///     "layouts": [],
 ///     "supportsLobby": false,
 ///     "supportsBreakoutRooms": false,
 ///     "supportedMediaTypes": ["audio", "video"],
@@ -101,6 +103,7 @@ impl_string_enum!(GatewayProtocol, "a VTC gateway protocol string",
 /// }"#)?;
 /// assert_eq!(cap.max_participants_per_call, Some(50));
 /// assert_eq!(cap.max_breakout_rooms, None);
+/// assert!(cap.supports_recording_pause); // absent: the default, `true`
 /// # Ok::<(), serde_json::Error>(())
 /// ```
 #[non_exhaustive]
@@ -123,6 +126,23 @@ pub struct VtcCapability {
     /// The VTCLivestream modes the server accepts: one or both of `"push"`
     /// and `"hosted"`. Empty when `supports_livestream` is `false`.
     pub livestream_modes: Vec<crate::LivestreamMode>,
+    /// `true` if the server supports pausing and resuming a VTCRecording
+    /// (§Pausing, Resuming, and Stopping a Recording). Optional on the
+    /// wire, "Default: `true`"; always serialized. "A client SHOULD NOT
+    /// offer a pause control when it is `false`."
+    #[serde(default = "default_true")]
+    pub supports_recording_pause: bool,
+    /// The URI schemes the server accepts in a push-mode `streamUri`, in
+    /// lowercase, for example `"rtmp"`, `"rtmps"`, `"srt"` and `"https"`
+    /// (a WHIP ingest endpoint, RFC 9725). Empty when `livestream_modes`
+    /// does not include `"push"`. The draft lists them in lowercase and
+    /// URI schemes compare case-insensitively (RFC 3986 §3.1); see
+    /// [`Self::accepts_push_scheme`].
+    pub livestream_push_schemes: Vec<String>,
+    /// The composition layouts the server accepts in the `layout` of
+    /// VTCRecording and VTCLivestream (§Composition Layouts). Empty when
+    /// the server offers no choice of layout.
+    pub layouts: Vec<crate::CompositionLayout>,
     /// `true` if the server supports lobby (waiting-room) mode.
     pub supports_lobby: bool,
     /// `true` if the server supports breakout rooms.
@@ -154,6 +174,37 @@ pub struct VtcCapability {
     /// policy (see workspace AGENTS.md).
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
     pub extra: serde_json::Map<String, serde_json::Value>,
+}
+
+fn default_true() -> bool {
+    true
+}
+
+impl VtcCapability {
+    /// `true` if `scheme` is in [`Self::livestream_push_schemes`], compared
+    /// ASCII case-insensitively: "schemes are case-insensitive" (RFC 3986
+    /// §3.1), and the draft lists them "in lowercase".
+    ///
+    /// ```
+    /// # use jmap_vtc_types::VtcCapability;
+    /// # let cap: VtcCapability = serde_json::from_value(serde_json::json!({
+    /// #     "mayCreateCall": true, "supportsRingCalls": true,
+    /// #     "supportsRoomCalls": true, "supportsScheduledCalls": false,
+    /// #     "supportsRecording": false, "supportsLivestream": true,
+    /// #     "livestreamModes": ["push"], "livestreamPushSchemes": ["rtmps"],
+    /// #     "layouts": [], "supportsLobby": false,
+    /// #     "supportsBreakoutRooms": false, "supportedMediaTypes": ["audio"],
+    /// #     "maxParticipantsPerCall": null, "maxConcurrentCalls": null
+    /// # }))?;
+    /// assert!(cap.accepts_push_scheme("RTMPS"));
+    /// assert!(!cap.accepts_push_scheme("rtmp"));
+    /// # Ok::<(), serde_json::Error>(())
+    /// ```
+    pub fn accepts_push_scheme(&self, scheme: &str) -> bool {
+        self.livestream_push_schemes
+            .iter()
+            .any(|s| s.eq_ignore_ascii_case(scheme))
+    }
 }
 
 /// A protocol gateway through which external telephony or
@@ -238,6 +289,9 @@ mod tests {
             "supportsRecording": false,
             "supportsLivestream": false,
             "livestreamModes": [],
+            "supportsRecordingPause": false,
+            "livestreamPushSchemes": [],
+            "layouts": ["grid", "speaker", "com.example.stage"],
             "supportsLobby": true,
             "supportsBreakoutRooms": true,
             "supportedMediaTypes": ["audio", "video", "screen"],
@@ -299,6 +353,37 @@ mod tests {
     }
 
     #[test]
+    fn recording_pause_layouts_and_push_schemes() {
+        // Oracle: jmap-chat-spec 125749a §Account-Level Capability Object:
+        // `supportsRecordingPause` "(Boolean, optional) ... Default:
+        // `true`"; `livestreamPushSchemes` "(String[]) ... in lowercase";
+        // `layouts` "(String[])".
+        let cap: VtcCapability = serde_json::from_value(sample()).unwrap();
+        assert!(!cap.supports_recording_pause);
+        assert_eq!(
+            cap.layouts,
+            [
+                crate::CompositionLayout::Grid,
+                crate::CompositionLayout::Speaker,
+                crate::CompositionLayout::Other("com.example.stage".into())
+            ]
+        );
+        let mut raw = sample();
+        raw.as_object_mut()
+            .unwrap()
+            .remove("supportsRecordingPause");
+        raw["livestreamPushSchemes"] = json!(["rtmps", "srt", "https"]);
+        let cap: VtcCapability = serde_json::from_value(raw).unwrap();
+        assert!(cap.supports_recording_pause, "absent means true");
+        assert!(cap.accepts_push_scheme("rtmps"));
+        assert!(
+            cap.accepts_push_scheme("SRT"),
+            "schemes are case-insensitive"
+        );
+        assert!(!cap.accepts_push_scheme("rtmp"));
+    }
+
+    #[test]
     fn null_limits_serialize_as_null() {
         // Oracle: L177-181 types the limits "UnsignedInt|null": the
         // property is present with a `null` value.
@@ -355,6 +440,8 @@ mod tests {
             "supportsRecording",
             "supportsLivestream",
             "livestreamModes",
+            "livestreamPushSchemes",
+            "layouts",
             "supportsLobby",
             "supportsBreakoutRooms",
             "supportedMediaTypes",

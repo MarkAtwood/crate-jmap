@@ -50,6 +50,8 @@ fn backend() -> MemoryBackend {
         "supportsRecording": true,
         "supportsLivestream": true,
         "livestreamModes": ["push", "hosted"],
+        "livestreamPushSchemes": ["rtmp", "rtmps"],
+        "layouts": [],
         "supportsLobby": true,
         "supportsBreakoutRooms": true,
         "supportedMediaTypes": ["audio", "video"],

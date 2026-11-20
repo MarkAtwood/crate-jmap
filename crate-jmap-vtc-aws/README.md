@@ -129,10 +129,19 @@ is a plain struct built with `..Default::default()`.
   moderator's `streamUri`, so the compositor pushes there directly.
 - **No compositor.** The crate provisions the channel and hands back the
   RTMPS URL and stream key. Turning the call into one feed (LiveKit Egress,
-  GStreamer) is the deployment's (research §2).
+  GStreamer) is the deployment's (research §2). So is the `layout`: the
+  livestream's `layout` and `MediaEffect::ChangeLivestreamLayout` go to the
+  compositor, and the account's `layouts` list what the compositor can draw
+  (an empty list if it offers no choice).
+- **What to advertise.** With this crate as the only livestream backend,
+  `livestreamModes` is `["hosted"]` and `livestreamPushSchemes` is `[]`.
 - **Recordings are not covered.** IVS recording to S3 writes HLS segments,
   not the one file a `VTCRecording` blob needs, and IVS has no pause; a
-  remux step and the recording effects are left for later.
+  remux step and the recording effects are left for later. A deployment
+  that records through IVS composition, which cannot pause, advertises
+  `supportsRecordingPause: false` (or records each unpaused interval and
+  joins them while `"processing"`); IVS composition offers grid and
+  picture-in-picture layouts only.
 - **Not covered:** IVS Real-Time stages and server-side composition,
   MediaLive and MediaPackage (DRM, DASH, DVR windows), CloudFront signed
   URLs, `timeReference`, caption tracks, credential discovery (environment,

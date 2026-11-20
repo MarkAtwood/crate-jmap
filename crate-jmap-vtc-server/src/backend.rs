@@ -93,12 +93,35 @@ pub enum MediaEffect {
     /// Recording).
     StartRecording(VtcRecording),
     /// Pause a recording now `"paused"`.
+    ///
+    /// A media plane that cannot pause (IVS server-side composition and
+    /// LiveKit Egress have no pause, docs/design/vtc-broadcast-research.md
+    /// S1) either emulates it, recording each unpaused interval and joining
+    /// them while `"processing"` ("a server MAY produce it by recording
+    /// each unpaused interval separately and joining them"), or the
+    /// deployment advertises `supportsRecordingPause: false` in
+    /// [`VtcBackend::vtc_capability`]; `VTCRecording/set` then refuses
+    /// `"paused"` and never requests this effect.
     PauseRecording(VtcRecording),
     /// Resume a recording now `"recording"` again.
     ResumeRecording(VtcRecording),
     /// Stop a recording now `"stopped"`; the backend then reports
     /// `"processing"` and `"available"` or `"failed"`.
     StopRecording(VtcRecording),
+    /// Re-arrange a recording, still `"recording"` or `"paused"`, in its
+    /// new `layout` (draft-atwood-jmap-vtc-00 §Composition Layouts: "the
+    /// new layout applies from then on"). `None` is the deployment's
+    /// default layout.
+    ///
+    /// The start effects carry the create's `layout` in the object, so a
+    /// recording or livestream created with a layout needs no separate
+    /// effect. A layout change in the same update as a pause or resume
+    /// follows that effect; one in the same update as a stop requests none.
+    ChangeRecordingLayout(VtcRecording),
+    /// Re-arrange a livestream, still `"starting"` or `"live"`, in its new
+    /// `layout`, as for [`Self::ChangeRecordingLayout`]. A layout change in
+    /// the same update as a stop requests only the stop.
+    ChangeLivestreamLayout(VtcLivestream),
 }
 
 /// Storage backend for the JMAP VTC method handlers
@@ -158,7 +181,14 @@ pub trait VtcBackend: JmapBackend {
     ///
     /// `VTCCall/set` create reads `mayCreateCall`, `supportsRingCalls`,
     /// `supportsRoomCalls`, `supportsScheduledCalls` and
-    /// `supportedMediaTypes` from it. Return the value the Session object
+    /// `supportedMediaTypes` from it; `VTCRecording/set` reads
+    /// `supportsRecording`, `supportsRecordingPause` and `layouts`;
+    /// `VTCLivestream/set` reads `supportsLivestream`, `livestreamModes`,
+    /// `livestreamPushSchemes` and `layouts`. Advertise only what the
+    /// deployment's media plane does: `supportsRecordingPause: false` when
+    /// it cannot pause (see [`MediaEffect::PauseRecording`]), the push
+    /// schemes its compositor can send to, and the layouts it can compose.
+    /// Return the value the Session object
     /// carries; a different value makes the handler contradict the
     /// advertised capability.
     fn vtc_capability(
@@ -375,7 +405,9 @@ pub trait VtcBackend: JmapBackend {
     ///
     /// The handlers send every `state` change of a `VTCCall`,
     /// `VTCRecording` or `VTCLivestream` through this, with `expected` the
-    /// states from which the draft lists the transition. A check against an
+    /// states from which the draft lists the transition, and every `layout`
+    /// change of a `VTCRecording` or `VTCLivestream`, with `expected` the
+    /// states that allow one (§Composition Layouts). A check against an
     /// earlier read would let two concurrent updates both pass, and the
     /// second would then apply a transition the draft forbids: "The server
     /// MUST NOT transition a call out of `"ended"`" (§State Machine), "The

@@ -141,6 +141,33 @@ impl serde_core::ser::Serialize for jmap_vtc_types::CallType
 pub fn jmap_vtc_types::CallType::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
 impl<'de> serde_core::de::Deserialize<'de> for jmap_vtc_types::CallType
 pub fn jmap_vtc_types::CallType::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_vtc_types::CompositionLayout
+pub jmap_vtc_types::CompositionLayout::Grid
+pub jmap_vtc_types::CompositionLayout::Other(alloc::string::String)
+pub jmap_vtc_types::CompositionLayout::SingleSpeaker
+pub jmap_vtc_types::CompositionLayout::Speaker
+impl jmap_vtc_types::CompositionLayout
+pub fn jmap_vtc_types::CompositionLayout::as_str(&self) -> &str
+impl core::clone::Clone for jmap_vtc_types::CompositionLayout
+pub fn jmap_vtc_types::CompositionLayout::clone(&self) -> jmap_vtc_types::CompositionLayout
+impl core::cmp::Eq for jmap_vtc_types::CompositionLayout
+impl core::cmp::PartialEq for jmap_vtc_types::CompositionLayout
+pub fn jmap_vtc_types::CompositionLayout::eq(&self, &jmap_vtc_types::CompositionLayout) -> bool
+impl core::convert::From<&str> for jmap_vtc_types::CompositionLayout
+pub fn jmap_vtc_types::CompositionLayout::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_vtc_types::CompositionLayout
+pub fn jmap_vtc_types::CompositionLayout::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_vtc_types::CompositionLayout
+pub fn jmap_vtc_types::CompositionLayout::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_vtc_types::CompositionLayout
+pub fn jmap_vtc_types::CompositionLayout::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_vtc_types::CompositionLayout
+pub fn jmap_vtc_types::CompositionLayout::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_vtc_types::CompositionLayout
+impl serde_core::ser::Serialize for jmap_vtc_types::CompositionLayout
+pub fn jmap_vtc_types::CompositionLayout::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_vtc_types::CompositionLayout
+pub fn jmap_vtc_types::CompositionLayout::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
 #[non_exhaustive] pub enum jmap_vtc_types::GatewayProtocol
 pub jmap_vtc_types::GatewayProtocol::H323
 pub jmap_vtc_types::GatewayProtocol::Other(alloc::string::String)
@@ -863,7 +890,9 @@ pub fn jmap_vtc_types::VtcCallPush::deserialize<D: serde_core::de::Deserializer<
 #[non_exhaustive] pub struct jmap_vtc_types::VtcCapability
 pub jmap_vtc_types::VtcCapability::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
 pub jmap_vtc_types::VtcCapability::gateways: core::option::Option<alloc::vec::Vec<jmap_vtc_types::VtcGateway>>
+pub jmap_vtc_types::VtcCapability::layouts: alloc::vec::Vec<jmap_vtc_types::CompositionLayout>
 pub jmap_vtc_types::VtcCapability::livestream_modes: alloc::vec::Vec<jmap_vtc_types::LivestreamMode>
+pub jmap_vtc_types::VtcCapability::livestream_push_schemes: alloc::vec::Vec<alloc::string::String>
 pub jmap_vtc_types::VtcCapability::max_breakout_rooms: core::option::Option<core::option::Option<u64>>
 pub jmap_vtc_types::VtcCapability::max_concurrent_calls: core::option::Option<u64>
 pub jmap_vtc_types::VtcCapability::max_participants_per_call: core::option::Option<u64>
@@ -873,9 +902,12 @@ pub jmap_vtc_types::VtcCapability::supports_breakout_rooms: bool
 pub jmap_vtc_types::VtcCapability::supports_livestream: bool
 pub jmap_vtc_types::VtcCapability::supports_lobby: bool
 pub jmap_vtc_types::VtcCapability::supports_recording: bool
+pub jmap_vtc_types::VtcCapability::supports_recording_pause: bool
 pub jmap_vtc_types::VtcCapability::supports_ring_calls: bool
 pub jmap_vtc_types::VtcCapability::supports_room_calls: bool
 pub jmap_vtc_types::VtcCapability::supports_scheduled_calls: bool
+impl jmap_vtc_types::VtcCapability
+pub fn jmap_vtc_types::VtcCapability::accepts_push_scheme(&self, &str) -> bool
 impl core::clone::Clone for jmap_vtc_types::VtcCapability
 pub fn jmap_vtc_types::VtcCapability::clone(&self) -> jmap_vtc_types::VtcCapability
 impl core::cmp::Eq for jmap_vtc_types::VtcCapability
@@ -952,6 +984,7 @@ pub jmap_vtc_types::VtcLivestream::call_id: jmap_types::id::Id
 pub jmap_vtc_types::VtcLivestream::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
 pub jmap_vtc_types::VtcLivestream::failure_reason: core::option::Option<jmap_vtc_types::LivestreamFailureReason>
 pub jmap_vtc_types::VtcLivestream::id: jmap_types::id::Id
+pub jmap_vtc_types::VtcLivestream::layout: core::option::Option<jmap_vtc_types::CompositionLayout>
 pub jmap_vtc_types::VtcLivestream::mode: jmap_vtc_types::LivestreamMode
 pub jmap_vtc_types::VtcLivestream::platform: core::option::Option<alloc::string::String>
 pub jmap_vtc_types::VtcLivestream::playback_endpoints: alloc::vec::Vec<jmap_vtc_types::VtcPlaybackEndpoint>
@@ -1191,6 +1224,7 @@ pub jmap_vtc_types::VtcRecording::duration: core::option::Option<u64>
 pub jmap_vtc_types::VtcRecording::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
 pub jmap_vtc_types::VtcRecording::id: jmap_types::id::Id
 pub jmap_vtc_types::VtcRecording::initiated_by: alloc::string::String
+pub jmap_vtc_types::VtcRecording::layout: core::option::Option<jmap_vtc_types::CompositionLayout>
 pub jmap_vtc_types::VtcRecording::media_type: core::option::Option<alloc::string::String>
 pub jmap_vtc_types::VtcRecording::size: core::option::Option<u64>
 pub jmap_vtc_types::VtcRecording::started_at: jmap_types::id::UTCDate

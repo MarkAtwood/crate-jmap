@@ -530,6 +530,8 @@ impl<C: MemoryCaller> MemoryBackend<C> {
     ///     "supportsRecording": false,
     ///     "supportsLivestream": false,
     ///     "livestreamModes": [],
+    ///     "livestreamPushSchemes": [],
+    ///     "layouts": [],
     ///     "supportsLobby": false,
     ///     "supportsBreakoutRooms": false,
     ///     "supportedMediaTypes": ["audio"]

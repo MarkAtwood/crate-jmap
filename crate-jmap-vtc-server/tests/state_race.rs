@@ -319,6 +319,69 @@ async fn pause_after_a_concurrent_stop_is_refused() {
     assert!(backend.0.recording_events_for_test().is_empty());
 }
 
+/// jmap-chat-spec 125749a §Pausing, Resuming, and Stopping a Recording:
+/// "`update` may also set `layout` while the recording is `"recording"`
+/// or `"paused"` ... The server MUST return `invalidProperties` naming
+/// `layout` for a change in any other state." The recording stopped
+/// between the handler's read and its write; the backend's state check
+/// refuses the change.
+#[tokio::test]
+async fn layout_change_after_a_concurrent_stop_is_refused() {
+    let backend = media_backend();
+    seed_as(
+        &backend,
+        "VTCRecording",
+        stored_recording("R1", "recording", "2026-06-05T14:40:00Z"),
+    );
+    let mut stopped = stored_recording("R1", "stopped", "2026-06-05T14:40:00Z");
+    stopped["stoppedAt"] = json!("2026-06-05T14:50:00Z");
+    let backend = Racing::new(backend, "VTCRecording", stopped);
+
+    let resp = call!(ids handle_vtc_recording_set,
+        &backend,
+        BOB,
+        json!({ "update": { "R1": { "layout": "grid" } } }),
+    );
+    let err = not_updated(&resp, "R1");
+    assert_eq!(err["type"], "invalidProperties", "{err}");
+    assert_eq!(err["properties"], json!(["layout"]), "{err}");
+    let stored = call!(
+        handle_vtc_recording_get,
+        &backend.0,
+        BOB,
+        json!({ "ids": ["R1"] }),
+    )["list"][0]
+        .clone();
+    assert_eq!(stored["layout"], Value::Null);
+    assert!(backend.0.media_effects_for_test().is_empty());
+}
+
+/// jmap-chat-spec 125749a §Stopping a Livestream: "`update` may also set
+/// `layout` while the livestream is `"starting"` or `"live"` ... The
+/// server MUST return `invalidProperties` naming `layout` for a change in
+/// any other state." The livestream failed between read and write.
+#[tokio::test]
+async fn livestream_layout_change_after_a_concurrent_failure_is_refused() {
+    let backend = media_backend();
+    seed_as(
+        &backend,
+        "VTCLivestream",
+        stored_livestream("L1", "live", json!("2026-06-05T14:40:00Z")),
+    );
+    let failed = stored_livestream("L1", "failed", json!("2026-06-05T14:40:00Z"));
+    let backend = Racing::new(backend, "VTCLivestream", failed);
+
+    let resp = call!(ids handle_vtc_livestream_set,
+        &backend,
+        BOB,
+        json!({ "update": { "L1": { "layout": "speaker" } } }),
+    );
+    let err = not_updated(&resp, "L1");
+    assert_eq!(err["type"], "invalidProperties", "{err}");
+    assert_eq!(err["properties"], json!(["layout"]), "{err}");
+    assert!(backend.0.media_effects_for_test().is_empty());
+}
+
 #[tokio::test]
 async fn stop_after_a_concurrent_failure_is_refused() {
     let backend = media_backend();

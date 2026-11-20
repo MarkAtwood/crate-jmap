@@ -128,6 +128,8 @@ impl core::fmt::Debug for jmap_vtc_server::CallScope
 pub fn jmap_vtc_server::CallScope::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for jmap_vtc_server::CallScope
 #[non_exhaustive] pub enum jmap_vtc_server::MediaEffect
+pub jmap_vtc_server::MediaEffect::ChangeLivestreamLayout(jmap_vtc_types::recording::VtcLivestream)
+pub jmap_vtc_server::MediaEffect::ChangeRecordingLayout(jmap_vtc_types::recording::VtcRecording)
 pub jmap_vtc_server::MediaEffect::PauseRecording(jmap_vtc_types::recording::VtcRecording)
 pub jmap_vtc_server::MediaEffect::ResumeRecording(jmap_vtc_types::recording::VtcRecording)
 pub jmap_vtc_server::MediaEffect::StartLivestream(jmap_vtc_types::recording::VtcLivestream)

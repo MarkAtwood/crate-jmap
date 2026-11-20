@@ -16,7 +16,7 @@ no method handlers, no I/O, no media.
 | `VtcCallPolicy` | §VTCCallPolicy |
 | `VtcCall`, `CallType`, `CallState`, `CallEndReason` | §VTCCall, §State Machine |
 | `VtcParticipant`, `CallRole`, `CallResponse`, `LobbyState`, `JoinMethod` | §VTCParticipant |
-| `VtcRecording`, `RecordingState` | §VTCRecording |
+| `VtcRecording`, `RecordingState`, `CompositionLayout` | §VTCRecording, §Composition Layouts |
 | `VtcLivestream`, `LivestreamState` | §VTCLivestream |
 | `VtcCallPush` | §Push: VTCCallPush, §Content-Free Form |
 | `VtcRingEvent` | §WebSocket: VTCRingEvent |

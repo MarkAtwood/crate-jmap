@@ -240,6 +240,145 @@ async fn pause_resume_stop_each_signal_consent() {
     }
 }
 
+/// jmap-chat-spec 125749a §Pausing, Resuming, and Stopping a Recording:
+/// "The server MUST return `invalidProperties` naming `state` ... for
+/// `"recording"` → `"paused"` when the account-level
+/// `supportsRecordingPause` is `false`."
+#[tokio::test]
+async fn pause_is_invalid_state_without_supports_recording_pause() {
+    let mut cap = media_capability();
+    cap["supportsRecordingPause"] = json!(false);
+    let backend = backend_with(cap);
+    seed(
+        &backend,
+        stored_call("C1", "room", "active", "2026-06-05T14:30:00Z"),
+    );
+    seed_as(
+        &backend,
+        "VTCRecording",
+        stored_recording("R1", "recording", "2026-06-05T14:40:00Z"),
+    );
+    let err = update(&backend, BOB, "R1", json!({ "state": "paused" }))
+        .await
+        .expect_err("pause");
+    assert_type(&err, "invalidProperties");
+    assert_eq!(err["properties"], json!(["state"]));
+    assert_eq!(stored(&backend, "R1").await["state"], "recording");
+    assert!(events(&backend).is_empty());
+    assert!(backend.media_effects_for_test().is_empty());
+    // Stopping is unaffected.
+    update(&backend, BOB, "R1", json!({ "state": "stopped" }))
+        .await
+        .expect("stop");
+}
+
+/// jmap-chat-spec 125749a §Account-Level Capability Object:
+/// `supportsRecordingPause` "Default: `true`". The common capability
+/// leaves it out, and a pause succeeds (as in
+/// `pause_resume_stop_each_signal_consent`); here it is explicitly `true`.
+#[tokio::test]
+async fn pause_is_allowed_when_supports_recording_pause_is_true() {
+    let mut cap = media_capability();
+    cap["supportsRecordingPause"] = json!(true);
+    let backend = backend_with(cap);
+    seed(
+        &backend,
+        stored_call("C1", "room", "active", "2026-06-05T14:30:00Z"),
+    );
+    seed_as(
+        &backend,
+        "VTCRecording",
+        stored_recording("R1", "recording", "2026-06-05T14:40:00Z"),
+    );
+    update(&backend, BOB, "R1", json!({ "state": "paused" }))
+        .await
+        .expect("pause");
+    assert_eq!(stored(&backend, "R1").await["state"], "paused");
+}
+
+/// jmap-chat-spec 125749a §Starting a Recording: "`layout` (String|null,
+/// optional): The composition layout"; §VTCRecording `layout` "Default:
+/// `null`"; §Composition Layouts: "The server MUST return
+/// `invalidProperties` naming `layout` when a create or update sets a
+/// value not listed in the account-level `layouts`." The fixture lists
+/// `grid` and `speaker`.
+#[tokio::test]
+async fn create_layout_defaults_to_null_and_must_be_listed() {
+    let backend = media_backend();
+    let created = create(&backend, BOB, start()).await.expect("no layout");
+    assert_eq!(created["layout"], Value::Null);
+
+    let created = create(
+        &backend,
+        BOB,
+        json!({ "callId": "C1", "layout": "speaker" }),
+    )
+    .await
+    .expect("listed layout");
+    assert_eq!(created["layout"], "speaker");
+    let id = created["id"].as_str().expect("id");
+    assert_eq!(stored(&backend, id).await["layout"], "speaker");
+
+    for bad in [
+        json!("single-speaker"),
+        json!("com.example.stage"),
+        json!(3),
+    ] {
+        let err = create(&backend, BOB, json!({ "callId": "C1", "layout": bad }))
+            .await
+            .expect_err("unlisted layout");
+        assert_type(&err, "invalidProperties");
+        assert_eq!(err["properties"], json!(["layout"]), "{bad}");
+    }
+}
+
+/// jmap-chat-spec 125749a §Pausing, Resuming, and Stopping a Recording:
+/// "`update` may also set `layout` while the recording is `"recording"` or
+/// `"paused"`; the new layout applies from then on. The server MUST return
+/// `invalidProperties` naming `layout` for a change in any other state."
+#[tokio::test]
+async fn layout_updates_only_while_recording_or_paused() {
+    let backend = media_backend();
+    for (id, state) in [
+        ("R1", "recording"),
+        ("R2", "paused"),
+        ("R3", "stopped"),
+        ("R4", "available"),
+    ] {
+        seed_as(
+            &backend,
+            "VTCRecording",
+            stored_recording(id, state, "2026-06-05T14:40:00Z"),
+        );
+    }
+    for id in ["R1", "R2"] {
+        update(&backend, BOB, id, json!({ "layout": "grid" }))
+            .await
+            .expect("layout change");
+        assert_eq!(stored(&backend, id).await["layout"], "grid");
+    }
+    for id in ["R3", "R4"] {
+        let err = update(&backend, BOB, id, json!({ "layout": "grid" }))
+            .await
+            .expect_err("layout change after stop");
+        assert_type(&err, "invalidProperties");
+        assert_eq!(err["properties"], json!(["layout"]), "{id}");
+        assert_eq!(stored(&backend, id).await["layout"], Value::Null);
+    }
+    // §Composition Layouts: an unlisted value is refused in any state.
+    let err = update(&backend, BOB, "R1", json!({ "layout": "single-speaker" }))
+        .await
+        .expect_err("unlisted layout");
+    assert_eq!(err["properties"], json!(["layout"]));
+    // `null` returns to the server's default.
+    update(&backend, BOB, "R1", json!({ "layout": null }))
+        .await
+        .expect("back to default");
+    assert_eq!(stored(&backend, "R1").await["layout"], Value::Null);
+    // A layout change is no state change: no consent event.
+    assert!(events(&backend).is_empty());
+}
+
 #[tokio::test]
 async fn unlisted_transitions_are_invalid_state() {
     let backend = media_backend();

@@ -104,7 +104,7 @@ async fn main() {
     let vtc_capability = serde_json::from_value(json!({
         "mayCreateCall": true, "supportsRingCalls": false, "supportsRoomCalls": true,
         "supportsScheduledCalls": false, "supportsRecording": false,
-        "supportsLivestream": false, "livestreamModes": [], "supportsLobby": false,
+        "supportsLivestream": false, "livestreamModes": [], "livestreamPushSchemes": [], "layouts": [], "supportsLobby": false,
         "supportsBreakoutRooms": false, "supportedMediaTypes": ["audio", "video"]
     }))
     .expect("VtcCapability");

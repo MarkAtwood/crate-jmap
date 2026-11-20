@@ -23,7 +23,7 @@ use jmap_vtc_server::{
     MediaEffect, handle_vtc_call_set, handle_vtc_livestream_set, handle_vtc_recording_set,
     register_vtc_conditional, register_vtc_handlers,
 };
-use jmap_vtc_types::{LivestreamMode, LivestreamState, RecordingState};
+use jmap_vtc_types::{CompositionLayout, LivestreamMode, LivestreamState, RecordingState};
 use serde_json::{Value, json};
 
 async fn livestream_set(b: &MemoryBackend, args: Value) -> Value {
@@ -158,6 +158,79 @@ async fn recording_transitions_request_effects() {
     assert_eq!(resume.state, RecordingState::Recording);
     assert_eq!(stop.state, RecordingState::Stopped);
     assert!(stop.stopped_at.is_some());
+}
+
+/// jmap-chat-spec 125749a §Composition Layouts and §Pausing, Resuming, and
+/// Stopping a Recording: a create's `layout` reaches the media plane in
+/// the start effect; "the new layout applies from then on", so a layout
+/// change requests a change effect carrying it, and an identical value
+/// requests none; a layout set together with a stop has no "then on".
+#[tokio::test]
+async fn layout_reaches_the_media_plane() {
+    let b = media_backend();
+    let r = recording_set(
+        &b,
+        json!({"create": {"r0": {"callId": "C1", "layout": "speaker"}}}),
+    )
+    .await;
+    let id = r["created"]["r0"]["id"]
+        .as_str()
+        .expect("created")
+        .to_owned();
+    for patch in [
+        json!({"layout": "grid"}),
+        json!({"layout": "grid"}),
+        json!({"state": "paused", "layout": null}),
+        json!({"state": "stopped", "layout": "speaker"}),
+    ] {
+        let r = recording_set(&b, json!({"update": {&id: patch}})).await;
+        assert!(r["notUpdated"].is_null(), "{r}");
+    }
+    let effects = b.media_effects_for_test();
+    let [
+        MediaEffect::StartRecording(start),
+        MediaEffect::ChangeRecordingLayout(grid),
+        MediaEffect::PauseRecording(pause),
+        MediaEffect::ChangeRecordingLayout(default),
+        MediaEffect::StopRecording(_),
+    ] = effects.as_slice()
+    else {
+        panic!("{effects:?}");
+    };
+    assert_eq!(start.layout, Some(CompositionLayout::Speaker));
+    assert_eq!(grid.layout, Some(CompositionLayout::Grid));
+    assert_eq!(pause.layout, None);
+    assert_eq!(default.state, RecordingState::Paused);
+    assert_eq!(default.layout, None);
+
+    // The livestream: hosted with a layout, then a change, then a stop.
+    let r = livestream_set(
+        &b,
+        json!({"create": {"s1": {"callId": "C1", "mode": "hosted", "layout": "grid"}}}),
+    )
+    .await;
+    let ls = r["created"]["s1"]["id"]
+        .as_str()
+        .expect("created")
+        .to_owned();
+    for patch in [json!({"layout": "speaker"}), json!({"state": "stopped"})] {
+        let r = livestream_set(&b, json!({"update": {&ls: patch}})).await;
+        assert!(r["notUpdated"].is_null(), "{r}");
+    }
+    let effects = b.media_effects_for_test();
+    let [
+        ..,
+        MediaEffect::StartLivestream(start),
+        MediaEffect::ChangeLivestreamLayout(change),
+        MediaEffect::StopLivestream(stop),
+    ] = effects.as_slice()
+    else {
+        panic!("{effects:?}");
+    };
+    assert_eq!(start.layout, Some(CompositionLayout::Grid));
+    assert_eq!(change.layout, Some(CompositionLayout::Speaker));
+    assert_eq!(change.state, LivestreamState::Starting);
+    assert_eq!(stop.layout, Some(CompositionLayout::Speaker));
 }
 
 /// §Ending a Call: the call's end stops its livestream and recording,

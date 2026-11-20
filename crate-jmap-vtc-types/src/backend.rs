@@ -129,7 +129,8 @@ impl jmap_object_history_types::HistoryObject for VtcRecording {}
 /// draft-atwood-jmap-vtc-00 §VTCRecording (lines 512-539): `id` is
 /// "immutable, server-set"; `startedAt`, `stoppedAt`, `initiatedBy`,
 /// `blobId`, `size`, `duration` and `mediaType` are "server-set"; `callId`
-/// is "immutable".
+/// is "immutable". `layout` (jmap-chat-spec 125749a) is settable on create
+/// and updatable while recording or paused.
 impl SetObject for VtcRecording {
     type Patch = PatchObject;
     const SERVER_SET: &'static [&'static str] = &[
@@ -142,7 +143,7 @@ impl SetObject for VtcRecording {
         "duration",
         "mediaType",
     ];
-    const CLIENT_SETTABLE: &'static [&'static str] = &["callId", "state"];
+    const CLIENT_SETTABLE: &'static [&'static str] = &["callId", "state", "layout"];
     const IMMUTABLE: &'static [&'static str] = &["callId"];
 }
 
@@ -164,7 +165,8 @@ impl jmap_object_history_types::HistoryObject for VtcLivestream {}
 /// draft-atwood-jmap-vtc-00 §VTCLivestream: `id` is "immutable,
 /// server-set"; `failureReason`, `playbackEndpoints`, `startedAt` and
 /// `stoppedAt` are "server-set"; `callId`, `mode`, `platform`, `streamUri`
-/// and `streamKey` are "immutable".
+/// and `streamKey` are "immutable". `layout` (jmap-chat-spec 125749a) is
+/// settable on create and updatable while starting or live.
 impl SetObject for VtcLivestream {
     type Patch = PatchObject;
     const SERVER_SET: &'static [&'static str] = &[
@@ -181,6 +183,7 @@ impl SetObject for VtcLivestream {
         "platform",
         "streamUri",
         "streamKey",
+        "layout",
     ];
     const IMMUTABLE: &'static [&'static str] =
         &["callId", "mode", "platform", "streamUri", "streamKey"];
@@ -284,6 +287,7 @@ mod tests {
             size: Some(1),
             duration: Some(1),
             media_type: Some("video/webm".into()),
+            layout: Some(de(json!("grid"))),
             extra: Map::new(),
         };
         assert_eq!(check_property_classification(&obj), Ok(()));
@@ -303,6 +307,7 @@ mod tests {
             playback_endpoints: Vec::new(),
             started_at: Some(date()),
             stopped_at: Some(date()),
+            layout: Some(de(json!("speaker"))),
             extra: Map::new(),
         };
         assert_eq!(check_property_classification(&obj), Ok(()));

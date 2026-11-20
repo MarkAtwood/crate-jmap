@@ -65,6 +65,130 @@ fn assert_invalid(err: &Value, properties: Value) {
     assert_eq!(err["properties"], properties, "{err}");
 }
 
+/// jmap-chat-spec 125749a §Starting a Livestream: "The server MUST return
+/// `invalidProperties` naming ... `streamUri` when a push-mode `streamUri`
+/// is not a URI or its scheme is not listed in `livestreamPushSchemes`."
+/// The fixture lists `rtmp`, `rtmps` and `srt`; §Account-Level Capability
+/// Object lists schemes "in lowercase", and URI schemes compare
+/// case-insensitively (RFC 3986 §3.1).
+#[tokio::test]
+async fn push_stream_uri_scheme_must_be_listed() {
+    let backend = media_backend();
+    for uri in [
+        "https://whip.example.com/ingest",
+        "rtsp://live.example.com/ingest",
+        "not a uri",
+        "live.example.com/ingest",
+    ] {
+        let mut body = start();
+        body["streamUri"] = json!(uri);
+        let err = create(&backend, BOB, body).await.expect_err(uri);
+        assert_invalid(&err, json!(["streamUri"]));
+    }
+    for uri in [
+        "rtmps://live.example.com/app",
+        "SRT://live.example.com:9000",
+        "RTMP://live.example.com/ingest",
+    ] {
+        let mut body = start();
+        body["streamUri"] = json!(uri);
+        create(&backend, BOB, body).await.expect(uri);
+    }
+}
+
+/// jmap-chat-spec 125749a §Account-Level Capability Object:
+/// `livestreamPushSchemes` is "Empty when `livestreamModes` does not
+/// include `"push"`"; with an empty list no push `streamUri` is accepted.
+#[tokio::test]
+async fn empty_push_schemes_accept_no_stream_uri() {
+    let mut cap = media_capability();
+    cap["livestreamPushSchemes"] = json!([]);
+    let backend = backend_with(cap);
+    seed(
+        &backend,
+        stored_call("C1", "room", "active", "2026-06-05T14:30:00Z"),
+    );
+    let err = create(&backend, BOB, start())
+        .await
+        .expect_err("no schemes");
+    assert_invalid(&err, json!(["streamUri"]));
+}
+
+/// jmap-chat-spec 125749a §Starting a Livestream: "`layout` (String|null,
+/// optional)"; §VTCLivestream `layout` "in both modes ... Default:
+/// `null`"; §Composition Layouts: a value "not listed in the account-level
+/// `layouts`" is `invalidProperties` naming `layout`.
+#[tokio::test]
+async fn create_layout_defaults_to_null_and_must_be_listed() {
+    let backend = media_backend();
+    assert_eq!(
+        create(&backend, BOB, start()).await.expect("push")["layout"],
+        Value::Null
+    );
+    let mut body = start();
+    body["layout"] = json!("grid");
+    assert_eq!(
+        create(&backend, BOB, body).await.expect("push grid")["layout"],
+        "grid"
+    );
+    let hosted = json!({ "callId": "C1", "mode": "hosted", "layout": "speaker" });
+    assert_eq!(
+        create(&backend, BOB, hosted).await.expect("hosted")["layout"],
+        "speaker"
+    );
+    for bad in [json!("single-speaker"), json!(["grid"])] {
+        let mut body = start();
+        body["layout"] = bad;
+        let err = create(&backend, BOB, body).await.expect_err("bad layout");
+        assert_invalid(&err, json!(["layout"]));
+    }
+}
+
+/// jmap-chat-spec 125749a §Stopping a Livestream: "`update` may also set
+/// `layout` while the livestream is `"starting"` or `"live"`; the new
+/// layout applies from then on. The server MUST return
+/// `invalidProperties` naming `layout` for a change in any other state."
+#[tokio::test]
+async fn layout_updates_only_while_starting_or_live() {
+    let backend = media_backend();
+    for (id, state) in [
+        ("L1", "starting"),
+        ("L2", "live"),
+        ("L3", "stopped"),
+        ("L4", "failed"),
+    ] {
+        seed_as(
+            &backend,
+            "VTCLivestream",
+            stored_livestream(id, state, Value::Null),
+        );
+    }
+    for id in ["L1", "L2"] {
+        update(&backend, BOB, id, json!({ "layout": "speaker" }))
+            .await
+            .expect("layout change");
+        assert_eq!(
+            get_as(&backend, BOB, json!({ "ids": [id] })).await["layout"],
+            "speaker"
+        );
+    }
+    for id in ["L3", "L4"] {
+        let err = update(&backend, BOB, id, json!({ "layout": "speaker" }))
+            .await
+            .expect_err("layout change after stop");
+        assert_invalid(&err, json!(["layout"]));
+    }
+    let err = update(
+        &backend,
+        BOB,
+        "L1",
+        json!({ "layout": "com.example.stage" }),
+    )
+    .await
+    .expect_err("unlisted layout");
+    assert_invalid(&err, json!(["layout"]));
+}
+
 #[tokio::test]
 async fn moderator_starts_a_livestream() {
     let backend = media_backend();

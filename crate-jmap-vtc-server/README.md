@@ -24,7 +24,7 @@ trait.
 | `handle_vtc_livestream_*` | §VTCLivestream Methods, with §Livestream Key Exposure in `/get` |
 | `query::recording_matches`, `query::livestream_matches`, `compare_*` | §VTCRecording/query, §VTCLivestream/query filter and sort |
 | `VtcBackend` | storage, capability object, caller userId, moderator hook, recording consent event, unmute-request and gateway-signal delivery |
-| `MediaEffect`, `VtcBackend::run_media_effect` | the media start, pause, resume and stop a stored VTCRecording/VTCLivestream change implies, requested after the write |
+| `MediaEffect`, `VtcBackend::run_media_effect` | the media start, pause, resume, stop and layout change a stored VTCRecording/VTCLivestream change implies, requested after the write |
 | `media_report::MediaReporter` | §Livestream States and §Pausing, Resuming, and Stopping a Recording server-initiated transitions: `livestream_live`, `livestream_endpoints`, `livestream_failed`, `livestream_stopped` (idle stop), `recording_paused`, `recording_resumed`, `recording_stopped`, `recording_processing`, `recording_available`, `recording_failed` |
 | `memory::MemoryBackend` (`memory` feature) | in-memory reference backend; accounts with `with_account` / `register_account`, companion capabilities with `advertise` |
 | `register_vtc_handlers` | wires the twenty `VTCCall/*`, `VTCParticipant/*`, `VTCRecording/*` and `VTCLivestream/*` methods |
@@ -71,19 +71,24 @@ Every `VTCRecording/set` and `VTCLivestream/set` operation needs
 `e2eeEnabled`, and a call in state `"active"`; `VtcBackend::create_object`
 rechecks `"active"` atomically with the insert. Recordings move
 `recording` ⇄ `paused` → `stopped` only, and each change (and the create)
-is followed by `VtcBackend::deliver_recording_state_event`. A livestream
+is followed by `VtcBackend::deliver_recording_state_event`; pausing is
+refused when the account's `supportsRecordingPause` is `false`. A livestream
 create takes a `mode` from the account's `livestreamModes` (`push` by
-default): push needs `streamUri` and `streamKey`, and hosted takes only
+default): push needs `streamKey` and a `streamUri` whose scheme is in
+`livestreamPushSchemes`, and hosted takes only
 `callId` and `mode` and starts with no `playbackEndpoints`. A livestream
 can only be stopped, from `starting` or `live`; `stopped` and `failed` are
 final, and `mode`, `streamUri`, `streamKey` and `platform` are immutable.
-Stopping empties `playbackEndpoints`.
+Stopping empties `playbackEndpoints`. Both types take an optional `layout`
+from the account's `layouts`, changeable while a recording is `recording`
+or `paused` and while a livestream is `starting` or `live`.
 `create_object` and `update_object_if` only store: no media starts or
 stops inside them, because an atomic conditional `/set` can still roll the
 write back and nothing rolls back a started stream. After the write the
 handler passes a `MediaEffect` (`StartLivestream`, `StopLivestream`,
 `StartRecording`, `PauseRecording`, `ResumeRecording`, `StopRecording`,
-carrying the object as stored) to `VtcBackend::run_media_effect`; ending
+`ChangeRecordingLayout`, `ChangeLivestreamLayout`, carrying the object as
+stored) to `VtcBackend::run_media_effect`; ending
 a call and destroying an active object request the stops too. The media
 pipeline reports back through `media_report::MediaReporter`, which applies
 each server-initiated transition with `update_object_if` from the draft's

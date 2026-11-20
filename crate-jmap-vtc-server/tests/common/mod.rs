@@ -27,6 +27,8 @@ pub fn capability() -> Value {
         "supportsRecording": false,
         "supportsLivestream": false,
         "livestreamModes": [],
+        "livestreamPushSchemes": [],
+        "layouts": [],
         "supportsLobby": true,
         "supportsBreakoutRooms": true,
         "supportedMediaTypes": ["audio", "video"],
@@ -149,12 +151,16 @@ pub fn seed(backend: &MemoryBackend, call: Value) {
 }
 
 /// [`capability`] with `supportsRecording` and `supportsLivestream`
-/// (L231-234) enabled, accepting both livestream modes.
+/// (L231-234) enabled, accepting both livestream modes, pushing to
+/// `rtmp`, `rtmps` and `srt`, and offering the `grid` and `speaker`
+/// layouts.
 pub fn media_capability() -> Value {
     let mut cap = capability();
     cap["supportsRecording"] = json!(true);
     cap["supportsLivestream"] = json!(true);
     cap["livestreamModes"] = json!(["push", "hosted"]);
+    cap["livestreamPushSchemes"] = json!(["rtmp", "rtmps", "srt"]);
+    cap["layouts"] = json!(["grid", "speaker"]);
     cap
 }
 

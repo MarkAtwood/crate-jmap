@@ -60,6 +60,35 @@ impl_string_enum!(LivestreamState, "a VTC livestream state string",
     "failed" => Failed,
 );
 
+/// The `layout` of a [`VtcRecording`] or [`VtcLivestream`], and an entry
+/// of [`VtcCapability::layouts`](crate::VtcCapability::layouts)
+/// (draft-atwood-jmap-vtc-00 §Composition Layouts): how the server
+/// arranges the participants' video in the one composed picture.
+///
+/// "Other layouts SHOULD use reverse-domain notation (e.g.,
+/// `\"com.example.stage\"`)"; they land in `Other` and round-trip. "A
+/// client treats a `layout` value it does not recognize as the server's
+/// default."
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum CompositionLayout {
+    /// `"grid"`: every participant with video in equal tiles.
+    Grid,
+    /// `"speaker"`: the active speaker large, the other participants
+    /// smaller.
+    Speaker,
+    /// `"single-speaker"`: only the active speaker.
+    SingleSpeaker,
+    /// A reverse-domain or other layout the draft does not define.
+    Other(String),
+}
+
+impl_string_enum!(CompositionLayout, "a VTC composition layout string",
+    "grid" => Grid,
+    "speaker" => Speaker,
+    "single-speaker" => SingleSpeaker,
+);
+
 /// Metadata of a recording session within a call
 /// (draft-atwood-jmap-vtc-00 §VTCRecording).
 ///
@@ -88,6 +117,11 @@ pub struct VtcRecording {
     pub duration: Option<u64>,
     /// MIME type of the file, e.g. `"video/webm"`, once `"available"`.
     pub media_type: Option<String>,
+    /// How the participants' video is arranged in the recording
+    /// (§Composition Layouts); `None` (`null`, or absent) means the
+    /// server's default.
+    #[serde(default)]
+    pub layout: Option<CompositionLayout>,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
@@ -380,10 +414,12 @@ pub struct VtcLivestream {
     /// MUST ignore unrecognized values."
     #[serde(default)]
     pub platform: Option<String>,
-    /// Push mode: the RTMP or equivalent ingest endpoint.
+    /// Push mode: the ingest endpoint, a URI whose scheme is listed in
+    /// [`VtcCapability::livestream_push_schemes`](crate::VtcCapability::livestream_push_schemes).
     #[serde(default)]
     pub stream_uri: Option<String>,
-    /// Push mode: the ingest stream key or credential.
+    /// Push mode: the ingest stream key or credential, presented as
+    /// §Presenting the Stream Key describes for the `streamUri` scheme.
     #[serde(default)]
     pub stream_key: Option<String>,
     /// Hosted mode: the endpoints viewers play from (server-set, computed
@@ -395,6 +431,11 @@ pub struct VtcLivestream {
     pub started_at: Option<UTCDate>,
     /// Time the stream stopped or failed; `None` while active.
     pub stopped_at: Option<UTCDate>,
+    /// How the participants' video is arranged in the stream, in both
+    /// modes (§Composition Layouts); `None` (`null`, or absent) means the
+    /// server's default.
+    #[serde(default)]
+    pub layout: Option<CompositionLayout>,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
@@ -417,6 +458,7 @@ impl std::fmt::Debug for VtcLivestream {
             .field("playback_endpoints", &self.playback_endpoints)
             .field("started_at", &self.started_at)
             .field("stopped_at", &self.stopped_at)
+            .field("layout", &self.layout)
             .field("extra", &self.extra)
             .finish()
     }
@@ -440,7 +482,8 @@ mod tests {
             "blobId": "B1",
             "size": 1048576,
             "duration": 600,
-            "mediaType": "video/webm"
+            "mediaType": "video/webm",
+            "layout": null
         })
     }
 
@@ -464,7 +507,8 @@ mod tests {
             "streamUri": "rtmp://live.example.com/ingest",
             "streamKey": "sk_live_abc123def456",
             "startedAt": "2026-06-05T14:41:00Z",
-            "stoppedAt": null
+            "stoppedAt": null,
+            "layout": "speaker"
         })
     }
 
@@ -534,7 +578,8 @@ mod tests {
             }
           ],
           "startedAt": "2026-10-21T17:02:11Z",
-          "stoppedAt": null
+          "stoppedAt": null,
+          "layout": null
         })
     }
 
@@ -582,6 +627,45 @@ mod tests {
         let l: VtcLivestream = serde_json::from_value(raw.clone()).unwrap();
         assert_eq!(l.failure_reason, Some(LivestreamFailureReason::Interrupted));
         assert_eq!(serde_json::to_value(&l).unwrap(), raw);
+    }
+
+    #[test]
+    fn layout_wire_values_and_default() {
+        // Oracle: §Composition Layouts defines `"grid"`, `"speaker"` and
+        // `"single-speaker"`; "Other layouts SHOULD use reverse-domain
+        // notation (e.g., `\"com.example.stage\"`)". §VTCRecording and
+        // §VTCLivestream `layout` "(String|null) ... Default: `null`".
+        let l: Vec<CompositionLayout> = serde_json::from_value(json!([
+            "grid",
+            "speaker",
+            "single-speaker",
+            "com.example.stage"
+        ]))
+        .unwrap();
+        assert_eq!(
+            l,
+            [
+                CompositionLayout::Grid,
+                CompositionLayout::Speaker,
+                CompositionLayout::SingleSpeaker,
+                CompositionLayout::Other("com.example.stage".into())
+            ]
+        );
+        assert_eq!(
+            serde_json::to_value(&l[3]).unwrap(),
+            json!("com.example.stage")
+        );
+
+        let mut raw = recording();
+        raw.as_object_mut().unwrap().remove("layout");
+        let r: VtcRecording = serde_json::from_value(raw).unwrap();
+        assert_eq!(r.layout, None);
+        let mut raw = livestream();
+        raw.as_object_mut().unwrap().remove("layout");
+        let l: VtcLivestream = serde_json::from_value(raw).unwrap();
+        assert_eq!(l.layout, None);
+        let l: VtcLivestream = serde_json::from_value(livestream()).unwrap();
+        assert_eq!(l.layout, Some(CompositionLayout::Speaker));
     }
 
     #[test]

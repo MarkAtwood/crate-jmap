@@ -24,7 +24,7 @@
 //! - [`VtcCall`], [`CallType`], [`CallState`], [`CallEndReason`].
 //! - [`VtcParticipant`], [`CallRole`], [`CallResponse`], [`LobbyState`],
 //!   [`JoinMethod`].
-//! - [`VtcRecording`], [`RecordingState`], [`VtcLivestream`],
+//! - [`VtcRecording`], [`RecordingState`], [`CompositionLayout`], [`VtcLivestream`],
 //!   [`LivestreamState`].
 //! - [`VtcCallPush`] — the ring push payload, full and content-free.
 //! - [`VtcEvent`] and the eight events it carries: [`VtcRingEvent`],
@@ -76,9 +76,9 @@ pub use query::{
     VtcRecordingFilterCondition,
 };
 pub use recording::{
-    LatencyHint, LivestreamFailureReason, LivestreamMode, LivestreamState, PlaybackProtocol,
-    RecordingState, StreamTrackKind, VtcLivestream, VtcPlaybackEndpoint, VtcRecording,
-    VtcStreamTrack, VtcTimeReference,
+    CompositionLayout, LatencyHint, LivestreamFailureReason, LivestreamMode, LivestreamState,
+    PlaybackProtocol, RecordingState, StreamTrackKind, VtcLivestream, VtcPlaybackEndpoint,
+    VtcRecording, VtcStreamTrack, VtcTimeReference,
 };
 pub use stream::{
     VTC_EVENT_TYPES, VtcEventType, VtcStreamDisable, VtcStreamEnable, VtcStreamMessage,
