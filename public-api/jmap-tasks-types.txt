@@ -347,8 +347,8 @@ impl<'de> serde_core::de::Deserialize<'de> for jmap_tasks_types::Person
 pub fn jmap_tasks_types::Person::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 #[non_exhaustive] pub struct jmap_tasks_types::PrincipalTasksCapability
 pub jmap_tasks_types::PrincipalTasksCapability::account_id: core::option::Option<jmap_types::id::Id>
+pub jmap_tasks_types::PrincipalTasksCapability::calendar_address: core::option::Option<alloc::string::String>
 pub jmap_tasks_types::PrincipalTasksCapability::may_share_with: bool
-pub jmap_tasks_types::PrincipalTasksCapability::send_to: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, alloc::string::String>>
 impl core::clone::Clone for jmap_tasks_types::PrincipalTasksCapability
 pub fn jmap_tasks_types::PrincipalTasksCapability::clone(&self) -> jmap_tasks_types::PrincipalTasksCapability
 impl core::cmp::PartialEq for jmap_tasks_types::PrincipalTasksCapability
@@ -471,6 +471,7 @@ pub jmap_tasks_types::TaskFilterCondition::after: core::option::Option<jmap_jsca
 pub jmap_tasks_types::TaskFilterCondition::before: core::option::Option<jmap_jscalendar_types::LocalDateTime>
 pub jmap_tasks_types::TaskFilterCondition::description: core::option::Option<alloc::string::String>
 pub jmap_tasks_types::TaskFilterCondition::has_keyword: core::option::Option<alloc::string::String>
+pub jmap_tasks_types::TaskFilterCondition::in_task_lists: core::option::Option<alloc::vec::Vec<jmap_types::id::Id>>
 pub jmap_tasks_types::TaskFilterCondition::is_draft: core::option::Option<bool>
 pub jmap_tasks_types::TaskFilterCondition::metadata_exists: core::option::Option<alloc::string::String>
 pub jmap_tasks_types::TaskFilterCondition::metadata_text_contains: core::option::Option<jmap_metadata_types::filter::MetadataTextMatch>
@@ -480,7 +481,6 @@ pub jmap_tasks_types::TaskFilterCondition::private_metadata_exists: core::option
 pub jmap_tasks_types::TaskFilterCondition::private_metadata_text_contains: core::option::Option<jmap_metadata_types::filter::MetadataTextMatch>
 pub jmap_tasks_types::TaskFilterCondition::private_metadata_text_equals: core::option::Option<jmap_metadata_types::filter::MetadataTextMatch>
 pub jmap_tasks_types::TaskFilterCondition::progress: core::option::Option<jmap_tasks_types::TaskProgress>
-pub jmap_tasks_types::TaskFilterCondition::task_list_id: core::option::Option<jmap_types::id::Id>
 pub jmap_tasks_types::TaskFilterCondition::text: core::option::Option<alloc::string::String>
 pub jmap_tasks_types::TaskFilterCondition::title: core::option::Option<alloc::string::String>
 pub jmap_tasks_types::TaskFilterCondition::uid: core::option::Option<alloc::string::String>
@@ -815,5 +815,7 @@ pub const jmap_tasks_types::JMAP_TASKS_RECURRENCES_URI: &str
 pub const jmap_tasks_types::JMAP_TASKS_URI: &str
 pub const jmap_tasks_types::PER_USER_TASK_PROPERTIES: &[&str]
 pub fn jmap_tasks_types::is_per_user_task_property(&str) -> bool
+pub fn jmap_tasks_types::is_task_owner(&jmap_tasks_types::Task, &[&str]) -> bool
+pub fn jmap_tasks_types::task_has_owner(&jmap_tasks_types::Task) -> bool
 pub type jmap_tasks_types::TaskFilter = jmap_types::query::Filter<jmap_tasks_types::TaskFilterCondition>
 pub type jmap_tasks_types::TaskNotificationFilter = jmap_types::query::Filter<jmap_tasks_types::TaskNotificationFilterCondition>

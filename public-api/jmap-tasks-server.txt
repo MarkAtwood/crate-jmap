@@ -44,6 +44,8 @@ pub fn jmap_tasks_server::memory::MemoryBackend::compute_utc_times(&self, &Self:
 pub async fn jmap_tasks_server::memory::MemoryBackend::copy_object<O: jmap_types::backend::SetObject + core::marker::Send + core::marker::Sync>(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id, O, &serde_json::value::Value) -> core::result::Result<(jmap_types::id::Id, O), jmap_server::backend::BackendSetError<Self::Error>>
 pub async fn jmap_tasks_server::memory::MemoryBackend::create_object<O, F>(&self, &(), &jmap_types::id::Id, &str, F) -> core::result::Result<(jmap_types::id::Id, O), jmap_server::backend::BackendSetError<Self::Error>> where O: jmap_types::backend::SetObject + core::marker::Send + core::marker::Sync, F: core::ops::function::FnOnce(&jmap_types::id::Id) -> O + core::marker::Send
 pub async fn jmap_tasks_server::memory::MemoryBackend::destroy_object<O: jmap_types::backend::SetObject + core::marker::Send + core::marker::Sync>(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<(), jmap_server::backend::BackendSetError<Self::Error>>
+pub fn jmap_tasks_server::memory::MemoryBackend::limits(&self, &Self::CallerCtx, &jmap_types::id::Id) -> jmap_tasks_server::TasksLimits
+pub async fn jmap_tasks_server::memory::MemoryBackend::query_tasks(&self, &(), &jmap_types::id::Id, jmap_server::backend::QueryParams<'_, jmap_tasks_types::task::Task>, &jmap_tasks_server::TaskQueryArgs) -> core::result::Result<jmap_server::backend::QueryResult, jmap_server::backend::BackendQueryError<Self::Error>>
 pub fn jmap_tasks_server::memory::MemoryBackend::supports_type<O: jmap_types::backend::JmapObject>(&self, &Self::CallerCtx, &jmap_types::id::Id) -> bool
 pub async fn jmap_tasks_server::memory::MemoryBackend::task_list_has_tasks(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<bool, jmap_tasks_server::memory::MemoryError>
 pub async fn jmap_tasks_server::memory::MemoryBackend::update_object<O: jmap_types::backend::SetObject + core::marker::Send + core::marker::Sync>(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id, <O as jmap_types::backend::SetObject>::Patch) -> core::result::Result<core::option::Option<O>, jmap_server::backend::BackendSetError<Self::Error>>
@@ -71,11 +73,43 @@ impl<'a> core::marker::Copy for jmap_tasks_server::workflow::WorkflowWrite<'a>
 pub const jmap_tasks_server::workflow::DEFAULT_WORKFLOW_STATUSES: &[&str]
 pub const jmap_tasks_server::workflow::PROGRESS_VALUES: &[&str]
 pub fn jmap_tasks_server::workflow::apply_workflow_status(&mut serde_json::map::Map<alloc::string::String, serde_json::value::Value>, jmap_tasks_server::workflow::WorkflowWrite<'_>, core::option::Option<&[alloc::string::String]>, &str) -> core::result::Result<bool, alloc::boxed::Box<jmap_types::set_error::SetError>>
+#[non_exhaustive] pub struct jmap_tasks_server::TaskQueryArgs
+pub jmap_tasks_server::TaskQueryArgs::expand_recurrences: bool
+pub jmap_tasks_server::TaskQueryArgs::time_zone: core::option::Option<alloc::string::String>
+impl jmap_tasks_server::TaskQueryArgs
+pub fn jmap_tasks_server::TaskQueryArgs::with_expand_recurrences(self, bool) -> Self
+pub fn jmap_tasks_server::TaskQueryArgs::with_time_zone(self, core::option::Option<alloc::string::String>) -> Self
+impl core::clone::Clone for jmap_tasks_server::TaskQueryArgs
+pub fn jmap_tasks_server::TaskQueryArgs::clone(&self) -> jmap_tasks_server::TaskQueryArgs
+impl core::cmp::Eq for jmap_tasks_server::TaskQueryArgs
+impl core::cmp::PartialEq for jmap_tasks_server::TaskQueryArgs
+pub fn jmap_tasks_server::TaskQueryArgs::eq(&self, &jmap_tasks_server::TaskQueryArgs) -> bool
+impl core::default::Default for jmap_tasks_server::TaskQueryArgs
+pub fn jmap_tasks_server::TaskQueryArgs::default() -> jmap_tasks_server::TaskQueryArgs
+impl core::fmt::Debug for jmap_tasks_server::TaskQueryArgs
+pub fn jmap_tasks_server::TaskQueryArgs::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_tasks_server::TaskQueryArgs
+#[non_exhaustive] pub struct jmap_tasks_server::TasksLimits
+pub jmap_tasks_server::TasksLimits::max_expanded_query_duration_seconds: u64
+impl jmap_tasks_server::TasksLimits
+pub fn jmap_tasks_server::TasksLimits::new(u64) -> Self
+impl core::clone::Clone for jmap_tasks_server::TasksLimits
+pub fn jmap_tasks_server::TasksLimits::clone(&self) -> jmap_tasks_server::TasksLimits
+impl core::cmp::Eq for jmap_tasks_server::TasksLimits
+impl core::cmp::PartialEq for jmap_tasks_server::TasksLimits
+pub fn jmap_tasks_server::TasksLimits::eq(&self, &jmap_tasks_server::TasksLimits) -> bool
+impl core::default::Default for jmap_tasks_server::TasksLimits
+pub fn jmap_tasks_server::TasksLimits::default() -> Self
+impl core::fmt::Debug for jmap_tasks_server::TasksLimits
+pub fn jmap_tasks_server::TasksLimits::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_tasks_server::TasksLimits
 pub trait jmap_tasks_server::TasksBackend: jmap_server::backend::JmapBackend
 pub fn jmap_tasks_server::TasksBackend::compute_utc_times(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_tasks_types::task::Task, core::option::Option<&str>) -> impl core::future::future::Future<Output = (core::option::Option<jmap_types::id::UTCDate>, core::option::Option<jmap_types::id::UTCDate>)> + core::marker::Send
 pub fn jmap_tasks_server::TasksBackend::copy_object<O: jmap_types::backend::SetObject + core::marker::Send + core::marker::Sync>(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id, O, &serde_json::value::Value) -> impl core::future::future::Future<Output = core::result::Result<(jmap_types::id::Id, O), jmap_server::backend::BackendSetError<Self::Error>>> + core::marker::Send
 pub fn jmap_tasks_server::TasksBackend::create_object<O, F>(&self, &Self::CallerCtx, &jmap_types::id::Id, &str, F) -> impl core::future::future::Future<Output = core::result::Result<(jmap_types::id::Id, O), jmap_server::backend::BackendSetError<Self::Error>>> + core::marker::Send where O: jmap_types::backend::SetObject + core::marker::Send + core::marker::Sync, F: core::ops::function::FnOnce(&jmap_types::id::Id) -> O + core::marker::Send
 pub fn jmap_tasks_server::TasksBackend::destroy_object<O: jmap_types::backend::SetObject + core::marker::Send + core::marker::Sync>(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<(), jmap_server::backend::BackendSetError<Self::Error>>> + core::marker::Send
+pub fn jmap_tasks_server::TasksBackend::limits(&self, &Self::CallerCtx, &jmap_types::id::Id) -> jmap_tasks_server::TasksLimits
+pub fn jmap_tasks_server::TasksBackend::query_tasks(&self, &Self::CallerCtx, &jmap_types::id::Id, jmap_server::backend::QueryParams<'_, jmap_tasks_types::task::Task>, &jmap_tasks_server::TaskQueryArgs) -> impl core::future::future::Future<Output = core::result::Result<jmap_server::backend::QueryResult, jmap_server::backend::BackendQueryError<Self::Error>>> + core::marker::Send
 pub fn jmap_tasks_server::TasksBackend::supports_type<O: jmap_types::backend::JmapObject>(&self, &Self::CallerCtx, &jmap_types::id::Id) -> bool
 pub fn jmap_tasks_server::TasksBackend::task_list_has_tasks(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<bool, Self::Error>> + core::marker::Send
 pub fn jmap_tasks_server::TasksBackend::update_object<O: jmap_types::backend::SetObject + core::marker::Send + core::marker::Sync>(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id, <O as jmap_types::backend::SetObject>::Patch) -> impl core::future::future::Future<Output = core::result::Result<core::option::Option<O>, jmap_server::backend::BackendSetError<Self::Error>>> + core::marker::Send
@@ -85,6 +119,8 @@ pub fn jmap_tasks_server::memory::MemoryBackend::compute_utc_times(&self, &Self:
 pub async fn jmap_tasks_server::memory::MemoryBackend::copy_object<O: jmap_types::backend::SetObject + core::marker::Send + core::marker::Sync>(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id, O, &serde_json::value::Value) -> core::result::Result<(jmap_types::id::Id, O), jmap_server::backend::BackendSetError<Self::Error>>
 pub async fn jmap_tasks_server::memory::MemoryBackend::create_object<O, F>(&self, &(), &jmap_types::id::Id, &str, F) -> core::result::Result<(jmap_types::id::Id, O), jmap_server::backend::BackendSetError<Self::Error>> where O: jmap_types::backend::SetObject + core::marker::Send + core::marker::Sync, F: core::ops::function::FnOnce(&jmap_types::id::Id) -> O + core::marker::Send
 pub async fn jmap_tasks_server::memory::MemoryBackend::destroy_object<O: jmap_types::backend::SetObject + core::marker::Send + core::marker::Sync>(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<(), jmap_server::backend::BackendSetError<Self::Error>>
+pub fn jmap_tasks_server::memory::MemoryBackend::limits(&self, &Self::CallerCtx, &jmap_types::id::Id) -> jmap_tasks_server::TasksLimits
+pub async fn jmap_tasks_server::memory::MemoryBackend::query_tasks(&self, &(), &jmap_types::id::Id, jmap_server::backend::QueryParams<'_, jmap_tasks_types::task::Task>, &jmap_tasks_server::TaskQueryArgs) -> core::result::Result<jmap_server::backend::QueryResult, jmap_server::backend::BackendQueryError<Self::Error>>
 pub fn jmap_tasks_server::memory::MemoryBackend::supports_type<O: jmap_types::backend::JmapObject>(&self, &Self::CallerCtx, &jmap_types::id::Id) -> bool
 pub async fn jmap_tasks_server::memory::MemoryBackend::task_list_has_tasks(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<bool, jmap_tasks_server::memory::MemoryError>
 pub async fn jmap_tasks_server::memory::MemoryBackend::update_object<O: jmap_types::backend::SetObject + core::marker::Send + core::marker::Sync>(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id, <O as jmap_types::backend::SetObject>::Patch) -> core::result::Result<core::option::Option<O>, jmap_server::backend::BackendSetError<Self::Error>>
