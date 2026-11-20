@@ -36,6 +36,30 @@ wire behaviour that a conforming peer can observe.
   verification, Events API and Socket Mode envelopes) and `mrkdwn`.
   Browser session tokens are refused.
 
+- **jmap-filenode-server** (`memory`): **BREAKING** per-user access
+  control in the reference `MemoryBackend` (draft-ietf-jmap-filenode-20 §5,
+  decision 47, bd:JMAP-t8ej.30). `MemoryBackend<C = Id>` takes its
+  `CallerCtx` from the new `MemoryCaller` trait: the caller's Principal
+  `Id` (the default; `principal_id` returns it), or `()` for a deployment
+  without identity, whose caller acts as the owner (`MemoryBackend::<()>::default()`;
+  `MemoryBackend::new()` is `MemoryBackend<Id>`). Each account has an owner:
+  `with_account` makes the account id the owner, `with_account_owner`
+  names one. The owner has every right; any other user has the union of
+  the `shareWith` entries on the node and its ancestors (a File's are its
+  parent's). Reads leave out undiscoverable nodes, show a node without
+  `mayRead` with only id, @type, name, parentId, myRights, isSubscribed and
+  shareWith, compute `myRights` per caller, and hide `shareWith` without
+  `mayShare`; `FileNode/query` filters and sorts the caller's view.
+  `create_object`, `copy_object`, `update_object` and `destroy_object`
+  re-check the rights under the store lock (`mayAddChildren` or the owner
+  for the top level, `mayRename`, `mayModifyContent`, `mayShare`,
+  `mayDelete`, copy `mayRead`, a destroy over an undiscoverable descendant
+  `forbidden`, the owner never in `shareWith`), and `may_destroy` answers
+  from the same rights. `isSubscribed` is per user. `FileNode/changes` is
+  per user: a node that becomes discoverable is created, one that stops
+  being discoverable destroyed, one whose rights changed updated, for that
+  user only. Object history is the owner's only. Callers that passed
+  `&()` pass a Principal `Id`, or use `MemoryBackend::<()>`.
 - **jmap-filenode-server**: `FileNodeBackend::may_destroy`, a fail-open
   hook the `FileNode/set` and `FileNode/copy` handlers ask about every node
   of a subtree before a destroy that removes it (`onDestroyRemoveChildren`,

@@ -20,7 +20,7 @@ use std::sync::Arc;
 
 use jmap_types::Id;
 
-use common::MemoryBackend;
+use common::{MemoryBackend, owner};
 use jmap_filenode_server::register_filenode_handlers;
 use jmap_server::Dispatcher;
 use jmap_types::{JmapRequest, JmapResponse, State};
@@ -28,27 +28,29 @@ use serde_json::{Value, json};
 
 const ACCOUNT: &str = "acc1";
 
-fn dispatcher(backend: MemoryBackend) -> Dispatcher<()> {
+fn dispatcher(backend: MemoryBackend) -> Dispatcher<Id> {
     let mut dispatcher = Dispatcher::new();
     register_filenode_handlers(&mut dispatcher, Arc::new(backend));
     dispatcher
 }
 
-fn limited(max: u64) -> Dispatcher<()> {
+fn limited(max: u64) -> Dispatcher<Id> {
     dispatcher(
         MemoryBackend::new()
-            .with_account(&Id::from(ACCOUNT))
+            .with_account_owner(&Id::from(ACCOUNT), &owner())
             .with_max_file_node_depth(max),
     )
 }
 
-async fn run(dispatcher: &Dispatcher<()>, method_calls: Value) -> JmapResponse {
+async fn run(dispatcher: &Dispatcher<Id>, method_calls: Value) -> JmapResponse {
     let request: JmapRequest = serde_json::from_value(json!({
         "using": ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:filenode"],
         "methodCalls": method_calls
     }))
     .expect("request JSON must deserialize");
-    dispatcher.dispatch(request, (), State::from("s0")).await
+    dispatcher
+        .dispatch(request, owner(), State::from("s0"))
+        .await
 }
 
 fn args(resp: &JmapResponse, i: usize) -> &Value {
@@ -61,7 +63,7 @@ fn dir(name: &str, parent: Value) -> Value {
 
 /// Create the given `(creation id, directory)` entries in one call and
 /// return the server id of each, panicking if any create failed.
-async fn create_all(d: &Dispatcher<()>, entries: &[(&str, Value)]) -> Vec<String> {
+async fn create_all(d: &Dispatcher<Id>, entries: &[(&str, Value)]) -> Vec<String> {
     let create: serde_json::Map<String, Value> = entries
         .iter()
         .map(|(k, v)| ((*k).to_owned(), v.clone()))
@@ -82,7 +84,7 @@ async fn create_all(d: &Dispatcher<()>, entries: &[(&str, Value)]) -> Vec<String
         .collect()
 }
 
-async fn parent_of(d: &Dispatcher<()>, id: &str) -> Value {
+async fn parent_of(d: &Dispatcher<Id>, id: &str) -> Value {
     let resp = run(
         d,
         json!([["FileNode/get", { "accountId": ACCOUNT, "ids": [id],
@@ -236,7 +238,7 @@ async fn copy_counts_the_copied_subtree() {
 
 #[tokio::test]
 async fn no_limit_by_default() {
-    let d = dispatcher(MemoryBackend::new().with_account(&Id::from(ACCOUNT)));
+    let d = dispatcher(MemoryBackend::new().with_account_owner(&Id::from(ACCOUNT), &owner()));
     create_all(
         &d,
         &[

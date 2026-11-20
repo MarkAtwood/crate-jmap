@@ -21,7 +21,7 @@
 
 mod common;
 
-use common::{ACCOUNT, Deployment};
+use common::{ACCOUNT, Deployment, owner};
 use jmap_filenode_server::{handle_filenode_get, handle_filenode_set};
 use serde_json::{Value, json};
 
@@ -30,7 +30,7 @@ async fn set(deployment: &Deployment, mut args: Value) -> Value {
     args["accountId"] = json!(ACCOUNT);
     handle_filenode_set(
         deployment,
-        &(),
+        &owner(),
         &std::collections::BTreeMap::new(),
         args,
         &[],
@@ -44,7 +44,7 @@ async fn set(deployment: &Deployment, mut args: Value) -> Value {
 async fn surviving(deployment: &Deployment, ids: &[&str]) -> Vec<String> {
     let resp = handle_filenode_get(
         deployment,
-        &(),
+        &owner(),
         json!({ "accountId": ACCOUNT, "ids": ids, "properties": ["id"] }),
         &[],
     )

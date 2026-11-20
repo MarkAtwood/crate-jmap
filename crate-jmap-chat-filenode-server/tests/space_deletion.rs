@@ -32,6 +32,13 @@ use serde_json::{Value, json};
 
 const ACCOUNT: &str = "A1";
 
+/// The FileNode caller: the account owner, whose id is the accountId
+/// (draft-atwood-jmap-chat-00 §Terminology), with every FileNode right
+/// (draft-ietf-jmap-filenode-20 §5); the Chat gates decide.
+fn owner() -> Id {
+    Id::from(ACCOUNT)
+}
+
 fn node(v: Value) -> FileNode {
     serde_json::from_value(v).expect("FileNode fixture")
 }
@@ -76,7 +83,7 @@ fn set(list: &[&str]) -> HashSet<String> {
 async fn not_found(files: &MemoryBackend, list: &[&str]) -> HashSet<String> {
     let out = handle_filenode_get(
         files,
-        &(),
+        &owner(),
         json!({ "accountId": ACCOUNT, "ids": list }),
         &[],
     )
@@ -90,7 +97,7 @@ async fn not_found(files: &MemoryBackend, list: &[&str]) -> HashSet<String> {
 #[tokio::test]
 async fn destroys_the_root_and_every_node_within_it() {
     let files = fixture();
-    let destroyed = destroy_space_file_tree(&files, &(), &Id::from(ACCOUNT), &Id::from("S1"))
+    let destroyed = destroy_space_file_tree(&files, &owner(), &Id::from(ACCOUNT), &Id::from("S1"))
         .await
         .expect("destroy");
     let destroyed: HashSet<String> = destroyed.iter().map(|id| id.as_ref().to_owned()).collect();
@@ -106,7 +113,7 @@ async fn destroys_the_root_and_every_node_within_it() {
 #[tokio::test]
 async fn leaves_other_trees_alone() {
     let files = fixture();
-    destroy_space_file_tree(&files, &(), &Id::from(ACCOUNT), &Id::from("S1"))
+    destroy_space_file_tree(&files, &owner(), &Id::from(ACCOUNT), &Id::from("S1"))
         .await
         .expect("destroy");
     assert!(
@@ -124,7 +131,7 @@ async fn destroy_is_a_filenode_state_change() {
     let files = fixture();
     let before = handle_filenode_changes(
         &files,
-        &(),
+        &owner(),
         json!({ "accountId": ACCOUNT, "sinceState": "0" }),
         &[],
     )
@@ -132,13 +139,13 @@ async fn destroy_is_a_filenode_state_change() {
     .expect("FileNode/changes");
     let since = before.primary["newState"].clone();
 
-    destroy_space_file_tree(&files, &(), &Id::from(ACCOUNT), &Id::from("S1"))
+    destroy_space_file_tree(&files, &owner(), &Id::from(ACCOUNT), &Id::from("S1"))
         .await
         .expect("destroy");
 
     let out = handle_filenode_changes(
         &files,
-        &(),
+        &owner(),
         json!({ "accountId": ACCOUNT, "sinceState": since }),
         &[],
     )
@@ -155,7 +162,7 @@ async fn destroy_is_a_filenode_state_change() {
 #[tokio::test]
 async fn space_without_a_tree_destroys_nothing() {
     let files = fixture();
-    let destroyed = destroy_space_file_tree(&files, &(), &Id::from(ACCOUNT), &Id::from("S9"))
+    let destroyed = destroy_space_file_tree(&files, &owner(), &Id::from(ACCOUNT), &Id::from("S9"))
         .await
         .expect("destroy");
     assert!(destroyed.is_empty());
@@ -177,7 +184,7 @@ async fn destroys_every_space_root() {
     ] {
         files.seed_node(&Id::from(ACCOUNT), node(v));
     }
-    let destroyed = destroy_space_file_tree(&files, &(), &Id::from(ACCOUNT), &Id::from("S1"))
+    let destroyed = destroy_space_file_tree(&files, &owner(), &Id::from(ACCOUNT), &Id::from("S1"))
         .await
         .expect("destroy");
     let all = ["r1", "f1", "d1", "f2", "r1b", "f5", "r1c"];
@@ -203,7 +210,7 @@ async fn destroys_a_role_directory_in_the_tree() {
     ] {
         files.seed_node(&Id::from(ACCOUNT), node(v));
     }
-    let destroyed = destroy_space_file_tree(&files, &(), &Id::from(ACCOUNT), &Id::from("S1"))
+    let destroyed = destroy_space_file_tree(&files, &owner(), &Id::from(ACCOUNT), &Id::from("S1"))
         .await
         .expect("destroy");
     let all = ["r1", "f1", "d1", "f2", "rd", "f6"];
@@ -218,7 +225,7 @@ async fn destroys_a_role_directory_in_the_tree() {
 #[tokio::test]
 async fn destroys_children_before_their_parents() {
     let files = fixture();
-    let destroyed = destroy_space_file_tree(&files, &(), &Id::from(ACCOUNT), &Id::from("S1"))
+    let destroyed = destroy_space_file_tree(&files, &owner(), &Id::from(ACCOUNT), &Id::from("S1"))
         .await
         .expect("destroy");
     let pos = |id: &str| {

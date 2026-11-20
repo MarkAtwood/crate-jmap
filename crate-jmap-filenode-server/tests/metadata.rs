@@ -12,7 +12,7 @@ mod common;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use common::MemoryBackend;
+use common::{MemoryBackend, owner};
 use jmap_filenode_server::{
     handle_filenode_changes, handle_filenode_copy, handle_filenode_get, handle_filenode_query,
     handle_filenode_query_changes, handle_filenode_set, register_filenode_handlers,
@@ -52,7 +52,7 @@ fn info() -> DataTypeMetadataInfo {
 
 fn backend() -> MemoryBackend {
     MemoryBackend::new()
-        .with_account(&Id::from(ACCOUNT_ID))
+        .with_account_owner(&Id::from(ACCOUNT_ID), &owner())
         .with_metadata_info("FileNode", info())
 }
 
@@ -60,9 +60,14 @@ fn error_type(err: JmapError) -> Value {
     serde_json::to_value(&err).unwrap()["type"].clone()
 }
 
-/// Seed a top-level Directory `id` whose `myRights.maySetMetadata` is
-/// `may_set_metadata` (`myRights` is server-set, so not writable through
-/// FileNode/set) and whose server-set `changed` is fixed.
+/// The user a seeded Directory is shared with; the owner is [`owner`].
+const SHAREE: &str = "sharee";
+
+/// Seed a top-level Directory `id`, whose server-set `changed` is fixed,
+/// shared with [`SHAREE`] with every right but `maySetMetadata`, which is
+/// `may_set_metadata`. The owner holds every right (draft-ietf-jmap-filenode-20
+/// §5); a sharee's `myRights` is "the union of the rights granted to the
+/// user by the shareWith entries on the node and on all its ancestors".
 fn seed_dir(backend: &MemoryBackend, id: &str, may_set_metadata: bool) {
     backend.seed_object(
         &Id::from(ACCOUNT_ID),
@@ -71,20 +76,31 @@ fn seed_dir(backend: &MemoryBackend, id: &str, may_set_metadata: bool) {
         json!({
             "id": id, "@type": "Directory", "name": id, "parentId": null,
             "changed": "2024-01-01T00:00:00Z",
-            "myRights": {
+            "shareWith": { SHAREE: {
                 "mayRead": true, "mayAddChildren": true, "mayRename": true,
                 "mayDelete": true, "mayModifyContent": true, "mayShare": true,
                 "maySetMetadata": may_set_metadata
-            }
+            } }
         }),
     );
+}
+
+/// FileNode/set as [`SHAREE`].
+async fn sharee_set(backend: &MemoryBackend, args: Value) -> Value {
+    let mut args = args;
+    args["accountId"] = json!(ACCOUNT_ID);
+    let HandlerOutput { primary, .. } =
+        handle_filenode_set(backend, &Id::from(SHAREE), &BTreeMap::new(), args, &using())
+            .await
+            .expect("FileNode/set must not fail at method level");
+    primary
 }
 
 async fn node_set(backend: &MemoryBackend, args: Value, using: &[String]) -> Value {
     let mut args = args;
     args["accountId"] = json!(ACCOUNT_ID);
     let HandlerOutput { primary, .. } =
-        handle_filenode_set(backend, &(), &BTreeMap::new(), args, using)
+        handle_filenode_set(backend, &owner(), &BTreeMap::new(), args, using)
             .await
             .expect("FileNode/set must not fail at method level");
     primary
@@ -109,7 +125,7 @@ async fn update_node(backend: &MemoryBackend, id: &str, patch: Value) -> Value {
 
 async fn node_property(backend: &MemoryBackend, id: &str, property: &str) -> Value {
     let args = json!({ "accountId": ACCOUNT_ID, "ids": [id] });
-    let HandlerOutput { primary, .. } = handle_filenode_get(backend, &(), args, &using())
+    let HandlerOutput { primary, .. } = handle_filenode_get(backend, &owner(), args, &using())
         .await
         .unwrap();
     primary["list"][0][property].clone()
@@ -117,7 +133,7 @@ async fn node_property(backend: &MemoryBackend, id: &str, property: &str) -> Val
 
 async fn node_query(backend: &MemoryBackend, filter: Value) -> Result<Value, JmapError> {
     let args = json!({ "accountId": ACCOUNT_ID, "filter": filter });
-    handle_filenode_query(backend, &(), args, &using())
+    handle_filenode_query(backend, &owner(), args, &using())
         .await
         .map(|o| o.primary["ids"].clone())
 }
@@ -125,7 +141,7 @@ async fn node_query(backend: &MemoryBackend, filter: Value) -> Result<Value, Jma
 async fn node_changes(backend: &MemoryBackend, args: Value, using: &[String]) -> Value {
     let mut args = args;
     args["accountId"] = json!(ACCOUNT_ID);
-    handle_filenode_changes(backend, &(), args, using)
+    handle_filenode_changes(backend, &owner(), args, using)
         .await
         .expect("FileNode/changes must succeed")
         .primary
@@ -229,7 +245,7 @@ async fn invalid_conditions_are_rejected() {
 /// (RFC 8620 §5.5 `unsupportedFilter`).
 #[tokio::test]
 async fn unlisted_type_rejects_metadata_condition() {
-    let backend = MemoryBackend::new().with_account(&Id::from(ACCOUNT_ID));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from(ACCOUNT_ID), &owner());
     let err = node_query(&backend, json!({ "metadataExists": NS }))
         .await
         .unwrap_err();
@@ -424,7 +440,7 @@ async fn invalid_metadata_writes_are_invalid_properties() {
 /// backend that did not opt in rejects the write, on create and update.
 #[tokio::test]
 async fn unlisted_type_rejects_metadata_write() {
-    let backend = MemoryBackend::new().with_account(&Id::from(ACCOUNT_ID));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from(ACCOUNT_ID), &owner());
     let resp = node_set(
         &backend,
         json!({ "create": { "c": {
@@ -449,24 +465,27 @@ async fn unlisted_type_rejects_metadata_write() {
 /// -05 §4.1 names FileNode among the types with a myRights property, whose
 /// rights object gains `maySetMetadata`: "A write to metadata without
 /// maySetMetadata MUST be rejected with a "forbidden" SetError." Other
-/// properties stay writable.
+/// properties stay writable. The sharee lacks the right; the owner, who
+/// "has all rights" (draft-ietf-jmap-filenode-20 §5), holds it.
 #[tokio::test]
 async fn node_without_may_set_metadata_is_forbidden() {
     let backend = backend();
     seed_dir(&backend, "locked", false);
-    let resp = node_set(
-        &backend,
-        json!({ "update": { "locked": { "metadata/acme.example.com": { "k": 1 } } } }),
-        &using(),
-    )
-    .await;
+    let patch = json!({ "metadata/acme.example.com": { "k": 1 } });
+    let resp = sharee_set(&backend, json!({ "update": { "locked": patch } })).await;
     assert_eq!(
         resp["notUpdated"]["locked"]["type"],
         json!("forbidden"),
         "{resp}"
     );
 
-    update_node(&backend, "locked", json!({ "name": "renamed" })).await;
+    let resp = sharee_set(
+        &backend,
+        json!({ "update": { "locked": { "name": "renamed" } } }),
+    )
+    .await;
+    assert!(resp["updated"].get("locked").is_some(), "{resp}");
+    update_node(&backend, "locked", patch).await;
 }
 
 /// A File has no rights object of its own: draft-ietf-jmap-filenode-20 §5,
@@ -490,13 +509,14 @@ async fn file_takes_may_set_metadata_from_parent() {
         );
     }
     let patch = json!({ "metadata/acme.example.com": { "k": 1 } });
-    let resp = node_set(&backend, json!({ "update": { "f1": patch } }), &using()).await;
+    let resp = sharee_set(&backend, json!({ "update": { "f1": patch } })).await;
     assert_eq!(
         resp["notUpdated"]["f1"]["type"],
         json!("forbidden"),
         "{resp}"
     );
-    update_node(&backend, "f2", patch).await;
+    let resp = sharee_set(&backend, json!({ "update": { "f2": patch } })).await;
+    assert!(resp["updated"].get("f2").is_some(), "{resp}");
 }
 
 /// -05 §3.2 rule 1: "If the user cannot read the related object, reject
@@ -658,7 +678,7 @@ async fn excluded_ids_do_not_count_toward_max_changes() {
 async fn dispatcher_forwards_using() {
     let backend = backend();
     seed_dir(&backend, "d", true);
-    let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+    let mut dispatcher: Dispatcher<Id> = Dispatcher::new();
     register_filenode_handlers(&mut dispatcher, Arc::new(backend));
 
     let call = json!([["FileNode/set", {
@@ -668,7 +688,9 @@ async fn dispatcher_forwards_using() {
     for (using, expect_ok) in [(using_without_metadata(), false), (using(), true)] {
         let request: JmapRequest =
             serde_json::from_value(json!({ "using": using, "methodCalls": call })).unwrap();
-        let resp = dispatcher.dispatch(request, (), State::from("s0")).await;
+        let resp = dispatcher
+            .dispatch(request, owner(), State::from("s0"))
+            .await;
         let args = &resp.method_responses[0].arguments;
         if expect_ok {
             assert!(args["updated"].get("d").is_some(), "{args}");
@@ -702,7 +724,7 @@ async fn node_get_one(
     using: &[String],
 ) -> Result<Value, JmapError> {
     let args = json!({ "accountId": ACCOUNT_ID, "ids": [id], "properties": properties });
-    handle_filenode_get(b, &(), args, using)
+    handle_filenode_get(b, &owner(), args, using)
         .await
         .map(|o| o.primary["list"][0].clone())
 }
@@ -812,7 +834,7 @@ async fn node_metadata_filter_requires_capability() {
         json!({ "operator": "NOT", "conditions": [json!({ "metadataExists": NS })] }),
     ] {
         let args = json!({ "accountId": ACCOUNT_ID, "filter": filter.clone() });
-        let err = handle_filenode_query(&b, &(), args, &without)
+        let err = handle_filenode_query(&b, &owner(), args, &without)
             .await
             .unwrap_err();
         assert_eq!(
@@ -822,7 +844,7 @@ async fn node_metadata_filter_requires_capability() {
         );
         let args =
             json!({ "accountId": ACCOUNT_ID, "filter": filter.clone(), "sinceQueryState": "0" });
-        let err = handle_filenode_query_changes(&b, &(), args, &without)
+        let err = handle_filenode_query_changes(&b, &owner(), args, &without)
             .await
             .unwrap_err();
         assert_eq!(
@@ -832,7 +854,11 @@ async fn node_metadata_filter_requires_capability() {
         );
     }
     let args = json!({ "accountId": ACCOUNT_ID, "filter": json!({ "metadataExists": NS }) });
-    assert!(handle_filenode_query(&b, &(), args, &using()).await.is_ok());
+    assert!(
+        handle_filenode_query(&b, &owner(), args, &using())
+            .await
+            .is_ok()
+    );
 }
 
 /// The destination account of the /copy test.
@@ -846,7 +872,7 @@ async fn node_copy(b: &MemoryBackend, entry: Value, using: &[String]) -> Value {
         "accountId": OTHER_ID,
         "create": { "k": entry },
     });
-    handle_filenode_copy(b, &(), args, "c0", using)
+    handle_filenode_copy(b, &owner(), args, "c0", using)
         .await
         .expect("/copy must not fail at method level")
         .primary
@@ -862,7 +888,7 @@ async fn node_copy(b: &MemoryBackend, entry: Value, using: &[String]) -> Value {
 /// an "invalidProperties" SetError" (§3.2).
 #[tokio::test]
 async fn node_copy_metadata() {
-    let b = backend().with_account(&Id::from(OTHER_ID));
+    let b = backend().with_account_owner(&Id::from(OTHER_ID), &owner());
     let src = create_dir(&b, "src", json!({ NS: { "k": 1 } })).await;
     let entry = |extra: Value| {
         let mut e = json!({ "id": &src });
@@ -882,7 +908,7 @@ async fn node_copy_metadata() {
 
     let resp = node_copy(&b, entry(json!({})), &using_without_metadata()).await;
     let (args, _) = dest_metadata(&resp);
-    let got = handle_filenode_get(&b, &(), args, &using())
+    let got = handle_filenode_get(&b, &owner(), args, &using())
         .await
         .unwrap()
         .primary;
@@ -924,7 +950,7 @@ async fn node_copy_metadata() {
     )
     .await;
     let (args, _) = dest_metadata(&resp);
-    let got = handle_filenode_get(&b, &(), args, &using())
+    let got = handle_filenode_get(&b, &owner(), args, &using())
         .await
         .unwrap()
         .primary;
@@ -946,7 +972,7 @@ async fn node_copy_metadata() {
 /// object value deeper than maxDepth is still rejected (-05 §3.2 rule 4).
 #[tokio::test]
 async fn node_copy_does_not_revalidate_copied_metadata() {
-    let b = backend().with_account(&Id::from(OTHER_ID));
+    let b = backend().with_account_owner(&Id::from(OTHER_ID), &owner());
     let deep = json!({ "a": { "b": { "c": 1 } } });
     let copied = json!({ NS: deep, "photography": { "k": 1 } });
     b.seed_object(
@@ -964,7 +990,7 @@ async fn node_copy_does_not_revalidate_copied_metadata() {
         .as_str()
         .unwrap_or_else(|| panic!("copy failed: {resp}"));
     let args = json!({ "accountId": OTHER_ID, "ids": [id], "properties": ["metadata"] });
-    let got = handle_filenode_get(&b, &(), args, &using())
+    let got = handle_filenode_get(&b, &owner(), args, &using())
         .await
         .unwrap()
         .primary;

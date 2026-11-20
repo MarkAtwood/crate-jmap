@@ -16,6 +16,13 @@ use jmap_types::{Id, State};
 use serde_json::json;
 
 pub const ACCOUNT: &str = "A1";
+
+/// The FileNode caller: the account owner, whose id is the accountId
+/// (draft-atwood-jmap-chat-00 §Terminology), with every FileNode right
+/// (draft-ietf-jmap-filenode-20 §5); the Chat gates decide.
+pub fn owner() -> Id {
+    Id::from(ACCOUNT)
+}
 pub const SPACE: &str = "S1";
 
 /// A deployment offering both drafts: FileNode storage delegated to
@@ -71,7 +78,7 @@ impl Deployment {
     async fn stored(&self, account_id: &Id, id: &Id) -> Result<Option<FileNode>, MemoryError> {
         let (nodes, _) = self
             .files
-            .get_objects::<FileNode>(&(), account_id, Some(std::slice::from_ref(id)), None)
+            .get_objects::<FileNode>(&owner(), account_id, Some(std::slice::from_ref(id)), None)
             .await?;
         Ok(nodes.into_iter().next())
     }
@@ -79,66 +86,72 @@ impl Deployment {
 
 impl JmapAccounts for Deployment {
     type Error = MemoryError;
-    type CallerCtx = ();
+    type CallerCtx = Id;
 
-    async fn account_exists(&self, _caller: &(), account_id: &Id) -> Result<bool, Self::Error> {
-        self.files.account_exists(&(), account_id).await
+    async fn account_exists(&self, caller: &Id, account_id: &Id) -> Result<bool, Self::Error> {
+        self.files.account_exists(caller, account_id).await
     }
 }
 
 impl JmapReads for Deployment {
     async fn get_objects<O: GetObject + Send + Sync>(
         &self,
-        _caller: &(),
+        caller: &Id,
         account_id: &Id,
         ids: Option<&[Id]>,
         properties: Option<&[String]>,
     ) -> Result<(Vec<O>, Vec<Id>), Self::Error> {
         self.files
-            .get_objects::<O>(&(), account_id, ids, properties)
+            .get_objects::<O>(caller, account_id, ids, properties)
             .await
     }
 
     async fn get_state<O: JmapObject + Send + Sync>(
         &self,
-        _caller: &(),
+        caller: &Id,
         account_id: &Id,
     ) -> Result<State, Self::Error> {
-        self.files.get_state::<O>(&(), account_id).await
+        self.files.get_state::<O>(caller, account_id).await
     }
 
     async fn get_changes<O: JmapObject + Send + Sync>(
         &self,
-        _caller: &(),
+        caller: &Id,
         account_id: &Id,
         params: jmap_server::ChangesParams<'_>,
     ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
-        self.files.get_changes::<O>(&(), account_id, params).await
+        self.files
+            .get_changes::<O>(caller, account_id, params)
+            .await
     }
 
     async fn query_objects<O: QueryObject + Send + Sync>(
         &self,
-        _caller: &(),
+        caller: &Id,
         account_id: &Id,
         params: QueryParams<'_, O>,
     ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
-        self.files.query_objects::<O>(&(), account_id, params).await
+        self.files
+            .query_objects::<O>(caller, account_id, params)
+            .await
     }
 
     async fn query_changes<O: QueryObject + Send + Sync>(
         &self,
-        _caller: &(),
+        caller: &Id,
         account_id: &Id,
         params: QueryChangesParams<'_, O>,
     ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
-        self.files.query_changes::<O>(&(), account_id, params).await
+        self.files
+            .query_changes::<O>(caller, account_id, params)
+            .await
     }
 }
 
 impl FileNodeBackend for Deployment {
     async fn create_object<O, F>(
         &self,
-        _caller: &(),
+        caller: &Id,
         account_id: &Id,
         create_id: &str,
         build: F,
@@ -148,38 +161,38 @@ impl FileNodeBackend for Deployment {
         F: FnOnce(&Id) -> O + Send,
     {
         self.files
-            .create_object(&(), account_id, create_id, build)
+            .create_object(caller, account_id, create_id, build)
             .await
     }
 
     async fn copy_object<O: SetObject + Send + Sync>(
         &self,
-        _caller: &(),
+        caller: &Id,
         from_account_id: &Id,
         to_account_id: &Id,
         obj: O,
         create: &serde_json::Value,
     ) -> Result<(Id, O), BackendSetError<Self::Error>> {
         self.files
-            .copy_object(&(), from_account_id, to_account_id, obj, create)
+            .copy_object(caller, from_account_id, to_account_id, obj, create)
             .await
     }
 
     async fn update_object<O: SetObject + Send + Sync>(
         &self,
-        _caller: &(),
+        caller: &Id,
         account_id: &Id,
         id: &Id,
         patch: O::Patch,
     ) -> Result<Option<O>, BackendSetError<Self::Error>> {
         self.files
-            .update_object::<O>(&(), account_id, id, patch)
+            .update_object::<O>(caller, account_id, id, patch)
             .await
     }
 
     async fn destroy_object<O: SetObject + Send + Sync>(
         &self,
-        _caller: &(),
+        caller: &Id,
         account_id: &Id,
         id: &Id,
     ) -> Result<(), BackendSetError<Self::Error>> {
@@ -190,63 +203,63 @@ impl FileNodeBackend for Deployment {
             .await
             .map_err(BackendSetError::Other)?
         {
-            check_space_destroy(&self.chat, &(), &self.files, &(), account_id, &node)
+            check_space_destroy(&self.chat, &(), &self.files, caller, account_id, &node)
                 .await
                 .map_err(|e| BackendSetError::Other(MemoryError::new(e.to_string())))?
                 .map_err(|e| BackendSetError::SetError(Box::new(e)))?;
         }
-        self.files.destroy_object::<O>(&(), account_id, id).await
+        self.files.destroy_object::<O>(caller, account_id, id).await
     }
 
-    fn supports_type<O: JmapObject>(&self, caller: &(), account_id: &Id) -> bool {
+    fn supports_type<O: JmapObject>(&self, caller: &Id, account_id: &Id) -> bool {
         self.files.supports_type::<O>(caller, account_id)
     }
 
     async fn get_ancestors(
         &self,
-        _caller: &(),
+        caller: &Id,
         account_id: &Id,
         ids: &[Id],
     ) -> Result<Vec<FileNode>, Self::Error> {
-        self.files.get_ancestors(&(), account_id, ids).await
+        self.files.get_ancestors(caller, account_id, ids).await
     }
 
     async fn get_descendant_ids(
         &self,
-        _caller: &(),
+        caller: &Id,
         account_id: &Id,
         id: &Id,
     ) -> Result<Vec<Id>, Self::Error> {
-        self.files.get_descendant_ids(&(), account_id, id).await
+        self.files.get_descendant_ids(caller, account_id, id).await
     }
 
     async fn blob_exists(
         &self,
-        _caller: &(),
+        caller: &Id,
         account_id: &Id,
         blob_id: &Id,
     ) -> Result<bool, Self::Error> {
-        self.files.blob_exists(&(), account_id, blob_id).await
+        self.files.blob_exists(caller, account_id, blob_id).await
     }
 
     async fn files_rights(
         &self,
-        _caller: &(),
+        caller: &Id,
         account_id: &Id,
         node: &FileNode,
     ) -> Result<Option<FilesRights>, Self::Error> {
-        space_files_rights(&self.chat, &(), &self.files, &(), account_id, node)
+        space_files_rights(&self.chat, &(), &self.files, caller, account_id, node)
             .await
             .map_err(|e| MemoryError::new(e.to_string()))
     }
 
     async fn may_destroy(
         &self,
-        _caller: &(),
+        caller: &Id,
         account_id: &Id,
         node: &FileNode,
     ) -> Result<bool, Self::Error> {
-        check_space_destroy(&self.chat, &(), &self.files, &(), account_id, node)
+        check_space_destroy(&self.chat, &(), &self.files, caller, account_id, node)
             .await
             .map(|r| r.is_ok())
             .map_err(|e| MemoryError::new(e.to_string()))
@@ -254,14 +267,14 @@ impl FileNodeBackend for Deployment {
 
     async fn find_sibling_by_name(
         &self,
-        _caller: &(),
+        caller: &Id,
         account_id: &Id,
         parent_id: Option<&Id>,
         name: &str,
         folding: CaseFolding,
     ) -> Result<Option<Id>, Self::Error> {
         self.files
-            .find_sibling_by_name(&(), account_id, parent_id, name, folding)
+            .find_sibling_by_name(caller, account_id, parent_id, name, folding)
             .await
     }
 }

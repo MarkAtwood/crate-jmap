@@ -10,6 +10,9 @@
 use std::sync::Arc;
 
 use jmap_filenode_server::memory::MemoryBackend;
+
+mod common;
+use common::owner;
 use jmap_filenode_server::{register_filenode_conditional, register_filenode_handlers};
 use jmap_filenode_types::FileNode;
 use jmap_server::Dispatcher;
@@ -52,7 +55,7 @@ fn file(id: &str, name: &str, parent: Option<&str>, blob: &str) -> FileNode {
 /// - `a` "current.txt" and `b` "previous.txt".
 fn backend() -> Arc<MemoryBackend> {
     let u1 = Id::from("u1");
-    let b = MemoryBackend::new().with_account(&u1);
+    let b = MemoryBackend::new().with_account_owner(&u1, &owner());
     let rights = |read: bool| {
         json!({"mayRead": read, "mayAddChildren": false, "mayRename": false,
                "mayDelete": false, "mayModifyContent": false, "mayShare": false})
@@ -77,7 +80,7 @@ fn backend() -> Arc<MemoryBackend> {
     Arc::new(b)
 }
 
-fn dispatcher(b: &Arc<MemoryBackend>) -> Dispatcher<()> {
+fn dispatcher(b: &Arc<MemoryBackend>) -> Dispatcher<Id> {
     let mut d = Dispatcher::new();
     register_filenode_handlers(&mut d, Arc::clone(b));
     register_filenode_conditional(&mut d, Arc::clone(b)).unwrap();
@@ -86,25 +89,25 @@ fn dispatcher(b: &Arc<MemoryBackend>) -> Dispatcher<()> {
 
 /// Run one FileNode/set with `args` (accountId added); the response name
 /// and arguments.
-async fn set(d: &Dispatcher<()>, mut args: Value) -> (String, Value) {
+async fn set(d: &Dispatcher<Id>, mut args: Value) -> (String, Value) {
     args["accountId"] = json!("u1");
     let req: JmapRequest = serde_json::from_value(
         json!({"using": USING, "methodCalls": [["FileNode/set", args, "0"]]}),
     )
     .unwrap();
-    let resp = serde_json::to_value(d.dispatch(req, (), State::from("s")).await).unwrap();
+    let resp = serde_json::to_value(d.dispatch(req, owner(), State::from("s")).await).unwrap();
     let inv = &resp["methodResponses"][0];
     (inv[0].as_str().unwrap().to_owned(), inv[1].clone())
 }
 
 /// The stored node `id`, or `None`.
-async fn get(d: &Dispatcher<()>, id: &str) -> Option<Value> {
+async fn get(d: &Dispatcher<Id>, id: &str) -> Option<Value> {
     let req: JmapRequest = serde_json::from_value(json!({
         "using": USING,
         "methodCalls": [["FileNode/get", {"accountId": "u1", "ids": [id]}, "g"]]
     }))
     .unwrap();
-    let resp = serde_json::to_value(d.dispatch(req, (), State::from("s")).await).unwrap();
+    let resp = serde_json::to_value(d.dispatch(req, owner(), State::from("s")).await).unwrap();
     resp["methodResponses"][0][1]["list"]
         .as_array()
         .unwrap()

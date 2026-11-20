@@ -37,6 +37,13 @@ use jmap_types::Id;
 use serde_json::{Value, json};
 
 const ACCOUNT: &str = "A1";
+
+/// The FileNode caller: the account owner, whose id is the accountId
+/// (draft-atwood-jmap-chat-00 §Terminology), with every FileNode right
+/// (draft-ietf-jmap-filenode-20 §5); the Chat gates decide.
+fn owner() -> Id {
+    Id::from(ACCOUNT)
+}
 const SPACE: &str = "S1";
 
 struct Fixture {
@@ -84,7 +91,7 @@ impl Fixture {
     async fn create_root(&self, space_id: &str) -> String {
         let out = handle_filenode_set(
             &self.files,
-            &(),
+            &owner(),
             &std::collections::BTreeMap::new(),
             json!({
                 "accountId": ACCOUNT,
@@ -105,11 +112,18 @@ impl Fixture {
     /// wire JSON, or `None` if the create may proceed.
     async fn check(&self, node: Value) -> Option<Value> {
         let node: FileNode = serde_json::from_value(node).expect("FileNode fixture");
-        check_root_create(&self.chat, &(), &self.files, &(), &Id::from(ACCOUNT), &node)
-            .await
-            .expect("storage")
-            .err()
-            .map(|e| serde_json::to_value(e).expect("SetError serializes"))
+        check_root_create(
+            &self.chat,
+            &(),
+            &self.files,
+            &owner(),
+            &Id::from(ACCOUNT),
+            &node,
+        )
+        .await
+        .expect("storage")
+        .err()
+        .map(|e| serde_json::to_value(e).expect("SetError serializes"))
     }
 }
 

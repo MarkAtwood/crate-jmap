@@ -23,7 +23,7 @@ use std::sync::Arc;
 
 use jmap_types::Id;
 
-use common::MemoryBackend;
+use common::{MemoryBackend, owner};
 use jmap_filenode_server::register_filenode_handlers;
 use jmap_server::Dispatcher;
 use jmap_types::{JmapRequest, JmapResponse, State};
@@ -31,22 +31,24 @@ use serde_json::{Value, json};
 
 const ACCOUNT: &str = "acc1";
 
-fn dispatcher() -> Dispatcher<()> {
+fn dispatcher() -> Dispatcher<Id> {
     let mut dispatcher = Dispatcher::new();
     register_filenode_handlers(
         &mut dispatcher,
-        Arc::new(MemoryBackend::new().with_account(&Id::from(ACCOUNT))),
+        Arc::new(MemoryBackend::new().with_account_owner(&Id::from(ACCOUNT), &owner())),
     );
     dispatcher
 }
 
-async fn run(dispatcher: &Dispatcher<()>, method_calls: Value) -> JmapResponse {
+async fn run(dispatcher: &Dispatcher<Id>, method_calls: Value) -> JmapResponse {
     let request: JmapRequest = serde_json::from_value(json!({
         "using": ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:filenode"],
         "methodCalls": method_calls
     }))
     .expect("request JSON must deserialize");
-    dispatcher.dispatch(request, (), State::from("s0")).await
+    dispatcher
+        .dispatch(request, owner(), State::from("s0"))
+        .await
 }
 
 fn args(resp: &JmapResponse, i: usize) -> &Value {
@@ -64,7 +66,7 @@ fn dir(name: &str, parent: Value) -> Value {
     json!({ "@type": "Directory", "name": name, "parentId": parent })
 }
 
-async fn parent_of(d: &Dispatcher<()>, id: &str) -> Value {
+async fn parent_of(d: &Dispatcher<Id>, id: &str) -> Value {
     let resp = run(
         d,
         json!([["FileNode/get", { "accountId": ACCOUNT, "ids": [id],

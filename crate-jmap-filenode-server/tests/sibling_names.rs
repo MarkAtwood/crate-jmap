@@ -13,6 +13,9 @@
 use std::sync::Arc;
 
 use jmap_filenode_server::memory::MemoryBackend;
+
+mod common;
+use common::owner;
 use jmap_filenode_server::register_filenode_handlers;
 use jmap_server::Dispatcher;
 use jmap_types::{Id, JmapRequest, State};
@@ -20,34 +23,34 @@ use serde_json::{Value, json};
 
 const USING: &[&str] = &["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:filenode"];
 
-fn dispatcher() -> Dispatcher<()> {
-    let b = Arc::new(MemoryBackend::new().with_account(&Id::from("u1")));
+fn dispatcher() -> Dispatcher<Id> {
+    let b = Arc::new(MemoryBackend::new().with_account_owner(&Id::from("u1"), &owner()));
     let mut d = Dispatcher::new();
     register_filenode_handlers(&mut d, b);
     d
 }
 
 /// Run one FileNode/set with `args` (accountId added); its response.
-async fn set(d: &Dispatcher<()>, mut args: Value) -> Value {
+async fn set(d: &Dispatcher<Id>, mut args: Value) -> Value {
     args["accountId"] = json!("u1");
     let req: JmapRequest = serde_json::from_value(
         json!({"using": USING, "methodCalls": [["FileNode/set", args, "0"]]}),
     )
     .unwrap();
-    let resp = serde_json::to_value(d.dispatch(req, (), State::from("s")).await).unwrap();
+    let resp = serde_json::to_value(d.dispatch(req, owner(), State::from("s")).await).unwrap();
     let inv = &resp["methodResponses"][0];
     assert_eq!(inv[0], "FileNode/set", "{inv}");
     inv[1].clone()
 }
 
 /// Every node: id → (name, parentId).
-async fn tree(d: &Dispatcher<()>) -> Vec<(String, String, Value)> {
+async fn tree(d: &Dispatcher<Id>) -> Vec<(String, String, Value)> {
     let req: JmapRequest = serde_json::from_value(json!({
         "using": USING,
         "methodCalls": [["FileNode/get", {"accountId": "u1", "properties": ["name", "parentId"]}, "g"]]
     }))
     .unwrap();
-    let resp = serde_json::to_value(d.dispatch(req, (), State::from("s")).await).unwrap();
+    let resp = serde_json::to_value(d.dispatch(req, owner(), State::from("s")).await).unwrap();
     let mut nodes: Vec<_> = resp["methodResponses"][0][1]["list"]
         .as_array()
         .unwrap()
@@ -69,7 +72,7 @@ fn dir(name: &str, parent: Option<&str>) -> Value {
 }
 
 /// Create top-level Directories with `names`; their ids, in order.
-async fn seed(d: &Dispatcher<()>, names: &[&str]) -> Vec<String> {
+async fn seed(d: &Dispatcher<Id>, names: &[&str]) -> Vec<String> {
     let create: serde_json::Map<String, Value> = names
         .iter()
         .map(|n| ((*n).to_owned(), dir(n, None)))

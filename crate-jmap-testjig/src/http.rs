@@ -102,7 +102,7 @@ pub(crate) struct AppStateInner {
     pub(crate) calendars: Arc<jmap_calendars_server::memory::MemoryBackend>,
     pub(crate) tasks: Arc<jmap_tasks_server::memory::MemoryBackend>,
     pub(crate) contacts: Arc<jmap_contacts_server::memory::MemoryBackend>,
-    pub(crate) filenode: Arc<jmap_filenode_server::memory::MemoryBackend>,
+    pub(crate) filenode: Arc<jmap_filenode_server::memory::MemoryBackend<()>>,
     pub(crate) sharing: Arc<jmap_sharing_server::memory::MemoryBackend>,
     pub(crate) quotas: Arc<jmap_quotas_server::memory::MemoryBackend>,
     /// Testjig-internal state-change signal for signal-driven SSE / WS
@@ -503,7 +503,7 @@ struct ExtensionBackends {
     calendars: Arc<jmap_calendars_server::memory::MemoryBackend>,
     tasks: Arc<jmap_tasks_server::memory::MemoryBackend>,
     contacts: Arc<jmap_contacts_server::memory::MemoryBackend>,
-    filenode: Arc<jmap_filenode_server::memory::MemoryBackend>,
+    filenode: Arc<jmap_filenode_server::memory::MemoryBackend<()>>,
     sharing: Arc<jmap_sharing_server::memory::MemoryBackend>,
     quotas: Arc<jmap_quotas_server::memory::MemoryBackend>,
 }
@@ -655,9 +655,11 @@ fn register_all_extensions(dispatcher: &mut Dispatcher<()>) -> ExtensionBackends
 
     // FileNode (draft-atwood-jmap-chat-filenode-00): FileNode tree.
     // Uses a builder shape — `with_account` consumes self and returns
-    // the seeded backend, which we then wrap in an Arc.
+    // the seeded backend, which we then wrap in an Arc. The caller context
+    // is `()`, as for the other backends: the jig's single caller acts as
+    // the account owner, with every right.
     let filenode = Arc::new(
-        jmap_filenode_server::memory::MemoryBackend::new()
+        jmap_filenode_server::memory::MemoryBackend::<()>::default()
             .with_account(&Id::from(session::ACCOUNT_ID))
             .with_object_history(history("filenode"), retention()),
     );

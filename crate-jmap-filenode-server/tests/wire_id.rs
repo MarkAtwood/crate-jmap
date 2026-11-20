@@ -14,7 +14,7 @@
 
 mod common;
 
-use common::MemoryBackend;
+use common::{MemoryBackend, owner};
 use jmap_filenode_server::{handle_filenode_get, handle_filenode_set};
 use jmap_types::{Id, MethodErrorType};
 use serde_json::{Value, json};
@@ -28,7 +28,7 @@ fn assert_invalid_id(entry: &Value, resp: &Value) {
 #[tokio::test]
 async fn filenode_set_rejects_malformed_update_and_destroy_ids() {
     let account_id = Id::from("account1");
-    let backend = MemoryBackend::new().with_account(&account_id);
+    let backend = MemoryBackend::new().with_account_owner(&account_id, &owner());
     let args_with_account = |mut args: Value| {
         args["accountId"] = json!(account_id.as_ref());
         args
@@ -39,7 +39,7 @@ async fn filenode_set_rejects_malformed_update_and_destroy_ids() {
     });
     let resp = handle_filenode_set(
         &backend,
-        &(),
+        &owner(),
         &std::collections::BTreeMap::new(),
         args_with_account(args),
         &[],
@@ -55,15 +55,21 @@ async fn filenode_set_rejects_malformed_update_and_destroy_ids() {
 /// `"bad id"` there fails with `invalidProperties` and creates nothing.
 #[tokio::test]
 async fn filenode_set_create_rejects_malformed_parent_id() {
-    let backend = MemoryBackend::new().with_account(&Id::from("account1"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("account1"), &owner());
     let args = json!({
         "accountId": "account1",
         "create": { "c": { "@type": "Directory", "name": "d", "parentId": "bad id" } }
     });
-    let resp = handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
-        .await
-        .expect("/set must not fail as a method")
-        .primary;
+    let resp = handle_filenode_set(
+        &backend,
+        &owner(),
+        &std::collections::BTreeMap::new(),
+        args,
+        &[],
+    )
+    .await
+    .expect("/set must not fail as a method")
+    .primary;
     assert_eq!(
         resp["notCreated"]["c"]["type"], "invalidProperties",
         "{resp}"
@@ -77,10 +83,10 @@ async fn filenode_set_create_rejects_malformed_parent_id() {
 /// is not an Id, so the call fails instead of listing it in `notFound`.
 #[tokio::test]
 async fn filenode_get_rejects_malformed_ids() {
-    let backend = MemoryBackend::new().with_account(&Id::from("account1"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("account1"), &owner());
     let err = handle_filenode_get(
         &backend,
-        &(),
+        &owner(),
         json!({ "accountId": "account1", "ids": ["bad id"] }),
         &[],
     )
@@ -97,7 +103,7 @@ async fn filenode_get_rejects_malformed_ids() {
 /// node.
 #[tokio::test]
 async fn filenode_set_rejects_malformed_share_with_keys() {
-    let backend = MemoryBackend::new().with_account(&Id::from("account1"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("account1"), &owner());
     let args = json!({
         "accountId": "account1",
         "create": { "c1": {
@@ -111,10 +117,16 @@ async fn filenode_set_rejects_malformed_share_with_keys() {
             "n3": { "shareWith/p1/mayRead": true }
         }
     });
-    let resp = handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
-        .await
-        .expect("/set must not fail as a method")
-        .primary;
+    let resp = handle_filenode_set(
+        &backend,
+        &owner(),
+        &std::collections::BTreeMap::new(),
+        args,
+        &[],
+    )
+    .await
+    .expect("/set must not fail as a method")
+    .primary;
     for entry in [
         &resp["notCreated"]["c1"],
         &resp["notUpdated"]["n1"],

@@ -215,7 +215,7 @@ mod tests {
     use serde_json::json;
 
     use super::*;
-    use crate::memory::MemoryBackend;
+    use crate::memory::{MemoryBackend, owner};
 
     fn single_call(method: &str, args: serde_json::Value, call_id: &str) -> JmapRequest {
         JmapRequest::new(
@@ -231,8 +231,9 @@ mod tests {
     /// dispatched with a valid account.
     #[tokio::test]
     async fn registers_all_6_methods() {
-        let backend = Arc::new(MemoryBackend::new().with_account(&Id::from("acc1")));
-        let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+        let backend =
+            Arc::new(MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner()));
+        let mut dispatcher: Dispatcher<Id> = Dispatcher::new();
         register_filenode_handlers(&mut dispatcher, Arc::clone(&backend));
 
         let methods = [
@@ -262,7 +263,7 @@ mod tests {
 
         for (method, args) in methods {
             let req = single_call(method, args, "c0");
-            let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+            let resp = dispatcher.dispatch(req, owner(), State::from("s0")).await;
             assert_eq!(
                 resp.method_responses.len(),
                 1,
@@ -282,8 +283,9 @@ mod tests {
     /// Oracle: FileNode/set empty destroy returns valid empty set response.
     #[tokio::test]
     async fn set_empty_destroy_is_valid() {
-        let backend = Arc::new(MemoryBackend::new().with_account(&Id::from("acc1")));
-        let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+        let backend =
+            Arc::new(MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner()));
+        let mut dispatcher: Dispatcher<Id> = Dispatcher::new();
         register_filenode_handlers(&mut dispatcher, Arc::clone(&backend));
 
         let req = single_call(
@@ -291,7 +293,7 @@ mod tests {
             json!({"accountId": "acc1", "destroy": []}),
             "c0",
         );
-        let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+        let resp = dispatcher.dispatch(req, owner(), State::from("s0")).await;
         let Invocation {
             arguments: args, ..
         } = &resp.method_responses[0];

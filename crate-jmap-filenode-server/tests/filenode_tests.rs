@@ -5,7 +5,7 @@
 
 mod common;
 
-use common::MemoryBackend;
+use common::{MemoryBackend, owner};
 use jmap_filenode_server::{
     handle_filenode_changes, handle_filenode_get, handle_filenode_query, handle_filenode_set,
 };
@@ -44,7 +44,7 @@ fn make_dir(id: &str, name: &str, parent_id: Option<&str>) -> FileNode {
 
 #[tokio::test]
 async fn filenode_set_create_without_type_is_rejected() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
 
     let args = json!({
         "accountId": "acc1",
@@ -57,10 +57,15 @@ async fn filenode_set_create_without_type_is_rejected() {
         }
     });
 
-    let HandlerOutput { primary: resp, .. } =
-        handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
-            .await
-            .expect("set must not return top-level error");
+    let HandlerOutput { primary: resp, .. } = handle_filenode_set(
+        &backend,
+        &owner(),
+        &std::collections::BTreeMap::new(),
+        args,
+        &[],
+    )
+    .await
+    .expect("set must not return top-level error");
 
     assert!(
         resp["created"].is_null(),
@@ -84,7 +89,7 @@ async fn filenode_set_create_without_type_is_rejected() {
 
 #[tokio::test]
 async fn filenode_set_create_file_requires_blobid() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
 
     // Explicitly set @type File but leave blobId null.
     let args = json!({
@@ -100,10 +105,15 @@ async fn filenode_set_create_file_requires_blobid() {
         }
     });
 
-    let HandlerOutput { primary: resp, .. } =
-        handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
-            .await
-            .expect("set must not return top-level error");
+    let HandlerOutput { primary: resp, .. } = handle_filenode_set(
+        &backend,
+        &owner(),
+        &std::collections::BTreeMap::new(),
+        args,
+        &[],
+    )
+    .await
+    .expect("set must not return top-level error");
 
     let not_created = &resp["notCreated"];
     assert!(
@@ -131,7 +141,7 @@ async fn filenode_set_create_file_requires_blobid() {
 
 #[tokio::test]
 async fn filenode_set_destroy_leaf_node_succeeds() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
 
     // Seed a leaf node (no children).
     backend.seed_node(&Id::from("acc1"), make_dir("leaf-1", "leafdir", None));
@@ -141,10 +151,15 @@ async fn filenode_set_destroy_leaf_node_succeeds() {
         "destroy": ["leaf-1"]
     });
 
-    let HandlerOutput { primary: resp, .. } =
-        handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
-            .await
-            .expect("set must not return top-level error");
+    let HandlerOutput { primary: resp, .. } = handle_filenode_set(
+        &backend,
+        &owner(),
+        &std::collections::BTreeMap::new(),
+        args,
+        &[],
+    )
+    .await
+    .expect("set must not return top-level error");
 
     let destroyed = resp["destroyed"]
         .as_array()
@@ -169,7 +184,7 @@ async fn filenode_set_destroy_leaf_node_succeeds() {
 
 #[tokio::test]
 async fn filenode_set_destroy_parent_node_has_children() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
 
     // Seed a parent and a child.
     backend.seed_node(&Id::from("acc1"), make_dir("parent-1", "parent", None));
@@ -185,10 +200,15 @@ async fn filenode_set_destroy_parent_node_has_children() {
         "destroy": ["parent-1"]
     });
 
-    let HandlerOutput { primary: resp, .. } =
-        handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
-            .await
-            .expect("set must not return top-level error");
+    let HandlerOutput { primary: resp, .. } = handle_filenode_set(
+        &backend,
+        &owner(),
+        &std::collections::BTreeMap::new(),
+        args,
+        &[],
+    )
+    .await
+    .expect("set must not return top-level error");
 
     assert!(
         resp["destroyed"].is_null(),
@@ -212,7 +232,7 @@ async fn filenode_set_destroy_parent_node_has_children() {
 
 #[tokio::test]
 async fn filenode_set_destroy_with_remove_children_cascades() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
 
     // Seed parent and child.
     backend.seed_node(&Id::from("acc1"), make_dir("parent-2", "parent", None));
@@ -228,10 +248,15 @@ async fn filenode_set_destroy_with_remove_children_cascades() {
         "destroy": ["parent-2"]
     });
 
-    let HandlerOutput { primary: resp, .. } =
-        handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
-            .await
-            .expect("set must not return top-level error");
+    let HandlerOutput { primary: resp, .. } = handle_filenode_set(
+        &backend,
+        &owner(),
+        &std::collections::BTreeMap::new(),
+        args,
+        &[],
+    )
+    .await
+    .expect("set must not return top-level error");
 
     let destroyed = resp["destroyed"]
         .as_array()
@@ -255,14 +280,14 @@ async fn filenode_set_destroy_with_remove_children_cascades() {
 /// `destroyed` list records the destroys in the order they ran.
 #[tokio::test]
 async fn filenode_set_destroy_cascade_runs_deepest_first() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
     backend.seed_node(&Id::from("acc1"), make_dir("a", "a", None));
     backend.seed_node(&Id::from("acc1"), make_dir("b", "b", Some("a")));
     backend.seed_node(&Id::from("acc1"), make_dir("c", "c", Some("b")));
 
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
-        &(),
+        &owner(),
         &std::collections::BTreeMap::new(),
         json!({ "accountId": "acc1", "onDestroyRemoveChildren": true, "destroy": ["a"] }),
         &[],
@@ -288,7 +313,7 @@ async fn filenode_set_destroy_cascade_runs_deepest_first() {
 
 #[tokio::test]
 async fn filenode_set_destroy_partial_multilevel_reports_node_has_children() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
 
     // Build a three-level tree: A -> B -> C.
     backend.seed_node(&Id::from("acc1"), make_dir("A", "A", None));
@@ -302,10 +327,15 @@ async fn filenode_set_destroy_partial_multilevel_reports_node_has_children() {
         "destroy": ["A", "B"]
     });
 
-    let HandlerOutput { primary: resp, .. } =
-        handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
-            .await
-            .expect("set must not return top-level error");
+    let HandlerOutput { primary: resp, .. } = handle_filenode_set(
+        &backend,
+        &owner(),
+        &std::collections::BTreeMap::new(),
+        args,
+        &[],
+    )
+    .await
+    .expect("set must not return top-level error");
 
     let not_destroyed = resp["notDestroyed"]
         .as_object()
@@ -338,7 +368,7 @@ async fn filenode_set_destroy_partial_multilevel_reports_node_has_children() {
         primary: get_resp, ..
     } = handle_filenode_get(
         &backend,
-        &(),
+        &owner(),
         json!({
             "accountId": "acc1",
             "ids": ["A", "B", "C"]
@@ -360,7 +390,7 @@ async fn filenode_set_destroy_partial_multilevel_reports_node_has_children() {
 
 #[tokio::test]
 async fn filenode_set_destroy_full_coverage_multilevel_succeeds() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
 
     backend.seed_node(&Id::from("acc1"), make_dir("FA", "FA", None));
     backend.seed_node(&Id::from("acc1"), make_dir("FB", "FB", Some("FA")));
@@ -371,10 +401,15 @@ async fn filenode_set_destroy_full_coverage_multilevel_succeeds() {
         "destroy": ["FA", "FB", "FC"]
     });
 
-    let HandlerOutput { primary: resp, .. } =
-        handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
-            .await
-            .expect("set must not return top-level error");
+    let HandlerOutput { primary: resp, .. } = handle_filenode_set(
+        &backend,
+        &owner(),
+        &std::collections::BTreeMap::new(),
+        args,
+        &[],
+    )
+    .await
+    .expect("set must not return top-level error");
 
     let destroyed = resp["destroyed"]
         .as_array()
@@ -402,7 +437,7 @@ async fn filenode_set_destroy_full_coverage_multilevel_succeeds() {
 
 #[tokio::test]
 async fn filenode_get_returns_created_node() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
 
     // Create a node via FileNode/set.
     let set_args = json!({
@@ -420,7 +455,7 @@ async fn filenode_get_returns_created_node() {
         primary: set_resp, ..
     } = handle_filenode_set(
         &backend,
-        &(),
+        &owner(),
         &std::collections::BTreeMap::new(),
         set_args,
         &[],
@@ -440,7 +475,7 @@ async fn filenode_get_returns_created_node() {
     });
     let HandlerOutput {
         primary: get_resp, ..
-    } = handle_filenode_get(&backend, &(), get_args, &[])
+    } = handle_filenode_get(&backend, &owner(), get_args, &[])
         .await
         .expect("get must succeed");
 
@@ -467,7 +502,7 @@ async fn filenode_get_returns_created_node() {
 
 #[tokio::test]
 async fn filenode_get_fetch_parents_returns_ancestor() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
 
     // Create a parent node.
     let HandlerOutput {
@@ -475,7 +510,7 @@ async fn filenode_get_fetch_parents_returns_ancestor() {
         ..
     } = handle_filenode_set(
         &backend,
-        &(),
+        &owner(),
         &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
@@ -494,7 +529,7 @@ async fn filenode_get_fetch_parents_returns_ancestor() {
         .to_owned();
 
     // Create a child under the parent.
-    let HandlerOutput { primary: child_resp, .. } = handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(),
+    let HandlerOutput { primary: child_resp, .. } = handle_filenode_set(&backend, &owner(), &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
             "create": {
@@ -516,7 +551,7 @@ async fn filenode_get_fetch_parents_returns_ancestor() {
         primary: get_resp, ..
     } = handle_filenode_get(
         &backend,
-        &(),
+        &owner(),
         json!({
             "accountId": "acc1",
             "ids": [&child_id],
@@ -554,12 +589,12 @@ async fn filenode_get_fetch_parents_returns_ancestor() {
 
 #[tokio::test]
 async fn filenode_set_update_non_object_patch_returns_invalid_patch() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
     let node_id = create_node(&backend, "acc1", "doc", None, "s").await;
 
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
-        &(),
+        &owner(),
         &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
@@ -589,7 +624,7 @@ async fn filenode_set_update_non_object_patch_returns_invalid_patch() {
 
 #[tokio::test]
 async fn filenode_get_fetch_parents_dedup_shared_ancestor() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
 
     // Build a parent with two children sharing it.
     let parent_id = create_node(&backend, "acc1", "parent", None, "p1").await;
@@ -600,7 +635,7 @@ async fn filenode_get_fetch_parents_dedup_shared_ancestor() {
         primary: get_resp, ..
     } = handle_filenode_get(
         &backend,
-        &(),
+        &owner(),
         json!({
             "accountId": "acc1",
             "ids": [&child_a, &child_b],
@@ -634,14 +669,14 @@ async fn filenode_get_fetch_parents_dedup_shared_ancestor() {
 
 #[tokio::test]
 async fn filenode_query_depth_one_returns_children() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
 
     // Create a top-level directory.
     let HandlerOutput {
         primary: dir_resp, ..
     } = handle_filenode_set(
         &backend,
-        &(),
+        &owner(),
         &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
@@ -662,7 +697,7 @@ async fn filenode_query_depth_one_returns_children() {
     // Create two children under topdir.
     handle_filenode_set(
         &backend,
-        &(),
+        &owner(),
         &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
@@ -684,7 +719,7 @@ async fn filenode_query_depth_one_returns_children() {
         primary: q_resp, ..
     } = handle_filenode_query(
         &backend,
-        &(),
+        &owner(),
         json!({
             "accountId": "acc1",
             "filter": null,
@@ -717,7 +752,7 @@ async fn filenode_query_depth_one_returns_children() {
 
 #[tokio::test]
 async fn filenode_changes_after_create_shows_in_created_list() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
 
     // Record state before any creation.
     let pre_state = {
@@ -725,9 +760,10 @@ async fn filenode_changes_after_create_shows_in_created_list() {
             "accountId": "acc1",
             "ids": []
         });
-        let HandlerOutput { primary: resp, .. } = handle_filenode_get(&backend, &(), get_args, &[])
-            .await
-            .expect("get must succeed");
+        let HandlerOutput { primary: resp, .. } =
+            handle_filenode_get(&backend, &owner(), get_args, &[])
+                .await
+                .expect("get must succeed");
         resp["state"]
             .as_str()
             .expect("state must be present")
@@ -739,7 +775,7 @@ async fn filenode_changes_after_create_shows_in_created_list() {
         primary: set_resp, ..
     } = handle_filenode_set(
         &backend,
-        &(),
+        &owner(),
         &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
@@ -763,7 +799,7 @@ async fn filenode_changes_after_create_shows_in_created_list() {
         primary: ch_resp, ..
     } = handle_filenode_changes(
         &backend,
-        &(),
+        &owner(),
         json!({
             "accountId": "acc1",
             "sinceState": &pre_state
@@ -792,11 +828,11 @@ async fn filenode_changes_after_create_shows_in_created_list() {
 
 #[tokio::test]
 async fn filenode_changes_unparseable_since_state_cannot_calculate() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
 
     let err = handle_filenode_changes(
         &backend,
-        &(),
+        &owner(),
         json!({
             "accountId": "acc1",
             "sinceState": "bogus-non-numeric-state"
@@ -821,18 +857,27 @@ async fn filenode_changes_unparseable_since_state_cannot_calculate() {
 // ---------------------------------------------------------------------------
 
 async fn changes_state(backend: &MemoryBackend) -> String {
-    let HandlerOutput { primary, .. } =
-        handle_filenode_get(backend, &(), json!({ "accountId": "acc1", "ids": [] }), &[])
-            .await
-            .expect("get must succeed");
+    let HandlerOutput { primary, .. } = handle_filenode_get(
+        backend,
+        &owner(),
+        json!({ "accountId": "acc1", "ids": [] }),
+        &[],
+    )
+    .await
+    .expect("get must succeed");
     primary["state"].as_str().expect("state").to_owned()
 }
 
 async fn changes_set(backend: &MemoryBackend, args: Value) -> Value {
-    let HandlerOutput { primary, .. } =
-        handle_filenode_set(backend, &(), &std::collections::BTreeMap::new(), args, &[])
-            .await
-            .expect("set must succeed");
+    let HandlerOutput { primary, .. } = handle_filenode_set(
+        backend,
+        &owner(),
+        &std::collections::BTreeMap::new(),
+        args,
+        &[],
+    )
+    .await
+    .expect("set must succeed");
     primary
 }
 
@@ -854,7 +899,7 @@ async fn changes_create_dir(backend: &MemoryBackend, name: &str) -> String {
 }
 
 async fn changes_since(backend: &MemoryBackend, args: Value) -> Value {
-    let HandlerOutput { primary, .. } = handle_filenode_changes(backend, &(), args, &[])
+    let HandlerOutput { primary, .. } = handle_filenode_changes(backend, &owner(), args, &[])
         .await
         .expect("changes must succeed");
     primary
@@ -862,7 +907,7 @@ async fn changes_since(backend: &MemoryBackend, args: Value) -> Value {
 
 #[tokio::test]
 async fn filenode_changes_dedups_ids_across_window() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
     let pre_state = changes_state(&backend).await;
 
     let kept = changes_create_dir(&backend, "kept").await;
@@ -896,7 +941,7 @@ async fn filenode_changes_dedups_ids_across_window() {
 
 #[tokio::test]
 async fn filenode_changes_truncated_new_state_is_intermediate() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
     let pre_state = changes_state(&backend).await;
     let first = changes_create_dir(&backend, "first").await;
     let second = changes_create_dir(&backend, "second").await;
@@ -954,7 +999,7 @@ const OLD_CHANGED: &str = "2020-01-01T00:00:00Z";
 /// acc1 with Directory `top` > Directory `sub` > Directory `leaf`, each with
 /// `changed` set to [`OLD_CHANGED`].
 fn backend_with_dated_tree() -> MemoryBackend {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
     for (id, parent) in [("top", None), ("sub", Some("top")), ("leaf", Some("sub"))] {
         let mut node = make_dir(id, id, parent);
         node.changed = Some(jmap_types::UTCDate::from(OLD_CHANGED));
@@ -966,7 +1011,7 @@ fn backend_with_dated_tree() -> MemoryBackend {
 async fn changed_of(backend: &MemoryBackend, id: &str) -> Value {
     let HandlerOutput { primary, .. } = handle_filenode_get(
         backend,
-        &(),
+        &owner(),
         json!({ "accountId": "acc1", "ids": [id], "properties": ["changed"] }),
         &[],
     )
@@ -977,7 +1022,7 @@ async fn changed_of(backend: &MemoryBackend, id: &str) -> Value {
 
 #[tokio::test]
 async fn filenode_set_create_reports_server_set_changed() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
     let resp = changes_set(
         &backend,
         json!({ "accountId": "acc1", "create": {
@@ -1018,26 +1063,61 @@ async fn filenode_set_update_bumps_changed_except_per_user() {
     assert_eq!(changed_of(&backend, "leaf").await, OLD_CHANGED);
 }
 
+/// The ids under `key` of a FileNode/changes response, sorted.
+fn sorted_ids(changes: &Value, key: &str) -> Vec<String> {
+    let mut ids: Vec<String> =
+        serde_json::from_value(changes[key].clone()).unwrap_or_else(|_| panic!("{changes}"));
+    ids.sort();
+    ids
+}
+
+/// FileNode/changes in acc1 since `since`, as `caller` sees them.
+async fn changes_for(backend: &MemoryBackend, caller: &str, since: &str) -> Value {
+    let HandlerOutput { primary, .. } = handle_filenode_changes(
+        backend,
+        &Id::from(caller),
+        json!({ "accountId": "acc1", "sinceState": since }),
+        &[],
+    )
+    .await
+    .expect("changes must succeed");
+    primary
+}
+
+/// `mayRead`, plus `mayAddChildren` when `add`.
+fn read_rights(add: bool) -> Value {
+    json!({ "mayRead": true, "mayAddChildren": add, "mayRename": false,
+            "mayDelete": false, "mayModifyContent": false, "mayShare": false })
+}
+
+/// `top` is shared with U2 for reading; a `shareWith` on `sub` then gives
+/// U2 `mayAddChildren` on `sub` and, inherited, on `leaf`. -20 §5: the
+/// server "MUST report every node whose rights for a user changed as
+/// changed in FileNode/changes for that user, including nodes that have no
+/// myRights of their own". U2's rights on `sub` and `leaf` changed; the
+/// owner's did not, so the owner sees only `sub`, whose `shareWith` changed.
 #[tokio::test]
 async fn filenode_changes_share_with_change_reports_subtree() {
     let backend = backend_with_dated_tree();
-    let since = changes_state(&backend).await;
-    let rights = json!({ "mayRead": true, "mayAddChildren": false, "mayRename": false,
-                         "mayDelete": false, "mayModifyContent": false, "mayShare": false });
     changes_set(
         &backend,
-        json!({ "accountId": "acc1", "update": { "sub": { "shareWith": { "U2": rights } } } }),
+        json!({ "accountId": "acc1",
+                "update": { "top": { "shareWith": { "U2": read_rights(false) } } } }),
     )
     .await;
-    let changes = changes_since(
+    let since = changes_state(&backend).await;
+    changes_set(
         &backend,
-        json!({ "accountId": "acc1", "sinceState": since }),
+        json!({ "accountId": "acc1",
+                "update": { "sub": { "shareWith": { "U2": read_rights(true) } } } }),
     )
     .await;
-    let mut updated: Vec<String> =
-        serde_json::from_value(changes["updated"].clone()).expect("updated ids");
-    updated.sort();
-    assert_eq!(updated, ["leaf", "sub"], "{changes}");
+    let sharee = changes_for(&backend, "U2", &since).await;
+    assert_eq!(sorted_ids(&sharee, "updated"), ["leaf", "sub"], "{sharee}");
+    assert_eq!(sharee["created"], json!([]), "{sharee}");
+    assert_eq!(sharee["destroyed"], json!([]), "{sharee}");
+    let owner_view = changes_for(&backend, "owner", &since).await;
+    assert_eq!(owner_view["updated"], json!(["sub"]), "{owner_view}");
     // The descendant's rights changed, not a property of its own.
     assert_eq!(changed_of(&backend, "leaf").await, OLD_CHANGED);
 }
@@ -1061,16 +1141,48 @@ async fn filenode_changes_move_reports_only_the_moved_node() {
 
 /// -20 §5: rights change "when the node or an ancestor moves to a parent
 /// whose inherited rights differ", and the server "MUST report every node
-/// whose rights for a user changed". Moving `sub` out of a shared `top`
-/// changes the rights of `leaf` below it too.
+/// whose rights for a user changed". Moving `sub` from `top` (U2 may read)
+/// into `other` (U2 may read and add children) changes U2's rights on
+/// `leaf` below it too. The owner's rights stay all rights, so the owner
+/// sees only the moved node: "Otherwise, moving or renaming a node changes
+/// only that node".
 #[tokio::test]
-async fn filenode_changes_move_out_of_shared_directory_reports_subtree() {
+async fn filenode_changes_move_between_shared_directories_reports_subtree() {
     let backend = backend_with_dated_tree();
-    let rights = json!({ "mayRead": true, "mayAddChildren": false, "mayRename": false,
-                         "mayDelete": false, "mayModifyContent": false, "mayShare": false });
+    backend.seed_node(&Id::from("acc1"), make_dir("other", "other", None));
     changes_set(
         &backend,
-        json!({ "accountId": "acc1", "update": { "top": { "shareWith": { "U2": rights } } } }),
+        json!({ "accountId": "acc1", "update": {
+            "top": { "shareWith": { "U2": read_rights(false) } },
+            "other": { "shareWith": { "U2": read_rights(true) } }
+        } }),
+    )
+    .await;
+    let since = changes_state(&backend).await;
+    changes_set(
+        &backend,
+        json!({ "accountId": "acc1", "update": { "sub": { "parentId": "other" } } }),
+    )
+    .await;
+    let sharee = changes_for(&backend, "U2", &since).await;
+    assert_eq!(sorted_ids(&sharee, "updated"), ["leaf", "sub"], "{sharee}");
+    let owner_view = changes_for(&backend, "owner", &since).await;
+    assert_eq!(owner_view["updated"], json!(["sub"]), "{owner_view}");
+    assert_eq!(changed_of(&backend, "leaf").await, OLD_CHANGED);
+}
+
+/// -20 §5: "When a node stops being discoverable by the user, for example
+/// because a shareWith entry was removed or the node was moved out of a
+/// shared Directory, the server reports it as destroyed in
+/// FileNode/changes." Moving `sub` out of `top`, shared with U2, to the top
+/// level hides `sub` and `leaf` from U2.
+#[tokio::test]
+async fn filenode_changes_move_out_of_shared_directory_reports_destroyed() {
+    let backend = backend_with_dated_tree();
+    changes_set(
+        &backend,
+        json!({ "accountId": "acc1",
+                "update": { "top": { "shareWith": { "U2": read_rights(false) } } } }),
     )
     .await;
     let since = changes_state(&backend).await;
@@ -1079,16 +1191,16 @@ async fn filenode_changes_move_out_of_shared_directory_reports_subtree() {
         json!({ "accountId": "acc1", "update": { "sub": { "parentId": null } } }),
     )
     .await;
-    let changes = changes_since(
-        &backend,
-        json!({ "accountId": "acc1", "sinceState": since }),
-    )
-    .await;
-    let mut updated: Vec<String> =
-        serde_json::from_value(changes["updated"].clone()).expect("updated ids");
-    updated.sort();
-    assert_eq!(updated, ["leaf", "sub"], "{changes}");
-    assert_eq!(changed_of(&backend, "leaf").await, OLD_CHANGED);
+    let sharee = changes_for(&backend, "U2", &since).await;
+    assert_eq!(
+        sorted_ids(&sharee, "destroyed"),
+        ["leaf", "sub"],
+        "{sharee}"
+    );
+    assert_eq!(sharee["updated"], json!([]), "{sharee}");
+    let owner_view = changes_for(&backend, "owner", &since).await;
+    assert_eq!(owner_view["updated"], json!(["sub"]), "{owner_view}");
+    assert_eq!(owner_view["destroyed"], json!([]), "{owner_view}");
 }
 
 // ---------------------------------------------------------------------------
@@ -1101,7 +1213,7 @@ async fn filenode_changes_move_out_of_shared_directory_reports_subtree() {
 
 #[tokio::test]
 async fn filenode_set_create_replace_with_remove_children_cascades() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
 
     // Seed: parent "old_dir" at root, with one child "old_child".
     let HandlerOutput {
@@ -1109,7 +1221,7 @@ async fn filenode_set_create_replace_with_remove_children_cascades() {
         ..
     } = handle_filenode_set(
         &backend,
-        &(),
+        &owner(),
         &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
@@ -1131,7 +1243,7 @@ async fn filenode_set_create_replace_with_remove_children_cascades() {
         ..
     } = handle_filenode_set(
         &backend,
-        &(),
+        &owner(),
         &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
@@ -1153,7 +1265,7 @@ async fn filenode_set_create_replace_with_remove_children_cascades() {
     // onDestroyRemoveChildren=true, the existing "shared_name" directory
     // (which has children) MUST be destroyed along with its descendants,
     // and the new node MUST be created.
-    let HandlerOutput { primary: replace_resp, .. } = handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(),
+    let HandlerOutput { primary: replace_resp, .. } = handle_filenode_set(&backend, &owner(), &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
             "onDestroyRemoveChildren": true,
@@ -1196,7 +1308,7 @@ async fn filenode_set_create_replace_with_remove_children_cascades() {
 
 #[tokio::test]
 async fn filenode_set_create_replace_without_flag_returns_node_has_children() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
 
     // Seed: parent + child.
     let HandlerOutput {
@@ -1204,7 +1316,7 @@ async fn filenode_set_create_replace_without_flag_returns_node_has_children() {
         ..
     } = handle_filenode_set(
         &backend,
-        &(),
+        &owner(),
         &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
@@ -1223,7 +1335,7 @@ async fn filenode_set_create_replace_without_flag_returns_node_has_children() {
 
     let _ = handle_filenode_set(
         &backend,
-        &(),
+        &owner(),
         &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
@@ -1238,7 +1350,7 @@ async fn filenode_set_create_replace_without_flag_returns_node_has_children() {
 
     // Attempt replace without onDestroyRemoveChildren=true: MUST return
     // nodeHasChildren (the no-cascade guard is preserved).
-    let HandlerOutput { primary: resp, .. } = handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(),
+    let HandlerOutput { primary: resp, .. } = handle_filenode_set(&backend, &owner(), &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
             "onExists": "replace",
@@ -1281,7 +1393,7 @@ async fn create_node(
     parent_id: Option<&str>,
     create_id: &str,
 ) -> String {
-    let HandlerOutput { primary: resp, .. } = handle_filenode_set(backend, &(), &std::collections::BTreeMap::new(),
+    let HandlerOutput { primary: resp, .. } = handle_filenode_set(backend, &owner(), &std::collections::BTreeMap::new(),
         json!({
             "accountId": account,
             "create": {
@@ -1300,8 +1412,8 @@ async fn create_node(
 #[tokio::test]
 async fn filenode_copy_default_collision_returns_already_exists() {
     let backend = MemoryBackend::new()
-        .with_account(&Id::from("src"))
-        .with_account(&Id::from("dst"));
+        .with_account_owner(&Id::from("src"), &owner())
+        .with_account_owner(&Id::from("dst"), &owner());
 
     let src_id = create_node(&backend, "src", "doc", None, "s").await;
     // Pre-seed a collision in the destination.
@@ -1309,7 +1421,7 @@ async fn filenode_copy_default_collision_returns_already_exists() {
 
     let HandlerOutput { primary: resp, .. } = handle_filenode_copy(
         &backend,
-        &(),
+        &owner(),
         json!({
             "fromAccountId": "src",
             "accountId": "dst",
@@ -1338,8 +1450,8 @@ async fn filenode_copy_default_collision_returns_already_exists() {
 #[tokio::test]
 async fn filenode_copy_on_exists_rename_succeeds_with_suffixed_name() {
     let backend = MemoryBackend::new()
-        .with_account(&Id::from("src"))
-        .with_account(&Id::from("dst"));
+        .with_account_owner(&Id::from("src"), &owner())
+        .with_account_owner(&Id::from("dst"), &owner());
 
     let src_id = create_node(&backend, "src", "doc", None, "s").await;
     // Pre-seed a collision in the destination.
@@ -1347,7 +1459,7 @@ async fn filenode_copy_on_exists_rename_succeeds_with_suffixed_name() {
 
     let HandlerOutput { primary: resp, .. } = handle_filenode_copy(
         &backend,
-        &(),
+        &owner(),
         json!({
             "fromAccountId": "src",
             "accountId": "dst",
@@ -1388,7 +1500,7 @@ async fn filenode_copy_on_exists_rename_succeeds_with_suffixed_name() {
 /// at "doc-100", so this fails if the handler bypasses the override.
 #[tokio::test]
 async fn filenode_set_rename_memory_backend_has_no_attempt_cap() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
     create_node(&backend, "acc1", "doc", None, "s0").await;
     for n in 1..=100 {
         create_node(
@@ -1403,7 +1515,7 @@ async fn filenode_set_rename_memory_backend_has_no_attempt_cap() {
 
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
-        &(),
+        &owner(),
         &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
@@ -1425,8 +1537,8 @@ async fn filenode_set_rename_memory_backend_has_no_attempt_cap() {
 #[tokio::test]
 async fn filenode_copy_rename_memory_backend_folds_case() {
     let backend = MemoryBackend::new()
-        .with_account(&Id::from("src"))
-        .with_account(&Id::from("dst"));
+        .with_account_owner(&Id::from("src"), &owner())
+        .with_account_owner(&Id::from("dst"), &owner());
     let src_id = create_node(&backend, "src", "doc", None, "s").await;
     create_node(&backend, "dst", "doc", None, "e0").await;
     create_node(&backend, "dst", "DOC-1", None, "e1").await;
@@ -1435,7 +1547,7 @@ async fn filenode_copy_rename_memory_backend_folds_case() {
 
     let HandlerOutput { primary: resp, .. } = handle_filenode_copy(
         &backend,
-        &(),
+        &owner(),
         json!({
             "fromAccountId": "src",
             "accountId": "dst",
@@ -1462,13 +1574,13 @@ async fn filenode_copy_rename_memory_backend_folds_case() {
 /// keeps both apart.
 #[tokio::test]
 async fn filenode_set_compare_case_insensitively_uses_unicode_casemap() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
     let doc = create_node(&backend, "acc1", "doc", None, "s0").await;
     let i = create_node(&backend, "acc1", "i", None, "s1").await;
 
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
-        &(),
+        &owner(),
         &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
@@ -1506,7 +1618,7 @@ async fn filenode_set_compare_case_insensitively_uses_unicode_casemap() {
 /// lowercasing would not give. `[...]` sets (§3.2.5) match too.
 #[tokio::test]
 async fn filenode_query_name_match_uses_unicode_casemap() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
     let fullwidth = create_node(&backend, "acc1", "\u{FF24}\u{FF2F}\u{FF23}-1", None, "s0").await;
     let dotless = create_node(&backend, "acc1", "\u{0131}tem", None, "s1").await;
     create_node(&backend, "acc1", "other", None, "s2").await;
@@ -1517,7 +1629,7 @@ async fn filenode_query_name_match_uses_unicode_casemap() {
         async move {
             let HandlerOutput { primary, .. } = handle_filenode_query(
                 backend,
-                &(),
+                &owner(),
                 json!({ "accountId": "acc1", "filter": { "nameMatch": pattern } }),
                 &[],
             )
@@ -1534,15 +1646,15 @@ async fn filenode_query_name_match_uses_unicode_casemap() {
 #[tokio::test]
 async fn filenode_copy_on_exists_replace_destroys_existing_then_creates() {
     let backend = MemoryBackend::new()
-        .with_account(&Id::from("src"))
-        .with_account(&Id::from("dst"));
+        .with_account_owner(&Id::from("src"), &owner())
+        .with_account_owner(&Id::from("dst"), &owner());
 
     let src_id = create_node(&backend, "src", "doc", None, "s").await;
     let existing_id = create_node(&backend, "dst", "doc", None, "e").await;
 
     let HandlerOutput { primary: resp, .. } = handle_filenode_copy(
         &backend,
-        &(),
+        &owner(),
         json!({
             "fromAccountId": "src",
             "accountId": "dst",
@@ -1568,7 +1680,7 @@ async fn filenode_copy_on_exists_replace_destroys_existing_then_creates() {
         primary: get_resp, ..
     } = handle_filenode_get(
         &backend,
-        &(),
+        &owner(),
         json!({
             "accountId": "dst",
             "ids": [&existing_id]
@@ -1590,8 +1702,8 @@ async fn filenode_copy_on_exists_replace_destroys_existing_then_creates() {
 #[tokio::test]
 async fn filenode_copy_on_exists_replace_without_flag_node_has_children() {
     let backend = MemoryBackend::new()
-        .with_account(&Id::from("src"))
-        .with_account(&Id::from("dst"));
+        .with_account_owner(&Id::from("src"), &owner())
+        .with_account_owner(&Id::from("dst"), &owner());
 
     let src_id = create_node(&backend, "src", "doc", None, "s").await;
     // Pre-seed a colliding directory WITH a child in the destination.
@@ -1600,7 +1712,7 @@ async fn filenode_copy_on_exists_replace_without_flag_node_has_children() {
 
     let HandlerOutput { primary: resp, .. } = handle_filenode_copy(
         &backend,
-        &(),
+        &owner(),
         json!({
             "fromAccountId": "src",
             "accountId": "dst",
@@ -1658,8 +1770,8 @@ fn destroyed_ids(resp: &serde_json::Value) -> Vec<String> {
 #[tokio::test]
 async fn filenode_copy_replace_cascade_lists_all_destroyed_ids() {
     let backend = MemoryBackend::new()
-        .with_account(&Id::from("src"))
-        .with_account(&Id::from("dst"));
+        .with_account_owner(&Id::from("src"), &owner())
+        .with_account_owner(&Id::from("dst"), &owner());
 
     let src_id = create_node(&backend, "src", "doc", None, "s").await;
     let parent = create_node(&backend, "dst", "doc", None, "ep").await;
@@ -1668,7 +1780,7 @@ async fn filenode_copy_replace_cascade_lists_all_destroyed_ids() {
 
     let HandlerOutput { primary: resp, .. } = handle_filenode_copy(
         &backend,
-        &(),
+        &owner(),
         json!({
             "fromAccountId": "src",
             "accountId": "dst",
@@ -1694,13 +1806,13 @@ async fn filenode_copy_replace_cascade_lists_all_destroyed_ids() {
 #[tokio::test]
 async fn filenode_copy_without_collision_omits_destroyed() {
     let backend = MemoryBackend::new()
-        .with_account(&Id::from("src"))
-        .with_account(&Id::from("dst"));
+        .with_account_owner(&Id::from("src"), &owner())
+        .with_account_owner(&Id::from("dst"), &owner());
     let src_id = create_node(&backend, "src", "doc", None, "s").await;
 
     let HandlerOutput { primary: resp, .. } = handle_filenode_copy(
         &backend,
-        &(),
+        &owner(),
         json!({
             "fromAccountId": "src",
             "accountId": "dst",
@@ -1728,15 +1840,15 @@ async fn filenode_copy_replace_with_children_without_flag_omits_destroyed() {
     // -20 §3.2.3: "If the existing node has children, the operation
     // fails with "nodeHasChildren" if onDestroyRemoveChildren is false".
     let backend = MemoryBackend::new()
-        .with_account(&Id::from("src"))
-        .with_account(&Id::from("dst"));
+        .with_account_owner(&Id::from("src"), &owner())
+        .with_account_owner(&Id::from("dst"), &owner());
     let src_id = create_node(&backend, "src", "doc", None, "s").await;
     let parent = create_node(&backend, "dst", "doc", None, "ep").await;
     create_node(&backend, "dst", "child", Some(&parent), "ec").await;
 
     let HandlerOutput { primary: resp, .. } = handle_filenode_copy(
         &backend,
-        &(),
+        &owner(),
         json!({
             "fromAccountId": "src",
             "accountId": "dst",
@@ -1759,8 +1871,8 @@ async fn filenode_copy_replace_with_children_without_flag_omits_destroyed() {
 #[tokio::test]
 async fn filenode_copy_non_string_parent_id_returns_invalid_properties() {
     let backend = MemoryBackend::new()
-        .with_account(&Id::from("src"))
-        .with_account(&Id::from("dst"));
+        .with_account_owner(&Id::from("src"), &owner())
+        .with_account_owner(&Id::from("dst"), &owner());
 
     let src_id = create_node(&backend, "src", "doc", None, "s").await;
 
@@ -1770,7 +1882,7 @@ async fn filenode_copy_non_string_parent_id_returns_invalid_properties() {
     // destination root, undocumented and with no error signal).
     let HandlerOutput { primary: resp, .. } = handle_filenode_copy(
         &backend,
-        &(),
+        &owner(),
         json!({
             "fromAccountId": "src",
             "accountId": "dst",
@@ -1815,15 +1927,15 @@ async fn filenode_copy_non_string_parent_id_returns_invalid_properties() {
 #[tokio::test]
 async fn filenode_copy_applies_arbitrary_property_overrides() {
     let backend = MemoryBackend::new()
-        .with_account(&Id::from("src"))
-        .with_account(&Id::from("dst"));
+        .with_account_owner(&Id::from("src"), &owner())
+        .with_account_owner(&Id::from("dst"), &owner());
 
     // Source has role=null. The copy supplies role="documents" override.
     let src_id = create_node(&backend, "src", "doc", None, "s").await;
 
     let HandlerOutput { primary: resp, .. } = handle_filenode_copy(
         &backend,
-        &(),
+        &owner(),
         json!({
             "fromAccountId": "src",
             "accountId": "dst",
@@ -1853,8 +1965,8 @@ async fn filenode_copy_applies_arbitrary_property_overrides() {
 #[tokio::test]
 async fn filenode_copy_on_exists_replace_with_flag_cascades() {
     let backend = MemoryBackend::new()
-        .with_account(&Id::from("src"))
-        .with_account(&Id::from("dst"));
+        .with_account_owner(&Id::from("src"), &owner())
+        .with_account_owner(&Id::from("dst"), &owner());
 
     let src_id = create_node(&backend, "src", "doc", None, "s").await;
     let existing_parent = create_node(&backend, "dst", "doc", None, "ep").await;
@@ -1862,7 +1974,7 @@ async fn filenode_copy_on_exists_replace_with_flag_cascades() {
 
     let HandlerOutput { primary: resp, .. } = handle_filenode_copy(
         &backend,
-        &(),
+        &owner(),
         json!({
             "fromAccountId": "src",
             "accountId": "dst",
@@ -1889,7 +2001,7 @@ async fn filenode_copy_on_exists_replace_with_flag_cascades() {
         primary: get_resp, ..
     } = handle_filenode_get(
         &backend,
-        &(),
+        &owner(),
         json!({
             "accountId": "dst",
             "ids": [&existing_parent, &existing_child]
@@ -1923,8 +2035,8 @@ async fn filenode_copy_on_exists_replace_with_flag_cascades() {
 #[tokio::test]
 async fn filenode_copy_if_from_in_state_mismatch_returns_state_mismatch() {
     let backend = MemoryBackend::new()
-        .with_account(&Id::from("src"))
-        .with_account(&Id::from("dst"));
+        .with_account_owner(&Id::from("src"), &owner())
+        .with_account_owner(&Id::from("dst"), &owner());
 
     // Seed a source node so the source account is in a non-trivial state.
     let src_id = create_node(&backend, "src", "doc", None, "s").await;
@@ -1933,7 +2045,7 @@ async fn filenode_copy_if_from_in_state_mismatch_returns_state_mismatch() {
     // abort the method with stateMismatch — not silently proceed.
     let err = handle_filenode_copy(
         &backend,
-        &(),
+        &owner(),
         json!({
             "fromAccountId": "src",
             "accountId": "dst",
@@ -1959,7 +2071,7 @@ async fn filenode_copy_if_from_in_state_mismatch_returns_state_mismatch() {
         primary: get_resp, ..
     } = handle_filenode_get(
         &backend,
-        &(),
+        &owner(),
         json!({
             "accountId": "dst",
             "ids": null
@@ -1985,8 +2097,8 @@ async fn filenode_copy_if_from_in_state_mismatch_returns_state_mismatch() {
 #[tokio::test]
 async fn filenode_copy_if_from_in_state_match_proceeds() {
     let backend = MemoryBackend::new()
-        .with_account(&Id::from("src"))
-        .with_account(&Id::from("dst"));
+        .with_account_owner(&Id::from("src"), &owner())
+        .with_account_owner(&Id::from("dst"), &owner());
 
     let src_id = create_node(&backend, "src", "doc", None, "s").await;
 
@@ -1996,7 +2108,7 @@ async fn filenode_copy_if_from_in_state_match_proceeds() {
         ..
     } = handle_filenode_get(
         &backend,
-        &(),
+        &owner(),
         json!({
             "accountId": "src",
             "ids": []
@@ -2012,7 +2124,7 @@ async fn filenode_copy_if_from_in_state_match_proceeds() {
 
     let HandlerOutput { primary: resp, .. } = handle_filenode_copy(
         &backend,
-        &(),
+        &owner(),
         json!({
             "fromAccountId": "src",
             "accountId": "dst",
@@ -2046,8 +2158,8 @@ async fn filenode_copy_if_from_in_state_match_proceeds() {
 #[tokio::test]
 async fn filenode_copy_on_success_destroy_original_destroys_source() {
     let backend = MemoryBackend::new()
-        .with_account(&Id::from("src"))
-        .with_account(&Id::from("dst"));
+        .with_account_owner(&Id::from("src"), &owner())
+        .with_account_owner(&Id::from("dst"), &owner());
 
     // A single leaf node in src that we will move to dst.
     let src_id = create_node(&backend, "src", "doc", None, "s").await;
@@ -2058,7 +2170,7 @@ async fn filenode_copy_on_success_destroy_original_destroys_source() {
         ..
     } = handle_filenode_copy(
         &backend,
-        &(),
+        &owner(),
         json!({
             "fromAccountId": "src",
             "accountId": "dst",
@@ -2113,7 +2225,7 @@ async fn filenode_copy_on_success_destroy_original_destroys_source() {
         primary: get_resp, ..
     } = handle_filenode_get(
         &backend,
-        &(),
+        &owner(),
         json!({
             "accountId": "src",
             "ids": [&src_id]
@@ -2149,13 +2261,14 @@ async fn copy_with_destroy_from_if_in_state(
     destroy_from_if_in_state: Option<&str>,
 ) -> (Vec<jmap_types::Invocation>, bool) {
     let backend = MemoryBackend::new()
-        .with_account(&Id::from("src"))
-        .with_account(&Id::from("dst"));
+        .with_account_owner(&Id::from("src"), &owner())
+        .with_account_owner(&Id::from("dst"), &owner());
+    let me = owner();
     let src_id = create_node(&backend, "src", "doc", None, "s").await;
     let get_src = || {
         handle_filenode_get(
             &backend,
-            &(),
+            &me,
             json!({ "accountId": "src", "ids": [&src_id] }),
             &[],
         )
@@ -2173,7 +2286,7 @@ async fn copy_with_destroy_from_if_in_state(
         ..
     } = handle_filenode_copy(
         &backend,
-        &(),
+        &owner(),
         json!({
             "fromAccountId": "src",
             "accountId": "dst",
@@ -2245,8 +2358,8 @@ async fn filenode_copy_destroy_from_if_in_state_match_destroys_original() {
 /// `isSubscribed` false and fixed timestamps.
 fn backend_with_src_tree() -> MemoryBackend {
     let backend = MemoryBackend::new()
-        .with_account(&Id::from("src"))
-        .with_account(&Id::from("dst"));
+        .with_account_owner(&Id::from("src"), &owner())
+        .with_account_owner(&Id::from("dst"), &owner());
     let rights = json!({ "mayRead": true, "mayAddChildren": false, "mayRename": false,
                          "mayDelete": false, "mayModifyContent": false, "mayShare": false });
     for v in [
@@ -2278,7 +2391,7 @@ async fn tree_below(
 ) -> std::collections::BTreeMap<String, Value> {
     let HandlerOutput { primary: q, .. } = handle_filenode_query(
         backend,
-        &(),
+        &owner(),
         json!({ "accountId": account, "filter": { "ancestorId": ancestor } }),
         &[],
     )
@@ -2286,7 +2399,7 @@ async fn tree_below(
     .expect("FileNode/query must succeed");
     let HandlerOutput { primary: got, .. } = handle_filenode_get(
         backend,
-        &(),
+        &owner(),
         json!({ "accountId": account, "ids": q["ids"] }),
         &[],
     )
@@ -2305,7 +2418,7 @@ async fn filenode_copy_directory_copies_whole_subtree() {
     let backend = backend_with_src_tree();
     let HandlerOutput { primary: resp, .. } = handle_filenode_copy(
         &backend,
-        &(),
+        &owner(),
         json!({ "fromAccountId": "src", "accountId": "dst",
                 "create": { "c": { "id": "top" } } }),
         "c0",
@@ -2347,7 +2460,7 @@ async fn filenode_copy_keeps_timestamps_and_drops_sharing_role_subscription() {
     let backend = backend_with_src_tree();
     let HandlerOutput { primary: resp, .. } = handle_filenode_copy(
         &backend,
-        &(),
+        &owner(),
         json!({ "fromAccountId": "src", "accountId": "src",
                 "create": {
                     "same": { "id": "top", "name": "top-copy" },
@@ -2384,7 +2497,7 @@ async fn filenode_copy_null_timestamp_override_sets_server_time() {
     let backend = backend_with_src_tree();
     let HandlerOutput { primary: resp, .. } = handle_filenode_copy(
         &backend,
-        &(),
+        &owner(),
         json!({ "fromAccountId": "src", "accountId": "src",
                 "create": { "c": { "id": "top", "name": "top-copy", "created": null,
                                    "modified": null, "accessed": null } } }),
@@ -2399,7 +2512,7 @@ async fn filenode_copy_null_timestamp_override_sets_server_time() {
 
     let HandlerOutput { primary: got, .. } = handle_filenode_get(
         &backend,
-        &(),
+        &owner(),
         json!({ "accountId": "src", "ids": [copy_id] }),
         &[],
     )
@@ -2429,7 +2542,7 @@ async fn filenode_copy_subtree_fails_as_a_whole() {
     );
     let HandlerOutput { primary: resp, .. } = handle_filenode_copy(
         &backend,
-        &(),
+        &owner(),
         json!({ "fromAccountId": "src", "accountId": "dst",
                 "create": { "c": { "id": "top" } } }),
         "c0",
@@ -2447,7 +2560,7 @@ async fn filenode_copy_subtree_fails_as_a_whole() {
         "{resp}"
     );
     let HandlerOutput { primary: q, .. } =
-        handle_filenode_query(&backend, &(), json!({ "accountId": "dst" }), &[])
+        handle_filenode_query(&backend, &owner(), json!({ "accountId": "dst" }), &[])
             .await
             .expect("FileNode/query must succeed");
     assert_eq!(q["ids"], json!([]), "nothing copied: {q}");
@@ -2458,7 +2571,7 @@ async fn filenode_copy_directory_into_own_subtree_rejected() {
     let backend = backend_with_src_tree();
     let HandlerOutput { primary: resp, .. } = handle_filenode_copy(
         &backend,
-        &(),
+        &owner(),
         json!({ "fromAccountId": "src", "accountId": "src",
                 "create": {
                     "self": { "id": "top", "parentId": "top" },
@@ -2488,8 +2601,8 @@ async fn filenode_copy_directory_into_own_subtree_rejected() {
 #[tokio::test]
 async fn filenode_copy_on_success_destroy_original_removes_children() {
     let backend = MemoryBackend::new()
-        .with_account(&Id::from("src"))
-        .with_account(&Id::from("dst"));
+        .with_account_owner(&Id::from("src"), &owner())
+        .with_account_owner(&Id::from("dst"), &owner());
 
     let src_parent = create_node(&backend, "src", "parent", None, "p").await;
     let src_child = create_node(&backend, "src", "child", Some(&src_parent), "c1").await;
@@ -2500,7 +2613,7 @@ async fn filenode_copy_on_success_destroy_original_removes_children() {
         ..
     } = handle_filenode_copy(
         &backend,
-        &(),
+        &owner(),
         json!({
             "fromAccountId": "src",
             "accountId": "dst",
@@ -2534,7 +2647,7 @@ async fn filenode_copy_on_success_destroy_original_removes_children() {
         primary: get_resp, ..
     } = handle_filenode_get(
         &backend,
-        &(),
+        &owner(),
         json!({ "accountId": "src", "ids": [&src_parent, &src_child] }),
         &[],
     )
@@ -2552,7 +2665,7 @@ async fn filenode_copy_on_success_destroy_original_keeps_role_directory() {
         ..
     } = handle_filenode_copy(
         &backend,
-        &(),
+        &owner(),
         json!({ "fromAccountId": "src", "accountId": "dst",
                 "onSuccessDestroyOriginal": true,
                 "create": { "c": { "id": "top" } } }),
@@ -2579,7 +2692,7 @@ async fn filenode_copy_on_success_destroy_original_keeps_role_directory() {
 
 #[tokio::test]
 async fn filenode_copy_same_account_under_own_descendant_returns_invalid_properties() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
 
     // Build A -> B in acc1.
     let a_id = create_node(&backend, "acc1", "A", None, "a").await;
@@ -2588,7 +2701,7 @@ async fn filenode_copy_same_account_under_own_descendant_returns_invalid_propert
     // Try to copy A under B (which is A's descendant) within the same account.
     let HandlerOutput { primary: resp, .. } = handle_filenode_copy(
         &backend,
-        &(),
+        &owner(),
         json!({
             "fromAccountId": "acc1",
             "accountId": "acc1",
@@ -2618,12 +2731,12 @@ async fn filenode_copy_same_account_under_own_descendant_returns_invalid_propert
 
 #[tokio::test]
 async fn filenode_copy_same_account_to_own_id_returns_invalid_properties() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
     let a_id = create_node(&backend, "acc1", "A", None, "a").await;
 
     let HandlerOutput { primary: resp, .. } = handle_filenode_copy(
         &backend,
-        &(),
+        &owner(),
         json!({
             "fromAccountId": "acc1",
             "accountId": "acc1",
@@ -2656,11 +2769,11 @@ async fn filenode_copy_same_account_to_own_id_returns_invalid_properties() {
 #[tokio::test]
 async fn filenode_copy_unknown_from_account_returns_from_account_not_found() {
     // Only 'dst' is registered; 'src' is unknown.
-    let backend = MemoryBackend::new().with_account(&Id::from("dst"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("dst"), &owner());
 
     let err = handle_filenode_copy(
         &backend,
-        &(),
+        &owner(),
         json!({
             "fromAccountId": "src",
             "accountId": "dst",
@@ -2685,11 +2798,11 @@ async fn filenode_copy_unknown_from_account_returns_from_account_not_found() {
 #[tokio::test]
 async fn filenode_copy_unknown_destination_account_returns_account_not_found() {
     // Only 'src' is registered; 'dst' is unknown.
-    let backend = MemoryBackend::new().with_account(&Id::from("src"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("src"), &owner());
 
     let err = handle_filenode_copy(
         &backend,
-        &(),
+        &owner(),
         json!({
             "fromAccountId": "src",
             "accountId": "dst",
@@ -2721,9 +2834,9 @@ async fn filenode_copy_unknown_destination_account_returns_account_not_found() {
 
 #[tokio::test]
 async fn filenode_query_role_filter_excludes_non_matching() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
 
-    handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(),
+    handle_filenode_set(&backend, &owner(), &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
             "create": {
@@ -2740,7 +2853,7 @@ async fn filenode_query_role_filter_excludes_non_matching() {
         primary: q_resp, ..
     } = handle_filenode_query(
         &backend,
-        &(),
+        &owner(),
         json!({
             "accountId": "acc1",
             "filter": { "role": "documents" },
@@ -2769,13 +2882,13 @@ async fn filenode_query_role_filter_excludes_non_matching() {
 
 #[tokio::test]
 async fn filenode_query_full_text_filter_is_unsupported_filter() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
     let _ = create_node(&backend, "acc1", "doc", None, "s").await;
 
     for filter in [json!({ "body": "search-term" }), json!({ "text": "doc" })] {
         let result = handle_filenode_query(
             &backend,
-            &(),
+            &owner(),
             json!({
                 "accountId": "acc1",
                 "filter": filter,
@@ -2805,11 +2918,11 @@ async fn filenode_query_full_text_filter_is_unsupported_filter() {
 
 #[tokio::test]
 async fn filenode_set_state_advances_on_successful_create() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
 
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
-        &(),
+        &owner(),
         &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
@@ -2841,14 +2954,14 @@ async fn filenode_set_state_advances_on_successful_create() {
 
 #[tokio::test]
 async fn filenode_set_state_stays_when_all_creates_fail() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
 
     // A file node without blobId is invalidProperties per draft §3.1.
     // The whole /set has no successful mutation, so state MUST NOT
     // advance.
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
-        &(),
+        &owner(),
         &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
@@ -2891,13 +3004,13 @@ async fn filenode_set_state_stays_when_all_creates_fail() {
 
 #[tokio::test]
 async fn filenode_set_state_advances_exactly_once_on_mixed_success() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
 
     // Mixed batch: one valid directory create (will succeed), one file
     // without blobId (will fail with invalidProperties). State must
     // advance exactly once — not zero (one create succeeded), not
     // twice (the per-failed-target is not a mutation).
-    let HandlerOutput { primary: resp, .. } = handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(),
+    let HandlerOutput { primary: resp, .. } = handle_filenode_set(&backend, &owner(), &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
             "create": {
@@ -2937,7 +3050,7 @@ async fn filenode_set_state_advances_exactly_once_on_mixed_success() {
         primary: ch_resp, ..
     } = handle_filenode_changes(
         &backend,
-        &(),
+        &owner(),
         json!({
             "accountId": "acc1",
             "sinceState": &new
@@ -2980,8 +3093,8 @@ async fn filenode_set_state_advances_exactly_once_on_mixed_success() {
 /// invalidArguments with both nodes still present.
 async fn assert_removed_on_exists_rejected(copy: bool, on_exists: &str) {
     let backend = MemoryBackend::new()
-        .with_account(&Id::from("src"))
-        .with_account(&Id::from("acc1"));
+        .with_account_owner(&Id::from("src"), &owner())
+        .with_account_owner(&Id::from("acc1"), &owner());
     backend.seed_node(&Id::from("src"), make_dir("src-1", "shared", None));
     backend.seed_node(&Id::from("acc1"), make_dir("existing-1", "shared", None));
     backend.seed_node(
@@ -2992,7 +3105,7 @@ async fn assert_removed_on_exists_rejected(copy: bool, on_exists: &str) {
     let err = if copy {
         handle_filenode_copy(
             &backend,
-            &(),
+            &owner(),
             json!({
                 "fromAccountId": "src",
                 "accountId": "acc1",
@@ -3008,7 +3121,7 @@ async fn assert_removed_on_exists_rejected(copy: bool, on_exists: &str) {
     } else {
         handle_filenode_set(
             &backend,
-            &(),
+            &owner(),
             &std::collections::BTreeMap::new(),
             json!({
                 "accountId": "acc1",
@@ -3033,7 +3146,7 @@ async fn assert_removed_on_exists_rejected(copy: bool, on_exists: &str) {
 
     let HandlerOutput { primary: get, .. } = handle_filenode_get(
         &backend,
-        &(),
+        &owner(),
         json!({ "accountId": "acc1", "ids": ["existing-1", "child-1"] }),
         &[],
     )
@@ -3075,13 +3188,13 @@ async fn filenode_copy_on_exists_unchanged_is_invalid_arguments() {
 #[tokio::test]
 async fn filenode_copy_rejects_invalid_type_overrides() {
     let backend = MemoryBackend::new()
-        .with_account(&Id::from("src"))
-        .with_account(&Id::from("dst"));
+        .with_account_owner(&Id::from("src"), &owner())
+        .with_account_owner(&Id::from("dst"), &owner());
     let src_id = create_node(&backend, "src", "doc", None, "s").await;
 
     let HandlerOutput { primary: resp, .. } = handle_filenode_copy(
         &backend,
-        &(),
+        &owner(),
         json!({
             "fromAccountId": "src",
             "accountId": "dst",
@@ -3119,10 +3232,10 @@ async fn filenode_copy_rejects_invalid_type_overrides() {
 
 #[tokio::test]
 async fn filenode_set_unsupported_type_description_names_values() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
-        &(),
+        &owner(),
         &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
@@ -3156,11 +3269,11 @@ async fn filenode_set_unsupported_type_description_names_values() {
 
 #[tokio::test]
 async fn filenode_set_update_rejects_other_type_properties() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
     let dir_id = create_node(&backend, "acc1", "d", None, "d").await;
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
-        &(),
+        &owner(),
         &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
@@ -3177,7 +3290,7 @@ async fn filenode_set_update_rejects_other_type_properties() {
 
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
-        &(),
+        &owner(),
         &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
@@ -3203,7 +3316,7 @@ async fn filenode_set_update_rejects_other_type_properties() {
         primary: q_resp, ..
     } = handle_filenode_query(
         &backend,
-        &(),
+        &owner(),
         json!({ "accountId": "acc1", "filter": { "mediaType": "text/plain" } }),
         &[],
     )
@@ -3214,12 +3327,12 @@ async fn filenode_set_update_rejects_other_type_properties() {
 
 #[tokio::test]
 async fn filenode_set_update_ignores_null_other_type_properties() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
     let dir_id = create_node(&backend, "acc1", "d", None, "d").await;
 
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
-        &(),
+        &owner(),
         &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
@@ -3252,12 +3365,12 @@ async fn filenode_set_update_ignores_null_other_type_properties() {
 // check and ended as serverFail.
 #[tokio::test]
 async fn filenode_set_update_rejects_other_type_pointer_key() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
     let dir_id = create_node(&backend, "acc1", "d", None, "d").await;
 
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
-        &(),
+        &owner(),
         &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
@@ -3282,13 +3395,13 @@ async fn filenode_set_update_rejects_other_type_pointer_key() {
 // control). Regression for bd JMAP-4vf8.18.
 #[tokio::test]
 async fn filenode_set_update_null_other_type_pointer_key_is_invalid_patch() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
     let ptr_id = create_node(&backend, "acc1", "p", None, "p").await;
     let ctl_id = create_node(&backend, "acc1", "c", None, "c").await;
 
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
-        &(),
+        &owner(),
         &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
@@ -3319,12 +3432,12 @@ async fn filenode_set_update_null_other_type_pointer_key_is_invalid_patch() {
 // "invalidProperties" error." Regression for bd JMAP-4vf8.16.
 #[tokio::test]
 async fn filenode_set_update_rejects_type_change() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
     let dir_id = create_node(&backend, "acc1", "d", None, "d").await;
 
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
-        &(),
+        &owner(),
         &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
@@ -3344,7 +3457,7 @@ async fn filenode_set_update_rejects_type_change() {
         primary: g_resp, ..
     } = handle_filenode_get(
         &backend,
-        &(),
+        &owner(),
         json!({ "accountId": "acc1", "ids": [&dir_id], "properties": ["@type"] }),
         &[],
     )
@@ -3362,12 +3475,12 @@ async fn filenode_set_update_rejects_type_change() {
 // ---------------------------------------------------------------------------
 
 async fn assert_invalid_create_keeps_existing(on_exists: &str) {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
     let existing_id = create_node(&backend, "acc1", "doc", None, "e").await;
 
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
-        &(),
+        &owner(),
         &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
@@ -3396,7 +3509,7 @@ async fn assert_invalid_create_keeps_existing(on_exists: &str) {
         primary: g_resp, ..
     } = handle_filenode_get(
         &backend,
-        &(),
+        &owner(),
         json!({ "accountId": "acc1", "ids": [&existing_id] }),
         &[],
     )
@@ -3422,9 +3535,9 @@ async fn filenode_set_create_invalid_replace_keeps_existing() {
 
 #[tokio::test]
 async fn filenode_set_create_rejects_other_type_property() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
 
-    let HandlerOutput { primary: resp, .. } = handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(),
+    let HandlerOutput { primary: resp, .. } = handle_filenode_set(&backend, &owner(), &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
             "create": {
@@ -3446,11 +3559,11 @@ async fn filenode_set_create_rejects_other_type_property() {
 
 #[tokio::test]
 async fn filenode_set_create_ignores_null_other_type_property() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
 
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
-        &(),
+        &owner(),
         &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
@@ -3478,13 +3591,13 @@ async fn filenode_set_create_ignores_null_other_type_property() {
 #[tokio::test]
 async fn filenode_copy_rejects_other_type_property() {
     let backend = MemoryBackend::new()
-        .with_account(&Id::from("src"))
-        .with_account(&Id::from("dst"));
+        .with_account_owner(&Id::from("src"), &owner())
+        .with_account_owner(&Id::from("dst"), &owner());
     let src_id = create_node(&backend, "src", "doc", None, "s").await;
 
     let HandlerOutput { primary: resp, .. } = handle_filenode_copy(
         &backend,
-        &(),
+        &owner(),
         json!({
             "fromAccountId": "src",
             "accountId": "dst",
@@ -3510,11 +3623,11 @@ async fn filenode_copy_rejects_other_type_property() {
 #[tokio::test]
 async fn filenode_copy_type_override_drops_source_type_properties() {
     let backend = MemoryBackend::new()
-        .with_account(&Id::from("src"))
-        .with_account(&Id::from("dst"));
+        .with_account_owner(&Id::from("src"), &owner())
+        .with_account_owner(&Id::from("dst"), &owner());
     let HandlerOutput { primary: seed, .. } = handle_filenode_set(
         &backend,
-        &(),
+        &owner(),
         &std::collections::BTreeMap::new(),
         json!({
             "accountId": "src",
@@ -3532,7 +3645,7 @@ async fn filenode_copy_type_override_drops_source_type_properties() {
 
     let HandlerOutput { primary: resp, .. } = handle_filenode_copy(
         &backend,
-        &(),
+        &owner(),
         json!({
             "fromAccountId": "src",
             "accountId": "dst",
@@ -3551,7 +3664,7 @@ async fn filenode_copy_type_override_drops_source_type_properties() {
         .to_owned();
     let HandlerOutput { primary: got, .. } = handle_filenode_get(
         &backend,
-        &(),
+        &owner(),
         json!({ "accountId": "dst", "ids": [&new_id] }),
         &[],
     )
@@ -3580,7 +3693,7 @@ async fn filenode_copy_type_override_drops_source_type_properties() {
 
 #[tokio::test]
 async fn filenode_set_create_rejects_container_property_on_non_container() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
     let rights = json!({
         "mayRead": true, "mayAddChildren": false, "mayRename": false,
         "mayDelete": false, "mayModifyContent": false, "mayShare": false
@@ -3588,7 +3701,7 @@ async fn filenode_set_create_rejects_container_property_on_non_container() {
 
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
-        &(),
+        &owner(),
         &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
@@ -3619,10 +3732,10 @@ async fn filenode_set_create_rejects_container_property_on_non_container() {
 
 #[tokio::test]
 async fn filenode_set_update_rejects_container_property_on_non_container() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
-        &(),
+        &owner(),
         &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
@@ -3649,7 +3762,7 @@ async fn filenode_set_update_rejects_container_property_on_non_container() {
 
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
-        &(),
+        &owner(),
         &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
@@ -3678,11 +3791,11 @@ async fn filenode_set_update_rejects_container_property_on_non_container() {
 #[tokio::test]
 async fn filenode_copy_rejects_container_property_on_non_container() {
     let backend = MemoryBackend::new()
-        .with_account(&Id::from("src"))
-        .with_account(&Id::from("dst"));
+        .with_account_owner(&Id::from("src"), &owner())
+        .with_account_owner(&Id::from("dst"), &owner());
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
-        &(),
+        &owner(),
         &std::collections::BTreeMap::new(),
         json!({
             "accountId": "src",
@@ -3699,7 +3812,7 @@ async fn filenode_copy_rejects_container_property_on_non_container() {
 
     let HandlerOutput { primary: resp, .. } = handle_filenode_copy(
         &backend,
-        &(),
+        &owner(),
         json!({
             "fromAccountId": "src",
             "accountId": "dst",
@@ -3722,7 +3835,7 @@ async fn create_nodes(backend: &MemoryBackend, create: serde_json::Value) -> Vec
     let keys: Vec<String> = create.as_object().unwrap().keys().cloned().collect();
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         backend,
-        &(),
+        &owner(),
         &std::collections::BTreeMap::new(),
         json!({ "accountId": "acc1", "create": create }),
         &[],
@@ -3745,7 +3858,7 @@ async fn create_nodes(backend: &MemoryBackend, create: serde_json::Value) -> Vec
 /// to that default".
 #[tokio::test]
 async fn filenode_set_update_null_modified_accessed_sets_server_time() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
     let old = "2000-01-01T00:00:00Z";
     let ids = create_nodes(
         &backend,
@@ -3756,7 +3869,7 @@ async fn filenode_set_update_null_modified_accessed_sets_server_time() {
 
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
-        &(),
+        &owner(),
         &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
@@ -3772,7 +3885,7 @@ async fn filenode_set_update_null_modified_accessed_sets_server_time() {
         primary: g_resp, ..
     } = handle_filenode_get(
         &backend,
-        &(),
+        &owner(),
         json!({ "accountId": "acc1", "ids": [id], "properties": ["modified", "accessed"] }),
         &[],
     )
@@ -3792,7 +3905,7 @@ async fn filenode_set_update_null_modified_accessed_sets_server_time() {
 /// `filenode_set_null_media_type_resets_to_default`.)
 #[tokio::test]
 async fn filenode_set_update_null_type_property_is_invalid_properties() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
     let ids = create_nodes(
         &backend,
         json!({
@@ -3812,7 +3925,7 @@ async fn filenode_set_update_null_type_property_is_invalid_properties() {
     }
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
-        &(),
+        &owner(),
         &std::collections::BTreeMap::new(),
         json!({ "accountId": "acc1", "update": update }),
         &[],
@@ -3830,7 +3943,7 @@ async fn filenode_set_update_null_type_property_is_invalid_properties() {
             primary: g_resp, ..
         } = handle_filenode_get(
             &backend,
-            &(),
+            &owner(),
             json!({ "accountId": "acc1", "ids": [id], "properties": [prop] }),
             &[],
         )
@@ -3847,7 +3960,7 @@ async fn filenode_set_update_null_type_property_is_invalid_properties() {
 /// Regression for bd JMAP-wkfn.
 #[tokio::test]
 async fn filenode_set_null_media_type_resets_to_default() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
     // "c": null on create; "u": a real value, then null on update.
     let ids = create_nodes(
         &backend,
@@ -3861,7 +3974,7 @@ async fn filenode_set_null_media_type_resets_to_default() {
 
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
-        &(),
+        &owner(),
         &std::collections::BTreeMap::new(),
         json!({ "accountId": "acc1", "update": { updated_id: { "mediaType": null } } }),
         &[],
@@ -3880,7 +3993,7 @@ async fn filenode_set_null_media_type_resets_to_default() {
         primary: g_resp, ..
     } = handle_filenode_get(
         &backend,
-        &(),
+        &owner(),
         json!({ "accountId": "acc1", "ids": [created_id, updated_id], "properties": ["mediaType"] }),
         &[],
     )
@@ -3903,12 +4016,12 @@ async fn filenode_set_null_media_type_resets_to_default() {
 /// invalid in some way."
 #[tokio::test]
 async fn filenode_set_update_null_name_is_invalid_properties() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
     let id = create_node(&backend, "acc1", "keep", None, "d").await;
 
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
-        &(),
+        &owner(),
         &std::collections::BTreeMap::new(),
         json!({ "accountId": "acc1", "update": { &id: { "name": null } } }),
         &[],
@@ -3925,7 +4038,7 @@ async fn filenode_set_update_null_name_is_invalid_properties() {
         primary: g_resp, ..
     } = handle_filenode_get(
         &backend,
-        &(),
+        &owner(),
         json!({ "accountId": "acc1", "ids": [&id], "properties": ["name"] }),
         &[],
     )
@@ -3941,7 +4054,7 @@ async fn filenode_set_update_null_name_is_invalid_properties() {
 /// types executable as "Boolean".
 #[tokio::test]
 async fn filenode_set_update_wrong_typed_value_is_invalid_properties() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
     let ids = create_nodes(
         &backend,
         json!({
@@ -3961,7 +4074,7 @@ async fn filenode_set_update_wrong_typed_value_is_invalid_properties() {
     }
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
-        &(),
+        &owner(),
         &std::collections::BTreeMap::new(),
         json!({ "accountId": "acc1", "update": update }),
         &[],
@@ -3979,7 +4092,7 @@ async fn filenode_set_update_wrong_typed_value_is_invalid_properties() {
             primary: g_resp, ..
         } = handle_filenode_get(
             &backend,
-            &(),
+            &owner(),
             json!({ "accountId": "acc1", "ids": [id], "properties": [prop] }),
             &[],
         )
@@ -3995,7 +4108,7 @@ async fn filenode_set_update_wrong_typed_value_is_invalid_properties() {
 /// "If set to null, the server MUST set it to the current server time."
 #[tokio::test]
 async fn filenode_set_create_null_modified_accessed_sets_server_time() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
     let before = jmap_server::now_utc_string();
     let ids = create_nodes(
         &backend,
@@ -4007,7 +4120,7 @@ async fn filenode_set_create_null_modified_accessed_sets_server_time() {
         primary: g_resp, ..
     } = handle_filenode_get(
         &backend,
-        &(),
+        &owner(),
         json!({
             "accountId": "acc1",
             "ids": [&ids[0]],
@@ -4035,7 +4148,7 @@ async fn filenode_set_create_null_modified_accessed_sets_server_time() {
 /// this property".
 #[tokio::test]
 async fn filenode_set_update_null_defaulted_resets_to_default() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
     let old = "2000-01-01T00:00:00Z";
     let ids = create_nodes(
         &backend,
@@ -4059,7 +4172,7 @@ async fn filenode_set_update_null_defaulted_resets_to_default() {
     }
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
-        &(),
+        &owner(),
         &std::collections::BTreeMap::new(),
         json!({ "accountId": "acc1", "update": update }),
         &[],
@@ -4073,7 +4186,7 @@ async fn filenode_set_update_null_defaulted_resets_to_default() {
             primary: g_resp, ..
         } = handle_filenode_get(
             backend,
-            &(),
+            &owner(),
             json!({ "accountId": "acc1", "ids": [id], "properties": [prop] }),
             &[],
         )
@@ -4107,10 +4220,10 @@ async fn filenode_set_update_null_defaulted_resets_to_default() {
 
 #[tokio::test]
 async fn filenode_query_space_id_returns_every_space_root() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
-        &(),
+        &owner(),
         &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
@@ -4134,10 +4247,11 @@ async fn filenode_query_space_id_returns_every_space_root() {
     s1.sort();
     created("c");
 
+    let me = owner();
     let query = |space_id: &'static str| {
         handle_filenode_query(
             &backend,
-            &(),
+            &me,
             json!({ "accountId": "acc1", "filter": { "spaceId": space_id } }),
             &[],
         )
@@ -4166,7 +4280,7 @@ async fn filenode_query_space_id_returns_every_space_root() {
 async fn create_space_root(backend: &MemoryBackend, space_id: &str) -> String {
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         backend,
-        &(),
+        &owner(),
         &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
@@ -4189,7 +4303,7 @@ async fn create_space_root(backend: &MemoryBackend, space_id: &str) -> String {
 async fn get_space_id(backend: &MemoryBackend, id: &str) -> serde_json::Value {
     let HandlerOutput { primary: resp, .. } = handle_filenode_get(
         backend,
-        &(),
+        &owner(),
         json!({ "accountId": "acc1", "ids": [id], "properties": ["spaceId"] }),
         &[],
     )
@@ -4200,10 +4314,10 @@ async fn get_space_id(backend: &MemoryBackend, id: &str) -> serde_json::Value {
 
 #[tokio::test]
 async fn filenode_set_create_space_id_on_non_directory_rejected() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
-        &(),
+        &owner(),
         &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
@@ -4231,19 +4345,19 @@ async fn filenode_set_create_space_id_on_non_directory_rejected() {
 
 #[tokio::test]
 async fn filenode_set_create_space_root_reports_space_id() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
     let root = create_space_root(&backend, "S1").await;
     assert_eq!(get_space_id(&backend, &root).await, json!("S1"));
 }
 
 #[tokio::test]
 async fn filenode_set_update_space_id_rejected() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
     let root = create_space_root(&backend, "S1").await;
     for patch in [json!({ "spaceId": "S2" }), json!({ "spaceId": null })] {
         let HandlerOutput { primary: resp, .. } = handle_filenode_set(
             &backend,
-            &(),
+            &owner(),
             &std::collections::BTreeMap::new(),
             json!({ "accountId": "acc1", "update": { root.clone(): patch } }),
             &[],
@@ -4259,11 +4373,11 @@ async fn filenode_set_update_space_id_rejected() {
 
 #[tokio::test]
 async fn filenode_set_update_adding_space_id_to_non_root_rejected() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
     backend.seed_node(&Id::from("acc1"), make_dir("d1", "plain", None));
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
-        &(),
+        &owner(),
         &std::collections::BTreeMap::new(),
         json!({ "accountId": "acc1", "update": { "d1": { "spaceId": "S1" } } }),
         &[],
@@ -4296,10 +4410,15 @@ async fn filenode_set_update_adding_space_id_to_non_root_rejected() {
 async fn set_acc1(backend: &MemoryBackend, args: Value) -> Value {
     let mut args = args;
     args["accountId"] = json!("acc1");
-    let HandlerOutput { primary, .. } =
-        handle_filenode_set(backend, &(), &std::collections::BTreeMap::new(), args, &[])
-            .await
-            .expect("FileNode/set must not fail at method level");
+    let HandlerOutput { primary, .. } = handle_filenode_set(
+        backend,
+        &owner(),
+        &std::collections::BTreeMap::new(),
+        args,
+        &[],
+    )
+    .await
+    .expect("FileNode/set must not fail at method level");
     primary
 }
 
@@ -4307,7 +4426,7 @@ async fn set_acc1(backend: &MemoryBackend, args: Value) -> Value {
 async fn roles_of(backend: &MemoryBackend, ids: &[&str]) -> Vec<Value> {
     let HandlerOutput { primary: resp, .. } = handle_filenode_get(
         backend,
-        &(),
+        &owner(),
         json!({ "accountId": "acc1", "ids": ids, "properties": ["role"] }),
         &[],
     )
@@ -4325,7 +4444,7 @@ async fn roles_of(backend: &MemoryBackend, ids: &[&str]) -> Vec<Value> {
 
 /// acc1 with top-level Directories "docs" (role documents) and "plain".
 fn backend_with_role_dir() -> MemoryBackend {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
     let mut docs = make_dir("docs", "docs", None);
     docs.role = Some(jmap_filenode_types::NodeRole::from("documents"));
     backend.seed_node(&Id::from("acc1"), docs);
@@ -4357,7 +4476,7 @@ async fn filenode_set_role_already_held_is_invalid_properties() {
 
 #[tokio::test]
 async fn filenode_set_two_creates_with_one_role_are_both_rejected() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
     let resp = set_acc1(
         &backend,
         json!({ "create": {
@@ -4379,7 +4498,7 @@ async fn filenode_set_two_creates_with_one_role_are_both_rejected() {
 /// fails on its own) does not take that role from a Directory create.
 #[tokio::test]
 async fn filenode_set_file_role_claim_does_not_block_directory() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
     let resp = set_acc1(
         &backend,
         json!({ "create": {
@@ -4556,7 +4675,7 @@ async fn filenode_set_destroy_with_role_child_named_keeps_parent() {
 
         let HandlerOutput { primary: got, .. } = handle_filenode_get(
             &backend,
-            &(),
+            &owner(),
             json!({ "accountId": "acc1", "ids": ["plain", "nested"],
                     "properties": ["parentId"] }),
             &[],
@@ -4586,11 +4705,11 @@ async fn filenode_set_destroy_with_role_child_named_keeps_parent() {
 
 #[tokio::test]
 async fn filenode_query_evaluates_operator_tree() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
 
     let HandlerOutput {
         primary: set_resp, ..
-    } = handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(),
+    } = handle_filenode_set(&backend, &owner(), &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
             "create": {
@@ -4626,7 +4745,7 @@ async fn filenode_query_evaluates_operator_tree() {
             primary: q_resp, ..
         } = handle_filenode_query(
             &backend,
-            &(),
+            &owner(),
             json!({ "accountId": "acc1", "filter": filter, "sort": null }),
             &[],
         )
@@ -4645,7 +4764,7 @@ async fn filenode_query_evaluates_operator_tree() {
 
     let err = handle_filenode_query(
         &backend,
-        &(),
+        &owner(),
         json!({
             "accountId": "acc1",
             "filter": { "operator": "AND", "conditions": [
@@ -4672,13 +4791,13 @@ async fn filenode_query_evaluates_operator_tree() {
 
 #[tokio::test]
 async fn filenode_query_applies_sort_or_rejects_it() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
 
     let HandlerOutput {
         primary: set_resp, ..
     } = handle_filenode_set(
         &backend,
-        &(),
+        &owner(),
         &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
@@ -4703,7 +4822,7 @@ async fn filenode_query_applies_sort_or_rejects_it() {
         primary: q_resp, ..
     } = handle_filenode_query(
         &backend,
-        &(),
+        &owner(),
         json!({
             "accountId": "acc1",
             "sort": [{ "property": "name", "isAscending": false }]
@@ -4725,7 +4844,7 @@ async fn filenode_query_applies_sort_or_rejects_it() {
     ] {
         let err = handle_filenode_query(
             &backend,
-            &(),
+            &owner(),
             json!({ "accountId": "acc1", "sort": sort }),
             &[],
         )
@@ -4755,12 +4874,12 @@ async fn filenode_query_applies_sort_or_rejects_it() {
 /// Creates root directories "apple" and "zebra"; returns their ids in
 /// name-ascending order.
 async fn backend_with_two_roots() -> (MemoryBackend, Vec<String>) {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
     let HandlerOutput {
         primary: set_resp, ..
     } = handle_filenode_set(
         &backend,
-        &(),
+        &owner(),
         &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
@@ -4791,7 +4910,7 @@ async fn filenode_query_extreme_position_and_limit_saturate() {
 
     let HandlerOutput { primary: resp, .. } = handle_filenode_query(
         &backend,
-        &(),
+        &owner(),
         json!({
             "accountId": "acc1",
             "sort": [{ "property": "name" }],
@@ -4813,7 +4932,7 @@ async fn filenode_query_largest_position_is_empty_page_not_error() {
 
     let HandlerOutput { primary: resp, .. } = handle_filenode_query(
         &backend,
-        &(),
+        &owner(),
         json!({ "accountId": "acc1", "position": 9_007_199_254_740_991_i64 }),
         &[],
     )

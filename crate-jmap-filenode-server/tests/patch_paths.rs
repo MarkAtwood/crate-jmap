@@ -9,7 +9,7 @@
 
 mod common;
 
-use common::MemoryBackend;
+use common::{MemoryBackend, owner};
 use jmap_filenode_server::handle_filenode_set;
 use jmap_filenode_types::FileNode;
 use jmap_server::{HandlerOutput, JmapReads};
@@ -47,7 +47,7 @@ fn seed_dir(backend: &MemoryBackend, id: &str) {
 
 async fn stored(backend: &MemoryBackend, id: &str) -> Value {
     let (nodes, _) = backend
-        .get_objects::<FileNode>(&(), &Id::from("acc1"), Some(&[Id::from(id)]), None)
+        .get_objects::<FileNode>(&owner(), &Id::from("acc1"), Some(&[Id::from(id)]), None)
         .await
         .expect("get_objects must succeed");
     serde_json::to_value(&nodes[0]).expect("FileNode serializes")
@@ -56,14 +56,14 @@ async fn stored(backend: &MemoryBackend, id: &str) -> Value {
 /// Send `bad_patch` to node "bad" and `ok_patch` to control node "ok";
 /// assert "bad" is invalidPatch and unchanged, and "ok" is updated.
 async fn assert_invalid_patch(bad_patch: Value, ok_patch: Value) {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
     seed_dir(&backend, "bad");
     seed_dir(&backend, "ok");
     let before = stored(&backend, "bad").await;
 
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
-        &(),
+        &owner(),
         &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",

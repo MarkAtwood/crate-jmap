@@ -51,6 +51,35 @@
 //! implement the trait with its own locking
 //! rather than copy this pattern.
 //!
+//! # Caller context and rights
+//!
+//! `CallerCtx` is a type implementing [`MemoryCaller`](crate::memory::MemoryCaller):
+//! the caller's Principal id ([`Id`](jmap_types::Id), the default), which
+//! [`JmapAccounts::principal_id`](jmap_server::JmapAccounts::principal_id)
+//! returns, or `()` for a single-user deployment with no identity. Each
+//! account has an owner
+//! ([`with_account`](crate::memory::MemoryBackend::with_account),
+//! [`with_account_owner`](crate::memory::MemoryBackend::with_account_owner)).
+//! The owner, and a caller without a principal, "has all rights" on every
+//! node (draft-ietf-jmap-filenode-20 §5). Every other user's rights are
+//! "the union of the rights granted to the user by the shareWith entries on
+//! the node and on all its ancestors"; a File or SymLink takes its
+//! parent's. Reads leave out nodes the caller cannot discover, and show a
+//! node the caller may not read with only "id, @type, name, parentId,
+//! myRights, isSubscribed, and shareWith"; `shareWith` itself only with
+//! `mayShare`. Writes re-check the rights under the store lock. Only the
+//! owner may create or move a node at the top level
+//! (`mayCreateTopLevelFileNode`). `isSubscribed` is kept per user: the
+//! stored value is the owner's, and a sharee's starts at the default,
+//! `true` (-20 §3.1.2).
+//!
+//! `FileNode/changes` is per user: a node that becomes discoverable to the
+//! caller is reported as created, one that stops being discoverable as
+//! destroyed, and one whose rights for the caller changed as updated
+//! (-20 §5). Object history is the owner's only.
+//!
+//! There is no Principal store: `shareWith` ids are not checked.
+//!
 //! # Tracking
 //!
 //! Promoted from `tests/common/mod.rs` per Beads issue JMAP-hwdv (epic)
@@ -60,14 +89,17 @@
 #![allow(async_fn_in_trait)]
 #![deny(clippy::await_holding_lock)]
 
+mod access;
 mod history;
 
 use std::collections::{BTreeSet, HashMap};
+use std::marker::PhantomData;
 
 use crate::FileNodeBackend;
 use jmap_cid_types::Sha256;
 use jmap_filenode_types::{
-    FileNode, FileNodeComparator, FileNodeComparatorProperty, FileNodeFilter, NodeRole, NodeType,
+    FileNode, FileNodeComparator, FileNodeComparatorProperty, FileNodeFilter, FilesRights,
+    NodeRole, NodeType,
 };
 use jmap_metadata_server::{
     ChangedProperties, MetadataCondition, MetadataFilterError, MetadataOnlyChanges, SetKind,
@@ -148,6 +180,44 @@ impl std::fmt::Display for MemoryError {
 impl std::error::Error for MemoryError {}
 
 // ---------------------------------------------------------------------------
+// Caller context
+// ---------------------------------------------------------------------------
+
+/// A caller context the memory backend accepts as its
+/// [`JmapAccounts::CallerCtx`]: anything that names the caller's Principal,
+/// or names none.
+///
+/// [`JmapAccounts::principal_id`] returns [`MemoryCaller::principal`]. A
+/// caller that names the account owner, or names no principal, has all
+/// rights; any other has the rights its id is given in `shareWith`
+/// (draft-ietf-jmap-filenode-20 §5).
+pub trait MemoryCaller: Clone + Send + Sync + 'static {
+    /// The caller's Principal id, or `None` for a deployment without
+    /// identity, whose every caller acts as the account owner.
+    fn principal(&self) -> Option<&Id>;
+}
+
+/// The caller is the Principal with this id.
+impl MemoryCaller for Id {
+    fn principal(&self) -> Option<&Id> {
+        Some(self)
+    }
+}
+
+/// A single-user deployment: every caller acts as the account owner.
+impl MemoryCaller for () {
+    fn principal(&self) -> Option<&Id> {
+        None
+    }
+}
+
+/// The Principal that owns every account the unit tests register.
+#[cfg(test)]
+pub(crate) fn owner() -> Id {
+    Id::from("owner")
+}
+
+// ---------------------------------------------------------------------------
 // Change log
 // ---------------------------------------------------------------------------
 
@@ -198,6 +268,35 @@ struct ChangeEntry {
     /// draft-ietf-jmap-metadata-05 §3.3 `ignoreMetadataOnlyChanges` and
     /// `updatedProperties`.
     updated_props: Option<BTreeSet<String>>,
+    /// Who `FileNode/changes` reports this entry to.
+    audience: Audience,
+}
+
+/// The users a change-log entry is reported to (draft-ietf-jmap-filenode-20
+/// §5: changes of rights and discoverability are reported "for that
+/// user").
+#[derive(Clone, Debug)]
+enum Audience {
+    /// The account owner (and callers without a principal), and these
+    /// sharees: those who could discover the node both before and after
+    /// the change (after a create, before a destroy).
+    Owner(BTreeSet<Id>),
+    /// One sharee only: a change of that user's rights, discoverability or
+    /// own `isSubscribed`.
+    Sharee(Id),
+}
+
+impl Audience {
+    /// Whether the entry is reported to the sharee `sharee`, or to the
+    /// owner when `None`.
+    fn includes(&self, sharee: Option<&Id>) -> bool {
+        match (self, sharee) {
+            (Self::Owner(_), None) => true,
+            (Self::Owner(users), Some(u)) => users.contains(u),
+            (Self::Sharee(_), None) => false,
+            (Self::Sharee(only), Some(u)) => only == u,
+        }
+    }
 }
 
 impl ChangeEntry {
@@ -217,7 +316,15 @@ impl ChangeEntry {
 
 #[derive(Clone)]
 struct AccountStore {
+    /// The Principal that owns the account and "has all rights" on its
+    /// nodes (draft-ietf-jmap-filenode-20 §5).
+    owner: Id,
+    /// The stored nodes. `isSubscribed` here is the owner's value, and a
+    /// stored `myRights` is never shown: reads compute it per caller.
     nodes: HashMap<Id, FileNode>,
+    /// A sharee's own `isSubscribed` on a node, by (node, user), once set
+    /// (-20 §3.1.2: "This property is stored per user").
+    subscriptions: HashMap<(Id, Id), bool>,
     /// Monotonically increasing state counter.  Starts at 0 (no changes yet).
     state: u64,
     change_log: Vec<ChangeEntry>,
@@ -229,9 +336,11 @@ struct AccountStore {
 }
 
 impl AccountStore {
-    fn new() -> Self {
+    fn new(owner: Id) -> Self {
         Self {
+            owner,
             nodes: HashMap::new(),
+            subscriptions: HashMap::new(),
             state: 0,
             change_log: Vec::new(),
             node_counter: 0,
@@ -275,6 +384,7 @@ impl AccountStore {
         change_type: ChangeType,
         id: Id,
         updated_props: Option<BTreeSet<String>>,
+        audience: Audience,
     ) {
         self.state += 1;
         self.change_log.push(ChangeEntry {
@@ -282,8 +392,131 @@ impl AccountStore {
             change_type,
             id,
             updated_props,
+            audience,
         });
     }
+
+    /// The viewer `user` is in this account.
+    fn viewer<'a>(&'a self, user: Option<&'a Id>, metadata: bool) -> access::Viewer<'a> {
+        access::Viewer {
+            user,
+            owner: &self.owner,
+            metadata,
+        }
+    }
+
+    /// What `user` can discover in this account now.
+    fn view_for(&self, user: Option<&Id>, metadata: bool) -> access::View {
+        access::view(&self.nodes, self.viewer(user, metadata))
+    }
+
+    /// `user`'s own `isSubscribed` on node `id`, when the user is a sharee
+    /// who set it; `None` leaves the stored value, which is the owner's
+    /// (or the default `true`).
+    fn subscription(&self, id: &Id, user: Option<&Id>) -> Option<bool> {
+        let sharee = user.filter(|u| **u != self.owner)?;
+        Some(
+            self.subscriptions
+                .get(&(id.clone(), sharee.clone()))
+                .copied()
+                .unwrap_or(true),
+        )
+    }
+
+    /// Record a write to node `id`, made while the nodes were `before`, in
+    /// the change log, for every user it concerns.
+    ///
+    /// draft-ietf-jmap-filenode-20 §5: "The server MUST report every node
+    /// whose rights for a user changed as changed in FileNode/changes for
+    /// that user, including nodes that have no myRights of their own", and
+    /// "When a node stops being discoverable by the user ... the server
+    /// reports it as destroyed in FileNode/changes". So, besides the entry
+    /// for `id` itself, each sharee named by a `shareWith` before or after
+    /// the write gets an entry of its own for each node whose
+    /// discoverability or rights for that sharee the write changed: created
+    /// when it became discoverable, destroyed when it stopped being, updated
+    /// when its rights changed. The entry for `id` reaches the owner and
+    /// the sharees who could discover it on both sides of the write.
+    /// `owner_only` keeps it from the sharees: a change to the owner's own
+    /// `isSubscribed` (-20 §3.1.1: "The server SHOULD report a per-user
+    /// change in FileNode/changes only to the users whose value changed").
+    fn log_write(
+        &mut self,
+        before: &HashMap<Id, FileNode>,
+        change_type: ChangeType,
+        id: &Id,
+        updated_props: Option<BTreeSet<String>>,
+        metadata: bool,
+        owner_only: bool,
+    ) {
+        let mut users = access::sharees(before);
+        users.extend(access::sharees(&self.nodes));
+        users.remove(&self.owner);
+        let mut main = BTreeSet::new();
+        let mut per_user: Vec<(ChangeType, Id, Option<BTreeSet<String>>, Id)> = Vec::new();
+        for user in users {
+            let was = access::view(before, self.viewer(Some(&user), metadata));
+            let now = self.view_for(Some(&user), metadata);
+            let reaches = match change_type {
+                ChangeType::Created | ChangeType::Restored => now.contains_key(id),
+                ChangeType::Destroyed => was.contains_key(id),
+                ChangeType::Updated => was.contains_key(id) && now.contains_key(id),
+            };
+            if reaches && !owner_only {
+                main.insert(user.clone());
+            }
+            let mut ids: BTreeSet<&Id> = was.keys().collect();
+            ids.extend(now.keys());
+            for node_id in ids {
+                // The entry for `id` already tells a user it reaches.
+                if node_id == id && reaches {
+                    continue;
+                }
+                let (kind, props) = match (was.get(node_id), now.get(node_id)) {
+                    (Some(_), None) => (ChangeType::Destroyed, None),
+                    (None, Some(_)) => (ChangeType::Created, None),
+                    (Some(b), Some(a)) if b != a => (
+                        ChangeType::Updated,
+                        rights_props(self.nodes.get(node_id), b, a),
+                    ),
+                    _ => continue,
+                };
+                per_user.push((kind, node_id.clone(), props, user.clone()));
+            }
+        }
+        self.bump_state(
+            change_type,
+            id.clone(),
+            updated_props,
+            Audience::Owner(main),
+        );
+        for (kind, node_id, props, user) in per_user {
+            self.bump_state(kind, node_id, props, Audience::Sharee(user));
+        }
+    }
+}
+
+/// The properties that change for a user whose rights on `node` went from
+/// `before` to `after`: `myRights` on a Directory, with `shareWith` when
+/// `mayShare` changed (-20 §3.1.2: `shareWith` "is null if the user
+/// requesting the object does not have myRights.mayShare"). `None`
+/// (unknown) when `mayRead` changed, which shows or hides most properties
+/// (-20 §5), and for a node without `myRights` of its own.
+fn rights_props(
+    node: Option<&FileNode>,
+    before: &access::Sight,
+    after: &access::Sight,
+) -> Option<BTreeSet<String>> {
+    if before.readable() != after.readable()
+        || node.is_none_or(|n| n.node_type != Some(NodeType::Directory))
+    {
+        return None;
+    }
+    let mut props = BTreeSet::from(["myRights".to_owned()]);
+    if before.rights.may_share != after.rights.may_share {
+        props.insert("shareWith".to_owned());
+    }
+    Some(props)
 }
 
 // ---------------------------------------------------------------------------
@@ -313,6 +546,28 @@ impl MemoryState {
     fn get_mut_or_err(&mut self, account_id: &Id) -> Option<&mut AccountStore> {
         self.accounts.get_mut(account_id.as_ref())
     }
+
+    /// Whether FileNode has the draft-ietf-jmap-metadata-05 properties.
+    fn has_metadata(&self) -> bool {
+        self.metadata_info.is_some()
+    }
+
+    /// The nodes of `account_id` that `user` can discover, each as `user`
+    /// receives it (see [`access::shown`]); empty for an unknown account.
+    fn shown_nodes(&self, account_id: &Id, user: Option<&Id>) -> HashMap<Id, FileNode> {
+        let Some(store) = self.get_or_err(account_id) else {
+            return HashMap::new();
+        };
+        store
+            .view_for(user, self.has_metadata())
+            .into_iter()
+            .filter_map(|(id, sight)| {
+                let node = store.nodes.get(&id)?;
+                let shown = access::shown(node, &sight, store.subscription(&id, user));
+                Some((id, shown))
+            })
+            .collect()
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -322,9 +577,14 @@ impl MemoryState {
 /// Full in-memory backend implementing all [`FileNodeBackend`] methods.
 ///
 /// Cloning is cheap and **shared-state**; see the [`Clone`] impl.
+///
+/// `C` is the [`JmapAccounts::CallerCtx`]: [`Id`], the caller's Principal
+/// id, by default, or `()` for a deployment without identity (see the
+/// module documentation, "Caller context and rights").
 #[non_exhaustive]
-pub struct MemoryBackend {
+pub struct MemoryBackend<C = Id> {
     inner: ScopedState<MemoryState>,
+    caller: PhantomData<fn() -> C>,
 }
 
 /// Manual `Clone` impl, not `#[derive(Clone)]`: cloning is **shared-state**.
@@ -334,23 +594,19 @@ pub struct MemoryBackend {
 /// one handle can seed or inspect state while another serves requests. This
 /// impl must never become a deep copy; for independent state construct a
 /// fresh [`MemoryBackend::new`] instead of calling `.clone()`.
-impl Clone for MemoryBackend {
+impl<C> Clone for MemoryBackend<C> {
     fn clone(&self) -> Self {
         Self {
             inner: self.inner.clone(),
+            caller: PhantomData,
         }
     }
 }
 
-impl Default for MemoryBackend {
+/// An empty backend: [`MemoryBackend::new`] for any caller context, such
+/// as `MemoryBackend::<()>::default()` for a deployment without identity.
+impl<C> Default for MemoryBackend<C> {
     fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl MemoryBackend {
-    /// Create a new, empty `MemoryBackend`.
-    pub fn new() -> Self {
         Self {
             inner: ScopedState::new(MemoryState {
                 accounts: HashMap::new(),
@@ -358,10 +614,42 @@ impl MemoryBackend {
                 max_file_node_depth: None,
                 history: None,
             }),
+            caller: PhantomData,
         }
     }
+}
 
-    /// Register an account and return `self` for chaining.
+impl MemoryBackend {
+    /// Create a new, empty `MemoryBackend` whose callers are Principal ids.
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+impl<C> MemoryBackend<C> {
+    /// Register an account owned by the Principal whose id is
+    /// `account_id`, and return `self` for chaining.
+    ///
+    /// The same as [`Self::with_account_owner`] with `account_id` as the
+    /// owner.
+    ///
+    /// # Panics
+    ///
+    /// In debug builds, if `account_id` is the empty string (RFC 8620
+    /// §1.2, bd:JMAP-dx0s).
+    #[must_use]
+    pub fn with_account(self, account_id: &Id) -> Self {
+        self.with_account_owner(account_id, account_id)
+    }
+
+    /// Register an account owned by Principal `owner`, and return `self`
+    /// for chaining.
+    ///
+    /// The owner "has all rights" on every node of the account, may create
+    /// nodes at the top level, and can discover every node
+    /// (draft-ietf-jmap-filenode-20 §5); so does a caller with no
+    /// principal. Other callers have the rights `shareWith` gives their
+    /// id.
     ///
     /// **Idempotent on collision.** If the account already exists, the
     /// existing per-account state (nodes, state counter, change log)
@@ -379,7 +667,7 @@ impl MemoryBackend {
     /// In debug builds, if `account_id` is the empty string (RFC 8620
     /// §1.2, bd:JMAP-dx0s).
     #[must_use]
-    pub fn with_account(self, account_id: &Id) -> Self {
+    pub fn with_account_owner(self, account_id: &Id, owner: &Id) -> Self {
         debug_assert!(
             !account_id.as_ref().is_empty(),
             "with_account: account_id must not be the empty string \
@@ -389,7 +677,7 @@ impl MemoryBackend {
             .lock_unscoped()
             .accounts
             .entry(account_id.as_ref().to_owned())
-            .or_insert_with(AccountStore::new);
+            .or_insert_with(|| AccountStore::new(owner.clone()));
         self
     }
 
@@ -411,16 +699,16 @@ impl MemoryBackend {
     /// -05 §4.1 names FileNode among the types with `myRights`, so an
     /// update that writes `metadata` needs `myRights.maySetMetadata`: on
     /// the node itself, or for a `File` or `SymLink`, which has no
-    /// `myRights`, on its parent (draft-ietf-jmap-filenode-20 §5). An
-    /// absent `maySetMetadata` allows the write (fail-open, JMAP-bghk).
+    /// `myRights`, on its parent (draft-ietf-jmap-filenode-20 §5). The
+    /// account owner holds it; a sharee holds it when a `shareWith` entry
+    /// on the node or an ancestor grants `maySetMetadata`.
     /// A metadata-only change leaves `changed` alone, as -05 §2.2 requires.
     ///
     /// # Panics
     ///
     /// Panics if `data_type` is not `"FileNode"`, the one type this backend
-    /// stores, or if `info.supports_private` is true: this backend has no
-    /// per-user identity (`CallerCtx` is `()`) to own `privateMetadata`
-    /// (-05 §2).
+    /// stores, or if `info.supports_private` is true: this backend does not
+    /// keep `privateMetadata` per user (-05 §2).
     #[must_use]
     pub fn with_metadata_info(self, data_type: &str, info: DataTypeMetadataInfo) -> Self {
         assert!(
@@ -582,15 +870,20 @@ impl MemoryBackend {
 // JmapBackend impl
 // ---------------------------------------------------------------------------
 
-impl JmapAccounts for MemoryBackend {
+impl<C: MemoryCaller> JmapAccounts for MemoryBackend<C> {
     type Error = MemoryError;
-    type CallerCtx = ();
+    type CallerCtx = C;
+
+    /// [`MemoryCaller::principal`].
+    fn principal_id(caller: &C) -> Option<&Id> {
+        caller.principal()
+    }
 
     /// The info set by [`MemoryBackend::with_metadata_info`] for FileNode,
     /// the same for every account; `None` for any other type.
     fn metadata_info<O: JmapObject>(
         &self,
-        _caller: &(),
+        _caller: &C,
         _account_id: &Id,
     ) -> Option<DataTypeMetadataInfo> {
         if O::TYPE_NAME != FileNode::TYPE_NAME {
@@ -599,7 +892,7 @@ impl JmapAccounts for MemoryBackend {
         self.inner.lock_unscoped().metadata_info.clone()
     }
 
-    async fn account_exists(&self, _caller: &(), account_id: &Id) -> Result<bool, Self::Error> {
+    async fn account_exists(&self, _caller: &C, account_id: &Id) -> Result<bool, Self::Error> {
         Ok(self
             .inner
             .lock()
@@ -609,10 +902,23 @@ impl JmapAccounts for MemoryBackend {
     }
 }
 
-impl JmapReads for MemoryBackend {
+/// `node` as an `O`, by serde round-trip; `context` names the step for the
+/// error.
+fn decode_node<O: JmapObject>(node: &FileNode, context: &str) -> Result<O, MemoryError> {
+    let v = serde_json::to_value(node)
+        .map_err(|e| MemoryError::serde(format_args!("{context}: serialize FileNode"), &e))?;
+    serde_json::from_value(v)
+        .map_err(|e| MemoryError::serde(format_args!("{context}: deserialize"), &e))
+}
+
+impl<C: MemoryCaller> JmapReads for MemoryBackend<C> {
+    /// draft-ietf-jmap-filenode-20 §5: "Nodes which are not "discoverable"
+    /// MUST be reported in notFound if fetched with FileNode/get". Each
+    /// node comes as the caller sees it: `myRights` its own rights, and
+    /// without `mayRead` only the properties -20 §5 lists.
     async fn get_objects<O: GetObject + Send + Sync>(
         &self,
-        _caller: &(),
+        caller: &C,
         account_id: &Id,
         ids: Option<&[Id]>,
         _properties: Option<&[String]>,
@@ -624,26 +930,13 @@ impl JmapReads for MemoryBackend {
         }
 
         let guard = self.inner.lock().await;
-        let store = match guard.get_or_err(account_id) {
-            Some(s) => s,
-            None => return Ok((vec![], vec![])),
-        };
+        let shown = guard.shown_nodes(account_id, caller.principal());
 
         match ids {
             None => {
-                // Return all nodes.
                 let mut nodes: Vec<O> = Vec::new();
-                for node in store.nodes.values() {
-                    let v = serde_json::to_value(node).map_err(|e| {
-                        MemoryError::serde("get_objects all: serialize FileNode", &e)
-                    })?;
-                    let obj: O = serde_json::from_value(v).map_err(|e| {
-                        MemoryError::serde(
-                            format_args!("get_objects all: deserialize {}", O::TYPE_NAME),
-                            &e,
-                        )
-                    })?;
-                    nodes.push(obj);
+                for node in shown.values() {
+                    nodes.push(decode_node(node, "get_objects all")?);
                 }
                 Ok((nodes, vec![]))
             }
@@ -651,17 +944,8 @@ impl JmapReads for MemoryBackend {
                 let mut found: Vec<O> = Vec::new();
                 let mut not_found: Vec<Id> = Vec::new();
                 for id in id_slice {
-                    if let Some(node) = store.nodes.get(id) {
-                        let v = serde_json::to_value(node).map_err(|e| {
-                            MemoryError::serde("get_objects by-ids: serialize FileNode", &e)
-                        })?;
-                        let obj: O = serde_json::from_value(v).map_err(|e| {
-                            MemoryError::serde(
-                                format_args!("get_objects by-ids: deserialize {}", O::TYPE_NAME),
-                                &e,
-                            )
-                        })?;
-                        found.push(obj);
+                    if let Some(node) = shown.get(id) {
+                        found.push(decode_node(node, "get_objects by-ids")?);
                     } else {
                         not_found.push(id.clone());
                     }
@@ -673,7 +957,7 @@ impl JmapReads for MemoryBackend {
 
     async fn get_state<O: JmapObject + Send + Sync>(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
     ) -> Result<State, Self::Error> {
         let guard = self.inner.lock().await;
@@ -684,9 +968,14 @@ impl JmapReads for MemoryBackend {
         Ok(State::from(store.state.to_string()))
     }
 
+    /// The changes since `sinceState` as the caller sees them
+    /// (draft-ietf-jmap-filenode-20 §5): a node that became discoverable to
+    /// the caller is created, one that stopped being discoverable is
+    /// destroyed, and one whose rights for the caller changed is updated.
+    /// Changes to nodes the caller could not discover are left out.
     async fn get_changes<O: JmapObject + Send + Sync>(
         &self,
-        _caller: &(),
+        caller: &C,
         account_id: &Id,
         params: jmap_server::ChangesParams<'_>,
     ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
@@ -727,11 +1016,14 @@ impl JmapReads for MemoryBackend {
         // from the updated array any id whose only changes since
         // sinceState ... are confined to metadata and/or privateMetadata"),
         // and the dropped entries do not count toward maxChanges ("Excluded
-        // ids do not count toward maxChanges").
+        // ids do not count toward maxChanges"). Entries for other users,
+        // and for nodes the caller could not discover, are dropped too.
+        let sharee = caller.principal().filter(|u| **u != store.owner);
         let all: Vec<&ChangeEntry> = store
             .change_log
             .iter()
             .filter(|e| e.state > since)
+            .filter(|e| e.audience.includes(sharee))
             .filter(|e| !(mode == MetadataOnlyChanges::Ignore && e.is_metadata_only_update()))
             .collect();
 
@@ -831,7 +1123,7 @@ impl JmapReads for MemoryBackend {
 
     async fn query_objects<O: QueryObject + Send + Sync>(
         &self,
-        _caller: &(),
+        caller: &C,
         account_id: &Id,
         params: QueryParams<'_, O>,
     ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
@@ -893,11 +1185,18 @@ impl JmapReads for MemoryBackend {
             }
         };
 
+        // draft-ietf-jmap-filenode-20 §5: undiscoverable nodes "MUST NOT be
+        // returned in response to FileNode/query". The filter and sort run
+        // over the nodes as the caller sees them, so for a node the caller
+        // can discover but not read "a condition on a property that
+        // FileNode/get returns as null for that node ... does not match the
+        // node", and such a node sorts as lacking the property (-20 §3.2.5).
+        let shown = guard.shown_nodes(account_id, caller.principal());
         let mut matched: Vec<&FileNode> = Vec::new();
-        for node in store.nodes.values() {
+        for node in shown.values() {
             let matches = match &fc {
                 None => true,
-                Some(f) => node_matches_tree(node, f, &store.nodes)?,
+                Some(f) => node_matches_tree(node, f, &shown)?,
             };
             if matches {
                 matched.push(node);
@@ -931,7 +1230,7 @@ impl JmapReads for MemoryBackend {
 
     async fn query_changes<O: QueryObject + Send + Sync>(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         params: QueryChangesParams<'_, O>,
     ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
@@ -1044,17 +1343,129 @@ fn with_id<O: SetObject>(obj: &O, id: &Id) -> Result<O, BackendSetError<MemoryEr
         .map_err(|e| BackendSetError::Other(MemoryError::serde("deserialize copied object", &e)))
 }
 
-impl MemoryBackend {
+/// A `forbidden` SetError: a write "would violate an ACL or other
+/// permissions policy" (RFC 8620 §5.3).
+fn forbidden(description: &str) -> BackendSetError<MemoryError> {
+    BackendSetError::SetError(Box::new(
+        SetError::new(SetErrorType::Forbidden).with_description(description),
+    ))
+}
+
+/// The `notFound` SetError, also for a node the caller cannot discover
+/// (draft-ietf-jmap-filenode-20 §5).
+fn not_found() -> BackendSetError<MemoryError> {
+    BackendSetError::SetError(Box::new(SetError::new(SetErrorType::NotFound)))
+}
+
+/// A test of one right of a `FilesRights`.
+type RightTest = fn(&FilesRights) -> bool;
+
+/// The right of draft-ietf-jmap-filenode-20 §3.1.2 that changing
+/// `property` takes, or `None` when it takes none checked here.
+///
+/// - `mayRename`: "rename or move this node, or change its role";
+/// - `mayModifyContent`: "the content-related properties of this node
+///   (blobId, mediaType, target, created, modified, accessed,
+///   executable)", with the server-set `size` and `sha256` that follow
+///   `blobId`;
+/// - `mayShare`: "change the sharing of this node", `shareWith`.
+///
+/// `isSubscribed` "requires no rights beyond being able to discover the
+/// node", and `metadata` takes `maySetMetadata`, checked with the other
+/// draft-ietf-jmap-metadata-05 rules.
+fn needed_right(property: &str) -> Option<(&'static str, RightTest)> {
+    match property {
+        "name" | "parentId" | "role" => Some(("mayRename", |r| r.may_rename)),
+        "blobId" | "size" | "sha256" | "mediaType" | "target" | "created" | "modified"
+        | "accessed" | "executable" => Some(("mayModifyContent", |r| r.may_modify_content)),
+        "shareWith" => Some(("mayShare", |r| r.may_share)),
+        _ => None,
+    }
+}
+
+/// Check that a node may be placed under `parent` by a create or move.
+///
+/// draft-ietf-jmap-filenode-20 §5: "Moving a node also requires
+/// mayAddChildren on the new parent, or mayCreateTopLevelFileNode to move
+/// it to the top level", and §2.1: without `mayCreateTopLevelFileNode`
+/// "creating a node with a null parentId, or moving one there, fails with
+/// "forbidden"". In this backend only the account owner may create at the
+/// top level. A parent the caller cannot discover is reported as missing,
+/// so the answer does not reveal it.
+fn check_parent(
+    view: &access::View,
+    sharee: Option<&Id>,
+    parent: Option<&Id>,
+) -> Result<(), BackendSetError<MemoryError>> {
+    if sharee.is_none() {
+        return Ok(());
+    }
+    match parent {
+        None => Err(forbidden(
+            "a node at the top level requires mayCreateTopLevelFileNode",
+        )),
+        Some(p) => match view.get(p) {
+            None => Err(BackendSetError::SetError(Box::new(
+                SetError::new(SetErrorType::InvalidProperties)
+                    .with_properties(["parentId"])
+                    .with_description("the parent does not exist"),
+            ))),
+            Some(s) if !s.rights.may_add_children => Err(forbidden(
+                "adding a child requires mayAddChildren on the parent",
+            )),
+            Some(_) => Ok(()),
+        },
+    }
+}
+
+/// -20 §3.1.2 `shareWith`: "The owner of the node MUST NOT be in this
+/// set."
+fn check_share_with(node: &FileNode, owner: &Id) -> Result<(), BackendSetError<MemoryError>> {
+    if node
+        .share_with
+        .as_ref()
+        .is_some_and(|s| s.contains_key(owner))
+    {
+        return Err(BackendSetError::SetError(Box::new(
+            SetError::new(SetErrorType::InvalidProperties)
+                .with_properties(["shareWith"])
+                .with_description("the owner of the node must not be in shareWith"),
+        )));
+    }
+    Ok(())
+}
+
+/// What the viewer of `view` sees of `parent`, the rights a new child of
+/// it inherits (-20 §5).
+fn node_parent_sight(view: &access::View, parent: Option<&Id>) -> Option<access::Sight> {
+    parent.and_then(|p| view.get(p)).cloned()
+}
+
+/// The source of a `/copy`: the account it is read from and its id there.
+struct CopySource<'a> {
+    account_id: &'a Id,
+    id: &'a Id,
+}
+
+impl<C: MemoryCaller> MemoryBackend<C> {
     /// Store the FileNode `build` returns for a new id in `account_id`: the
     /// body of [`FileNodeBackend::create_object`] and
     /// [`FileNodeBackend::copy_object`]. `supplied` is the `/copy` create
     /// object whose metadata is validated (-05 §3.4); `None` validates the
     /// stored node itself, as a `FileNode/set` create does.
+    ///
+    /// The caller's rights are checked under the same lock as the insert
+    /// (draft-ietf-jmap-filenode-20 §5): `mayAddChildren` on the parent,
+    /// or the owner for a top-level node; `mayShare`, inherited from the
+    /// parent, to give the node a `shareWith`; and for a copy, "mayRead on
+    /// it" (-20 §3.2.4) in `source`.
     async fn store_created<O: SetObject>(
         &self,
+        caller: &C,
         account_id: &Id,
         build: impl FnOnce(&Id) -> Result<O, BackendSetError<MemoryError>>,
         supplied: Option<&serde_json::Value>,
+        source: Option<CopySource<'_>>,
     ) -> Result<(Id, O), BackendSetError<MemoryError>> {
         // Only FileNode is supported.
         if O::TYPE_NAME != "FileNode" {
@@ -1063,8 +1474,20 @@ impl MemoryBackend {
             ))));
         }
 
+        let user = caller.principal();
         let mut guard = self.inner.lock().await;
         let metadata_info = guard.metadata_info.clone();
+        let metadata = metadata_info.is_some();
+        if let Some(source) = source {
+            let from = guard.get_or_err(source.account_id).ok_or_else(not_found)?;
+            match from.view_for(user, metadata).get(source.id) {
+                None => return Err(not_found()),
+                Some(sight) if !sight.readable() => {
+                    return Err(forbidden("copying a node requires mayRead on it"));
+                }
+                Some(_) => {}
+            }
+        }
         let store = guard.get_mut_or_err(account_id).ok_or_else(|| {
             BackendSetError::SetError(Box::new(SetError::new(SetErrorType::InvalidProperties)))
         })?;
@@ -1087,21 +1510,68 @@ impl MemoryBackend {
                 serde_json::json!(jmap_server::now_utc_string()),
             );
         }
-        let node: FileNode = serde_json::from_value(v.clone()).map_err(|e| {
+        let mut node: FileNode = serde_json::from_value(v).map_err(|e| {
             BackendSetError::Other(MemoryError::serde(
                 "create_object: deserialize FileNode",
                 &e,
             ))
         })?;
-        let obj: O = serde_json::from_value(v).map_err(|e| {
-            BackendSetError::Other(MemoryError::serde(
-                format_args!("create_object: deserialize {}", O::TYPE_NAME),
-                &e,
-            ))
-        })?;
-        store.nodes.insert(new_id.clone(), node);
-        store.bump_state(ChangeType::Created, new_id.clone(), None);
 
+        let sharee = user.filter(|u| **u != store.owner).cloned();
+        let view = store.view_for(user, metadata);
+        check_parent(&view, sharee.as_ref(), node.parent_id.as_ref())?;
+        check_share_with(&node, &store.owner)?;
+        // The new node's rights are first those it inherits from its
+        // parent, so giving it a shareWith takes mayShare there.
+        let inherited = node
+            .parent_id
+            .as_ref()
+            .and_then(|p| view.get(p))
+            .map(|s| s.rights.may_share);
+        if sharee.is_some()
+            && node.share_with.as_ref().is_some_and(|s| !s.is_empty())
+            && inherited != Some(true)
+        {
+            return Err(forbidden("setting shareWith requires mayShare"));
+        }
+
+        // `myRights` is computed per caller, never stored; a sharee's
+        // `isSubscribed` is the sharee's own (-20 §3.1.2).
+        node.my_rights = None;
+        let subscribed = match sharee.as_ref() {
+            Some(u) => node.is_subscribed.take().map(|v| (u.clone(), v)),
+            None => None,
+        };
+        let before = store.nodes.clone();
+        store.nodes.insert(new_id.clone(), node);
+        if let Some((u, v)) = subscribed {
+            store.subscriptions.insert((new_id.clone(), u), v);
+        }
+        store.log_write(&before, ChangeType::Created, &new_id, None, metadata, false);
+
+        // A sharee with mayAddChildren but not mayRead on the parent cannot
+        // discover the node it created (-20 §5); it is shown with the
+        // rights it inherits, so without the values it cannot read.
+        let sight = store
+            .view_for(user, metadata)
+            .remove(&new_id)
+            .or_else(|| {
+                node_parent_sight(
+                    &view,
+                    store.nodes.get(&new_id).and_then(|n| n.parent_id.as_ref()),
+                )
+            })
+            .unwrap_or_else(|| access::Sight {
+                rights: FilesRights::default(),
+            });
+        let shown = store
+            .nodes
+            .get(&new_id)
+            .map(|node| access::shown(node, &sight, store.subscription(&new_id, user)))
+            .ok_or_else(|| {
+                BackendSetError::Other(MemoryError::new("create_object: the node was not stored"))
+            })?;
+        let obj: O = decode_node(&shown, "create_object").map_err(BackendSetError::Other)?;
         Ok((new_id, obj))
     }
 }
@@ -1110,10 +1580,10 @@ impl MemoryBackend {
 // FileNodeBackend impl
 // ---------------------------------------------------------------------------
 
-impl FileNodeBackend for MemoryBackend {
+impl<C: MemoryCaller> FileNodeBackend for MemoryBackend<C> {
     async fn create_object<O, F>(
         &self,
-        _caller: &(),
+        caller: &C,
         account_id: &Id,
         _create_id: &str,
         build: F,
@@ -1122,36 +1592,58 @@ impl FileNodeBackend for MemoryBackend {
         O: SetObject + Send + Sync,
         F: FnOnce(&Id) -> O + Send,
     {
-        self.store_created(account_id, |id| Ok(build(id)), None)
+        self.store_created(caller, account_id, |id| Ok(build(id)), None, None)
             .await
     }
 
     async fn copy_object<O: SetObject + Send + Sync>(
         &self,
-        _caller: &(),
-        _from_account_id: &Id,
+        caller: &C,
+        from_account_id: &Id,
         to_account_id: &Id,
         obj: O,
         create: &serde_json::Value,
     ) -> Result<(Id, O), BackendSetError<Self::Error>> {
+        // `obj.id` is still the source node's id in `from_account_id`.
+        let source_id = serde_json::to_value(&obj)
+            .ok()
+            .and_then(|v| {
+                v.get("id")
+                    .and_then(serde_json::Value::as_str)
+                    .map(Id::from)
+            })
+            .ok_or_else(not_found)?;
+        let source = CopySource {
+            account_id: from_account_id,
+            id: &source_id,
+        };
         // -05 §3.4: the create object's metadata follows the Foo/set create
         // rules; the copied values are not revalidated.
-        self.store_created(to_account_id, |id| with_id(&obj, id), Some(create))
-            .await
+        self.store_created(
+            caller,
+            to_account_id,
+            |id| with_id(&obj, id),
+            Some(create),
+            Some(source),
+        )
+        .await
     }
 
+    /// The rights of draft-ietf-jmap-filenode-20 §5 are re-checked under
+    /// the store lock: a node the caller cannot discover is `notFound`;
+    /// each changed property takes its right (see `needed_right`), a move
+    /// also `mayAddChildren` on the new parent; and `isSubscribed` from a
+    /// sharee changes only that sharee's value.
     async fn update_object<O: SetObject + Send + Sync>(
         &self,
-        _caller: &(),
+        caller: &C,
         account_id: &Id,
         id: &Id,
         patch: O::Patch,
     ) -> Result<Option<O>, BackendSetError<Self::Error>> {
         // Only FileNode is supported.
         if O::TYPE_NAME != "FileNode" {
-            return Err(BackendSetError::SetError(Box::new(SetError::new(
-                SetErrorType::NotFound,
-            ))));
+            return Err(not_found());
         }
 
         // Serialize patch as a JSON Value for JMAP-style path patching.
@@ -1160,7 +1652,7 @@ impl FileNodeBackend for MemoryBackend {
         // path into nested objects (e.g. `"shareWith/alice"`). Null values
         // remove the target key; non-null values overwrite or create it.
         // A pointer whose leading parts do not exist is invalidPatch.
-        let patch_val = serde_json::to_value(&patch).map_err(|e| {
+        let mut patch_val = serde_json::to_value(&patch).map_err(|e| {
             BackendSetError::Other(MemoryError::serde("update_object: serialize patch", &e))
         })?;
         let invalid_patch = |description: String| {
@@ -1177,22 +1669,29 @@ impl FileNodeBackend for MemoryBackend {
                 .map_err(|e: PatchPathError| invalid_patch(e.to_string()))?;
         }
 
+        let user = caller.principal();
         let mut guard = self.inner.lock().await;
         let metadata_info = guard.metadata_info.clone();
+        let metadata = metadata_info.is_some();
         // -05 §3.2 rule 1: "If the user cannot read the related object,
-        // reject with "notFound"" comes before "forbidden". Here only a
-        // missing account or node is unreadable.
-        let store = guard.get_mut_or_err(account_id).ok_or_else(|| {
-            BackendSetError::SetError(Box::new(SetError::new(SetErrorType::NotFound)))
-        })?;
+        // reject with "notFound"" comes before "forbidden"; -20 §5 makes a
+        // node the caller cannot discover unreadable in that sense.
+        let store = guard.get_mut_or_err(account_id).ok_or_else(not_found)?;
+        let sharee = user.filter(|u| **u != store.owner).cloned();
+        let view = store.view_for(user, metadata);
+        let sight = view.get(id).ok_or_else(not_found)?.clone();
+        let node = store.nodes.get(id).ok_or_else(not_found)?.clone();
 
-        let node = store
-            .nodes
-            .get(id)
-            .ok_or_else(|| {
-                BackendSetError::SetError(Box::new(SetError::new(SetErrorType::NotFound)))
-            })?
-            .clone();
+        // -20 §3.1.2: a sharee's isSubscribed "changes only the current
+        // user's value, and requires no rights beyond being able to
+        // discover the node". Take it out of the patch of the stored node.
+        let mut own_subscription = None;
+        if let (Some(_), Some(map)) = (sharee.as_ref(), patch_val.as_object_mut())
+            && let Some(v) = map.remove("isSubscribed")
+        {
+            // null restores the default, true.
+            own_subscription = Some(v.as_bool().unwrap_or(true));
+        }
 
         // Serialize the stored node to JSON, apply the patch as a JMAP patch,
         // then deserialize back to FileNode.
@@ -1203,18 +1702,10 @@ impl FileNodeBackend for MemoryBackend {
             ))
         })?;
 
-        // draft-ietf-jmap-filenode-20 §5: "A node whose @type does not
-        // permit children has no myRights. The user's rights on it are
-        // those in its parent's myRights".
-        let rights_node = match node.node_type {
-            Some(NodeType::File | NodeType::Symlink) => {
-                node.parent_id.as_ref().and_then(|p| store.nodes.get(p))
-            }
-            _ => Some(&node),
-        };
-        let may_set_metadata = rights_node
-            .and_then(|n| n.my_rights.as_ref())
-            .and_then(|r| r.may_set_metadata);
+        // -05 §4.1 `maySetMetadata`, which for a File or SymLink is its
+        // parent's (draft-ietf-jmap-filenode-20 §5); `sight` already holds
+        // the parent's rights for those.
+        let may_set_metadata = sight.rights.may_set_metadata;
 
         let mut updated_props = None;
         if let (Some(obj), Some(patch_obj)) = (node_val.as_object_mut(), patch_val.as_object()) {
@@ -1281,15 +1772,24 @@ impl FileNodeBackend for MemoryBackend {
             return Err(role_forbidden());
         }
 
-        // draft-ietf-jmap-filenode-20 §5: "A node's rights can change
-        // without any change to the node itself: through a change to
-        // shareWith on an ancestor, or when the node or an ancestor moves
-        // to a parent whose inherited rights differ. The server MUST report
-        // every node whose rights for a user changed as changed in
-        // FileNode/changes". This backend has no users, so it treats any
-        // change to the shareWith in force as a change for some user and
-        // reports the whole subtree; only `myRights` changed for those
-        // nodes, and not their `changed` (§3.1.1).
+        // -20 §5: "To rename or move a node, or change its role, the server
+        // checks mayRename ... in the rights of the node itself; for a node
+        // with no myRights, these are its parent's rights ... Without these
+        // rights, the operation fails with "forbidden"."
+        for property in updated_props.iter().flatten() {
+            if let Some((right, holds)) = needed_right(property)
+                && !holds(&sight.rights)
+            {
+                return Err(forbidden(&format!("changing {property} requires {right}")));
+            }
+        }
+        if updated_node.parent_id != node.parent_id {
+            check_parent(&view, sharee.as_ref(), updated_node.parent_id.as_ref())?;
+        }
+        check_share_with(&updated_node, &store.owner)?;
+
+        // The history rights cut (object history §8.2): a change to the
+        // shareWith in force over this node or its descendants.
         let inherited_rights_changed = updated_node.parent_id != node.parent_id
             && sharing_ancestors(&store.nodes, node.parent_id.as_ref())
                 != sharing_ancestors(&store.nodes, updated_node.parent_id.as_ref());
@@ -1297,17 +1797,44 @@ impl FileNodeBackend for MemoryBackend {
             || updated_props
                 .as_ref()
                 .is_some_and(|props| props.contains("shareWith"));
+        // -20 §3.1.1: "The server SHOULD report a per-user change in
+        // FileNode/changes only to the users whose value changed": an
+        // update of the owner's isSubscribed alone is the owner's.
+        let owner_only = updated_props
+            .as_ref()
+            .is_some_and(|p| !p.is_empty() && p.iter().all(|p| p == "isSubscribed"));
+        let only_own_subscription =
+            own_subscription.is_some() && updated_props.as_ref().is_none_or(BTreeSet::is_empty);
+
+        let before = store.nodes.clone();
         store.nodes.insert(id.clone(), updated_node.clone());
-        store.bump_state(ChangeType::Updated, id.clone(), updated_props);
-        if share_with_changed {
-            for descendant in descendant_ids(&store.nodes, id) {
+        if !only_own_subscription {
+            store.log_write(
+                &before,
+                ChangeType::Updated,
+                id,
+                updated_props,
+                metadata,
+                owner_only,
+            );
+        }
+        if let (Some(u), Some(v)) = (sharee.as_ref(), own_subscription) {
+            let key = (id.clone(), u.clone());
+            if store.subscriptions.get(&key).copied().unwrap_or(true) != v || only_own_subscription
+            {
+                store.subscriptions.insert(key, v);
                 store.bump_state(
                     ChangeType::Updated,
-                    descendant,
-                    Some(BTreeSet::from(["myRights".to_owned()])),
+                    id.clone(),
+                    Some(BTreeSet::from(["isSubscribed".to_owned()])),
+                    Audience::Sharee(u.clone()),
                 );
             }
         }
+        let shown = store
+            .view_for(user, metadata)
+            .get(id)
+            .map(|sight| access::shown(&updated_node, sight, store.subscription(id, user)));
         // Object history: the replaced version, and the §8.2 cut when
         // inherited rights changed (conservatively, for every FileNode of
         // the account).
@@ -1321,51 +1848,81 @@ impl FileNodeBackend for MemoryBackend {
             }
         }
 
-        let result_v = serde_json::to_value(&updated_node).map_err(|e| {
-            BackendSetError::Other(MemoryError::serde(
-                "update_object: serialize updated FileNode",
-                &e,
-            ))
-        })?;
-        let result_obj: O = serde_json::from_value(result_v).map_err(|e| {
-            BackendSetError::Other(MemoryError::serde(
-                format_args!("update_object: deserialize result {}", O::TYPE_NAME),
-                &e,
-            ))
-        })?;
-
+        // A node the update made undiscoverable to the caller is reported
+        // without its new values.
+        let Some(shown) = shown else {
+            return Ok(None);
+        };
+        let result_obj: O = decode_node(&shown, "update_object").map_err(BackendSetError::Other)?;
         Ok(Some(result_obj))
     }
 
+    /// draft-ietf-jmap-filenode-20 §5, under the store lock: a node the
+    /// caller cannot discover is `notFound`; destroying needs `mayDelete`
+    /// "in the rights of the node itself; for a node with no myRights,
+    /// these are its parent's rights"; and "A destroy that would remove
+    /// any of [the nodes the user cannot discover] ... MUST be rejected
+    /// with "forbidden"", so a node with an undiscoverable descendant stays.
     async fn destroy_object<O: SetObject + Send + Sync>(
         &self,
-        _caller: &(),
+        caller: &C,
         account_id: &Id,
         id: &Id,
     ) -> Result<(), BackendSetError<Self::Error>> {
+        let user = caller.principal();
         let mut guard = self.inner.lock().await;
-        let store = guard.get_mut_or_err(account_id).ok_or_else(|| {
-            BackendSetError::SetError(Box::new(SetError::new(SetErrorType::NotFound)))
-        })?;
-
+        let metadata = guard.has_metadata();
+        let store = guard.get_mut_or_err(account_id).ok_or_else(not_found)?;
+        let view = store.view_for(user, metadata);
+        let Some(sight) = view.get(id) else {
+            return Err(not_found());
+        };
         match store.nodes.get(id) {
-            None => {
-                return Err(BackendSetError::SetError(Box::new(SetError::new(
-                    SetErrorType::NotFound,
-                ))));
-            }
+            None => return Err(not_found()),
             // draft-ietf-jmap-filenode-20 §5, as in update_object.
             Some(node) if node.role.is_some() => return Err(role_forbidden()),
             Some(_) => {}
         }
+        if !sight.rights.may_delete {
+            return Err(forbidden("destroying a node requires mayDelete"));
+        }
+        if descendant_ids(&store.nodes, id)
+            .iter()
+            .any(|d| !view.contains_key(d))
+        {
+            return Err(forbidden(
+                "destroying this node would remove nodes you cannot discover",
+            ));
+        }
+        let before = store.nodes.clone();
         let removed = store.nodes.remove(id);
-        store.bump_state(ChangeType::Destroyed, id.clone(), None);
+        store.subscriptions.retain(|(node, _), _| node != id);
+        store.log_write(&before, ChangeType::Destroyed, id, None, metadata, false);
         if let (Some(h), Some(node)) = (guard.history.as_mut(), removed)
             && let Ok(last) = serde_json::to_value(&node)
         {
             h.record_destroy("FileNode", account_id, id, last);
         }
         Ok(())
+    }
+
+    /// As [`FileNodeBackend::destroy_object`] would answer about the
+    /// caller's rights: the node is discoverable and the caller holds
+    /// `mayDelete` on it (draft-ietf-jmap-filenode-20 §5).
+    async fn may_destroy(
+        &self,
+        caller: &C,
+        account_id: &Id,
+        node: &FileNode,
+    ) -> Result<bool, Self::Error> {
+        let guard = self.inner.lock().await;
+        let metadata = guard.has_metadata();
+        Ok(guard.get_or_err(account_id).is_some_and(|store| {
+            store
+                .view_for(caller.principal(), metadata)
+                .get(&node.id)
+                .is_some_and(|s| s.rights.may_delete)
+        }))
     }
 
     fn supports_type<O: JmapObject>(
@@ -1376,9 +1933,12 @@ impl FileNodeBackend for MemoryBackend {
         true
     }
 
+    /// Each ancestor as the caller sees it. The ancestors of a node the
+    /// caller can discover are discoverable too (-20 §5: "a sharee seeing
+    /// the full path to anything that they have access to").
     async fn get_ancestors(
         &self,
-        _caller: &(),
+        caller: &C,
         account_id: &Id,
         ids: &[Id],
     ) -> Result<Vec<FileNode>, Self::Error> {
@@ -1387,6 +1947,7 @@ impl FileNodeBackend for MemoryBackend {
             Some(s) => s,
             None => return Ok(vec![]),
         };
+        let shown = guard.shown_nodes(account_id, caller.principal());
 
         // Walk parent_id links upward from each id, collecting ancestors.
         // Deduplicate by Id (Hash + Eq) to avoid cycles or double-insertion.
@@ -1408,7 +1969,9 @@ impl FileNodeBackend for MemoryBackend {
                     continue;
                 }
                 if let Some(node) = store.nodes.get(&parent_id) {
-                    ancestors.push(node.clone());
+                    if let Some(seen) = shown.get(&parent_id) {
+                        ancestors.push(seen.clone());
+                    }
                     if let Some(ref grandparent_id) = node.parent_id {
                         next_frontier.push(grandparent_id.clone());
                     }
@@ -1422,7 +1985,7 @@ impl FileNodeBackend for MemoryBackend {
 
     async fn get_descendant_ids(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         id: &Id,
     ) -> Result<Vec<Id>, Self::Error> {
@@ -1478,7 +2041,7 @@ impl FileNodeBackend for MemoryBackend {
 
     async fn blob_exists(
         &self,
-        _caller: &(),
+        _caller: &C,
         _account_id: &Id,
         _blob_id: &Id,
     ) -> Result<bool, Self::Error> {
@@ -1488,7 +2051,7 @@ impl FileNodeBackend for MemoryBackend {
 
     async fn blob_sha256(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         blob_id: &Id,
     ) -> Result<Option<Sha256>, Self::Error> {
@@ -1503,7 +2066,7 @@ impl FileNodeBackend for MemoryBackend {
     /// `true` once any blob digest has been seeded for the account via
     /// [`MemoryBackend::seed_blob_sha256`], the same signal that makes
     /// [`FileNodeBackend::blob_sha256`] report the capability.
-    async fn cid_advertised(&self, _caller: &(), account_id: &Id) -> Result<bool, Self::Error> {
+    async fn cid_advertised(&self, _caller: &C, account_id: &Id) -> Result<bool, Self::Error> {
         Ok(self
             .inner
             .lock()
@@ -1513,7 +2076,7 @@ impl FileNodeBackend for MemoryBackend {
     }
 
     /// The limit set by [`MemoryBackend::with_max_file_node_depth`].
-    fn max_file_node_depth(&self, _caller: &(), _account_id: &Id) -> Option<u64> {
+    fn max_file_node_depth(&self, _caller: &C, _account_id: &Id) -> Option<u64> {
         self.inner.lock_unscoped().max_file_node_depth
     }
 
@@ -1522,7 +2085,7 @@ impl FileNodeBackend for MemoryBackend {
     /// [`unicode_casemap_prepare`].
     async fn find_sibling_by_name(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         parent_id: Option<&Id>,
         name: &str,
@@ -1550,7 +2113,7 @@ impl FileNodeBackend for MemoryBackend {
     /// [`Self::find_sibling_by_name`].
     async fn find_unique_name(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         parent_id: Option<&Id>,
         base_name: &str,
@@ -1899,8 +2462,9 @@ fn invalid_metadata_property(property: &str, description: &str) -> BackendSetErr
 /// `entry` is the create object or update patch and `stored` the node
 /// before an update (`None` on create). `may_set_metadata` is the
 /// caller's `maySetMetadata` right on the node (`None` on create, where
-/// the node has no rights yet). Rule 1's `notFound` is the caller's: this
-/// backend has no read rights, so only a missing node is unreadable.
+/// the node has no rights yet). Rule 1's `notFound` is the caller's: the
+/// update path reports a node the caller cannot discover as `notFound`
+/// before this check.
 fn check_metadata_set<'a>(
     info: Option<&'a DataTypeMetadataInfo>,
     kind: SetKind,
@@ -2130,10 +2694,10 @@ fn date_on_or_after(node_date: Option<&jmap_types::UTCDate>, bound: &jmap_types:
 /// rollback restores nodes, state strings, change logs and the id counter
 /// together. Commit checks the tree constraints the handler leaves to it
 /// under `atomic` against the final state (`final_state_failures`).
-impl ConditionalBackend for MemoryBackend {
+impl<C: MemoryCaller> ConditionalBackend for MemoryBackend<C> {
     async fn begin_set(
         &self,
-        _caller: &(),
+        _caller: &C,
         request: SetScopeRequest<'_>,
     ) -> Result<Box<dyn SetScope>, BeginSetError<MemoryError>> {
         Ok(self.inner.open(request, final_state_failures).await)
@@ -2334,22 +2898,22 @@ mod tests {
     /// pre-existing data.
     #[tokio::test]
     async fn with_account_preserves_existing_account_state() {
-        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+        let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
         backend.seed_node(&Id::from("acc1"), make_filenode("n1", "first"));
 
         // Confirm the seed landed.
         let (nodes, _missing) = backend
-            .get_objects::<FileNode>(&(), &Id::from("acc1"), None, None)
+            .get_objects::<FileNode>(&owner(), &Id::from("acc1"), None, None)
             .await
             .expect("get_objects must succeed");
         assert_eq!(nodes.len(), 1, "seed must be observable before re-register");
 
         // Re-register the same account id. Pre-fix this destroyed
         // the pre-existing state; post-fix it must be a no-op.
-        let backend = backend.with_account(&Id::from("acc1"));
+        let backend = backend.with_account_owner(&Id::from("acc1"), &owner());
 
         let (nodes, _missing) = backend
-            .get_objects::<FileNode>(&(), &Id::from("acc1"), None, None)
+            .get_objects::<FileNode>(&owner(), &Id::from("acc1"), None, None)
             .await
             .expect("get_objects must succeed after re-register");
         assert_eq!(
@@ -2371,7 +2935,7 @@ mod tests {
     /// fixture on the first create call.
     #[tokio::test]
     async fn seed_node_with_collision_shaped_id_bumps_counter() {
-        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+        let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
 
         // Seed a fixture using the natural-looking `node-3` shape that a
         // contributor reading the public API (without peeking inside
@@ -2408,7 +2972,7 @@ mod tests {
         }))
         .expect("fresh FileNode must deserialize");
         let (allocated_id, _) = backend
-            .create_object(&(), &Id::from("acc1"), "c1", |id: &Id| {
+            .create_object(&owner(), &Id::from("acc1"), "c1", |id: &Id| {
                 let mut node = new_node;
                 node.id = id.clone();
                 node
@@ -2425,7 +2989,7 @@ mod tests {
         // Verify both fixtures survived.
         let (nodes, _missing) = backend
             .get_objects::<FileNode>(
-                &(),
+                &owner(),
                 &Id::from("acc1"),
                 Some(&[Id::from("node-1"), Id::from("node-3"), Id::from("node-4")]),
                 None,
@@ -2474,7 +3038,7 @@ mod tests {
     /// guaranteed not to collide with non-matching seeds.
     #[tokio::test]
     async fn seed_node_with_non_matching_id_leaves_counter_alone() {
-        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+        let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
         backend.seed_node(
             &Id::from("acc1"),
             make_filenode("550e8400-e29b-41d4-a716-446655440000", "uuid-seeded"),
@@ -2505,7 +3069,7 @@ mod tests {
         }))
         .expect("fresh FileNode must deserialize");
         let (allocated_id, _) = backend
-            .create_object(&(), &Id::from("acc1"), "c1", |id: &Id| {
+            .create_object(&owner(), &Id::from("acc1"), "c1", |id: &Id| {
                 let mut node = new_node;
                 node.id = id.clone();
                 node
@@ -2529,7 +3093,7 @@ mod tests {
     async fn update_object_applies_path_style_share_with_patch() {
         use jmap_types::PatchObject;
 
-        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+        let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
 
         // Seed a Directory with shareWith already populated (one entry,
         // "existing"); draft-ietf-jmap-filenode-20 §3.1.2 defines shareWith
@@ -2579,14 +3143,14 @@ mod tests {
         );
         let patch = PatchObject::from_map(patch_map);
         backend
-            .update_object::<FileNode>(&(), &Id::from("acc1"), &Id::from("n1"), patch)
+            .update_object::<FileNode>(&owner(), &Id::from("acc1"), &Id::from("n1"), patch)
             .await
             .expect("first patch must succeed");
 
         // Read back via the typed API and assert shareWith has both entries
         // AND the top-level name was updated.
         let (nodes, _missing) = backend
-            .get_objects::<FileNode>(&(), &Id::from("acc1"), Some(&[Id::from("n1")]), None)
+            .get_objects::<FileNode>(&owner(), &Id::from("acc1"), Some(&[Id::from("n1")]), None)
             .await
             .expect("get_objects must succeed");
         assert_eq!(nodes.len(), 1, "n1 must be returned");
@@ -2625,12 +3189,12 @@ mod tests {
         remove_map.insert("shareWith/existing".to_owned(), serde_json::Value::Null);
         let remove_patch = PatchObject::from_map(remove_map);
         backend
-            .update_object::<FileNode>(&(), &Id::from("acc1"), &Id::from("n1"), remove_patch)
+            .update_object::<FileNode>(&owner(), &Id::from("acc1"), &Id::from("n1"), remove_patch)
             .await
             .expect("remove patch must succeed");
 
         let (nodes, _missing) = backend
-            .get_objects::<FileNode>(&(), &Id::from("acc1"), Some(&[Id::from("n1")]), None)
+            .get_objects::<FileNode>(&owner(), &Id::from("acc1"), Some(&[Id::from("n1")]), None)
             .await
             .expect("get_objects must succeed");
         let sw = nodes[0]
@@ -2682,7 +3246,7 @@ mod memory_error_tests {
 
 #[cfg(test)]
 mod clone_tests {
-    use super::MemoryBackend;
+    use super::{MemoryBackend, owner};
     use jmap_types::Id;
 
     /// Oracle (bd:JMAP-q7k6): `MemoryBackend::clone` is a shared-state
@@ -2693,7 +3257,7 @@ mod clone_tests {
         let a = MemoryBackend::new();
         let clone = a.clone();
         let fresh = MemoryBackend::new();
-        let a = a.with_account(&Id::from("acc"));
+        let a = a.with_account_owner(&Id::from("acc"), &owner());
         let known = |b: &MemoryBackend| b.inner.lock_unscoped().accounts.contains_key("acc");
         assert!(known(&clone), "a clone sees the original's writes");
         assert!(!known(&fresh), "a fresh backend does not");
@@ -2722,18 +3286,18 @@ mod fixture_helper_tests {
     #[tokio::test]
     async fn seed_object_is_readable_without_state_change() {
         let acc = Id::from("acc1");
-        let backend = MemoryBackend::new().with_account(&acc);
-        let before = backend.get_state::<FileNode>(&(), &acc).await.unwrap();
+        let backend = MemoryBackend::new().with_account_owner(&acc, &owner());
+        let before = backend.get_state::<FileNode>(&owner(), &acc).await.unwrap();
         backend.seed_object(&acc, "FileNode", &Id::from("d1"), dir_json("d1"));
         let (found, not_found) = backend
-            .get_objects::<FileNode>(&(), &acc, Some(&[Id::from("d1")]), None)
+            .get_objects::<FileNode>(&owner(), &acc, Some(&[Id::from("d1")]), None)
             .await
             .unwrap();
         assert_eq!(found.len(), 1);
         assert_eq!(found[0].id, Id::from("d1"));
         assert!(not_found.is_empty());
         assert_eq!(
-            backend.get_state::<FileNode>(&(), &acc).await.unwrap(),
+            backend.get_state::<FileNode>(&owner(), &acc).await.unwrap(),
             before
         );
     }
@@ -2742,24 +3306,18 @@ mod fixture_helper_tests {
     #[should_panic(expected = "not one of the known")]
     fn seed_object_rejects_unknown_type_name() {
         let acc = Id::from("acc1");
-        MemoryBackend::new().with_account(&acc).seed_object(
-            &acc,
-            "Filenode",
-            &Id::from("d1"),
-            dir_json("d1"),
-        );
+        MemoryBackend::new()
+            .with_account_owner(&acc, &owner())
+            .seed_object(&acc, "Filenode", &Id::from("d1"), dir_json("d1"));
     }
 
     #[test]
     #[should_panic(expected = "does not match the `id` argument")]
     fn seed_object_rejects_id_mismatch() {
         let acc = Id::from("acc1");
-        MemoryBackend::new().with_account(&acc).seed_object(
-            &acc,
-            "FileNode",
-            &Id::from("d1"),
-            dir_json("d2"),
-        );
+        MemoryBackend::new()
+            .with_account_owner(&acc, &owner())
+            .seed_object(&acc, "FileNode", &Id::from("d1"), dir_json("d2"));
     }
 
     /// `seed_object` stores through `seed_node`, which refuses an
@@ -2778,14 +3336,14 @@ mod fixture_helper_tests {
 
 #[cfg(all(test, debug_assertions))]
 mod empty_account_id_tests {
-    use super::{Id, MemoryBackend};
+    use super::{Id, MemoryBackend, owner};
 
     /// Oracle: RFC 8620 §1.2, an Id "is a String of at least 1 and a
     /// maximum of 255 octets in size" (bd:JMAP-dx0s).
     #[test]
     #[should_panic(expected = "account_id must not be the empty string")]
     fn with_account_rejects_empty_id() {
-        let _ = MemoryBackend::new().with_account(&Id::from(""));
+        let _ = MemoryBackend::new().with_account_owner(&Id::from(""), &owner());
     }
 }
 

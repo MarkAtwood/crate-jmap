@@ -23,8 +23,8 @@ use jmap_types::{Id, JmapError, PatchObject, State, UTCDate};
 use serde_json::Value;
 
 use super::{
-    ChangeType, MemoryBackend, MemoryError, MemoryState, check_metadata_filter, check_sort,
-    compare_nodes, node_matches_tree,
+    ChangeType, MemoryBackend, MemoryCaller, MemoryError, MemoryState, check_metadata_filter,
+    check_sort, compare_nodes, node_matches_tree,
 };
 
 const FILE_NODE: &str = "FileNode";
@@ -96,7 +96,18 @@ impl MemoryState {
     }
 }
 
-impl MemoryBackend {
+impl MemoryState {
+    /// Whether `user` sees the object history of `account`: only its owner,
+    /// or a caller with no principal, does. Object history §8.2 lets a
+    /// caller see only what it "could read now"; this backend does not
+    /// keep the rights each version was readable under, so it shows no
+    /// history to a sharee.
+    fn history_visible(&self, account: &Id, user: Option<&Id>) -> bool {
+        user.is_none_or(|u| self.get_or_err(account).is_some_and(|s| s.owner == *u))
+    }
+}
+
+impl<C> MemoryBackend<C> {
     /// Keep object history for FileNode in every account with `retention`;
     /// `capability` is also what
     /// [`ObjectHistoryBackend::object_history_capability`] advertises.
@@ -148,10 +159,10 @@ impl MemoryBackend {
     }
 }
 
-impl ObjectHistoryBackend for MemoryBackend {
+impl<C: MemoryCaller> ObjectHistoryBackend for MemoryBackend<C> {
     fn object_history_capability(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
     ) -> Option<ObjectHistoryAccountCapability> {
         let inner = self.inner.lock_unscoped();
@@ -161,13 +172,19 @@ impl ObjectHistoryBackend for MemoryBackend {
 
     async fn get_object_history<O: HistoryObject>(
         &self,
-        _caller: &(),
+        caller: &C,
         account_id: &Id,
         params: HistoryGetParams<'_>,
     ) -> Result<HistoryGetResult<O>, BackendQueryError<MemoryError>> {
         let mut guard = self.inner.lock().await;
         if let Some(h) = guard.history.as_mut() {
             h.prune();
+        }
+        if !guard.history_visible(account_id, caller.principal()) {
+            return Ok(HistoryGetResult::new(
+                Vec::new(),
+                params.ids.map(<[Id]>::to_vec).unwrap_or_default(),
+            ));
         }
         let live: HashMap<Id, Value> = guard
             .get_or_err(account_id)
@@ -204,7 +221,7 @@ impl ObjectHistoryBackend for MemoryBackend {
 
     async fn query_destroyed<O: HistoryObject + QueryObject>(
         &self,
-        _caller: &(),
+        caller: &C,
         account_id: &Id,
         params: DestroyedQueryParams<'_, O>,
     ) -> Result<QueryResult, BackendQueryError<MemoryError>> {
@@ -213,13 +230,17 @@ impl ObjectHistoryBackend for MemoryBackend {
             h.prune();
         }
         let q = &params.query;
-        let all = guard.destroyed_results::<O>(
-            account_id,
-            params.destroyed_after,
-            params.destroyed_before,
-            q.filter,
-            q.sort,
-        )?;
+        let all = if guard.history_visible(account_id, caller.principal()) {
+            guard.destroyed_results::<O>(
+                account_id,
+                params.destroyed_after,
+                params.destroyed_before,
+                q.filter,
+                q.sort,
+            )?
+        } else {
+            Vec::new()
+        };
         let start = resolve_query_start(&all, q.position, q.anchor, q.anchor_offset)
             .map_err(BackendQueryError::Method)?;
         let ids: Vec<Id> = all[start..]
@@ -246,7 +267,7 @@ impl ObjectHistoryBackend for MemoryBackend {
 
     async fn query_destroyed_changes<O: HistoryObject + QueryObject>(
         &self,
-        _caller: &(),
+        caller: &C,
         account_id: &Id,
         params: DestroyedQueryChangesParams<'_, O>,
     ) -> Result<QueryChangesResult, BackendChangesError<MemoryError>> {
@@ -255,6 +276,9 @@ impl ObjectHistoryBackend for MemoryBackend {
             h.prune();
         }
         let q = &params.query_changes;
+        if !guard.history_visible(account_id, caller.principal()) {
+            return Err(BackendChangesError::CannotCalculate);
+        }
         let all = guard
             .destroyed_results::<O>(
                 account_id,
@@ -309,7 +333,7 @@ impl ObjectHistoryBackend for MemoryBackend {
 
     async fn restore_object<O: HistoryObject + SetObject>(
         &self,
-        _caller: &(),
+        caller: &C,
         account_id: &Id,
         id: &Id,
         patch: Option<PatchObject>,
@@ -317,6 +341,12 @@ impl ObjectHistoryBackend for MemoryBackend {
         let mut guard = self.inner.lock().await;
         if let Some(h) = guard.history.as_mut() {
             h.prune();
+        }
+        if !guard.history_visible(account_id, caller.principal()) {
+            return Err(BackendSetError::SetError(Box::new(
+                SetError::new(SetErrorType::Forbidden)
+                    .with_description("only the account owner may restore a FileNode"),
+            )));
         }
         let Some(store) = guard.get_or_err(account_id) else {
             return Err(not_found());
@@ -368,9 +398,11 @@ impl ObjectHistoryBackend for MemoryBackend {
         if let Some(h) = guard.history.as_mut() {
             h.restore(FILE_NODE, account_id, id);
         }
+        let metadata = guard.has_metadata();
         let store = guard.get_mut_or_err(account_id).ok_or_else(not_found)?;
+        let before = store.nodes.clone();
         store.nodes.insert(id.clone(), node);
-        store.bump_state(ChangeType::Restored, id.clone(), None);
+        store.log_write(&before, ChangeType::Restored, id, None, metadata, false);
         Ok(Restored::new(object, baseline))
     }
 }

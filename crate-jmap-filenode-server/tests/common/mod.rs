@@ -13,3 +13,10 @@
 #![allow(unused_imports)]
 
 pub use jmap_filenode_server::memory::{MemoryBackend, MemoryError};
+
+/// The Principal that owns every account these tests register: the caller
+/// with all rights (draft-ietf-jmap-filenode-20 §5: "the account owner,
+/// who has all rights").
+pub fn owner() -> jmap_types::Id {
+    jmap_types::Id::from("owner")
+}

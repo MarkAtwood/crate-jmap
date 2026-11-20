@@ -42,6 +42,13 @@ use jmap_types::{Id, State};
 use serde_json::{Value, json};
 
 const ACCOUNT: &str = "A1";
+
+/// The FileNode caller: the account owner, whose id is the accountId
+/// (draft-atwood-jmap-chat-00 §Terminology), with every FileNode right
+/// (draft-ietf-jmap-filenode-20 §5); the Chat gates decide.
+fn owner() -> Id {
+    Id::from(ACCOUNT)
+}
 const SPACE: &str = "S1";
 /// SHA-256("abc"), FIPS 180-2 Appendix B.1 / RFC 6234 §8.5 TEST1.
 const SHA256_ABC: &str = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
@@ -105,7 +112,7 @@ impl Fixture {
             &self.chat,
             &(),
             &self.files,
-            &(),
+            &owner(),
             &Id::from(ACCOUNT),
             chat,
             &attachment,
@@ -306,11 +313,11 @@ async fn everyone_view_grants_read() {
 async fn read_f1(files: &FilesMemory) -> (Vec<FileNode>, State) {
     let account = Id::from(ACCOUNT);
     let (nodes, _) = files
-        .get_objects::<FileNode>(&(), &account, Some(&[Id::from("f1")]), None)
+        .get_objects::<FileNode>(&owner(), &account, Some(&[Id::from("f1")]), None)
         .await
         .expect("FileNode read");
     let state = files
-        .get_state::<FileNode>(&(), &account)
+        .get_state::<FileNode>(&owner(), &account)
         .await
         .expect("FileNode state");
     (nodes, state)

@@ -3994,7 +3994,7 @@ mod tests {
     use serde_json::json;
 
     use crate::CaseFolding;
-    use crate::memory::{MemoryBackend, MemoryError};
+    use crate::memory::{MemoryBackend, MemoryError, owner};
     use jmap_server::BackendSetError;
     use jmap_server::{
         BackendChangesError, BackendQueryError, ChangesResult, GetObject, JmapAccounts, JmapObject,
@@ -4127,7 +4127,7 @@ mod tests {
     impl FaultyBackend {
         fn new_with_account(account_id: &str) -> Self {
             Self {
-                inner: MemoryBackend::new().with_account(&Id::from(account_id)),
+                inner: MemoryBackend::new().with_account_owner(&Id::from(account_id), &owner()),
                 faults: std::sync::Arc::new(std::sync::Mutex::new(FaultState::default())),
             }
         }
@@ -4279,17 +4279,17 @@ mod tests {
 
     impl JmapAccounts for FaultyBackend {
         type Error = MemoryError;
-        type CallerCtx = ();
+        type CallerCtx = Id;
 
-        async fn account_exists(&self, _caller: &(), account_id: &Id) -> Result<bool, Self::Error> {
-            self.inner.account_exists(&(), account_id).await
+        async fn account_exists(&self, _caller: &Id, account_id: &Id) -> Result<bool, Self::Error> {
+            self.inner.account_exists(&owner(), account_id).await
         }
     }
 
     impl JmapReads for FaultyBackend {
         async fn get_objects<O: GetObject + Send + Sync>(
             &self,
-            _caller: &(),
+            _caller: &Id,
             account_id: &Id,
             ids: Option<&[Id]>,
             properties: Option<&[String]>,
@@ -4297,7 +4297,7 @@ mod tests {
             let Some(ids) = ids else {
                 return self
                     .inner
-                    .get_objects::<O>(&(), account_id, None, properties)
+                    .get_objects::<O>(&owner(), account_id, None, properties)
                     .await;
             };
             let (shown, hidden): (Vec<Id>, Vec<Id>) = {
@@ -4308,7 +4308,7 @@ mod tests {
             };
             let (list, mut not_found) = self
                 .inner
-                .get_objects::<O>(&(), account_id, Some(&shown), properties)
+                .get_objects::<O>(&owner(), account_id, Some(&shown), properties)
                 .await?;
             not_found.extend(hidden);
             Ok((list, not_found))
@@ -4316,24 +4316,26 @@ mod tests {
 
         async fn get_state<O: JmapObject + Send + Sync>(
             &self,
-            _caller: &(),
+            _caller: &Id,
             account_id: &Id,
         ) -> Result<State, Self::Error> {
-            self.inner.get_state::<O>(&(), account_id).await
+            self.inner.get_state::<O>(&owner(), account_id).await
         }
 
         async fn get_changes<O: JmapObject + Send + Sync>(
             &self,
-            _caller: &(),
+            _caller: &Id,
             account_id: &Id,
             params: jmap_server::ChangesParams<'_>,
         ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
-            self.inner.get_changes::<O>(&(), account_id, params).await
+            self.inner
+                .get_changes::<O>(&owner(), account_id, params)
+                .await
         }
 
         async fn query_objects<O: QueryObject + Send + Sync>(
             &self,
-            _caller: &(),
+            _caller: &Id,
             account_id: &Id,
             params: QueryParams<'_, O>,
         ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
@@ -4369,7 +4371,7 @@ mod tests {
             }
             self.inner
                 .query_objects::<O>(
-                    &(),
+                    &owner(),
                     account_id,
                     QueryParams::new()
                         .filter(filter)
@@ -4384,18 +4386,20 @@ mod tests {
 
         async fn query_changes<O: QueryObject + Send + Sync>(
             &self,
-            _caller: &(),
+            _caller: &Id,
             account_id: &Id,
             params: QueryChangesParams<'_, O>,
         ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
-            self.inner.query_changes::<O>(&(), account_id, params).await
+            self.inner
+                .query_changes::<O>(&owner(), account_id, params)
+                .await
         }
     }
 
     impl FileNodeBackend for FaultyBackend {
         async fn create_object<O, F>(
             &self,
-            _caller: &(),
+            _caller: &Id,
             account_id: &Id,
             create_id: &str,
             build: F,
@@ -4423,17 +4427,17 @@ mod tests {
                 };
                 return self
                     .inner
-                    .create_object(&(), account_id, create_id, reshape)
+                    .create_object(&owner(), account_id, create_id, reshape)
                     .await;
             }
             self.inner
-                .create_object(&(), account_id, create_id, build)
+                .create_object(&owner(), account_id, create_id, build)
                 .await
         }
 
         async fn copy_object<O: SetObject + Send + Sync>(
             &self,
-            _caller: &(),
+            _caller: &Id,
             from_account_id: &Id,
             to_account_id: &Id,
             obj: O,
@@ -4450,13 +4454,13 @@ mod tests {
                 guard.copy_object_calls = guard.copy_object_calls.saturating_add(1);
             }
             self.inner
-                .copy_object(&(), from_account_id, to_account_id, obj, create)
+                .copy_object(&owner(), from_account_id, to_account_id, obj, create)
                 .await
         }
 
         async fn update_object<O: SetObject + Send + Sync>(
             &self,
-            _caller: &(),
+            _caller: &Id,
             account_id: &Id,
             id: &Id,
             patch: O::Patch,
@@ -4466,13 +4470,13 @@ mod tests {
                 guard.update_object_calls = guard.update_object_calls.saturating_add(1);
             }
             self.inner
-                .update_object::<O>(&(), account_id, id, patch)
+                .update_object::<O>(&owner(), account_id, id, patch)
                 .await
         }
 
         async fn destroy_object<O: SetObject + Send + Sync>(
             &self,
-            _caller: &(),
+            _caller: &Id,
             account_id: &Id,
             id: &Id,
         ) -> Result<(), BackendSetError<Self::Error>> {
@@ -4491,7 +4495,9 @@ mod tests {
                     )));
                 }
             }
-            self.inner.destroy_object::<O>(&(), account_id, id).await
+            self.inner
+                .destroy_object::<O>(&owner(), account_id, id)
+                .await
         }
 
         fn supports_type<O: JmapObject>(
@@ -4504,7 +4510,7 @@ mod tests {
 
         async fn get_ancestors(
             &self,
-            _caller: &(),
+            _caller: &Id,
             account_id: &Id,
             ids: &[Id],
         ) -> Result<Vec<FileNode>, Self::Error> {
@@ -4512,23 +4518,25 @@ mod tests {
             if let Some(msg) = self.faults.lock().unwrap().get_ancestors_err.take() {
                 return Err(MemoryError::new(msg));
             }
-            self.inner.get_ancestors(&(), account_id, ids).await
+            self.inner.get_ancestors(&owner(), account_id, ids).await
         }
 
         async fn get_descendant_ids(
             &self,
-            _caller: &(),
+            _caller: &Id,
             account_id: &Id,
             id: &Id,
         ) -> Result<Vec<Id>, Self::Error> {
-            self.inner.get_descendant_ids(&(), account_id, id).await
+            self.inner
+                .get_descendant_ids(&owner(), account_id, id)
+                .await
         }
 
         /// A copy set by `set_blob_copy`, otherwise the trait default's
         /// behaviour: the same blob when the destination has it.
         async fn copy_blob(
             &self,
-            caller: &(),
+            caller: &Id,
             _from_account_id: &Id,
             to_account_id: &Id,
             blob_id: &Id,
@@ -4554,7 +4562,7 @@ mod tests {
 
         async fn blob_exists(
             &self,
-            _caller: &(),
+            _caller: &Id,
             account_id: &Id,
             blob_id: &Id,
         ) -> Result<bool, Self::Error> {
@@ -4571,29 +4579,29 @@ mod tests {
                     return Ok(false);
                 }
             }
-            self.inner.blob_exists(&(), account_id, blob_id).await
+            self.inner.blob_exists(&owner(), account_id, blob_id).await
         }
 
         async fn blob_sha256(
             &self,
-            _caller: &(),
+            _caller: &Id,
             account_id: &Id,
             blob_id: &Id,
         ) -> Result<Option<jmap_cid_types::Sha256>, Self::Error> {
-            self.inner.blob_sha256(&(), account_id, blob_id).await
+            self.inner.blob_sha256(&owner(), account_id, blob_id).await
         }
 
-        async fn cid_advertised(&self, _caller: &(), account_id: &Id) -> Result<bool, Self::Error> {
+        async fn cid_advertised(&self, _caller: &Id, account_id: &Id) -> Result<bool, Self::Error> {
             // Single-shot: consume the entry on this call.
             if let Some(msg) = self.faults.lock().unwrap().cid_advertised_err.take() {
                 return Err(MemoryError::new(msg));
             }
-            self.inner.cid_advertised(&(), account_id).await
+            self.inner.cid_advertised(&owner(), account_id).await
         }
 
         async fn files_rights(
             &self,
-            _caller: &(),
+            _caller: &Id,
             _account_id: &Id,
             node: &FileNode,
         ) -> Result<Option<jmap_filenode_types::FilesRights>, Self::Error> {
@@ -4606,7 +4614,7 @@ mod tests {
 
         async fn may_destroy(
             &self,
-            _caller: &(),
+            _caller: &Id,
             _account_id: &Id,
             node: &FileNode,
         ) -> Result<bool, Self::Error> {
@@ -4616,14 +4624,14 @@ mod tests {
 
         async fn find_sibling_by_name(
             &self,
-            _caller: &(),
+            _caller: &Id,
             account_id: &Id,
             parent_id: Option<&Id>,
             name: &str,
             folding: CaseFolding,
         ) -> Result<Option<Id>, Self::Error> {
             self.inner
-                .find_sibling_by_name(&(), account_id, parent_id, name, folding)
+                .find_sibling_by_name(&owner(), account_id, parent_id, name, folding)
                 .await
         }
     }
@@ -4646,14 +4654,14 @@ mod tests {
         let backend = FaultyBackend::new_with_account("acc1");
         backend.inject_get_ancestors_err("simulated boom");
         let err = backend
-            .get_ancestors(&(), &Id::from("acc1"), &[Id::from("any")])
+            .get_ancestors(&owner(), &Id::from("acc1"), &[Id::from("any")])
             .await
             .expect_err("first call must surface the injected error");
         assert_eq!(err.description(), "simulated boom");
         // Second call: no fault armed, delegates to inner MemoryBackend
         // which returns Ok(empty) for an unknown id.
         let ok = backend
-            .get_ancestors(&(), &Id::from("acc1"), &[Id::from("any")])
+            .get_ancestors(&owner(), &Id::from("acc1"), &[Id::from("any")])
             .await
             .expect("second call must delegate to inner");
         assert!(ok.is_empty());
@@ -4667,12 +4675,12 @@ mod tests {
         let backend = FaultyBackend::new_with_account("acc1");
         backend.inject_blob_exists_err("simulated boom");
         let err = backend
-            .blob_exists(&(), &Id::from("acc1"), &Id::from("blob1"))
+            .blob_exists(&owner(), &Id::from("acc1"), &Id::from("blob1"))
             .await
             .expect_err("first call must surface the injected error");
         assert_eq!(err.description(), "simulated boom");
         let ok = backend
-            .blob_exists(&(), &Id::from("acc1"), &Id::from("blob1"))
+            .blob_exists(&owner(), &Id::from("acc1"), &Id::from("blob1"))
             .await
             .expect("second call must delegate to inner");
         assert!(ok);
@@ -4685,7 +4693,7 @@ mod tests {
         let backend = FaultyBackend::new_with_account("acc1");
         backend.inject_query_objects_err("simulated boom");
         let err = backend
-            .query_objects::<FileNode>(&(), &Id::from("acc1"), QueryParams::new())
+            .query_objects::<FileNode>(&owner(), &Id::from("acc1"), QueryParams::new())
             .await
             .expect_err("first call must surface the injected error");
         let BackendQueryError::Other(err) = err else {
@@ -4702,12 +4710,12 @@ mod tests {
         backend.inject_query_objects_err_after("simulated boom", 1);
         // First call: delegates to inner.
         let _first = backend
-            .query_objects::<FileNode>(&(), &Id::from("acc1"), QueryParams::new())
+            .query_objects::<FileNode>(&owner(), &Id::from("acc1"), QueryParams::new())
             .await
             .expect("first call must succeed (after_calls = 1)");
         // Second call: fires the fault.
         let err = backend
-            .query_objects::<FileNode>(&(), &Id::from("acc1"), QueryParams::new())
+            .query_objects::<FileNode>(&owner(), &Id::from("acc1"), QueryParams::new())
             .await
             .expect_err("second call must surface the injected error");
         let BackendQueryError::Other(err) = err else {
@@ -4742,7 +4750,7 @@ mod tests {
         }))
         .expect("fixture must deserialize");
         let (_id, created) = backend
-            .create_object(&(), &Id::from("acc1"), "c0", |id: &Id| {
+            .create_object(&owner(), &Id::from("acc1"), "c0", |id: &Id| {
                 let mut node = fixture.clone();
                 node.id = id.clone();
                 node
@@ -4755,7 +4763,7 @@ mod tests {
         );
         // Persistent: a second create also gets the override.
         let (_id2, second) = backend
-            .create_object(&(), &Id::from("acc1"), "c1", |id: &Id| {
+            .create_object(&owner(), &Id::from("acc1"), "c1", |id: &Id| {
                 let mut node = fixture;
                 node.id = id.clone();
                 node
@@ -4814,66 +4822,70 @@ mod tests {
 
     impl JmapAccounts for NoFileNodeBackend {
         type Error = MemoryError;
-        type CallerCtx = ();
+        type CallerCtx = Id;
 
-        async fn account_exists(&self, _caller: &(), account_id: &Id) -> Result<bool, Self::Error> {
-            self.0.account_exists(&(), account_id).await
+        async fn account_exists(&self, _caller: &Id, account_id: &Id) -> Result<bool, Self::Error> {
+            self.0.account_exists(&owner(), account_id).await
         }
     }
 
     impl JmapReads for NoFileNodeBackend {
         async fn get_objects<O: GetObject + Send + Sync>(
             &self,
-            _caller: &(),
+            _caller: &Id,
             account_id: &Id,
             ids: Option<&[Id]>,
             properties: Option<&[String]>,
         ) -> Result<(Vec<O>, Vec<Id>), Self::Error> {
             self.0
-                .get_objects::<O>(&(), account_id, ids, properties)
+                .get_objects::<O>(&owner(), account_id, ids, properties)
                 .await
         }
 
         async fn get_state<O: JmapObject + Send + Sync>(
             &self,
-            _caller: &(),
+            _caller: &Id,
             account_id: &Id,
         ) -> Result<State, Self::Error> {
-            self.0.get_state::<O>(&(), account_id).await
+            self.0.get_state::<O>(&owner(), account_id).await
         }
 
         async fn get_changes<O: JmapObject + Send + Sync>(
             &self,
-            _caller: &(),
+            _caller: &Id,
             account_id: &Id,
             params: jmap_server::ChangesParams<'_>,
         ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
-            self.0.get_changes::<O>(&(), account_id, params).await
+            self.0.get_changes::<O>(&owner(), account_id, params).await
         }
 
         async fn query_objects<O: QueryObject + Send + Sync>(
             &self,
-            _caller: &(),
+            _caller: &Id,
             account_id: &Id,
             params: QueryParams<'_, O>,
         ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
-            self.0.query_objects::<O>(&(), account_id, params).await
+            self.0
+                .query_objects::<O>(&owner(), account_id, params)
+                .await
         }
 
         async fn query_changes<O: QueryObject + Send + Sync>(
             &self,
-            _caller: &(),
+            _caller: &Id,
             account_id: &Id,
             params: QueryChangesParams<'_, O>,
         ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
-            self.0.query_changes::<O>(&(), account_id, params).await
+            self.0
+                .query_changes::<O>(&owner(), account_id, params)
+                .await
         }
     }
 
     impl FileNodeBackend for NoFileNodeBackend {
         async fn create_object<O, F>(
             &self,
-            _caller: &(),
+            _caller: &Id,
             account_id: &Id,
             create_id: &str,
             build: F,
@@ -4883,40 +4895,42 @@ mod tests {
             F: FnOnce(&Id) -> O + Send,
         {
             self.0
-                .create_object(&(), account_id, create_id, build)
+                .create_object(&owner(), account_id, create_id, build)
                 .await
         }
 
         async fn copy_object<O: SetObject + Send + Sync>(
             &self,
-            _caller: &(),
+            _caller: &Id,
             from_account_id: &Id,
             to_account_id: &Id,
             obj: O,
             create: &serde_json::Value,
         ) -> Result<(Id, O), BackendSetError<Self::Error>> {
             self.0
-                .copy_object(&(), from_account_id, to_account_id, obj, create)
+                .copy_object(&owner(), from_account_id, to_account_id, obj, create)
                 .await
         }
 
         async fn update_object<O: SetObject + Send + Sync>(
             &self,
-            _caller: &(),
+            _caller: &Id,
             account_id: &Id,
             id: &Id,
             patch: O::Patch,
         ) -> Result<Option<O>, BackendSetError<Self::Error>> {
-            self.0.update_object::<O>(&(), account_id, id, patch).await
+            self.0
+                .update_object::<O>(&owner(), account_id, id, patch)
+                .await
         }
 
         async fn destroy_object<O: SetObject + Send + Sync>(
             &self,
-            _caller: &(),
+            _caller: &Id,
             account_id: &Id,
             id: &Id,
         ) -> Result<(), BackendSetError<Self::Error>> {
-            self.0.destroy_object::<O>(&(), account_id, id).await
+            self.0.destroy_object::<O>(&owner(), account_id, id).await
         }
 
         fn supports_type<O: JmapObject>(
@@ -4937,41 +4951,41 @@ mod tests {
 
         async fn get_ancestors(
             &self,
-            _caller: &(),
+            _caller: &Id,
             account_id: &Id,
             ids: &[Id],
         ) -> Result<Vec<FileNode>, Self::Error> {
-            self.0.get_ancestors(&(), account_id, ids).await
+            self.0.get_ancestors(&owner(), account_id, ids).await
         }
 
         async fn get_descendant_ids(
             &self,
-            _caller: &(),
+            _caller: &Id,
             account_id: &Id,
             id: &Id,
         ) -> Result<Vec<Id>, Self::Error> {
-            self.0.get_descendant_ids(&(), account_id, id).await
+            self.0.get_descendant_ids(&owner(), account_id, id).await
         }
 
         async fn blob_exists(
             &self,
-            _caller: &(),
+            _caller: &Id,
             account_id: &Id,
             blob_id: &Id,
         ) -> Result<bool, Self::Error> {
-            self.0.blob_exists(&(), account_id, blob_id).await
+            self.0.blob_exists(&owner(), account_id, blob_id).await
         }
 
         async fn find_sibling_by_name(
             &self,
-            _caller: &(),
+            _caller: &Id,
             account_id: &Id,
             parent_id: Option<&Id>,
             name: &str,
             folding: CaseFolding,
         ) -> Result<Option<Id>, Self::Error> {
             self.0
-                .find_sibling_by_name(&(), account_id, parent_id, name, folding)
+                .find_sibling_by_name(&owner(), account_id, parent_id, name, folding)
                 .await
         }
     }
@@ -4986,7 +5000,8 @@ mod tests {
     /// jmap-mail-server snippet.rs:35 pattern.
     #[tokio::test]
     async fn all_handlers_gate_on_supports_type_false() {
-        let backend = NoFileNodeBackend(MemoryBackend::new().with_account(&Id::from("acc1")));
+        let backend =
+            NoFileNodeBackend(MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner()));
 
         let cases: &[(&str, &dyn Fn(serde_json::Value) -> serde_json::Value)] = &[
             (
@@ -5018,26 +5033,32 @@ mod tests {
         for (method, build_args) in cases {
             let args = build_args(json!(null));
             let err = match *method {
-                "FileNode/get" => handle_filenode_get(&backend, &(), args, &[]).await.err(),
-                "FileNode/changes" => handle_filenode_changes(&backend, &(), args, &[])
+                "FileNode/get" => handle_filenode_get(&backend, &owner(), args, &[])
+                    .await
+                    .err(),
+                "FileNode/changes" => handle_filenode_changes(&backend, &owner(), args, &[])
                     .await
                     .err(),
                 "FileNode/set" => handle_filenode_set(
                     &backend,
-                    &(),
+                    &owner(),
                     &std::collections::BTreeMap::new(),
                     args,
                     &[],
                 )
                 .await
                 .err(),
-                "FileNode/copy" => handle_filenode_copy(&backend, &(), args, "c0", &[])
+                "FileNode/copy" => handle_filenode_copy(&backend, &owner(), args, "c0", &[])
                     .await
                     .err(),
-                "FileNode/query" => handle_filenode_query(&backend, &(), args, &[]).await.err(),
-                "FileNode/queryChanges" => handle_filenode_query_changes(&backend, &(), args, &[])
+                "FileNode/query" => handle_filenode_query(&backend, &owner(), args, &[])
                     .await
                     .err(),
+                "FileNode/queryChanges" => {
+                    handle_filenode_query_changes(&backend, &owner(), args, &[])
+                        .await
+                        .err()
+                }
                 _ => panic!("unknown method: {method}"),
             };
             let err =
@@ -5058,7 +5079,8 @@ mod tests {
     /// FileNode for it.
     #[tokio::test]
     async fn gate_reports_unknown_account_as_account_not_found() {
-        let backend = NoFileNodeBackend(MemoryBackend::new().with_account(&Id::from("acc2")));
+        let backend =
+            NoFileNodeBackend(MemoryBackend::new().with_account_owner(&Id::from("acc2"), &owner()));
         let cases = [
             "FileNode/get",
             "FileNode/changes",
@@ -5076,13 +5098,15 @@ mod tests {
                 "sinceQueryState": "0",
             });
             let err = match method {
-                "FileNode/get" => handle_filenode_get(&backend, &(), args, &[]).await.err(),
-                "FileNode/changes" => handle_filenode_changes(&backend, &(), args, &[])
+                "FileNode/get" => handle_filenode_get(&backend, &owner(), args, &[])
+                    .await
+                    .err(),
+                "FileNode/changes" => handle_filenode_changes(&backend, &owner(), args, &[])
                     .await
                     .err(),
                 "FileNode/set" => handle_filenode_set(
                     &backend,
-                    &(),
+                    &owner(),
                     &std::collections::BTreeMap::new(),
                     args,
                     &[],
@@ -5091,17 +5115,21 @@ mod tests {
                 .err(),
                 "FileNode/copy" => handle_filenode_copy(
                     &backend,
-                    &(),
+                    &owner(),
                     json!({"fromAccountId": "acc2", "accountId": "nosuch", "create": {}}),
                     "c0",
                     &[],
                 )
                 .await
                 .err(),
-                "FileNode/query" => handle_filenode_query(&backend, &(), args, &[]).await.err(),
-                "FileNode/queryChanges" => handle_filenode_query_changes(&backend, &(), args, &[])
+                "FileNode/query" => handle_filenode_query(&backend, &owner(), args, &[])
                     .await
                     .err(),
+                "FileNode/queryChanges" => {
+                    handle_filenode_query_changes(&backend, &owner(), args, &[])
+                        .await
+                        .err()
+                }
                 _ => panic!("unknown method: {method}"),
             };
             let err = err.unwrap_or_else(|| panic!("{method} must error for unknown account"));
@@ -5120,12 +5148,12 @@ mod tests {
     async fn gate_is_per_account() {
         let backend = NoFileNodeBackend(
             MemoryBackend::new()
-                .with_account(&Id::from("acc1"))
-                .with_account(&Id::from("acc2")),
+                .with_account_owner(&Id::from("acc1"), &owner())
+                .with_account_owner(&Id::from("acc2"), &owner()),
         );
         let HandlerOutput { primary: resp, .. } = handle_filenode_get(
             &backend,
-            &(),
+            &owner(),
             json!({"accountId": "acc2", "ids": null}),
             &[],
         )
@@ -5134,7 +5162,7 @@ mod tests {
         assert_eq!(resp["accountId"], "acc2");
         let err = handle_filenode_get(
             &backend,
-            &(),
+            &owner(),
             json!({"accountId": "acc1", "ids": null}),
             &[],
         )
@@ -5151,12 +5179,12 @@ mod tests {
     async fn copy_from_unsupported_account_reports_from_side() {
         let backend = NoFileNodeBackend(
             MemoryBackend::new()
-                .with_account(&Id::from("acc1"))
-                .with_account(&Id::from("acc2")),
+                .with_account_owner(&Id::from("acc1"), &owner())
+                .with_account_owner(&Id::from("acc2"), &owner()),
         );
         let err = handle_filenode_copy(
             &backend,
-            &(),
+            &owner(),
             json!({"fromAccountId": "acc1", "accountId": "acc2", "create": {}}),
             "c0",
             &[],
@@ -5179,7 +5207,7 @@ mod tests {
     async fn get_unknown_account_returns_account_not_found() {
         let backend = MemoryBackend::new();
         let args = json!({ "accountId": "unknown", "ids": null });
-        let err = handle_filenode_get(&backend, &(), args, &[])
+        let err = handle_filenode_get(&backend, &owner(), args, &[])
             .await
             .expect_err("must return error for unknown account");
         assert_eq!(
@@ -5193,11 +5221,12 @@ mod tests {
     /// Oracle: FileNode/get with known account returns empty list (no nodes seeded).
     #[tokio::test]
     async fn get_known_account_returns_empty_list() {
-        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+        let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
         let args = json!({ "accountId": "acc1", "ids": null });
-        let HandlerOutput { primary: resp, .. } = handle_filenode_get(&backend, &(), args, &[])
-            .await
-            .expect("must succeed for known account");
+        let HandlerOutput { primary: resp, .. } =
+            handle_filenode_get(&backend, &owner(), args, &[])
+                .await
+                .expect("must succeed for known account");
         assert_eq!(resp["accountId"], "acc1");
         assert!(resp["list"].as_array().unwrap().is_empty());
     }
@@ -5210,11 +5239,12 @@ mod tests {
     /// Source: draft-ietf-jmap-filenode-20 §3.2.1.
     #[tokio::test]
     async fn get_fetch_parents_false_unchanged() {
-        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+        let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
         let args = json!({ "accountId": "acc1", "ids": null, "fetchParents": false });
-        let HandlerOutput { primary: resp, .. } = handle_filenode_get(&backend, &(), args, &[])
-            .await
-            .expect("must succeed");
+        let HandlerOutput { primary: resp, .. } =
+            handle_filenode_get(&backend, &owner(), args, &[])
+                .await
+                .expect("must succeed");
         assert_eq!(resp["accountId"], "acc1");
         assert!(resp["list"].as_array().unwrap().is_empty());
     }
@@ -5223,11 +5253,12 @@ mod tests {
     /// Source: draft-ietf-jmap-filenode-20 §3.2.1.
     #[tokio::test]
     async fn get_fetch_parents_true_no_nodes() {
-        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+        let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
         let args = json!({ "accountId": "acc1", "ids": null, "fetchParents": true });
-        let HandlerOutput { primary: resp, .. } = handle_filenode_get(&backend, &(), args, &[])
-            .await
-            .expect("must succeed");
+        let HandlerOutput { primary: resp, .. } =
+            handle_filenode_get(&backend, &owner(), args, &[])
+                .await
+                .expect("must succeed");
         assert!(resp["list"].as_array().unwrap().is_empty());
     }
 
@@ -5253,7 +5284,7 @@ mod tests {
             "ids": ["child"],
             "fetchParents": true
         });
-        let result = handle_filenode_get(&backend, &(), args, &[]).await;
+        let result = handle_filenode_get(&backend, &owner(), args, &[]).await;
         assert!(
             result.is_err(),
             "fetchParents + get_ancestors Err must propagate as JMAP \
@@ -5287,8 +5318,14 @@ mod tests {
                 }
             }
         });
-        let result =
-            handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[]).await;
+        let result = handle_filenode_set(
+            &backend,
+            &owner(),
+            &std::collections::BTreeMap::new(),
+            args,
+            &[],
+        )
+        .await;
         let err = result
             .expect_err("blob_exists Err must surface as a JmapError, not Ok with notCreated");
         assert_eq!(
@@ -5311,7 +5348,7 @@ mod tests {
         backend.inject_cid_advertised_err("simulated config store timeout");
 
         let args = json!({ "accountId": "acc1", "ids": ["n1"] });
-        let err = handle_filenode_get(&backend, &(), args, &[])
+        let err = handle_filenode_get(&backend, &owner(), args, &[])
             .await
             .expect_err("cid_advertised Err must surface as a JmapError");
         assert_eq!(err.error_type.to_string(), "serverFail", "{err:?}");
@@ -5334,7 +5371,8 @@ mod tests {
     /// "FilesRights" (server-set) The set of rights the user has on this
     /// node", and the FileNodeBackend::files_rights
     /// contract: `Some(rights)` is reported as `myRights`, `None` leaves
-    /// the stored value.
+    /// the value `get_objects` returned, here the owner's: -20 §5 "the
+    /// account owner, who has all rights".
     #[tokio::test]
     async fn get_reports_files_rights_as_my_rights() {
         let backend = FaultyBackend::new_with_account("acc1");
@@ -5343,7 +5381,7 @@ mod tests {
         backend.set_files_rights("n1", read_only_rights());
 
         let args = json!({ "accountId": "acc1", "ids": ["n1", "n2"] });
-        let resp = handle_filenode_get(&backend, &(), args, &[])
+        let resp = handle_filenode_get(&backend, &owner(), args, &[])
             .await
             .expect("get")
             .primary;
@@ -5357,7 +5395,11 @@ mod tests {
                 .expect("listed")
         };
         assert_eq!(by_id("n1")["myRights"], read_only_rights(), "{resp}");
-        assert_eq!(by_id("n2")["myRights"], Value::Null, "{resp}");
+        let all = json!({
+            "mayRead": true, "mayAddChildren": true, "mayRename": true,
+            "mayDelete": true, "mayModifyContent": true, "mayShare": true
+        });
+        assert_eq!(by_id("n2")["myRights"], all, "{resp}");
     }
 
     /// Oracle: draft-ietf-jmap-filenode-20 §3.1.2 defines isSubscribed,
@@ -5380,7 +5422,7 @@ mod tests {
         backend.set_files_rights("f1", read_only_rights());
 
         let args = json!({ "accountId": "acc1", "ids": ["f1"] });
-        let resp = handle_filenode_get(&backend, &(), args, &[])
+        let resp = handle_filenode_get(&backend, &owner(), args, &[])
             .await
             .expect("get")
             .primary;
@@ -5401,7 +5443,7 @@ mod tests {
         backend.set_files_rights("p", read_only_rights());
 
         let args = json!({ "accountId": "acc1", "ids": ["c"], "fetchParents": true });
-        let resp = handle_filenode_get(&backend, &(), args, &[])
+        let resp = handle_filenode_get(&backend, &owner(), args, &[])
             .await
             .expect("get")
             .primary;
@@ -5427,7 +5469,7 @@ mod tests {
         backend.inject_files_rights_err("simulated policy store timeout");
 
         let args = json!({ "accountId": "acc1", "ids": ["n1"], "properties": ["name"] });
-        let resp = handle_filenode_get(&backend, &(), args, &[])
+        let resp = handle_filenode_get(&backend, &owner(), args, &[])
             .await
             .expect("get")
             .primary;
@@ -5444,7 +5486,7 @@ mod tests {
         backend.inject_files_rights_err("simulated policy store timeout");
 
         let args = json!({ "accountId": "acc1", "ids": ["n1"] });
-        let err = handle_filenode_get(&backend, &(), args, &[])
+        let err = handle_filenode_get(&backend, &owner(), args, &[])
             .await
             .expect_err("files_rights Err must surface as a JmapError");
         assert_eq!(err.error_type.to_string(), "serverFail", "{err:?}");
@@ -5464,11 +5506,16 @@ mod tests {
             "accountId": "acc1",
             "create": { "d1": { "@type": "Directory", "name": "docs", "parentId": null } }
         });
-        let resp =
-            handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
-                .await
-                .expect("set")
-                .primary;
+        let resp = handle_filenode_set(
+            &backend,
+            &owner(),
+            &std::collections::BTreeMap::new(),
+            args,
+            &[],
+        )
+        .await
+        .expect("set")
+        .primary;
         assert_eq!(resp["created"]["d1"]["id"], "node-1", "{resp}");
         assert_eq!(
             resp["created"]["d1"]["myRights"],
@@ -5491,17 +5538,22 @@ mod tests {
             "accountId": "acc1",
             "create": { "d1": { "@type": "Directory", "name": "docs", "parentId": null } }
         });
-        let resp =
-            handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
-                .await
-                .expect("files_rights Err after the insert must not fail the call")
-                .primary;
+        let resp = handle_filenode_set(
+            &backend,
+            &owner(),
+            &std::collections::BTreeMap::new(),
+            args,
+            &[],
+        )
+        .await
+        .expect("files_rights Err after the insert must not fail the call")
+        .primary;
         let created = &resp["created"]["d1"];
         assert!(created.is_object(), "the create must stand: {resp}");
 
         let get = handle_filenode_get(
             &backend,
-            &(),
+            &owner(),
             json!({ "accountId": "acc1", "ids": [created["id"]] }),
             &[],
         )
@@ -5531,7 +5583,7 @@ mod tests {
             "accountId": "acc1",
             "create": { "c1": { "id": "n1", "parentId": "p" } }
         });
-        let resp = handle_filenode_copy(&backend, &(), args, "c0", &[])
+        let resp = handle_filenode_copy(&backend, &owner(), args, "c0", &[])
             .await
             .expect("copy")
             .primary;
@@ -5553,8 +5605,8 @@ mod tests {
     async fn copy_checks_blob_exists_in_destination_account() {
         let backend = FaultyBackend {
             inner: MemoryBackend::new()
-                .with_account(&Id::from("acc1"))
-                .with_account(&Id::from("acc2")),
+                .with_account_owner(&Id::from("acc1"), &owner())
+                .with_account_owner(&Id::from("acc2"), &owner()),
             faults: std::sync::Arc::default(),
         };
         let file = |id: &str, blob: &str| -> FileNode {
@@ -5578,7 +5630,7 @@ mod tests {
                 "c2": { "id": "f2" }
             }
         });
-        let resp = handle_filenode_copy(&backend, &(), args, "c0", &[])
+        let resp = handle_filenode_copy(&backend, &owner(), args, "c0", &[])
             .await
             .expect("copy")
             .primary;
@@ -5606,8 +5658,8 @@ mod tests {
     async fn copy_uses_blob_copied_into_destination() {
         let backend = FaultyBackend {
             inner: MemoryBackend::new()
-                .with_account(&Id::from("acc1"))
-                .with_account(&Id::from("acc2")),
+                .with_account_owner(&Id::from("acc1"), &owner())
+                .with_account_owner(&Id::from("acc2"), &owner()),
             faults: std::sync::Arc::default(),
         };
         backend.seed_node(
@@ -5631,7 +5683,7 @@ mod tests {
             "accountId": "acc2",
             "create": { "c1": { "id": "f1" } }
         });
-        let resp = handle_filenode_copy(&backend, &(), args, "c0", &[])
+        let resp = handle_filenode_copy(&backend, &owner(), args, "c0", &[])
             .await
             .expect("copy")
             .primary;
@@ -5653,8 +5705,8 @@ mod tests {
     async fn copy_blob_exists_err_is_per_entry_server_fail() {
         let backend = FaultyBackend {
             inner: MemoryBackend::new()
-                .with_account(&Id::from("acc1"))
-                .with_account(&Id::from("acc2")),
+                .with_account_owner(&Id::from("acc1"), &owner())
+                .with_account_owner(&Id::from("acc2"), &owner()),
             faults: std::sync::Arc::default(),
         };
         let file = |id: &str| -> FileNode {
@@ -5677,7 +5729,7 @@ mod tests {
                 "c2": { "id": "f2" }
             }
         });
-        let resp = handle_filenode_copy(&backend, &(), args, "c0", &[])
+        let resp = handle_filenode_copy(&backend, &owner(), args, "c0", &[])
             .await
             .expect("blob_exists Err must not fail the whole call")
             .primary;
@@ -5700,7 +5752,7 @@ mod tests {
             "accountId": "acc1",
             "create": { "c1": { "id": "n1", "parentId": "p" } }
         });
-        let resp = handle_filenode_copy(&backend, &(), args, "c0", &[])
+        let resp = handle_filenode_copy(&backend, &owner(), args, "c0", &[])
             .await
             .expect("files_rights Err after the insert must not fail the call")
             .primary;
@@ -5709,7 +5761,7 @@ mod tests {
 
         let get = handle_filenode_get(
             &backend,
-            &(),
+            &owner(),
             json!({ "accountId": "acc1", "ids": [created["id"]] }),
             &[],
         )
@@ -5735,14 +5787,20 @@ mod tests {
             "accountId": "acc1",
             "create": { "d1": { "@type": "Directory", "name": "docs", "parentId": null } }
         });
-        let err = handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
-            .await
-            .expect_err("cid_advertised Err must surface as a JmapError");
+        let err = handle_filenode_set(
+            &backend,
+            &owner(),
+            &std::collections::BTreeMap::new(),
+            args,
+            &[],
+        )
+        .await
+        .expect_err("cid_advertised Err must surface as a JmapError");
         assert_eq!(err.error_type.to_string(), "serverFail", "{err:?}");
 
         let get = handle_filenode_get(
             &backend,
-            &(),
+            &owner(),
             json!({ "accountId": "acc1", "ids": null }),
             &[],
         )
@@ -5758,11 +5816,12 @@ mod tests {
     /// Oracle: FileNode/changes returns the standard changes response shape.
     #[tokio::test]
     async fn changes_returns_standard_shape() {
-        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+        let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
         let args = json!({ "accountId": "acc1", "sinceState": "0" });
-        let HandlerOutput { primary: resp, .. } = handle_filenode_changes(&backend, &(), args, &[])
-            .await
-            .expect("must succeed");
+        let HandlerOutput { primary: resp, .. } =
+            handle_filenode_changes(&backend, &owner(), args, &[])
+                .await
+                .expect("must succeed");
         assert_eq!(resp["accountId"], "acc1");
         assert!(resp["created"].is_array());
         assert!(resp["updated"].is_array());
@@ -5776,11 +5835,12 @@ mod tests {
     /// Oracle: FileNode/query returns standard query response shape.
     #[tokio::test]
     async fn query_returns_standard_shape() {
-        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+        let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
         let args = json!({ "accountId": "acc1", "filter": null, "sort": null });
-        let HandlerOutput { primary: resp, .. } = handle_filenode_query(&backend, &(), args, &[])
-            .await
-            .expect("must succeed");
+        let HandlerOutput { primary: resp, .. } =
+            handle_filenode_query(&backend, &owner(), args, &[])
+                .await
+                .expect("must succeed");
         assert_eq!(resp["accountId"], "acc1");
         assert!(resp["ids"].is_array());
     }
@@ -5812,7 +5872,7 @@ mod tests {
     /// The sorted ids of a FileNode/query on [`depth_tree`].
     async fn depth_query_ids(args: Value) -> Vec<String> {
         let HandlerOutput { primary: resp, .. } =
-            handle_filenode_query(&depth_tree(), &(), args, &[])
+            handle_filenode_query(&depth_tree(), &owner(), args, &[])
                 .await
                 .expect("query must succeed");
         let mut ids: Vec<String> = resp["ids"]
@@ -5828,22 +5888,24 @@ mod tests {
     /// Oracle: depth absent on an empty account → no ids.
     #[tokio::test]
     async fn query_depth_absent_flat_query() {
-        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+        let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
         let args = json!({ "accountId": "acc1", "filter": null, "sort": null });
-        let HandlerOutput { primary: resp, .. } = handle_filenode_query(&backend, &(), args, &[])
-            .await
-            .expect("must succeed for absent depth");
+        let HandlerOutput { primary: resp, .. } =
+            handle_filenode_query(&backend, &owner(), args, &[])
+                .await
+                .expect("must succeed for absent depth");
         assert!(resp["ids"].as_array().unwrap().is_empty());
     }
 
     /// Oracle: depth=0 on an empty account → no ids.
     #[tokio::test]
     async fn query_depth_zero_flat_query() {
-        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+        let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
         let args = json!({ "accountId": "acc1", "depth": 0, "filter": null, "sort": null });
-        let HandlerOutput { primary: resp, .. } = handle_filenode_query(&backend, &(), args, &[])
-            .await
-            .expect("must succeed for depth=0");
+        let HandlerOutput { primary: resp, .. } =
+            handle_filenode_query(&backend, &owner(), args, &[])
+                .await
+                .expect("must succeed for depth=0");
         assert!(resp["ids"].as_array().unwrap().is_empty());
     }
 
@@ -5932,7 +5994,7 @@ mod tests {
     async fn query_depth_applies_window_after_depth_limit() {
         let HandlerOutput { primary: resp, .. } = handle_filenode_query(
             &depth_tree(),
-            &(),
+            &owner(),
             json!({
                 "accountId": "acc1",
                 "depth": 1,
@@ -5958,7 +6020,7 @@ mod tests {
     async fn query_depth_anchor_outside_depth_is_anchor_not_found() {
         let err = handle_filenode_query(
             &depth_tree(),
-            &(),
+            &owner(),
             json!({ "accountId": "acc1", "depth": 1, "anchor": "grandchild1" }),
             &[],
         )
@@ -5974,7 +6036,7 @@ mod tests {
         for depth in [json!(-1), json!("1"), json!(1.5)] {
             let err = handle_filenode_query(
                 &depth_tree(),
-                &(),
+                &owner(),
                 json!({ "accountId": "acc1", "depth": depth }),
                 &[],
             )
@@ -5993,7 +6055,7 @@ mod tests {
         let backend = depth_tree();
         let err = handle_filenode_query_changes(
             &backend,
-            &(),
+            &owner(),
             json!({ "accountId": "acc1", "sinceQueryState": "0", "depth": 1 }),
             &[],
         )
@@ -6002,7 +6064,7 @@ mod tests {
         assert_eq!(err.error_type.to_string(), "cannotCalculateChanges");
         handle_filenode_query_changes(
             &backend,
-            &(),
+            &owner(),
             json!({ "accountId": "acc1", "sinceQueryState": "0", "depth": null }),
             &[],
         )
@@ -6018,7 +6080,7 @@ mod tests {
         let backend = depth_tree();
         backend.inject_get_ancestors_err("simulated DB timeout");
         let args = json!({ "accountId": "acc1", "depth": 1 });
-        let result = handle_filenode_query(&backend, &(), args, &[]).await;
+        let result = handle_filenode_query(&backend, &owner(), args, &[]).await;
         assert!(
             result.is_err(),
             "depth + backend failure must produce a JMAP error. got Ok: {:?}",
@@ -6050,7 +6112,7 @@ mod tests {
             "depth": 1,
             "filter": {"isTopLevel": true},
         });
-        let err = handle_filenode_query(&backend, &(), args, &[])
+        let err = handle_filenode_query(&backend, &owner(), args, &[])
             .await
             .expect_err("a backend method error must fail the call");
 
@@ -6084,7 +6146,7 @@ mod tests {
 
         let root_ids = [Id::from("root")];
         let result = backend
-            .query_subtree(&(), &Id::from("acc1"), &root_ids, 2)
+            .query_subtree(&owner(), &Id::from("acc1"), &root_ids, 2)
             .await;
         assert!(
             result.is_err(),
@@ -6129,10 +6191,15 @@ mod tests {
             "accountId": "acc1",
             "destroy": ["dir1"]
         });
-        let HandlerOutput { primary: resp, .. } =
-            handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
-                .await
-                .expect("must not return top-level error");
+        let HandlerOutput { primary: resp, .. } = handle_filenode_set(
+            &backend,
+            &owner(),
+            &std::collections::BTreeMap::new(),
+            args,
+            &[],
+        )
+        .await
+        .expect("must not return top-level error");
 
         assert!(
             resp["destroyed"].is_null(),
@@ -6176,10 +6243,15 @@ mod tests {
             "onDestroyRemoveChildren": true,
             "destroy": ["dir1"]
         });
-        let HandlerOutput { primary: resp, .. } =
-            handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
-                .await
-                .expect("must not return top-level error");
+        let HandlerOutput { primary: resp, .. } = handle_filenode_set(
+            &backend,
+            &owner(),
+            &std::collections::BTreeMap::new(),
+            args,
+            &[],
+        )
+        .await
+        .expect("must not return top-level error");
 
         // Backend returned notFound — but it was called (no nodeHasChildren
         // interception). notDestroyed must exist with notFound, not nodeHasChildren.
@@ -6218,10 +6290,15 @@ mod tests {
             "onDestroyRemoveChildren": true,
             "destroy": ["dir1"]
         });
-        let HandlerOutput { primary: resp, .. } =
-            handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
-                .await
-                .expect("must not return top-level error");
+        let HandlerOutput { primary: resp, .. } = handle_filenode_set(
+            &backend,
+            &owner(),
+            &std::collections::BTreeMap::new(),
+            args,
+            &[],
+        )
+        .await
+        .expect("must not return top-level error");
 
         let not_destroyed = &resp["notDestroyed"];
         assert!(
@@ -6265,10 +6342,15 @@ mod tests {
                 "node1": { "parentId": "node2" }
             }
         });
-        let HandlerOutput { primary: resp, .. } =
-            handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
-                .await
-                .expect("must not return top-level error");
+        let HandlerOutput { primary: resp, .. } = handle_filenode_set(
+            &backend,
+            &owner(),
+            &std::collections::BTreeMap::new(),
+            args,
+            &[],
+        )
+        .await
+        .expect("must not return top-level error");
 
         let not_updated = &resp["notUpdated"];
         assert!(
@@ -6311,10 +6393,15 @@ mod tests {
                 "node1": { "parentId": 42 }
             }
         });
-        let HandlerOutput { primary: resp, .. } =
-            handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
-                .await
-                .expect("must not return top-level error");
+        let HandlerOutput { primary: resp, .. } = handle_filenode_set(
+            &backend,
+            &owner(),
+            &std::collections::BTreeMap::new(),
+            args,
+            &[],
+        )
+        .await
+        .expect("must not return top-level error");
 
         assert_eq!(
             resp["notUpdated"]["node1"]["type"], "invalidProperties",
@@ -6343,7 +6430,7 @@ mod tests {
     /// excludes the node itself by contract (backend.rs §76).
     #[tokio::test]
     async fn set_update_self_parent_returns_invalid_properties() {
-        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+        let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
         // No descendants seeded: the only thing the check has to fall
         // back on is the explicit self-parent guard.
         let args = json!({
@@ -6352,10 +6439,15 @@ mod tests {
                 "node1": { "parentId": "node1" }
             }
         });
-        let HandlerOutput { primary: resp, .. } =
-            handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
-                .await
-                .expect("must not return top-level error");
+        let HandlerOutput { primary: resp, .. } = handle_filenode_set(
+            &backend,
+            &owner(),
+            &std::collections::BTreeMap::new(),
+            args,
+            &[],
+        )
+        .await
+        .expect("must not return top-level error");
 
         let not_updated = &resp["notUpdated"];
         assert!(
@@ -6402,10 +6494,15 @@ mod tests {
             "destroy": ["node_parent", "node_child"]
             // onDestroyRemoveChildren is absent (defaults to false)
         });
-        let HandlerOutput { primary: resp, .. } =
-            handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
-                .await
-                .expect("must not return top-level error");
+        let HandlerOutput { primary: resp, .. } = handle_filenode_set(
+            &backend,
+            &owner(),
+            &std::collections::BTreeMap::new(),
+            args,
+            &[],
+        )
+        .await
+        .expect("must not return top-level error");
 
         // Both should be in notDestroyed with type=notFound (from mock backend),
         // NOT with type=nodeHasChildren. The all-covered check must pass.
@@ -6428,7 +6525,7 @@ mod tests {
     /// Oracle: create with missing `name` returns invalidProperties.
     #[tokio::test]
     async fn set_create_missing_name_returns_invalid_properties() {
-        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+        let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
         let args = json!({
             "accountId": "acc1",
             "create": {
@@ -6442,10 +6539,15 @@ mod tests {
                 }
             }
         });
-        let HandlerOutput { primary: resp, .. } =
-            handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
-                .await
-                .expect("must not return top-level error");
+        let HandlerOutput { primary: resp, .. } = handle_filenode_set(
+            &backend,
+            &owner(),
+            &std::collections::BTreeMap::new(),
+            args,
+            &[],
+        )
+        .await
+        .expect("must not return top-level error");
         let not_created = &resp["notCreated"];
         assert!(
             not_created.is_object(),
@@ -6463,7 +6565,7 @@ mod tests {
     /// has exactly one hand-picked bad property.
     #[tokio::test]
     async fn set_create_typed_parse_failure_names_property() {
-        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+        let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
         let args = json!({
             "accountId": "acc1",
             "create": {
@@ -6474,10 +6576,15 @@ mod tests {
                 "numericType": { "@type": 5, "name": "d" }
             }
         });
-        let HandlerOutput { primary: resp, .. } =
-            handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
-                .await
-                .expect("must not return top-level error");
+        let HandlerOutput { primary: resp, .. } = handle_filenode_set(
+            &backend,
+            &owner(),
+            &std::collections::BTreeMap::new(),
+            args,
+            &[],
+        )
+        .await
+        .expect("must not return top-level error");
         assert!(resp["created"].is_null(), "nothing may be created: {resp}");
         for (cid, prop) in [
             ("missingName", "name"),
@@ -6498,15 +6605,20 @@ mod tests {
     /// (hand-written non-object entries below).
     #[tokio::test]
     async fn set_create_non_object_entry_names_no_property() {
-        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+        let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
         let args = json!({
             "accountId": "acc1",
             "create": { "str": "x", "arr": ["x"], "nul": null, "num": 5 }
         });
-        let HandlerOutput { primary: resp, .. } =
-            handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
-                .await
-                .expect("must not return top-level error");
+        let HandlerOutput { primary: resp, .. } = handle_filenode_set(
+            &backend,
+            &owner(),
+            &std::collections::BTreeMap::new(),
+            args,
+            &[],
+        )
+        .await
+        .expect("must not return top-level error");
         assert!(resp["created"].is_null(), "nothing may be created: {resp}");
         for cid in ["str", "arr", "nul", "num"] {
             let err = &resp["notCreated"][cid];
@@ -6530,7 +6642,7 @@ mod tests {
             "accountId": "acc1",
             "create": { "c1": { "id": "n1", "parentId": "p", "executable": "yes" } }
         });
-        let resp = handle_filenode_copy(&backend, &(), args, "c0", &[])
+        let resp = handle_filenode_copy(&backend, &owner(), args, "c0", &[])
             .await
             .expect("must not return top-level error")
             .primary;
@@ -6549,7 +6661,7 @@ mod tests {
     /// invalidProperties naming `@type`, and nothing is created.
     #[tokio::test]
     async fn set_create_without_type_returns_invalid_properties() {
-        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+        let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
         let args = json!({
             "accountId": "acc1",
             "create": {
@@ -6557,10 +6669,15 @@ mod tests {
                 "c2": { "@type": null, "name": "other" }
             }
         });
-        let HandlerOutput { primary: resp, .. } =
-            handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
-                .await
-                .expect("must not return top-level error");
+        let HandlerOutput { primary: resp, .. } = handle_filenode_set(
+            &backend,
+            &owner(),
+            &std::collections::BTreeMap::new(),
+            args,
+            &[],
+        )
+        .await
+        .expect("must not return top-level error");
         assert!(resp["created"].is_null(), "nothing may be created: {resp}");
         for cid in ["c1", "c2"] {
             let err = &resp["notCreated"][cid];
@@ -6574,15 +6691,20 @@ mod tests {
     /// `"directory"` is not a -16 type name.
     #[tokio::test]
     async fn set_create_unsupported_type_returns_invalid_properties() {
-        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+        let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
         let args = json!({
             "accountId": "acc1",
             "create": { "c1": { "@type": "directory", "name": "mydir" } }
         });
-        let HandlerOutput { primary: resp, .. } =
-            handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
-                .await
-                .expect("must not return top-level error");
+        let HandlerOutput { primary: resp, .. } = handle_filenode_set(
+            &backend,
+            &owner(),
+            &std::collections::BTreeMap::new(),
+            args,
+            &[],
+        )
+        .await
+        .expect("must not return top-level error");
         let err = &resp["notCreated"]["c1"];
         assert_eq!(err["type"], "invalidProperties", "{resp}");
         assert_eq!(err["properties"], json!(["@type"]), "{resp}");
@@ -6593,17 +6715,22 @@ mod tests {
     /// and without any File or SymLink property (§3.1).
     #[tokio::test]
     async fn set_create_directory_returns_directory_shape() {
-        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+        let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
         let args = json!({
             "accountId": "acc1",
             "create": {
                 "c1": { "@type": "Directory", "name": "mydir", "blobId": null, "target": null }
             }
         });
-        let HandlerOutput { primary: resp, .. } =
-            handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
-                .await
-                .expect("must not return top-level error");
+        let HandlerOutput { primary: resp, .. } = handle_filenode_set(
+            &backend,
+            &owner(),
+            &std::collections::BTreeMap::new(),
+            args,
+            &[],
+        )
+        .await
+        .expect("must not return top-level error");
         assert!(resp["notCreated"].is_null(), "{resp}");
         let created_obj = resp["created"]["c1"].as_object().expect("created.c1");
         assert_eq!(created_obj["@type"], "Directory", "{resp}");
@@ -6621,17 +6748,22 @@ mod tests {
     /// Source: draft-ietf-jmap-filenode-20 §3.1.3.
     #[tokio::test]
     async fn set_create_file_without_blobid_returns_invalid_properties() {
-        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+        let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
         let args = json!({
             "accountId": "acc1",
             "create": {
                 "c1": { "name": "myfile", "@type": "File", "blobId": null, "role": null }
             }
         });
-        let HandlerOutput { primary: resp, .. } =
-            handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
-                .await
-                .expect("must not return top-level error");
+        let HandlerOutput { primary: resp, .. } = handle_filenode_set(
+            &backend,
+            &owner(),
+            &std::collections::BTreeMap::new(),
+            args,
+            &[],
+        )
+        .await
+        .expect("must not return top-level error");
         let not_created = &resp["notCreated"];
         assert!(
             not_created.is_object(),
@@ -6660,7 +6792,7 @@ mod tests {
     /// Regression for bd JMAP-510h.7.
     #[tokio::test]
     async fn set_create_file_with_blob_and_target_returns_invalid_properties() {
-        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+        let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
         let args = json!({
             "accountId": "acc1",
             "create": {
@@ -6673,10 +6805,15 @@ mod tests {
                 }
             }
         });
-        let HandlerOutput { primary: resp, .. } =
-            handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
-                .await
-                .expect("must not return top-level error");
+        let HandlerOutput { primary: resp, .. } = handle_filenode_set(
+            &backend,
+            &owner(),
+            &std::collections::BTreeMap::new(),
+            args,
+            &[],
+        )
+        .await
+        .expect("must not return top-level error");
         let not_created = &resp["notCreated"];
         assert!(
             not_created.is_object(),
@@ -6700,17 +6837,22 @@ mod tests {
     /// Source: draft-ietf-jmap-filenode-20 §3.1.5.
     #[tokio::test]
     async fn set_create_symlink_without_target_returns_invalid_properties() {
-        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+        let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
         let args = json!({
             "accountId": "acc1",
             "create": {
                 "c1": { "name": "mylink", "@type": "SymLink", "target": null, "role": null }
             }
         });
-        let HandlerOutput { primary: resp, .. } =
-            handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
-                .await
-                .expect("must not return top-level error");
+        let HandlerOutput { primary: resp, .. } = handle_filenode_set(
+            &backend,
+            &owner(),
+            &std::collections::BTreeMap::new(),
+            args,
+            &[],
+        )
+        .await
+        .expect("must not return top-level error");
         let not_created = &resp["notCreated"];
         assert!(
             not_created.is_object(),
@@ -6750,10 +6892,15 @@ mod tests {
             }
             // onExists absent → default Reject
         });
-        let HandlerOutput { primary: resp, .. } =
-            handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
-                .await
-                .expect("must not return top-level error");
+        let HandlerOutput { primary: resp, .. } = handle_filenode_set(
+            &backend,
+            &owner(),
+            &std::collections::BTreeMap::new(),
+            args,
+            &[],
+        )
+        .await
+        .expect("must not return top-level error");
         let not_created = &resp["notCreated"];
         assert!(
             not_created.is_object(),
@@ -6786,10 +6933,15 @@ mod tests {
                 "c1": { "@type": "Directory", "name": "foo", "parentId": null, "role": null }
             }
         });
-        let HandlerOutput { primary: resp, .. } =
-            handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
-                .await
-                .expect("must not return top-level error");
+        let HandlerOutput { primary: resp, .. } = handle_filenode_set(
+            &backend,
+            &owner(),
+            &std::collections::BTreeMap::new(),
+            args,
+            &[],
+        )
+        .await
+        .expect("must not return top-level error");
         // With rename, creation should succeed (mock create_object returns Ok).
         assert!(
             resp["notCreated"].is_null(),
@@ -6836,10 +6988,15 @@ mod tests {
                 "c1": { "@type": "Directory", "name": "foo", "parentId": null, "role": null }
             }
         });
-        let HandlerOutput { primary: resp, .. } =
-            handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
-                .await
-                .expect("must not return top-level error");
+        let HandlerOutput { primary: resp, .. } = handle_filenode_set(
+            &backend,
+            &owner(),
+            &std::collections::BTreeMap::new(),
+            args,
+            &[],
+        )
+        .await
+        .expect("must not return top-level error");
         assert_eq!(resp["notCreated"]["c1"]["type"], "serverFail", "{resp}");
         assert!(resp["created"].is_null(), "{resp}");
     }
@@ -6871,10 +7028,15 @@ mod tests {
                 "c1": { "@type": "Directory", "name": "foo", "parentId": null, "role": null }
             }
         });
-        let HandlerOutput { primary: resp, .. } =
-            handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
-                .await
-                .expect("must not return top-level error");
+        let HandlerOutput { primary: resp, .. } = handle_filenode_set(
+            &backend,
+            &owner(),
+            &std::collections::BTreeMap::new(),
+            args,
+            &[],
+        )
+        .await
+        .expect("must not return top-level error");
 
         assert!(
             resp["created"].is_object() && resp["created"]["c1"].is_object(),
@@ -6898,11 +7060,17 @@ mod tests {
     /// (bd JMAP-zegc).
     #[tokio::test]
     async fn set_non_string_destroy_element_does_not_echo_value() {
-        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+        let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
         let args = json!({ "accountId": "acc1", "destroy": [{ "note": "CANARY-zegc" }] });
-        let err = handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
-            .await
-            .expect_err("non-string destroy element must be a method error");
+        let err = handle_filenode_set(
+            &backend,
+            &owner(),
+            &std::collections::BTreeMap::new(),
+            args,
+            &[],
+        )
+        .await
+        .expect_err("non-string destroy element must be a method error");
         assert_eq!(err.error_type.to_string(), "invalidArguments");
         let desc = err.description.as_deref().unwrap_or_default();
         assert!(desc.contains("got object"), "{desc}");
@@ -6915,11 +7083,17 @@ mod tests {
     /// only the JSON type and never echoes the client value (bd JMAP-zegc).
     #[tokio::test]
     async fn set_invalid_on_exists_does_not_echo_value() {
-        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+        let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
         let args = json!({ "accountId": "acc1", "onExists": { "note": "CANARY-zegc" } });
-        let err = handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
-            .await
-            .expect_err("object onExists must be a method error");
+        let err = handle_filenode_set(
+            &backend,
+            &owner(),
+            &std::collections::BTreeMap::new(),
+            args,
+            &[],
+        )
+        .await
+        .expect_err("object onExists must be a method error");
         assert_eq!(err.error_type.to_string(), "invalidArguments");
         let desc = err.description.as_deref().unwrap_or_default();
         assert!(desc.contains("got object"), "{desc}");
@@ -6930,14 +7104,14 @@ mod tests {
     /// the same behavior" as FileNode/set, so the same no-echo rule applies.
     #[tokio::test]
     async fn copy_invalid_on_exists_does_not_echo_value() {
-        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+        let backend = MemoryBackend::new().with_account_owner(&Id::from("acc1"), &owner());
         let args = json!({
             "fromAccountId": "acc1",
             "accountId": "acc1",
             "onExists": { "note": "CANARY-zegc" },
             "create": {}
         });
-        let err = handle_filenode_copy(&backend, &(), args, "c0", &[])
+        let err = handle_filenode_copy(&backend, &owner(), args, "c0", &[])
             .await
             .expect_err("object onExists must be a method error");
         assert_eq!(err.error_type.to_string(), "invalidArguments");
@@ -6980,7 +7154,7 @@ mod tests {
         prepare(&set_backend);
         let HandlerOutput { primary: set, .. } = handle_filenode_set(
             &set_backend,
-            &(),
+            &owner(),
             &std::collections::BTreeMap::new(),
             json!({
                 "accountId": "acc1",
@@ -6997,7 +7171,7 @@ mod tests {
         prepare(&copy_backend);
         let HandlerOutput { primary: copy, .. } = handle_filenode_copy(
             &copy_backend,
-            &(),
+            &owner(),
             json!({
                 "fromAccountId": "acc1",
                 "accountId": "acc1",
@@ -7123,7 +7297,7 @@ mod tests {
         let backend = replace_fixture();
         let HandlerOutput { primary: resp, .. } = handle_filenode_set(
             &backend,
-            &(),
+            &owner(),
             &std::collections::BTreeMap::new(),
             json!({
                 "accountId": "acc1",
@@ -7148,7 +7322,7 @@ mod tests {
         backend.hide_node("doc");
         let HandlerOutput { primary: resp, .. } = handle_filenode_set(
             &backend,
-            &(),
+            &owner(),
             &std::collections::BTreeMap::new(),
             json!({
                 "accountId": "acc1",
@@ -7174,7 +7348,7 @@ mod tests {
         backend.hide_node("kid");
         let HandlerOutput { primary: resp, .. } = handle_filenode_set(
             &backend,
-            &(),
+            &owner(),
             &std::collections::BTreeMap::new(),
             json!({
                 "accountId": "acc1",
@@ -7228,7 +7402,7 @@ mod tests {
         backend.hide_node("kid");
         let out = handle_filenode_copy(
             &backend,
-            &(),
+            &owner(),
             json!({
                 "fromAccountId": "acc1",
                 "accountId": "acc1",
@@ -7266,7 +7440,7 @@ mod tests {
         backend.forbid_destroy("doc");
         let HandlerOutput { primary: resp, .. } = handle_filenode_set(
             &backend,
-            &(),
+            &owner(),
             &std::collections::BTreeMap::new(),
             json!({ "accountId": "acc1", "onDestroyRemoveChildren": true, "destroy": ["doc"] }),
             &[],
@@ -7302,7 +7476,7 @@ mod tests {
         backend.forbid_destroy("doc");
         let out = handle_filenode_copy(
             &backend,
-            &(),
+            &owner(),
             json!({
                 "fromAccountId": "acc1",
                 "accountId": "acc1",
@@ -7345,7 +7519,7 @@ mod tests {
 
         let HandlerOutput { primary: resp, .. } = handle_filenode_copy(
             &backend,
-            &(),
+            &owner(),
             json!({
                 "fromAccountId": "acc1",
                 "accountId": "acc1",
@@ -7377,7 +7551,7 @@ mod tests {
         prepare(&backend);
         let HandlerOutput { primary: resp, .. } = handle_filenode_copy(
             &backend,
-            &(),
+            &owner(),
             json!({
                 "fromAccountId": "acc1",
                 "accountId": "acc1",
@@ -7397,7 +7571,7 @@ mod tests {
     async fn all_nodes(backend: &FaultyBackend) -> Vec<(String, String, Option<String>)> {
         let (nodes, _) = backend
             .inner
-            .get_objects::<FileNode>(&(), &Id::from("acc1"), None, None)
+            .get_objects::<FileNode>(&owner(), &Id::from("acc1"), None, None)
             .await
             .expect("get_objects");
         let mut out: Vec<_> = nodes
@@ -7478,7 +7652,7 @@ mod tests {
     async fn all_ids(backend: &FaultyBackend) -> Vec<String> {
         let (nodes, _) = backend
             .inner
-            .get_objects::<FileNode>(&(), &Id::from("acc1"), None, None)
+            .get_objects::<FileNode>(&owner(), &Id::from("acc1"), None, None)
             .await
             .expect("get_objects");
         let mut ids: Vec<String> = nodes

@@ -57,6 +57,13 @@ use jmap_types::{Id, PatchObject};
 use serde_json::{Value, json};
 
 const ACCOUNT: &str = "A1";
+
+/// The FileNode caller: the account owner, whose id is the accountId
+/// (draft-atwood-jmap-chat-00 §Terminology), with every FileNode right
+/// (draft-ietf-jmap-filenode-20 §5); the Chat gates decide.
+fn owner() -> Id {
+    Id::from(ACCOUNT)
+}
 const SPACE: &str = "S1";
 
 struct Fixture {
@@ -120,7 +127,7 @@ impl Fixture {
     async fn node(&self, id: &str) -> FileNode {
         let (mut nodes, _) = self
             .files
-            .get_objects::<FileNode>(&(), &Id::from(ACCOUNT), Some(&[Id::from(id)]), None)
+            .get_objects::<FileNode>(&owner(), &Id::from(ACCOUNT), Some(&[Id::from(id)]), None)
             .await
             .expect("get");
         nodes.pop().expect("seeded node")
@@ -129,19 +136,32 @@ impl Fixture {
     /// `space_files_rights` of stored node `id`, as wire JSON.
     async fn rights(&self, id: &str) -> Option<Value> {
         let node = self.node(id).await;
-        space_files_rights(&self.chat, &(), &self.files, &(), &Id::from(ACCOUNT), &node)
-            .await
-            .expect("storage")
-            .map(|r| serde_json::to_value(r).expect("FilesRights serializes"))
+        space_files_rights(
+            &self.chat,
+            &(),
+            &self.files,
+            &owner(),
+            &Id::from(ACCOUNT),
+            &node,
+        )
+        .await
+        .expect("storage")
+        .map(|r| serde_json::to_value(r).expect("FilesRights serializes"))
     }
 
     /// The SetError type of a create of `node`, or `None` if it may proceed.
     async fn create(&self, node: Value) -> Option<String> {
         let node: FileNode = serde_json::from_value(node).expect("FileNode fixture");
-        let result =
-            check_space_create(&self.chat, &(), &self.files, &(), &Id::from(ACCOUNT), &node)
-                .await
-                .expect("storage");
+        let result = check_space_create(
+            &self.chat,
+            &(),
+            &self.files,
+            &owner(),
+            &Id::from(ACCOUNT),
+            &node,
+        )
+        .await
+        .expect("storage");
         error_type(result)
     }
 
@@ -155,7 +175,7 @@ impl Fixture {
             &self.chat,
             &(),
             &self.files,
-            &(),
+            &owner(),
             &Id::from(ACCOUNT),
             &node,
             &PatchObject::from_map(patch),
@@ -168,10 +188,16 @@ impl Fixture {
     /// The SetError type of a destroy of `id`, or `None`.
     async fn destroy(&self, id: &str) -> Option<String> {
         let node = self.node(id).await;
-        let result =
-            check_space_destroy(&self.chat, &(), &self.files, &(), &Id::from(ACCOUNT), &node)
-                .await
-                .expect("storage");
+        let result = check_space_destroy(
+            &self.chat,
+            &(),
+            &self.files,
+            &owner(),
+            &Id::from(ACCOUNT),
+            &node,
+        )
+        .await
+        .expect("storage");
         error_type(result)
     }
 }
@@ -314,7 +340,8 @@ async fn chat_backend_error_is_root_check_error_chat() {
     f.chat
         .insert_object_for_test("Space", ACCOUNT, SPACE, json!({ "id": SPACE }));
     let node = f.node("docs").await;
-    let result = space_files_rights(&f.chat, &(), &f.files, &(), &Id::from(ACCOUNT), &node).await;
+    let result =
+        space_files_rights(&f.chat, &(), &f.files, &owner(), &Id::from(ACCOUNT), &node).await;
     assert!(matches!(result, Err(RootCheckError::Chat(_))), "{result:?}");
 }
 

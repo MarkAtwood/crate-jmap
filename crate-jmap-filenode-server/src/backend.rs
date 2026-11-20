@@ -289,12 +289,11 @@ pub trait FileNodeBackend: JmapBackend {
     ///   a shared Directory, the server reports it as destroyed in
     ///   FileNode/changes" for that user.
     ///
-    /// The reference `MemoryBackend` has no users: it sets `changed` as
-    /// above, and reports the whole subtree of a node whose `shareWith`
-    /// changed or that moved to a parent with a different set of sharing
-    /// ancestors (those with a non-empty `shareWith`). It treats such a
-    /// change as a change of rights for some user, since it has no users
-    /// to check.
+    /// The reference `MemoryBackend` sets `changed` as above and keeps its
+    /// change log per user: after each write it compares, for every user a
+    /// `shareWith` names, what the user could discover and the user's
+    /// rights before and after, and records the nodes that changed for that
+    /// user alone.
     fn create_object<O, F>(
         &self,
         caller: &Self::CallerCtx,

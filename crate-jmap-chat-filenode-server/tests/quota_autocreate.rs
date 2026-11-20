@@ -28,6 +28,13 @@ use jmap_types::Id;
 use serde_json::{Value, json};
 
 const ACCOUNT: &str = "A1";
+
+/// The FileNode caller: the account owner, whose id is the accountId
+/// (draft-atwood-jmap-chat-00 §Terminology), with every FileNode right
+/// (draft-ietf-jmap-filenode-20 §5); the Chat gates decide.
+fn owner() -> Id {
+    Id::from(ACCOUNT)
+}
 const LIMIT: u64 = 100;
 
 fn node(v: Value) -> FileNode {
@@ -75,7 +82,7 @@ fn fixture() -> MemoryBackend {
 /// The SetError for a create of `new`, as wire JSON, or `None` if the
 /// create may proceed.
 async fn check(files: &MemoryBackend, new: FileNode) -> Option<Value> {
-    check_space_quota(files, &(), &Id::from(ACCOUNT), &new, LIMIT)
+    check_space_quota(files, &owner(), &Id::from(ACCOUNT), &new, LIMIT)
         .await
         .expect("storage")
         .err()
@@ -152,7 +159,7 @@ async fn node_outside_a_space_tree_is_not_checked() {
 #[tokio::test]
 async fn auto_created_root_is_the_spaces_root() {
     let files = MemoryBackend::new().with_account(&Id::from(ACCOUNT));
-    let (id, root) = create_space_file_tree(&files, &(), &Id::from(ACCOUNT), &Id::from("S1"))
+    let (id, root) = create_space_file_tree(&files, &owner(), &Id::from(ACCOUNT), &Id::from("S1"))
         .await
         .expect("create");
     let wire = serde_json::to_value(&root).expect("FileNode serializes");
@@ -163,7 +170,7 @@ async fn auto_created_root_is_the_spaces_root() {
 
     let out = handle_filenode_query(
         &files,
-        &(),
+        &owner(),
         json!({ "accountId": ACCOUNT, "filter": { "spaceId": "S1" } }),
         &[],
     )
@@ -179,7 +186,7 @@ async fn auto_created_root_is_in_filenode_changes() {
     let files = MemoryBackend::new().with_account(&Id::from(ACCOUNT));
     let before = handle_filenode_changes(
         &files,
-        &(),
+        &owner(),
         json!({ "accountId": ACCOUNT, "sinceState": "0" }),
         &[],
     )
@@ -187,13 +194,13 @@ async fn auto_created_root_is_in_filenode_changes() {
     .expect("FileNode/changes");
     let since = before.primary["newState"].clone();
 
-    let (id, _) = create_space_file_tree(&files, &(), &Id::from(ACCOUNT), &Id::from("S1"))
+    let (id, _) = create_space_file_tree(&files, &owner(), &Id::from(ACCOUNT), &Id::from("S1"))
         .await
         .expect("create");
 
     let out = handle_filenode_changes(
         &files,
-        &(),
+        &owner(),
         json!({ "accountId": ACCOUNT, "sinceState": since }),
         &[],
     )

@@ -18,7 +18,7 @@
 
 mod common;
 
-use common::{ACCOUNT, Deployment};
+use common::{ACCOUNT, Deployment, owner};
 use jmap_filenode_server::handle_filenode_get;
 use serde_json::{Value, json};
 
@@ -39,13 +39,14 @@ fn rights(granted: &[&str]) -> Value {
 /// draft-ietf-jmap-filenode-20 §5 "A node whose @type does not permit
 /// children has no myRights. The user's rights on it are those in its
 /// parent's myRights". The ancestors `fetchParents` appends carry their
-/// rights too. `loose` is outside every Space tree, so it keeps its stored
-/// `myRights`.
+/// rights too. `loose` is outside every Space tree, so it keeps the
+/// `myRights` the FileNode backend reports: the account owner's, who "has
+/// all rights" (draft-ietf-jmap-filenode-20 §5).
 #[tokio::test]
 async fn get_reports_space_role_rights() {
     let deployment = Deployment::new(&["send"]);
     let args = json!({ "accountId": ACCOUNT, "ids": ["f1", "loose"], "fetchParents": true });
-    let resp = handle_filenode_get(&deployment, &(), args, &[])
+    let resp = handle_filenode_get(&deployment, &owner(), args, &[])
         .await
         .expect("get")
         .primary;
@@ -63,5 +64,13 @@ async fn get_reports_space_role_rights() {
     assert_eq!(my_rights("root"), rights(&[read, add]), "{resp}");
     assert_eq!(my_rights("docs"), rights(&[read, add]), "{resp}");
     assert_eq!(my_rights("f1"), Value::Null, "{resp}");
-    assert_eq!(my_rights("loose"), Value::Null, "{resp}");
+    let all = [
+        read,
+        add,
+        "mayRename",
+        "mayDelete",
+        "mayModifyContent",
+        "mayShare",
+    ];
+    assert_eq!(my_rights("loose"), rights(&all), "{resp}");
 }

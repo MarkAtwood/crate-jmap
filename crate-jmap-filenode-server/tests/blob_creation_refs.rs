@@ -17,7 +17,7 @@ mod common;
 
 use std::sync::Arc;
 
-use common::MemoryBackend;
+use common::{MemoryBackend, owner};
 use jmap_filenode_server::register_filenode_handlers;
 use jmap_server::{CallContext, ClosureHandler, Dispatcher, HandlerFuture, HandlerOutput};
 use jmap_types::{Id, JmapRequest, JmapResponse, State};
@@ -27,9 +27,9 @@ const ACCOUNT: &str = "acc1";
 const OTHER: &str = "acc2";
 const UPLOADED: &str = "Gupload1";
 
-fn dispatcher() -> Dispatcher<()> {
+fn dispatcher() -> Dispatcher<Id> {
     let mut dispatcher = Dispatcher::new();
-    let upload = ClosureHandler::new(Arc::new(()), |_: Arc<()>, _: CallContext<()>| {
+    let upload = ClosureHandler::new(Arc::new(()), |_: Arc<()>, _: CallContext<Id>| {
         Box::pin(async move {
             Ok(HandlerOutput::new(json!({
                 "accountId": ACCOUNT,
@@ -42,15 +42,15 @@ fn dispatcher() -> Dispatcher<()> {
         &mut dispatcher,
         Arc::new(
             MemoryBackend::new()
-                .with_account(&Id::from(ACCOUNT))
-                .with_account(&Id::from(OTHER)),
+                .with_account_owner(&Id::from(ACCOUNT), &owner())
+                .with_account_owner(&Id::from(OTHER), &owner()),
         ),
     );
     dispatcher
 }
 
 /// Dispatch the upload of `b1`, then `calls`.
-async fn run(d: &Dispatcher<()>, calls: Value) -> JmapResponse {
+async fn run(d: &Dispatcher<Id>, calls: Value) -> JmapResponse {
     let mut method_calls = vec![json!(["Blob/upload", {"accountId": ACCOUNT}, "up"])];
     method_calls.extend(calls.as_array().expect("calls").iter().cloned());
     let request: JmapRequest = serde_json::from_value(json!({
@@ -62,7 +62,7 @@ async fn run(d: &Dispatcher<()>, calls: Value) -> JmapResponse {
         "methodCalls": method_calls
     }))
     .expect("request JSON must deserialize");
-    d.dispatch(request, (), State::from("s0")).await
+    d.dispatch(request, owner(), State::from("s0")).await
 }
 
 /// The response arguments of call `i` (0 is the upload).
@@ -75,7 +75,7 @@ fn file(name: &str, blob_id: &str) -> Value {
            "mediaType": "text/plain"})
 }
 
-async fn blob_of(d: &Dispatcher<()>, account: &str, id: &str) -> Value {
+async fn blob_of(d: &Dispatcher<Id>, account: &str, id: &str) -> Value {
     let resp = run(
         d,
         json!([["FileNode/get", {"accountId": account, "ids": [id],

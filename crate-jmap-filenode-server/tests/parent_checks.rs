@@ -9,14 +9,17 @@
 use std::sync::Arc;
 
 use jmap_filenode_server::memory::MemoryBackend;
+
+mod common;
+use common::owner;
 use jmap_filenode_server::register_filenode_handlers;
 use jmap_server::Dispatcher;
 use jmap_types::{Id, JmapRequest, State};
 use serde_json::{Value, json};
 
 /// `d` a Directory and `f` a File, both top level.
-async fn dispatcher() -> (Dispatcher<()>, String, String) {
-    let b = Arc::new(MemoryBackend::new().with_account(&Id::from("u1")));
+async fn dispatcher() -> (Dispatcher<Id>, String, String) {
+    let b = Arc::new(MemoryBackend::new().with_account_owner(&Id::from("u1"), &owner()));
     let mut d = Dispatcher::new();
     register_filenode_handlers(&mut d, b);
     let r = set(
@@ -32,14 +35,14 @@ async fn dispatcher() -> (Dispatcher<()>, String, String) {
     (d, dir, file)
 }
 
-async fn set(d: &Dispatcher<()>, mut args: Value) -> Value {
+async fn set(d: &Dispatcher<Id>, mut args: Value) -> Value {
     args["accountId"] = json!("u1");
     let req: JmapRequest = serde_json::from_value(json!({
         "using": ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:filenode"],
         "methodCalls": [["FileNode/set", args, "0"]]
     }))
     .unwrap();
-    let resp = serde_json::to_value(d.dispatch(req, (), State::from("s")).await).unwrap();
+    let resp = serde_json::to_value(d.dispatch(req, owner(), State::from("s")).await).unwrap();
     resp["methodResponses"][0][1].clone()
 }
 

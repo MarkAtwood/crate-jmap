@@ -11,6 +11,9 @@
 use std::sync::Arc;
 
 use jmap_filenode_server::memory::MemoryBackend;
+
+mod common;
+use common::owner;
 use jmap_filenode_server::{register_filenode_handlers, register_filenode_handlers_with_history};
 use jmap_object_history_server::HistoryRetention;
 use jmap_server::Dispatcher;
@@ -21,7 +24,7 @@ const A: &str = "abc";
 
 fn backend() -> MemoryBackend {
     MemoryBackend::new()
-        .with_account(&Id::from(A))
+        .with_account_owner(&Id::from(A), &owner())
         .with_object_history(
             serde_json::from_value(
                 json!({"maxHistoryDuration": null, "supportedTypes": ["FileNode"]}),
@@ -31,7 +34,7 @@ fn backend() -> MemoryBackend {
         )
 }
 
-struct Server(Dispatcher<()>, MemoryBackend);
+struct Server(Dispatcher<Id>, MemoryBackend);
 
 impl Server {
     fn new() -> Self {
@@ -50,7 +53,8 @@ impl Server {
             "methodCalls": [[method, args, "0"]]
         }))
         .unwrap();
-        let resp = serde_json::to_value(self.0.dispatch(req, (), State::from("s")).await).unwrap();
+        let resp =
+            serde_json::to_value(self.0.dispatch(req, owner(), State::from("s")).await).unwrap();
         let r = &resp["methodResponses"][0];
         assert_ne!(r[0], "error", "{r}");
         r[1].clone()
