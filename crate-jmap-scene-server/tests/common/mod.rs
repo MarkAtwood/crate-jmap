@@ -58,7 +58,7 @@ macro_rules! call {
         args["accountId"] = serde_json::json!($crate::common::ACCOUNT);
         $method(
             $backend,
-            &$caller.to_owned(),
+            &jmap_types::Id::from($caller),
             &std::collections::BTreeMap::new(),
             args,
         )
@@ -69,7 +69,7 @@ macro_rules! call {
     ($method:path, $backend:expr, $caller:expr, $args:expr $(,)?) => {{
         let mut args: serde_json::Value = $args;
         args["accountId"] = serde_json::json!($crate::common::ACCOUNT);
-        $method($backend, &$caller.to_owned(), args)
+        $method($backend, &jmap_types::Id::from($caller), args)
             .await
             .expect("method")
             .primary

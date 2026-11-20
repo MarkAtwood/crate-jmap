@@ -102,7 +102,7 @@ fn backend_with_avatars() -> MemoryBackend {
 async fn query(backend: &MemoryBackend, args: Value) -> Result<Value, JmapError> {
     let mut args = args;
     args["accountId"] = json!(ACCOUNT);
-    handle_scene_avatar_query(backend, &ALICE.to_owned(), args)
+    handle_scene_avatar_query(backend, &jmap_types::Id::from(ALICE), args)
         .await
         .map(|o| o.primary)
 }
@@ -251,7 +251,7 @@ async fn query_changes_applies_the_filter_validation() {
     let backend = backend_with_avatars();
     let err = handle_scene_avatar_query_changes(
         &backend,
-        &ALICE.to_owned(),
+        &jmap_types::Id::from(ALICE),
         json!({ "accountId": ACCOUNT, "sinceQueryState": "0", "filter": {} }),
     )
     .await

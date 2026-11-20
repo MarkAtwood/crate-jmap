@@ -46,9 +46,13 @@ impl Racing {
 
 impl jmap_server::JmapAccounts for Racing {
     type Error = MemoryError;
-    type CallerCtx = String;
+    type CallerCtx = jmap_types::Id;
 
-    async fn account_exists(&self, caller: &String, account_id: &Id) -> Result<bool, MemoryError> {
+    async fn account_exists(
+        &self,
+        caller: &jmap_types::Id,
+        account_id: &Id,
+    ) -> Result<bool, MemoryError> {
         self.0.account_exists(caller, account_id).await
     }
 }
@@ -56,7 +60,7 @@ impl jmap_server::JmapAccounts for Racing {
 impl jmap_server::JmapReads for Racing {
     async fn get_objects<O: GetObject + Send + Sync>(
         &self,
-        caller: &String,
+        caller: &jmap_types::Id,
         account_id: &Id,
         ids: Option<&[Id]>,
         properties: Option<&[String]>,
@@ -83,7 +87,7 @@ impl jmap_server::JmapReads for Racing {
 
     async fn get_state<O: JmapObject + Send + Sync>(
         &self,
-        caller: &String,
+        caller: &jmap_types::Id,
         account_id: &Id,
     ) -> Result<State, MemoryError> {
         self.0.get_state::<O>(caller, account_id).await
@@ -91,7 +95,7 @@ impl jmap_server::JmapReads for Racing {
 
     async fn get_changes<O: JmapObject + Send + Sync>(
         &self,
-        caller: &String,
+        caller: &jmap_types::Id,
         account_id: &Id,
         params: jmap_server::ChangesParams<'_>,
     ) -> Result<ChangesResult, BackendChangesError<MemoryError>> {
@@ -100,7 +104,7 @@ impl jmap_server::JmapReads for Racing {
 
     async fn query_objects<O: QueryObject + Send + Sync>(
         &self,
-        caller: &String,
+        caller: &jmap_types::Id,
         account_id: &Id,
         params: QueryParams<'_, O>,
     ) -> Result<QueryResult, BackendQueryError<MemoryError>> {
@@ -109,7 +113,7 @@ impl jmap_server::JmapReads for Racing {
 
     async fn query_changes<O: QueryObject + Send + Sync>(
         &self,
-        caller: &String,
+        caller: &jmap_types::Id,
         account_id: &Id,
         params: QueryChangesParams<'_, O>,
     ) -> Result<QueryChangesResult, BackendChangesError<MemoryError>> {
@@ -120,19 +124,19 @@ impl jmap_server::JmapReads for Racing {
 impl VtcBackend for Racing {
     async fn vtc_capability(
         &self,
-        caller: &String,
+        caller: &jmap_types::Id,
         account_id: &Id,
     ) -> Result<VtcCapability, MemoryError> {
         self.0.vtc_capability(caller, account_id).await
     }
 
-    fn has_capability(&self, caller: &String, account_id: &Id, uri: &str) -> bool {
+    fn has_capability(&self, caller: &jmap_types::Id, account_id: &Id, uri: &str) -> bool {
         self.0.has_capability(caller, account_id, uri)
     }
 
     async fn caller_user_id(
         &self,
-        caller: &String,
+        caller: &jmap_types::Id,
         account_id: &Id,
     ) -> Result<String, MemoryError> {
         self.0.caller_user_id(caller, account_id).await
@@ -140,7 +144,7 @@ impl VtcBackend for Racing {
 
     async fn create_call<F>(
         &self,
-        caller: &String,
+        caller: &jmap_types::Id,
         account_id: &Id,
         build: F,
         ring_targets: &[String],
@@ -155,7 +159,7 @@ impl VtcBackend for Racing {
 
     async fn create_object<O, F>(
         &self,
-        caller: &String,
+        caller: &jmap_types::Id,
         account_id: &Id,
         create_id: &str,
         build: F,
@@ -171,7 +175,7 @@ impl VtcBackend for Racing {
 
     async fn deliver_recording_state_event(
         &self,
-        caller: &String,
+        caller: &jmap_types::Id,
         account_id: &Id,
         event: VtcRecordingStateEvent,
     ) {
@@ -182,7 +186,7 @@ impl VtcBackend for Racing {
 
     async fn update_object<O: SetObject + Send + Sync>(
         &self,
-        caller: &String,
+        caller: &jmap_types::Id,
         account_id: &Id,
         id: &Id,
         patch: O::Patch,
@@ -194,7 +198,7 @@ impl VtcBackend for Racing {
 
     async fn update_object_if<O: StatefulObject + Send + Sync>(
         &self,
-        caller: &String,
+        caller: &jmap_types::Id,
         account_id: &Id,
         id: &Id,
         expected: &[O::State],
@@ -207,20 +211,20 @@ impl VtcBackend for Racing {
 
     async fn destroy_object<O: SetObject + Send + Sync>(
         &self,
-        caller: &String,
+        caller: &jmap_types::Id,
         account_id: &Id,
         id: &Id,
     ) -> Result<(), BackendSetError<MemoryError>> {
         self.0.destroy_object::<O>(caller, account_id, id).await
     }
 
-    async fn deliver_event(&self, caller: &String, account_id: &Id, event: VtcEvent) {
+    async fn deliver_event(&self, caller: &jmap_types::Id, account_id: &Id, event: VtcEvent) {
         self.0.deliver_event(caller, account_id, event).await
     }
 
     async fn is_moderator(
         &self,
-        caller: &String,
+        caller: &jmap_types::Id,
         account_id: &Id,
         call: &VtcCall,
     ) -> Result<bool, MemoryError> {
@@ -229,7 +233,7 @@ impl VtcBackend for Racing {
 
     async fn active_call_count(
         &self,
-        caller: &String,
+        caller: &jmap_types::Id,
         account_id: &Id,
     ) -> Result<u64, MemoryError> {
         self.0.active_call_count(caller, account_id).await
@@ -237,7 +241,7 @@ impl VtcBackend for Racing {
 
     async fn get_objects_unscoped<O: GetObject + Send + Sync>(
         &self,
-        caller: &String,
+        caller: &jmap_types::Id,
         account_id: &Id,
         ids: Option<&[Id]>,
     ) -> Result<(Vec<O>, Vec<Id>), MemoryError> {
@@ -246,11 +250,15 @@ impl VtcBackend for Racing {
             .await
     }
 
-    async fn is_user_blocked(&self, caller: &String, user_id: &str) -> Result<bool, MemoryError> {
+    async fn is_user_blocked(
+        &self,
+        caller: &jmap_types::Id,
+        user_id: &str,
+    ) -> Result<bool, MemoryError> {
         self.0.is_user_blocked(caller, user_id).await
     }
 
-    fn supports_type<O: JmapObject>(&self, caller: &String, account_id: &Id) -> bool {
+    fn supports_type<O: JmapObject>(&self, caller: &jmap_types::Id, account_id: &Id) -> bool {
         self.0.supports_type::<O>(caller, account_id)
     }
 }
@@ -431,7 +439,7 @@ async fn ring_timeout_after_a_concurrent_answer_leaves_the_call_active() {
     let now = UNIX_EPOCH + Duration::from_secs(1_800_000_000);
     let delivered = expire_ring(
         &backend,
-        &BOB.to_owned(),
+        &jmap_types::Id::from(BOB),
         &Id::from(ACCOUNT),
         &Id::from("R1"),
         now,
@@ -465,7 +473,7 @@ async fn leave_after_a_concurrent_answer_ends_the_call_completed() {
 
     after_leave(
         &backend,
-        &BOB.to_owned(),
+        &jmap_types::Id::from(BOB),
         &Id::from(ACCOUNT),
         &stale,
         &CallRole::Moderator,
@@ -497,7 +505,7 @@ async fn decline_end_of_an_answered_call_is_refused() {
     // only, and this call was answered first.
     match end_call(
         &backend,
-        &BOB.to_owned(),
+        &jmap_types::Id::from(BOB),
         &Id::from(ACCOUNT),
         &Id::from("R1"),
         &[CallState::Ringing],

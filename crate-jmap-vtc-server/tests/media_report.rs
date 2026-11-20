@@ -67,7 +67,7 @@ async fn livestream_live_sets_started_at_and_endpoints() {
     let id = hosted(&b).await;
     let since = call!(handle_vtc_livestream_get, &b, BOB, json!({"ids": []}))["state"].clone();
 
-    let caller = SYSTEM.to_owned();
+    let caller = jmap_types::Id::from(SYSTEM);
     let reporter = MediaReporter::new(&b, &caller, account());
     reporter
         .livestream_live(&id, vec![hls()])
@@ -96,7 +96,7 @@ async fn livestream_live_sets_started_at_and_endpoints() {
 async fn livestream_live_twice_is_wrong_state() {
     let b = media_backend();
     let id = hosted(&b).await;
-    let caller = SYSTEM.to_owned();
+    let caller = jmap_types::Id::from(SYSTEM);
     let reporter = MediaReporter::new(&b, &caller, account());
     reporter.livestream_live(&id, vec![]).await.expect("live");
     let err = reporter.livestream_live(&id, vec![]).await.unwrap_err();
@@ -115,7 +115,7 @@ async fn push_livestream_takes_no_endpoints() {
         "VTCLivestream",
         stored_livestream("L1", "starting", Value::Null),
     );
-    let caller = SYSTEM.to_owned();
+    let caller = jmap_types::Id::from(SYSTEM);
     let reporter = MediaReporter::new(&b, &caller, account());
     let err = reporter
         .livestream_live(&Id::from("L1"), vec![hls()])
@@ -135,7 +135,7 @@ async fn push_livestream_takes_no_endpoints() {
 async fn livestream_failed_sets_reason_and_requests_stop() {
     let b = media_backend();
     let id = hosted(&b).await;
-    let caller = SYSTEM.to_owned();
+    let caller = jmap_types::Id::from(SYSTEM);
     let reporter = MediaReporter::new(&b, &caller, account());
     reporter
         .livestream_live(&id, vec![hls()])
@@ -164,7 +164,7 @@ async fn livestream_failed_sets_reason_and_requests_stop() {
 async fn livestream_stopped_is_a_server_stop() {
     let b = media_backend();
     let id = hosted(&b).await;
-    let caller = SYSTEM.to_owned();
+    let caller = jmap_types::Id::from(SYSTEM);
     let reporter = MediaReporter::new(&b, &caller, account());
     reporter.livestream_stopped(&id).await.expect("stopped");
     assert_eq!(livestream(&b, &id).await["state"], "stopped");
@@ -185,7 +185,7 @@ async fn livestream_stopped_is_a_server_stop() {
 #[tokio::test]
 async fn unknown_livestream_is_not_found() {
     let b = media_backend();
-    let caller = SYSTEM.to_owned();
+    let caller = jmap_types::Id::from(SYSTEM);
     let reporter = MediaReporter::new(&b, &caller, account());
     let err = reporter
         .livestream_stopped(&Id::from("nope"))
@@ -201,7 +201,7 @@ async fn recording_processing_then_available() {
     let r =
         call!(ids handle_vtc_recording_set, &b, BOB, json!({"create": {"r0": {"callId": "C1"}}}));
     let id = Id::from(r["created"]["r0"]["id"].as_str().expect("created"));
-    let caller = SYSTEM.to_owned();
+    let caller = jmap_types::Id::from(SYSTEM);
     let reporter = MediaReporter::new(&b, &caller, account());
 
     let err = reporter
@@ -256,7 +256,7 @@ async fn recording_paused_delivers_the_event() {
     let r =
         call!(ids handle_vtc_recording_set, &b, BOB, json!({"create": {"r0": {"callId": "C1"}}}));
     let id = Id::from(r["created"]["r0"]["id"].as_str().expect("created"));
-    let caller = SYSTEM.to_owned();
+    let caller = jmap_types::Id::from(SYSTEM);
     let reporter = MediaReporter::new(&b, &caller, account());
     reporter.recording_paused(&id).await.expect("paused");
     reporter.recording_resumed(&id).await.expect("resumed");

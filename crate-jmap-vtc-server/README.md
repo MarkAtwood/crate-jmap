@@ -40,12 +40,12 @@ and `jmap-vtc-types` only. The Chat binding (`chatId` membership,
 
 ```rust,ignore
 use std::sync::Arc;
-use jmap_server::Dispatcher;
+use jmap_server::{Dispatcher, Id};
 use jmap_vtc_server::{memory::MemoryBackend, register_vtc_handlers};
 
 // `capability`: the account-level object the Session advertises.
 let backend = Arc::new(MemoryBackend::new().with_account(&account_id, capability));
-let mut dispatcher: Dispatcher<String> = Dispatcher::new();
+let mut dispatcher: Dispatcher<Id> = Dispatcher::new();
 register_vtc_handlers(&mut dispatcher, backend);
 ```
 
@@ -152,8 +152,9 @@ evaluates no filter or sort over destroyed objects.
   bd:JMAP-bghk). Override it, or every caller can end any call.
 - The one-active-call-per-Chat rule is enforced by `create_call`, not by
   the handler, so that the check is atomic with the insert.
-- The `MemoryBackend` caller context is the caller's userId `String`. Its
-  `/queryChanges` always returns `cannotCalculateChanges`.
+- The `MemoryBackend` caller context is a `jmap_server::MemoryCaller`: the
+  caller's Principal `Id` (whose string is the userId), or `()` (the
+  account id is the userId). Its `/queryChanges` always returns `cannotCalculateChanges`.
 - The draft does not say where a `null` `endedAt` sorts. `compare_calls`
   puts calls that have not ended last.
 - `is_moderator`'s fail-open default also means every caller sees

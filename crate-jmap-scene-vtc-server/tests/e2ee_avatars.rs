@@ -37,7 +37,7 @@ async fn room_call(backend: &Bound, e2ee: bool) -> VtcCall {
     let (mut found, _) = backend
         .vtc
         .get_objects::<VtcCall>(
-            &OWNER.to_owned(),
+            &jmap_types::Id::from(OWNER),
             &Id::from(ACCOUNT),
             Some(&[Id::from(id)]),
             None,
@@ -78,7 +78,7 @@ fn seed_participant(backend: &Bound, id: &str, call_id: &Id, user: &str, left_at
 async fn sees(backend: &Bound, call: &VtcCall, user: &str) -> bool {
     may_see_region_avatars(
         &backend.vtc,
-        &user.to_owned(),
+        &jmap_types::Id::from(user),
         &Id::from(ACCOUNT),
         call,
         user,

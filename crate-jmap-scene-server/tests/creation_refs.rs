@@ -29,20 +29,20 @@ use jmap_server::Dispatcher;
 use jmap_types::{JmapRequest, JmapResponse, State};
 use serde_json::{Value, json};
 
-fn dispatcher() -> Dispatcher<String> {
+fn dispatcher() -> Dispatcher<jmap_types::Id> {
     let mut dispatcher = Dispatcher::new();
     register_scene_handlers(&mut dispatcher, Arc::new(backend()));
     dispatcher
 }
 
-async fn run(dispatcher: &Dispatcher<String>, method_calls: Value) -> JmapResponse {
+async fn run(dispatcher: &Dispatcher<jmap_types::Id>, method_calls: Value) -> JmapResponse {
     let request: JmapRequest = serde_json::from_value(json!({
         "using": ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:scene"],
         "methodCalls": method_calls
     }))
     .expect("request JSON must deserialize");
     dispatcher
-        .dispatch(request, ALICE.to_owned(), State::from("s0"))
+        .dispatch(request, jmap_types::Id::from(ALICE), State::from("s0"))
         .await
 }
 

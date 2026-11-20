@@ -55,7 +55,7 @@ pub async fn set(backend: &MemoryBackend, caller: &str, mut args: Value) -> Valu
     args["accountId"] = json!(ACCOUNT);
     let HandlerOutput { primary, .. } = handle_vtc_call_set(
         backend,
-        &caller.to_owned(),
+        &jmap_types::Id::from(caller),
         &std::collections::BTreeMap::new(),
         args,
     )
@@ -97,7 +97,7 @@ pub async fn update(
 pub async fn get(backend: &MemoryBackend, id: &str) -> Value {
     let HandlerOutput { primary, .. } = handle_vtc_call_get(
         backend,
-        &BOB.to_owned(),
+        &jmap_types::Id::from(BOB),
         json!({ "accountId": ACCOUNT, "ids": [id] }),
     )
     .await
@@ -111,7 +111,7 @@ pub async fn query(
     mut args: Value,
 ) -> Result<Value, jmap_types::JmapError> {
     args["accountId"] = json!(ACCOUNT);
-    handle_vtc_call_query(backend, &BOB.to_owned(), args)
+    handle_vtc_call_query(backend, &jmap_types::Id::from(BOB), args)
         .await
         .map(|o| o.primary)
 }
@@ -180,7 +180,7 @@ macro_rules! call {
         args["accountId"] = serde_json::json!($crate::common::ACCOUNT);
         $method(
             $backend,
-            &$caller.to_owned(),
+            &jmap_types::Id::from($caller),
             &std::collections::BTreeMap::new(),
             args,
         )
@@ -191,7 +191,7 @@ macro_rules! call {
     ($method:path, $backend:expr, $caller:expr, $args:expr $(,)?) => {{
         let mut args: serde_json::Value = $args;
         args["accountId"] = serde_json::json!($crate::common::ACCOUNT);
-        $method($backend, &$caller.to_owned(), args)
+        $method($backend, &jmap_types::Id::from($caller), args)
             .await
             .expect("method")
             .primary

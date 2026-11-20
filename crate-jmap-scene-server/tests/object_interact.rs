@@ -117,7 +117,7 @@ async fn refusal(backend: &MemoryBackend, caller: &str, interaction: Value) -> V
 #[tokio::test]
 async fn draft_example_through_the_dispatcher() {
     let backend = Arc::new(scene());
-    let mut dispatcher: Dispatcher<String> = Dispatcher::new();
+    let mut dispatcher: Dispatcher<jmap_types::Id> = Dispatcher::new();
     register_scene_handlers(&mut dispatcher, Arc::clone(&backend));
 
     let request: JmapRequest = serde_json::from_value(json!({
@@ -147,7 +147,7 @@ async fn draft_example_through_the_dispatcher() {
     }))
     .unwrap();
     let response = dispatcher
-        .dispatch(request, ALICE.to_owned(), State::from("s0"))
+        .dispatch(request, jmap_types::Id::from(ALICE), State::from("s0"))
         .await;
     assert_eq!(
         serde_json::to_value(&response).unwrap()["methodResponses"],
@@ -208,7 +208,7 @@ async fn accepted_interaction_reaches_the_backend_as_an_event() {
 #[tokio::test]
 async fn interact_changes_no_state() {
     let backend = scene();
-    let caller = ALICE.to_owned();
+    let caller = jmap_types::Id::from(ALICE);
     let account = Id::from(ACCOUNT);
     let before = backend
         .get_state::<SceneObject>(&caller, &account)
@@ -343,7 +343,7 @@ async fn mixed_batch_splits_accepted_and_not_accepted() {
 #[tokio::test]
 async fn method_level_errors() {
     let backend = scene();
-    let caller = ALICE.to_owned();
+    let caller = jmap_types::Id::from(ALICE);
     let err = handle_scene_object_interact(&backend, &caller, json!({ "accountId": ACCOUNT }))
         .await
         .unwrap_err();
@@ -367,7 +367,7 @@ async fn method_level_errors() {
 #[tokio::test]
 async fn interactions_over_max_objects_in_set_are_request_too_large() {
     let backend = scene();
-    let caller = ALICE.to_owned();
+    let caller = jmap_types::Id::from(ALICE);
     let cap = JmapAccounts::max_objects_in_set(&backend, &caller, &Id::from(ACCOUNT));
     let args = |n: u64| {
         let interactions: serde_json::Map<String, Value> =

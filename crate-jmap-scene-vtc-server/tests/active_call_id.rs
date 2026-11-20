@@ -59,7 +59,7 @@ async fn auto_end_clears_bound_region_with_state_change() {
 
     end_call(
         &backend,
-        &OWNER.to_owned(),
+        &jmap_types::Id::from(OWNER),
         &Id::from(ACCOUNT),
         &Id::from(call_id.as_str()),
         &[CallState::Active],

@@ -59,7 +59,7 @@ async fn pset(backend: &MemoryBackend, mut args: Value) -> Value {
     args["accountId"] = json!(ACCOUNT);
     handle_vtc_participant_set(
         backend,
-        &BOB.to_owned(),
+        &jmap_types::Id::from(BOB),
         &std::collections::BTreeMap::new(),
         args,
     )
@@ -72,7 +72,7 @@ async fn pset(backend: &MemoryBackend, mut args: Value) -> Value {
 async fn pget(backend: &MemoryBackend, id: &str) -> Value {
     handle_vtc_participant_get(
         backend,
-        &BOB.to_owned(),
+        &jmap_types::Id::from(BOB),
         json!({ "accountId": ACCOUNT, "ids": [id] }),
     )
     .await
@@ -465,7 +465,7 @@ async fn participant_moderator_action_with_read_only_change_is_forbidden() {
             args["accountId"] = json!(ACCOUNT);
             handle_vtc_participant_set(
                 backend,
-                &ALICE.to_owned(),
+                &jmap_types::Id::from(ALICE),
                 &std::collections::BTreeMap::new(),
                 args,
             )

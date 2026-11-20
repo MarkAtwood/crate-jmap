@@ -32,7 +32,7 @@ fn capability(may_create: bool) -> SceneCapability {
 /// capability it was given.
 #[tokio::test]
 async fn with_account_registers_the_account() {
-    let caller = String::from("alice");
+    let caller = jmap_types::Id::from("alice");
     let account = Id::from("A1");
     let backend = MemoryBackend::new().with_account(&account, capability(true));
     assert!(backend.account_exists(&caller, &account).await.unwrap());
@@ -51,7 +51,7 @@ async fn with_account_registers_the_account() {
 /// Registering an account again replaces its capability.
 #[tokio::test]
 async fn re_registering_replaces_the_capability() {
-    let caller = String::from("alice");
+    let caller = jmap_types::Id::from("alice");
     let account = Id::from("A1");
     let backend = MemoryBackend::new().with_account(&account, capability(true));
     backend.register_account(&account, capability(false));
@@ -65,7 +65,7 @@ async fn re_registering_replaces_the_capability() {
 /// account only.
 #[test]
 fn advertise_answers_has_capability() {
-    let caller = String::from("alice");
+    let caller = jmap_types::Id::from("alice");
     let account = Id::from("A1");
     let backend = MemoryBackend::new().with_account(&account, capability(true));
     backend.advertise(&account, "urn:ietf:params:jmap:chat");

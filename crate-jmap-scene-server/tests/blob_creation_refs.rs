@@ -25,14 +25,17 @@ use serde_json::{Value, json};
 
 async fn run(asset: Value) -> JmapResponse {
     let mut dispatcher = Dispatcher::new();
-    let upload = ClosureHandler::new(Arc::new(()), |_: Arc<()>, _: CallContext<String>| {
-        Box::pin(async move {
-            Ok(HandlerOutput::new(json!({
-                "accountId": ACCOUNT,
-                "created": {"b1": {"id": BLOB, "size": BLOB_SIZE}}
-            })))
-        }) as HandlerFuture
-    });
+    let upload = ClosureHandler::new(
+        Arc::new(()),
+        |_: Arc<()>, _: CallContext<jmap_types::Id>| {
+            Box::pin(async move {
+                Ok(HandlerOutput::new(json!({
+                    "accountId": ACCOUNT,
+                    "created": {"b1": {"id": BLOB, "size": BLOB_SIZE}}
+                })))
+            }) as HandlerFuture
+        },
+    );
     dispatcher.register("Blob/upload", Arc::new(upload));
     register_scene_handlers(&mut dispatcher, Arc::new(backend()));
     let request: JmapRequest = serde_json::from_value(json!({
@@ -48,7 +51,7 @@ async fn run(asset: Value) -> JmapResponse {
     }))
     .expect("request JSON must deserialize");
     dispatcher
-        .dispatch(request, ALICE.to_owned(), State::from("s0"))
+        .dispatch(request, jmap_types::Id::from(ALICE), State::from("s0"))
         .await
 }
 

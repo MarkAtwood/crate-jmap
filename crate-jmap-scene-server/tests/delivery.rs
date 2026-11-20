@@ -160,9 +160,16 @@ async fn delivers(
     e: &SceneEvent,
 ) -> bool {
     let account = Id::from(ACCOUNT);
-    should_deliver(backend, &recipient.to_owned(), &account, &account, sub, e)
-        .await
-        .unwrap()
+    should_deliver(
+        backend,
+        &jmap_types::Id::from(recipient),
+        &account,
+        &account,
+        sub,
+        e,
+    )
+    .await
+    .unwrap()
 }
 
 async fn relayed(
@@ -170,9 +177,14 @@ async fn relayed(
     sender: &str,
     e: &SceneInteractionEvent,
 ) -> Option<SceneInteractionEvent> {
-    validate_interaction(backend, &sender.to_owned(), &Id::from(ACCOUNT), e)
-        .await
-        .unwrap()
+    validate_interaction(
+        backend,
+        &jmap_types::Id::from(sender),
+        &Id::from(ACCOUNT),
+        e,
+    )
+    .await
+    .unwrap()
 }
 
 async fn relayable(backend: &MemoryBackend, sender: &str, e: &SceneInteractionEvent) -> bool {
@@ -405,7 +417,7 @@ async fn blocked_sender_check_uses_the_receiving_account() {
         backend.block(BOB, MALLORY);
         let delivered = should_deliver(
             &backend,
-            &BOB.to_owned(),
+            &jmap_types::Id::from(BOB),
             &hosting,
             &bob_personal,
             &all(),

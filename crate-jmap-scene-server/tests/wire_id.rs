@@ -57,7 +57,7 @@ async fn scene_asset_set_non_string_destroy_element_does_not_echo_value() {
     let backend = backend();
     let mut args = json!({ "destroy": [{ "note": "CANARY-zegc" }] });
     args["accountId"] = json!(ACCOUNT);
-    let err = handle_scene_asset_set(&backend, &ALICE.to_owned(), args)
+    let err = handle_scene_asset_set(&backend, &jmap_types::Id::from(ALICE), args)
         .await
         .expect_err("non-string destroy element must be a method error");
     assert_eq!(err.error_type.to_string(), "invalidArguments");

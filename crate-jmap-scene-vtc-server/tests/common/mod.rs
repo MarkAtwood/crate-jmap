@@ -89,9 +89,13 @@ fn scene_set_error(e: BackendSetError<SceneError>) -> BackendSetError<VtcError> 
 
 impl JmapAccounts for Bound {
     type Error = VtcError;
-    type CallerCtx = String;
+    type CallerCtx = jmap_types::Id;
 
-    async fn account_exists(&self, caller: &String, account_id: &Id) -> Result<bool, VtcError> {
+    async fn account_exists(
+        &self,
+        caller: &jmap_types::Id,
+        account_id: &Id,
+    ) -> Result<bool, VtcError> {
         self.vtc.account_exists(caller, account_id).await
     }
 }
@@ -99,7 +103,7 @@ impl JmapAccounts for Bound {
 impl JmapReads for Bound {
     async fn get_objects<O: GetObject + Send + Sync>(
         &self,
-        caller: &String,
+        caller: &jmap_types::Id,
         account_id: &Id,
         ids: Option<&[Id]>,
         properties: Option<&[String]>,
@@ -111,7 +115,7 @@ impl JmapReads for Bound {
 
     async fn get_state<O: JmapObject + Send + Sync>(
         &self,
-        caller: &String,
+        caller: &jmap_types::Id,
         account_id: &Id,
     ) -> Result<State, VtcError> {
         self.vtc.get_state::<O>(caller, account_id).await
@@ -119,7 +123,7 @@ impl JmapReads for Bound {
 
     async fn get_changes<O: JmapObject + Send + Sync>(
         &self,
-        caller: &String,
+        caller: &jmap_types::Id,
         account_id: &Id,
         params: jmap_server::ChangesParams<'_>,
     ) -> Result<ChangesResult, BackendChangesError<VtcError>> {
@@ -128,7 +132,7 @@ impl JmapReads for Bound {
 
     async fn query_objects<O: QueryObject + Send + Sync>(
         &self,
-        caller: &String,
+        caller: &jmap_types::Id,
         account_id: &Id,
         params: QueryParams<'_, O>,
     ) -> Result<QueryResult, BackendQueryError<VtcError>> {
@@ -139,7 +143,7 @@ impl JmapReads for Bound {
 
     async fn query_changes<O: QueryObject + Send + Sync>(
         &self,
-        caller: &String,
+        caller: &jmap_types::Id,
         account_id: &Id,
         params: QueryChangesParams<'_, O>,
     ) -> Result<QueryChangesResult, BackendChangesError<VtcError>> {
@@ -152,23 +156,27 @@ impl JmapReads for Bound {
 impl VtcBackend for Bound {
     async fn vtc_capability(
         &self,
-        caller: &String,
+        caller: &jmap_types::Id,
         account_id: &Id,
     ) -> Result<VtcCapability, VtcError> {
         self.vtc.vtc_capability(caller, account_id).await
     }
 
-    fn has_capability(&self, caller: &String, account_id: &Id, uri: &str) -> bool {
+    fn has_capability(&self, caller: &jmap_types::Id, account_id: &Id, uri: &str) -> bool {
         self.vtc.has_capability(caller, account_id, uri)
     }
 
-    async fn caller_user_id(&self, caller: &String, account_id: &Id) -> Result<String, VtcError> {
+    async fn caller_user_id(
+        &self,
+        caller: &jmap_types::Id,
+        account_id: &Id,
+    ) -> Result<String, VtcError> {
         self.vtc.caller_user_id(caller, account_id).await
     }
 
     async fn create_call<F>(
         &self,
-        caller: &String,
+        caller: &jmap_types::Id,
         account_id: &Id,
         build: F,
         ring_targets: &[String],
@@ -183,7 +191,7 @@ impl VtcBackend for Bound {
 
     async fn create_object<O, F>(
         &self,
-        caller: &String,
+        caller: &jmap_types::Id,
         account_id: &Id,
         create_id: &str,
         build: F,
@@ -199,7 +207,7 @@ impl VtcBackend for Bound {
 
     async fn deliver_recording_state_event(
         &self,
-        caller: &String,
+        caller: &jmap_types::Id,
         account_id: &Id,
         event: VtcRecordingStateEvent,
     ) {
@@ -208,13 +216,13 @@ impl VtcBackend for Bound {
             .await
     }
 
-    async fn deliver_event(&self, caller: &String, account_id: &Id, event: VtcEvent) {
+    async fn deliver_event(&self, caller: &jmap_types::Id, account_id: &Id, event: VtcEvent) {
         self.vtc.deliver_event(caller, account_id, event).await
     }
 
     async fn update_object<O: SetObject + Send + Sync>(
         &self,
-        caller: &String,
+        caller: &jmap_types::Id,
         account_id: &Id,
         id: &Id,
         patch: O::Patch,
@@ -240,7 +248,7 @@ impl VtcBackend for Bound {
 
     async fn update_object_if<O: StatefulObject + Send + Sync>(
         &self,
-        caller: &String,
+        caller: &jmap_types::Id,
         account_id: &Id,
         id: &Id,
         expected: &[O::State],
@@ -267,20 +275,24 @@ impl VtcBackend for Bound {
 
     async fn destroy_object<O: SetObject + Send + Sync>(
         &self,
-        caller: &String,
+        caller: &jmap_types::Id,
         account_id: &Id,
         id: &Id,
     ) -> Result<(), BackendSetError<VtcError>> {
         self.vtc.destroy_object::<O>(caller, account_id, id).await
     }
 
-    async fn active_call_count(&self, caller: &String, account_id: &Id) -> Result<u64, VtcError> {
+    async fn active_call_count(
+        &self,
+        caller: &jmap_types::Id,
+        account_id: &Id,
+    ) -> Result<u64, VtcError> {
         self.vtc.active_call_count(caller, account_id).await
     }
 
     async fn get_objects_unscoped<O: GetObject + Send + Sync>(
         &self,
-        caller: &String,
+        caller: &jmap_types::Id,
         account_id: &Id,
         ids: Option<&[Id]>,
     ) -> Result<(Vec<O>, Vec<Id>), VtcError> {
@@ -289,7 +301,7 @@ impl VtcBackend for Bound {
             .await
     }
 
-    fn supports_type<O: JmapObject>(&self, caller: &String, account_id: &Id) -> bool {
+    fn supports_type<O: JmapObject>(&self, caller: &jmap_types::Id, account_id: &Id) -> bool {
         self.vtc.supports_type::<O>(caller, account_id)
     }
 }
@@ -300,7 +312,7 @@ pub async fn vtc_set(backend: &Bound, mut args: Value) -> Value {
     args["accountId"] = json!(ACCOUNT);
     let HandlerOutput { primary, .. } = handle_vtc_call_set(
         backend,
-        &OWNER.to_owned(),
+        &jmap_types::Id::from(OWNER),
         &std::collections::BTreeMap::new(),
         args,
     )
@@ -328,7 +340,7 @@ pub async fn create_room_call(backend: &Bound) -> String {
 pub async fn get_call(backend: &Bound, id: &str) -> Value {
     let HandlerOutput { primary, .. } = handle_vtc_call_get(
         backend,
-        &OWNER.to_owned(),
+        &jmap_types::Id::from(OWNER),
         json!({ "accountId": ACCOUNT, "ids": [id] }),
     )
     .await
@@ -340,7 +352,7 @@ pub async fn get_call(backend: &Bound, id: &str) -> Value {
 pub async fn get_region(backend: &Bound, id: &str) -> Value {
     let HandlerOutput { primary, .. } = handle_scene_region_get(
         &backend.scene,
-        &OWNER.to_owned(),
+        &jmap_types::Id::from(OWNER),
         json!({ "accountId": ACCOUNT, "ids": [id] }),
     )
     .await
@@ -352,7 +364,7 @@ pub async fn get_region(backend: &Bound, id: &str) -> Value {
 pub async fn region_state(backend: &Bound) -> String {
     let HandlerOutput { primary, .. } = handle_scene_region_get(
         &backend.scene,
-        &OWNER.to_owned(),
+        &jmap_types::Id::from(OWNER),
         json!({ "accountId": ACCOUNT, "ids": [] }),
     )
     .await
@@ -364,7 +376,7 @@ pub async fn region_state(backend: &Bound) -> String {
 pub async fn regions_updated_since(backend: &Bound, since: &str) -> Value {
     let HandlerOutput { primary, .. } = handle_scene_region_changes(
         &backend.scene,
-        &OWNER.to_owned(),
+        &jmap_types::Id::from(OWNER),
         json!({ "accountId": ACCOUNT, "sinceState": since }),
     )
     .await

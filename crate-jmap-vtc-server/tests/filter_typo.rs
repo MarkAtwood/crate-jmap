@@ -29,7 +29,7 @@ use serde_json::{Value, json};
 
 type Handler = for<'a> fn(
     &'a MemoryBackend,
-    &'a String,
+    &'a jmap_types::Id,
     Value,
 ) -> std::pin::Pin<
     Box<dyn std::future::Future<Output = Result<HandlerOutput, JmapError>> + 'a>,
@@ -109,7 +109,7 @@ fn cases() -> Vec<(&'static str, Handler, Value, Value, Option<Value>)> {
 async fn run(handler: Handler, filter: Value) -> Result<HandlerOutput, JmapError> {
     let backend = media_backend();
     let args = json!({ "accountId": ACCOUNT, "sinceQueryState": "0", "filter": filter });
-    handler(&backend, &BOB.to_owned(), args).await
+    handler(&backend, &jmap_types::Id::from(BOB), args).await
 }
 
 #[tokio::test]

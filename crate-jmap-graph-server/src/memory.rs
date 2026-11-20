@@ -8,9 +8,12 @@
 //!
 //! # Caller context and rights
 //!
-//! `CallerCtx` is the caller's Principal id, which
+//! `CallerCtx` is a type implementing [`MemoryCaller`](jmap_server::MemoryCaller):
+//! the caller's Principal id ([`Id`](jmap_types::Id), the default), which
 //! [`JmapAccounts::principal_id`](jmap_server::JmapAccounts::principal_id) returns, so `createdBy` and `updatedBy` are
-//! the caller. Each account is registered with an owner
+//! the caller; or `()` for a deployment without identity, whose every
+//! caller acts as the account owner (its rights and `isSubscribed`) and
+//! whose `createdBy` and `updatedBy` are `null`. Each account is registered with an owner
 //! ([`MemoryBackend::with_account`](crate::memory::MemoryBackend::with_account)), who "implicitly
 //! has all rights" on its Graphs and is the only user who may create one.
 //! Every other user has the rights the Graph's `shareWith` gives their id,
@@ -69,6 +72,7 @@
 mod history;
 
 use std::collections::{HashMap, HashSet, VecDeque};
+use std::marker::PhantomData;
 use std::time::{Duration, SystemTime};
 
 use jmap_graph_types::{CandidateKind, Expression, GraphSearchCapability};
@@ -82,8 +86,8 @@ use jmap_graph_types::{
 use jmap_graph_types::{GraphCursorEvent, GraphNodeOpFilterCondition};
 use jmap_object_history_server::{ChangeEvent, ChangeKind, fold_restore};
 use jmap_server::{
-    BeginSetError, ConditionalBackend, DeferredFailure, ScopedGuard, ScopedState, SetOp, SetScope,
-    SetScopeRequest, apply_patch_object, limit_or_max, resolve_query_start,
+    BeginSetError, ConditionalBackend, DeferredFailure, MemoryCaller, ScopedGuard, ScopedState,
+    SetOp, SetScope, SetScopeRequest, apply_patch_object, limit_or_max, resolve_query_start,
 };
 use jmap_types::{Id, JmapError, State};
 use serde::Deserialize;
@@ -470,10 +474,26 @@ impl Inner {
 /// A fully in-memory implementation of [`GraphBackend`].
 ///
 /// Cloning is cheap and **shared-state**; see the [`Clone`] impl.
-#[derive(Default)]
+///
+/// `C` is the [`JmapAccounts::CallerCtx`]: [`Id`], the caller's Principal
+/// id, by default, or `()` for a deployment without identity, whose every
+/// caller acts as the account owner (see the module documentation,
+/// "Caller context and rights").
 #[non_exhaustive]
-pub struct MemoryBackend {
+pub struct MemoryBackend<C = Id> {
     inner: ScopedState<Inner>,
+    caller: PhantomData<fn() -> C>,
+}
+
+/// An empty backend: [`MemoryBackend::new`] for any caller context, such
+/// as `MemoryBackend::<()>::default()` for a deployment without identity.
+impl<C> Default for MemoryBackend<C> {
+    fn default() -> Self {
+        Self {
+            inner: ScopedState::default(),
+            caller: PhantomData,
+        }
+    }
 }
 
 /// Manual `Clone` impl, not `#[derive(Clone)]`: cloning is **shared-state**.
@@ -483,20 +503,40 @@ pub struct MemoryBackend {
 /// one handle can seed or inspect state while another serves requests. This
 /// impl must never become a deep copy; for independent state construct a
 /// fresh [`MemoryBackend::new`] instead of calling `.clone()`.
-impl Clone for MemoryBackend {
+impl<C> Clone for MemoryBackend<C> {
     fn clone(&self) -> Self {
         Self {
             inner: self.inner.clone(),
+            caller: PhantomData,
         }
     }
 }
 
 impl MemoryBackend {
-    /// An empty backend with no accounts.
+    /// An empty backend with no accounts, whose callers are Principal ids
+    /// (`C = Id`). Equivalent to [`Self::default`].
     pub fn new() -> Self {
         Self::default()
     }
+}
 
+impl<C: MemoryCaller> MemoryBackend<C> {
+    /// The Principal `caller` acts as in `account_id`: its own, or the
+    /// account owner's when it names none.
+    async fn acting(&self, caller: &C, account_id: &Id) -> Id {
+        match caller.principal() {
+            Some(id) => id.clone(),
+            None => self
+                .locked()
+                .await
+                .accounts
+                .get(account_id.as_ref())
+                .map_or_else(|| account_id.clone(), |a| a.owner.clone()),
+        }
+    }
+}
+
+impl<C> MemoryBackend<C> {
     /// The store, for setup and test helpers, which never run inside a
     /// conditional Foo/set scope. A poisoned lock is taken anyway.
     fn lock(&self) -> ScopedGuard<'_, Inner> {
@@ -816,15 +856,16 @@ fn graph_of(v: &Value) -> Id {
     Id::from(v.get("graphId").and_then(Value::as_str).unwrap_or_default())
 }
 
-impl JmapAccounts for MemoryBackend {
+impl<C: MemoryCaller> JmapAccounts for MemoryBackend<C> {
     type Error = MemoryError;
-    type CallerCtx = Id;
+    type CallerCtx = C;
 
-    fn principal_id(caller: &Id) -> Option<&Id> {
-        Some(caller)
+    /// [`MemoryCaller::principal`].
+    fn principal_id(caller: &C) -> Option<&Id> {
+        caller.principal()
     }
 
-    async fn account_exists(&self, _caller: &Id, account_id: &Id) -> Result<bool, MemoryError> {
+    async fn account_exists(&self, _caller: &C, account_id: &Id) -> Result<bool, MemoryError> {
         Ok(self
             .locked()
             .await
@@ -833,14 +874,15 @@ impl JmapAccounts for MemoryBackend {
     }
 }
 
-impl JmapReads for MemoryBackend {
+impl<C: MemoryCaller> JmapReads for MemoryBackend<C> {
     async fn get_objects<O: GetObject + Send + Sync>(
         &self,
-        caller: &Id,
+        caller: &C,
         account_id: &Id,
         ids: Option<&[Id]>,
         _properties: Option<&[String]>,
     ) -> Result<(Vec<O>, Vec<Id>), MemoryError> {
+        let caller = &self.acting(caller, account_id).await;
         let inner = self.locked().await;
         let shown = |v: &Value| {
             if O::TYPE_NAME == Graph::TYPE_NAME {
@@ -875,7 +917,7 @@ impl JmapReads for MemoryBackend {
 
     async fn get_state<O: JmapObject + Send + Sync>(
         &self,
-        _caller: &Id,
+        _caller: &C,
         account_id: &Id,
     ) -> Result<State, MemoryError> {
         Ok(State::from(
@@ -894,7 +936,7 @@ impl JmapReads for MemoryBackend {
     // transitions in the log and filter the net changes by them.
     async fn get_changes<O: JmapObject + Send + Sync>(
         &self,
-        _caller: &Id,
+        _caller: &C,
         account_id: &Id,
         params: jmap_server::ChangesParams<'_>,
     ) -> Result<ChangesResult, BackendChangesError<MemoryError>> {
@@ -999,10 +1041,11 @@ impl JmapReads for MemoryBackend {
 
     async fn query_objects<O: QueryObject + Send + Sync>(
         &self,
-        caller: &Id,
+        caller: &C,
         account_id: &Id,
         params: QueryParams<'_, O>,
     ) -> Result<QueryResult, BackendQueryError<MemoryError>> {
+        let caller = &self.acting(caller, account_id).await;
         let QueryParams {
             filter,
             sort,
@@ -1104,7 +1147,7 @@ impl JmapReads for MemoryBackend {
 
     async fn query_changes<O: QueryObject + Send + Sync>(
         &self,
-        _caller: &Id,
+        _caller: &C,
         _account_id: &Id,
         _params: QueryChangesParams<'_, O>,
     ) -> Result<QueryChangesResult, BackendChangesError<MemoryError>> {
@@ -1112,10 +1155,10 @@ impl JmapReads for MemoryBackend {
     }
 }
 
-impl GraphBackend for MemoryBackend {
+impl<C: MemoryCaller> GraphBackend for MemoryBackend<C> {
     async fn graph_capability(
         &self,
-        _caller: &Id,
+        _caller: &C,
         account_id: &Id,
     ) -> Result<GraphCapability, MemoryError> {
         self.locked()
@@ -1128,7 +1171,7 @@ impl GraphBackend for MemoryBackend {
 
     async fn create_object<O, F>(
         &self,
-        caller: &Id,
+        caller: &C,
         account_id: &Id,
         _create_id: &str,
         build: F,
@@ -1137,6 +1180,7 @@ impl GraphBackend for MemoryBackend {
         O: SetObject + Send + Sync,
         F: FnOnce(&Id) -> O + Send,
     {
+        let caller = &self.acting(caller, account_id).await;
         let id = Id::from(ulid::Ulid::new().to_string());
         let mut value = serde_json::to_value(build(&id)).map_err(other)?;
         let mut inner = self.locked().await;
@@ -1200,11 +1244,12 @@ impl GraphBackend for MemoryBackend {
 
     async fn update_object<O: SetObject + Send + Sync>(
         &self,
-        caller: &Id,
+        caller: &C,
         account_id: &Id,
         id: &Id,
         patch: O::Patch,
     ) -> Result<Option<O>, BackendSetError<MemoryError>> {
+        let caller = &self.acting(caller, account_id).await;
         let mut inner = self.locked().await;
         let mut current = inner
             .get(O::TYPE_NAME, account_id, id)
@@ -1350,10 +1395,11 @@ impl GraphBackend for MemoryBackend {
 
     async fn destroy_object<O: SetObject + Send + Sync>(
         &self,
-        caller: &Id,
+        caller: &C,
         account_id: &Id,
         id: &Id,
     ) -> Result<(), BackendSetError<MemoryError>> {
+        let caller = &self.acting(caller, account_id).await;
         let mut inner = self.locked().await;
         let current = inner
             .get(O::TYPE_NAME, account_id, id)
@@ -1416,7 +1462,7 @@ impl GraphBackend for MemoryBackend {
 
     async fn graph_edit_capability(
         &self,
-        _caller: &Id,
+        _caller: &C,
         account_id: &Id,
     ) -> Result<Option<GraphEditCapability>, MemoryError> {
         Ok(self.locked().await.edit(account_id).cloned())
@@ -1424,7 +1470,7 @@ impl GraphBackend for MemoryBackend {
 
     async fn graph_search_capability(
         &self,
-        _caller: &Id,
+        _caller: &C,
         account_id: &Id,
     ) -> Result<Option<GraphSearchCapability>, MemoryError> {
         Ok(self
@@ -1436,7 +1482,7 @@ impl GraphBackend for MemoryBackend {
 
     async fn edit_log(
         &self,
-        _caller: &Id,
+        _caller: &C,
         account_id: &Id,
         node_id: &Id,
     ) -> Result<EditLog, MemoryError> {
@@ -1445,7 +1491,7 @@ impl GraphBackend for MemoryBackend {
 
     async fn projected_graph_id(
         &self,
-        _caller: &Id,
+        _caller: &C,
         account_id: &Id,
     ) -> Result<Option<Id>, MemoryError> {
         Ok(self
@@ -1455,24 +1501,28 @@ impl GraphBackend for MemoryBackend {
             .and_then(|a| a.projected.clone()))
     }
 
-    async fn publish_cursor(&self, _caller: &Id, _account_id: &Id, event: &GraphCursorEvent) {
+    async fn publish_cursor(&self, _caller: &C, _account_id: &Id, event: &GraphCursorEvent) {
         self.locked().await.cursors.push(event.clone());
     }
 
-    fn has_capability(&self, _caller: &Id, account_id: &Id, uri: &str) -> bool {
+    fn has_capability(&self, _caller: &C, account_id: &Id, uri: &str) -> bool {
         self.lock()
             .advertised
             .contains(&(account_id.clone(), uri.to_owned()))
     }
 
-    async fn is_sender_blocked(&self, caller: &Id, sender_id: &Id) -> Result<bool, MemoryError> {
+    async fn is_sender_blocked(&self, caller: &C, sender_id: &Id) -> Result<bool, MemoryError> {
+        // A caller without identity has blocked no one.
+        let Some(caller) = caller.principal() else {
+            return Ok(false);
+        };
         Ok(self
             .lock()
             .blocked
             .contains(&(caller.clone(), sender_id.clone())))
     }
 
-    fn supports_type<O: JmapObject>(&self, _caller: &Id, account_id: &Id) -> bool {
+    fn supports_type<O: JmapObject>(&self, _caller: &C, account_id: &Id) -> bool {
         [Graph::TYPE_NAME, GraphNode::TYPE_NAME, GraphEdge::TYPE_NAME].contains(&O::TYPE_NAME)
             || (O::TYPE_NAME == GraphNodeOp::TYPE_NAME && self.lock().edit(account_id).is_some())
     }
@@ -1540,10 +1590,10 @@ fn sequence(
 /// edge. Under an atomic scope the provenance-00 evidence limit moves to
 /// the commit (`final_state_failures`), so a call can replace an evidence
 /// edge of a record at the limit.
-impl ConditionalBackend for MemoryBackend {
+impl<C: MemoryCaller> ConditionalBackend for MemoryBackend<C> {
     async fn begin_set(
         &self,
-        _caller: &Id,
+        _caller: &C,
         request: SetScopeRequest<'_>,
     ) -> Result<Box<dyn SetScope>, BeginSetError<MemoryError>> {
         Ok(self.inner.open(request, final_state_failures).await)

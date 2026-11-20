@@ -225,7 +225,7 @@ async fn server_end_cascades_through_rooms_and_recordings() {
     // timeout fired on an active call with no participants."
     end_call(
         &backend,
-        &SERVER.to_owned(),
+        &jmap_types::Id::from(SERVER),
         &Id::from(ACCOUNT),
         &Id::from(parent.as_str()),
         &[CallState::Active],
@@ -259,7 +259,7 @@ async fn server_end_refuses_an_ended_or_unknown_call() {
 
     // L900 "The server MUST return `invalidProperties` naming `state`
     // if the call is already in state `"ended"`."
-    let caller = SERVER.to_owned();
+    let caller = jmap_types::Id::from(SERVER);
     let account = Id::from(ACCOUNT);
     match end_call(
         &backend,

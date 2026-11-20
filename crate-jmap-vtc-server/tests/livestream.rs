@@ -470,7 +470,7 @@ async fn query_other_sort_property_is_unsupported() {
     // property the server does not support sorting on".
     let Err(err) = handle_vtc_livestream_query(
         &backend,
-        &BOB.to_owned(),
+        &jmap_types::Id::from(BOB),
         json!({ "accountId": ACCOUNT, "sort": [{ "property": "state" }] }),
     )
     .await

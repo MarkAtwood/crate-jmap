@@ -16,8 +16,11 @@
 //!
 //! # Caller context
 //!
-//! `CallerCtx` is the caller's VTC userId (`String`). It is what
-//! [`VtcBackend::caller_user_id`] returns and what
+//! `CallerCtx` is a type implementing [`MemoryCaller`](jmap_server::MemoryCaller):
+//! the caller's Principal id ([`Id`](jmap_types::Id), the default), whose
+//! string is the caller's VTC userId, or `()` for a deployment without
+//! identity, whose every caller acts as the user named by the account id.
+//! That userId is what [`VtcBackend::caller_user_id`] returns and what
 //! [`VtcBackend::is_moderator`] checks.
 //!
 //! # Accounts
@@ -56,11 +59,12 @@
 mod history;
 
 use std::collections::{HashMap, HashSet};
+use std::marker::PhantomData;
 
 use jmap_object_history_server::{ChangeEvent, ChangeKind, fold_restore};
 use jmap_server::{
-    BeginSetError, ConditionalBackend, DeferredFailure, ScopedGuard, ScopedState, SetOp, SetScope,
-    SetScopeRequest, apply_patch_object, limit_or_max, resolve_query_start,
+    BeginSetError, ConditionalBackend, DeferredFailure, MemoryCaller, ScopedGuard, ScopedState,
+    SetOp, SetScope, SetScopeRequest, apply_patch_object, limit_or_max, resolve_query_start,
 };
 use jmap_types::{Id, State, UTCDate};
 use jmap_vtc_types::{
@@ -434,10 +438,25 @@ impl Inner {
 /// A fully in-memory implementation of [`VtcBackend`].
 ///
 /// Cloning is cheap and **shared-state**; see the [`Clone`] impl.
-#[derive(Default)]
+///
+/// `C` is the [`JmapAccounts::CallerCtx`]: [`Id`], the caller's Principal
+/// id, by default, or `()` for a deployment without identity (see the
+/// module documentation, "Caller context").
 #[non_exhaustive]
-pub struct MemoryBackend {
+pub struct MemoryBackend<C = Id> {
     inner: ScopedState<Inner>,
+    caller: PhantomData<fn() -> C>,
+}
+
+/// An empty backend: [`MemoryBackend::new`] for any caller context, such
+/// as `MemoryBackend::<()>::default()` for a deployment without identity.
+impl<C> Default for MemoryBackend<C> {
+    fn default() -> Self {
+        Self {
+            inner: ScopedState::default(),
+            caller: PhantomData,
+        }
+    }
 }
 
 /// Manual `Clone` impl, not `#[derive(Clone)]`: cloning is **shared-state**.
@@ -447,20 +466,30 @@ pub struct MemoryBackend {
 /// one handle can seed or inspect state while another serves requests. This
 /// impl must never become a deep copy; for independent state construct a
 /// fresh [`MemoryBackend::new`] instead of calling `.clone()`.
-impl Clone for MemoryBackend {
+impl<C> Clone for MemoryBackend<C> {
     fn clone(&self) -> Self {
         Self {
             inner: self.inner.clone(),
+            caller: PhantomData,
         }
     }
 }
 
 impl MemoryBackend {
-    /// An empty backend with no accounts.
+    /// An empty backend with no accounts, whose callers are Principal ids
+    /// (`C = Id`). Equivalent to [`Self::default`].
     pub fn new() -> Self {
         Self::default()
     }
+}
 
+/// The userId `caller` acts as in `account_id`: its Principal id, or, for
+/// a caller without identity, the account id.
+fn acting_user<C: MemoryCaller>(caller: &C, account_id: &Id) -> String {
+    caller.principal().unwrap_or(account_id).as_ref().to_owned()
+}
+
+impl<C: MemoryCaller> MemoryBackend<C> {
     /// The store, for setup and test helpers, which never run inside a
     /// conditional Foo/set scope. A poisoned lock is taken anyway.
     fn lock(&self) -> ScopedGuard<'_, Inner> {
@@ -507,7 +536,7 @@ impl MemoryBackend {
     /// }))?;
     /// let account = Id::from("a1");
     /// let backend = MemoryBackend::new().with_account(&account, capability);
-    /// let caller = String::from("alice");
+    /// let caller = Id::from("alice");
     /// tokio::runtime::Runtime::new()?.block_on(async {
     ///     assert!(backend.account_exists(&caller, &account).await?);
     ///     assert!(!backend.account_exists(&caller, &Id::from("a2")).await?);
@@ -726,11 +755,16 @@ fn ring_participant(
     })
 }
 
-impl JmapAccounts for MemoryBackend {
+impl<C: MemoryCaller> JmapAccounts for MemoryBackend<C> {
     type Error = MemoryError;
-    type CallerCtx = String;
+    type CallerCtx = C;
 
-    async fn account_exists(&self, _caller: &String, account_id: &Id) -> Result<bool, MemoryError> {
+    /// [`MemoryCaller::principal`].
+    fn principal_id(caller: &C) -> Option<&Id> {
+        caller.principal()
+    }
+
+    async fn account_exists(&self, _caller: &C, account_id: &Id) -> Result<bool, MemoryError> {
         Ok(self
             .locked()
             .await
@@ -739,20 +773,21 @@ impl JmapAccounts for MemoryBackend {
     }
 }
 
-impl JmapReads for MemoryBackend {
+impl<C: MemoryCaller> JmapReads for MemoryBackend<C> {
     async fn get_objects<O: GetObject + Send + Sync>(
         &self,
-        caller: &String,
+        caller: &C,
         account_id: &Id,
         ids: Option<&[Id]>,
         _properties: Option<&[String]>,
     ) -> Result<(Vec<O>, Vec<Id>), MemoryError> {
+        let caller = &acting_user(caller, account_id);
         self.locked().await.get::<O>(Some(caller), account_id, ids)
     }
 
     async fn get_state<O: JmapObject + Send + Sync>(
         &self,
-        _caller: &String,
+        _caller: &C,
         account_id: &Id,
     ) -> Result<State, MemoryError> {
         Ok(State::from(
@@ -765,7 +800,7 @@ impl JmapReads for MemoryBackend {
 
     async fn get_changes<O: JmapObject + Send + Sync>(
         &self,
-        _caller: &String,
+        _caller: &C,
         account_id: &Id,
         params: jmap_server::ChangesParams<'_>,
     ) -> Result<ChangesResult, BackendChangesError<MemoryError>> {
@@ -870,10 +905,11 @@ impl JmapReads for MemoryBackend {
 
     async fn query_objects<O: QueryObject + Send + Sync>(
         &self,
-        caller: &String,
+        caller: &C,
         account_id: &Id,
         params: QueryParams<'_, O>,
     ) -> Result<QueryResult, BackendQueryError<MemoryError>> {
+        let caller = &acting_user(caller, account_id);
         let QueryParams {
             filter,
             sort,
@@ -983,7 +1019,7 @@ impl JmapReads for MemoryBackend {
 
     async fn query_changes<O: QueryObject + Send + Sync>(
         &self,
-        _caller: &String,
+        _caller: &C,
         _account_id: &Id,
         _params: QueryChangesParams<'_, O>,
     ) -> Result<QueryChangesResult, BackendChangesError<MemoryError>> {
@@ -998,10 +1034,10 @@ fn recode_as<T: serde::de::DeserializeOwned>(
         .map_err(|e| BackendQueryError::Other(MemoryError::serde("recode query argument", &e)))
 }
 
-impl VtcBackend for MemoryBackend {
+impl<C: MemoryCaller> VtcBackend for MemoryBackend<C> {
     async fn vtc_capability(
         &self,
-        _caller: &String,
+        _caller: &C,
         account_id: &Id,
     ) -> Result<VtcCapability, MemoryError> {
         self.locked()
@@ -1012,23 +1048,20 @@ impl VtcBackend for MemoryBackend {
             .ok_or_else(|| MemoryError::new("account not registered"))
     }
 
-    fn has_capability(&self, _caller: &String, account_id: &Id, uri: &str) -> bool {
+    fn has_capability(&self, _caller: &C, account_id: &Id, uri: &str) -> bool {
         self.lock()
             .advertised
             .contains(&(account_id.as_ref().to_owned(), uri.to_owned()))
     }
 
-    async fn caller_user_id(
-        &self,
-        caller: &String,
-        _account_id: &Id,
-    ) -> Result<String, MemoryError> {
+    async fn caller_user_id(&self, caller: &C, _account_id: &Id) -> Result<String, MemoryError> {
+        let caller = &acting_user(caller, _account_id);
         Ok(caller.clone())
     }
 
     async fn create_call<F>(
         &self,
-        _caller: &String,
+        _caller: &C,
         account_id: &Id,
         build: F,
         ring_targets: &[String],
@@ -1157,7 +1190,7 @@ impl VtcBackend for MemoryBackend {
 
     async fn create_object<O, F>(
         &self,
-        _caller: &String,
+        _caller: &C,
         account_id: &Id,
         _create_id: &str,
         build: F,
@@ -1244,24 +1277,24 @@ impl VtcBackend for MemoryBackend {
 
     async fn deliver_recording_state_event(
         &self,
-        _caller: &String,
+        _caller: &C,
         _account_id: &Id,
         event: VtcRecordingStateEvent,
     ) {
         self.locked().await.recording_events.push(event);
     }
 
-    async fn deliver_event(&self, _caller: &String, _account_id: &Id, event: VtcEvent) {
+    async fn deliver_event(&self, _caller: &C, _account_id: &Id, event: VtcEvent) {
         self.locked().await.events.push(event);
     }
 
-    async fn run_media_effect(&self, _caller: &String, _account_id: &Id, effect: MediaEffect) {
+    async fn run_media_effect(&self, _caller: &C, _account_id: &Id, effect: MediaEffect) {
         self.locked().await.media_effects.push(effect);
     }
 
     async fn update_object<O: SetObject + Send + Sync>(
         &self,
-        _caller: &String,
+        _caller: &C,
         account_id: &Id,
         id: &Id,
         patch: O::Patch,
@@ -1274,7 +1307,7 @@ impl VtcBackend for MemoryBackend {
 
     async fn update_object_if<O: StatefulObject + Send + Sync>(
         &self,
-        _caller: &String,
+        _caller: &C,
         account_id: &Id,
         id: &Id,
         expected: &[O::State],
@@ -1297,7 +1330,7 @@ impl VtcBackend for MemoryBackend {
 
     async fn destroy_object<O: SetObject + Send + Sync>(
         &self,
-        _caller: &String,
+        _caller: &C,
         account_id: &Id,
         id: &Id,
     ) -> Result<(), BackendSetError<MemoryError>> {
@@ -1329,10 +1362,11 @@ impl VtcBackend for MemoryBackend {
 
     async fn is_moderator(
         &self,
-        caller: &String,
+        caller: &C,
         account_id: &Id,
         call: &VtcCall,
     ) -> Result<bool, MemoryError> {
+        let caller = &acting_user(caller, account_id);
         // "The call initiator receives `"moderator"` by default".
         Ok(*caller == call.initiator_id
             || self.locked().await.participants(account_id).any(|p| {
@@ -1342,11 +1376,7 @@ impl VtcBackend for MemoryBackend {
             }))
     }
 
-    async fn active_call_count(
-        &self,
-        _caller: &String,
-        account_id: &Id,
-    ) -> Result<u64, MemoryError> {
+    async fn active_call_count(&self, _caller: &C, account_id: &Id) -> Result<u64, MemoryError> {
         Ok(self
             .lock()
             .calls(account_id)
@@ -1356,21 +1386,25 @@ impl VtcBackend for MemoryBackend {
 
     async fn get_objects_unscoped<O: GetObject + Send + Sync>(
         &self,
-        _caller: &String,
+        _caller: &C,
         account_id: &Id,
         ids: Option<&[Id]>,
     ) -> Result<(Vec<O>, Vec<Id>), MemoryError> {
         self.locked().await.get::<O>(None, account_id, ids)
     }
 
-    async fn is_user_blocked(&self, caller: &String, user_id: &str) -> Result<bool, MemoryError> {
+    async fn is_user_blocked(&self, caller: &C, user_id: &str) -> Result<bool, MemoryError> {
+        // A caller without identity has blocked no one.
+        let Some(caller) = caller.principal() else {
+            return Ok(false);
+        };
         Ok(self
             .lock()
             .blocked
-            .contains(&(caller.clone(), user_id.to_owned())))
+            .contains(&(caller.as_ref().to_owned(), user_id.to_owned())))
     }
 
-    fn supports_type<O: JmapObject>(&self, _caller: &String, _account_id: &Id) -> bool {
+    fn supports_type<O: JmapObject>(&self, _caller: &C, _account_id: &Id) -> bool {
         true
     }
 }
@@ -1389,10 +1423,10 @@ impl VtcBackend for MemoryBackend {
 /// participant record per user per call", `maxParticipantsPerCall`,
 /// `maxConcurrentCalls`, `maxBreakoutRooms` and the livestream limit to
 /// the commit, which checks the final state (`final_state_failures`).
-impl ConditionalBackend for MemoryBackend {
+impl<C: MemoryCaller> ConditionalBackend for MemoryBackend<C> {
     async fn begin_set(
         &self,
-        _caller: &String,
+        _caller: &C,
         request: SetScopeRequest<'_>,
     ) -> Result<Box<dyn SetScope>, BeginSetError<MemoryError>> {
         Ok(self.inner.open(request, final_state_failures).await)
@@ -1573,8 +1607,6 @@ mod max_changes_tests {
     use super::*;
     use jmap_vtc_types::VtcCall as T;
 
-    const CALLER: String = String::new();
-
     /// A backend whose `T` log holds one commit per element of `states`,
     /// each creating the listed ids under one state.
     fn with_creates(states: &[&[&str]]) -> MemoryBackend {
@@ -1638,7 +1670,7 @@ mod max_changes_tests {
     ) -> Result<ChangesResult, BackendChangesError<<MemoryBackend as JmapAccounts>::Error>> {
         backend
             .get_changes::<T>(
-                &CALLER,
+                &Id::from("caller"),
                 &Id::from("acc1"),
                 jmap_server::ChangesParams::new(&State::from(since)).max_changes(Some(max)),
             )

@@ -29,7 +29,7 @@ const REGION: &str = "01J5ABC0000000000000000001";
 
 type Handler = for<'a> fn(
     &'a MemoryBackend,
-    &'a String,
+    &'a jmap_types::Id,
     Value,
 ) -> std::pin::Pin<
     Box<dyn std::future::Future<Output = Result<HandlerOutput, JmapError>> + 'a>,
@@ -86,7 +86,7 @@ fn cases() -> [(&'static str, Handler, Value); 8] {
 async fn run(handler: Handler, filter: Value) -> Result<HandlerOutput, JmapError> {
     let backend = backend();
     let args = json!({ "accountId": ACCOUNT, "sinceQueryState": "0", "filter": filter });
-    handler(&backend, &ALICE.to_owned(), args).await
+    handler(&backend, &jmap_types::Id::from(ALICE), args).await
 }
 
 fn assert_unsupported(method: &str, filter: &Value, result: Result<HandlerOutput, JmapError>) {

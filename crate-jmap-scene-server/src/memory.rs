@@ -9,7 +9,11 @@
 //!
 //! # Caller context
 //!
-//! `CallerCtx` is the caller's userId (`String`). The owner of an asset or
+//! `CallerCtx` is a type implementing [`MemoryCaller`](jmap_server::MemoryCaller):
+//! the caller's Principal id ([`Id`](jmap_types::Id), the default), whose
+//! string is the caller's userId, or `()` for a deployment without
+//! identity, whose every caller acts as the user named by the account id.
+//! The owner of an asset or
 //! a region is its `ownerId`;
 //! [`SceneBackend::may_modify_asset`] and
 //! [`SceneBackend::may_update_region`] allow the owner and the users
@@ -101,6 +105,7 @@
 mod history;
 
 use std::collections::{HashMap, HashSet};
+use std::marker::PhantomData;
 
 use jmap_object_history_server::{ChangeEvent, ChangeKind, fold_restore};
 use jmap_scene_types::{
@@ -112,8 +117,8 @@ use jmap_scene_types::{
     SceneObjectComparator, SceneObjectFilter, SceneRegionComparator, SceneRegionFilter,
 };
 use jmap_server::{
-    BeginSetError, ConditionalBackend, DeferredFailure, ScopedGuard, ScopedState, SetOp, SetScope,
-    SetScopeRequest, apply_patch_object, limit_or_max, resolve_query_start,
+    BeginSetError, ConditionalBackend, DeferredFailure, MemoryCaller, ScopedGuard, ScopedState,
+    SetOp, SetScope, SetScopeRequest, apply_patch_object, limit_or_max, resolve_query_start,
 };
 use jmap_types::{Id, State};
 use serde::Serialize;
@@ -400,10 +405,25 @@ impl Inner {
 /// A fully in-memory implementation of [`SceneBackend`].
 ///
 /// Cloning is cheap and **shared-state**; see the [`Clone`] impl.
-#[derive(Default)]
+///
+/// `C` is the [`JmapAccounts::CallerCtx`]: [`Id`], the caller's Principal
+/// id, by default, or `()` for a deployment without identity (see the
+/// module documentation, "Caller context").
 #[non_exhaustive]
-pub struct MemoryBackend {
+pub struct MemoryBackend<C = Id> {
     inner: ScopedState<Inner>,
+    caller: PhantomData<fn() -> C>,
+}
+
+/// An empty backend: [`MemoryBackend::new`] for any caller context, such
+/// as `MemoryBackend::<()>::default()` for a deployment without identity.
+impl<C> Default for MemoryBackend<C> {
+    fn default() -> Self {
+        Self {
+            inner: ScopedState::default(),
+            caller: PhantomData,
+        }
+    }
 }
 
 /// Manual `Clone` impl, not `#[derive(Clone)]`: cloning is **shared-state**.
@@ -413,20 +433,30 @@ pub struct MemoryBackend {
 /// one handle can seed or inspect state while another serves requests. This
 /// impl must never become a deep copy; for independent state construct a
 /// fresh [`MemoryBackend::new`] instead of calling `.clone()`.
-impl Clone for MemoryBackend {
+impl<C> Clone for MemoryBackend<C> {
     fn clone(&self) -> Self {
         Self {
             inner: self.inner.clone(),
+            caller: PhantomData,
         }
     }
 }
 
 impl MemoryBackend {
-    /// An empty backend with no accounts.
+    /// An empty backend with no accounts, whose callers are Principal ids
+    /// (`C = Id`). Equivalent to [`Self::default`].
     pub fn new() -> Self {
         Self::default()
     }
+}
 
+/// The userId `caller` acts as in `account_id`: its Principal id, or, for
+/// a caller without identity, the account id.
+fn acting_user<C: MemoryCaller>(caller: &C, account_id: &Id) -> String {
+    caller.principal().unwrap_or(account_id).as_ref().to_owned()
+}
+
+impl<C: MemoryCaller> MemoryBackend<C> {
     /// The store, for setup and test helpers, which never run inside a
     /// conditional Foo/set scope. A poisoned lock is taken anyway.
     fn lock(&self) -> ScopedGuard<'_, Inner> {
@@ -464,7 +494,7 @@ impl MemoryBackend {
     /// }))?;
     /// let account = Id::from("a1");
     /// let backend = MemoryBackend::new().with_account(&account, capability);
-    /// let caller = String::from("alice");
+    /// let caller = Id::from("alice");
     /// tokio::runtime::Runtime::new()?.block_on(async {
     ///     assert!(backend.account_exists(&caller, &account).await?);
     ///     assert!(!backend.account_exists(&caller, &Id::from("a2")).await?);
@@ -711,11 +741,16 @@ fn sorted_ids<T>(
     list.into_iter().map(id).collect()
 }
 
-impl JmapAccounts for MemoryBackend {
+impl<C: MemoryCaller> JmapAccounts for MemoryBackend<C> {
     type Error = MemoryError;
-    type CallerCtx = String;
+    type CallerCtx = C;
 
-    async fn account_exists(&self, _caller: &String, account_id: &Id) -> Result<bool, MemoryError> {
+    /// [`MemoryCaller::principal`].
+    fn principal_id(caller: &C) -> Option<&Id> {
+        caller.principal()
+    }
+
+    async fn account_exists(&self, _caller: &C, account_id: &Id) -> Result<bool, MemoryError> {
         Ok(self
             .locked()
             .await
@@ -724,10 +759,10 @@ impl JmapAccounts for MemoryBackend {
     }
 }
 
-impl JmapReads for MemoryBackend {
+impl<C: MemoryCaller> JmapReads for MemoryBackend<C> {
     async fn get_objects<O: GetObject + Send + Sync>(
         &self,
-        _caller: &String,
+        _caller: &C,
         account_id: &Id,
         ids: Option<&[Id]>,
         _properties: Option<&[String]>,
@@ -759,7 +794,7 @@ impl JmapReads for MemoryBackend {
 
     async fn get_state<O: JmapObject + Send + Sync>(
         &self,
-        _caller: &String,
+        _caller: &C,
         account_id: &Id,
     ) -> Result<State, MemoryError> {
         Ok(State::from(
@@ -772,7 +807,7 @@ impl JmapReads for MemoryBackend {
 
     async fn get_changes<O: JmapObject + Send + Sync>(
         &self,
-        _caller: &String,
+        _caller: &C,
         account_id: &Id,
         params: jmap_server::ChangesParams<'_>,
     ) -> Result<ChangesResult, BackendChangesError<MemoryError>> {
@@ -877,10 +912,11 @@ impl JmapReads for MemoryBackend {
 
     async fn query_objects<O: QueryObject + Send + Sync>(
         &self,
-        caller: &String,
+        caller: &C,
         account_id: &Id,
         params: QueryParams<'_, O>,
     ) -> Result<QueryResult, BackendQueryError<MemoryError>> {
+        let caller = &acting_user(caller, account_id);
         let QueryParams {
             filter,
             sort,
@@ -974,7 +1010,7 @@ impl JmapReads for MemoryBackend {
 
     async fn query_changes<O: QueryObject + Send + Sync>(
         &self,
-        _caller: &String,
+        _caller: &C,
         _account_id: &Id,
         _params: QueryChangesParams<'_, O>,
     ) -> Result<QueryChangesResult, BackendChangesError<MemoryError>> {
@@ -982,10 +1018,10 @@ impl JmapReads for MemoryBackend {
     }
 }
 
-impl SceneBackend for MemoryBackend {
+impl<C: MemoryCaller> SceneBackend for MemoryBackend<C> {
     async fn scene_capability(
         &self,
-        _caller: &String,
+        _caller: &C,
         account_id: &Id,
     ) -> Result<SceneCapability, MemoryError> {
         self.locked()
@@ -998,7 +1034,7 @@ impl SceneBackend for MemoryBackend {
 
     async fn blob_size(
         &self,
-        _caller: &String,
+        _caller: &C,
         account_id: &Id,
         blob_id: &Id,
     ) -> Result<Option<u64>, MemoryError> {
@@ -1011,7 +1047,7 @@ impl SceneBackend for MemoryBackend {
 
     async fn create_object<O, F>(
         &self,
-        caller: &String,
+        caller: &C,
         account_id: &Id,
         _create_id: &str,
         build: F,
@@ -1020,6 +1056,7 @@ impl SceneBackend for MemoryBackend {
         O: SetObject + Send + Sync,
         F: FnOnce(&Id) -> O + Send,
     {
+        let caller = &acting_user(caller, account_id);
         let id = Id::from(ulid::Ulid::new().to_string());
         let mut value = serde_json::to_value(build(&id)).map_err(|e| {
             BackendSetError::Other(MemoryError::serde("serialize created object", &e))
@@ -1093,7 +1130,7 @@ impl SceneBackend for MemoryBackend {
 
     async fn update_object<O: SetObject + Send + Sync>(
         &self,
-        _caller: &String,
+        _caller: &C,
         account_id: &Id,
         id: &Id,
         patch: O::Patch,
@@ -1169,7 +1206,7 @@ impl SceneBackend for MemoryBackend {
 
     async fn destroy_object<O: SetObject + Send + Sync>(
         &self,
-        _caller: &String,
+        _caller: &C,
         account_id: &Id,
         id: &Id,
     ) -> Result<(), BackendSetError<MemoryError>> {
@@ -1240,15 +1277,16 @@ impl SceneBackend for MemoryBackend {
 
     async fn may_modify_asset(
         &self,
-        caller: &String,
+        caller: &C,
         _account_id: &Id,
         asset: &SceneAsset,
     ) -> Result<bool, MemoryError> {
+        let caller = &acting_user(caller, _account_id);
         // "Only the asset owner or an admin may modify asset metadata."
         Ok(asset.owner_id == *caller || self.locked().await.admins.contains(caller))
     }
 
-    fn has_capability(&self, _caller: &String, account_id: &Id, uri: &str) -> bool {
+    fn has_capability(&self, _caller: &C, account_id: &Id, uri: &str) -> bool {
         self.lock()
             .capabilities
             .get(account_id.as_ref())
@@ -1257,7 +1295,7 @@ impl SceneBackend for MemoryBackend {
 
     async fn region_binding(
         &self,
-        _caller: &String,
+        _caller: &C,
         _account_id: &Id,
         property: BindingProperty,
         id: &Id,
@@ -1272,7 +1310,7 @@ impl SceneBackend for MemoryBackend {
 
     async fn channel_in_space(
         &self,
-        _caller: &String,
+        _caller: &C,
         _account_id: &Id,
         channel_id: &Id,
         space_id: &Id,
@@ -1285,30 +1323,33 @@ impl SceneBackend for MemoryBackend {
 
     async fn may_update_region(
         &self,
-        caller: &String,
+        caller: &C,
         _account_id: &Id,
         region: &SceneRegion,
     ) -> Result<bool, MemoryError> {
+        let caller = &acting_user(caller, _account_id);
         // "Only the owner or an admin may modify region properties."
         Ok(region.owner_id == *caller || self.locked().await.admins.contains(caller))
     }
 
     async fn may_destroy_region(
         &self,
-        caller: &String,
+        caller: &C,
         _account_id: &Id,
         region: &SceneRegion,
     ) -> Result<bool, MemoryError> {
+        let caller = &acting_user(caller, _account_id);
         // "Only the region owner or an admin may destroy a region."
         Ok(region.owner_id == *caller || self.locked().await.admins.contains(caller))
     }
 
     async fn may_modify_object(
         &self,
-        caller: &String,
+        caller: &C,
         account_id: &Id,
         object: &SceneObject,
     ) -> Result<bool, MemoryError> {
+        let caller = &acting_user(caller, account_id);
         // "Only the object's `ownerId`, the region owner, or a
         // deployment-admin may modify another user's object."
         let inner = self.locked().await;
@@ -1317,20 +1358,18 @@ impl SceneBackend for MemoryBackend {
             || inner.owns_region(caller, account_id, &object.region_id))
     }
 
-    async fn caller_user_id(
-        &self,
-        caller: &String,
-        _account_id: &Id,
-    ) -> Result<String, MemoryError> {
+    async fn caller_user_id(&self, caller: &C, _account_id: &Id) -> Result<String, MemoryError> {
+        let caller = &acting_user(caller, _account_id);
         Ok(caller.clone())
     }
 
     async fn may_enter_region(
         &self,
-        caller: &String,
+        caller: &C,
         _account_id: &Id,
         region: &SceneRegion,
     ) -> Result<bool, MemoryError> {
+        let caller = &acting_user(caller, _account_id);
         Ok(!self
             .lock()
             .bans
@@ -1339,10 +1378,11 @@ impl SceneBackend for MemoryBackend {
 
     async fn may_access_region(
         &self,
-        caller: &String,
+        caller: &C,
         account_id: &Id,
         region_id: &Id,
     ) -> Result<bool, MemoryError> {
+        let caller = &acting_user(caller, account_id);
         Ok(self
             .locked()
             .await
@@ -1351,29 +1391,35 @@ impl SceneBackend for MemoryBackend {
 
     async fn is_object_visible(
         &self,
-        caller: &String,
+        caller: &C,
         _account_id: &Id,
         object: &SceneObject,
     ) -> Result<bool, MemoryError> {
+        let caller = &acting_user(caller, _account_id);
         Ok(!self
             .lock()
             .hidden
             .contains(&(caller.clone(), object.id.clone())))
     }
 
-    async fn is_user_blocked(&self, caller: &String, user_id: &str) -> Result<bool, MemoryError> {
+    async fn is_user_blocked(&self, caller: &C, user_id: &str) -> Result<bool, MemoryError> {
+        // A caller without identity has blocked no one.
+        let Some(caller) = caller.principal() else {
+            return Ok(false);
+        };
         Ok(self
             .lock()
             .blocked
-            .contains(&(caller.clone(), user_id.to_owned())))
+            .contains(&(caller.as_ref().to_owned(), user_id.to_owned())))
     }
 
     async fn may_see_region_avatars(
         &self,
-        caller: &String,
+        caller: &C,
         _account_id: &Id,
         region_id: &Id,
     ) -> Result<bool, MemoryError> {
+        let caller = &acting_user(caller, _account_id);
         Ok(!self
             .lock()
             .hidden_avatars
@@ -1382,7 +1428,7 @@ impl SceneBackend for MemoryBackend {
 
     async fn reserved_display_names(
         &self,
-        _caller: &String,
+        _caller: &C,
         _account_id: &Id,
     ) -> Result<Vec<String>, MemoryError> {
         Ok(self.locked().await.reserved_names.clone())
@@ -1390,10 +1436,11 @@ impl SceneBackend for MemoryBackend {
 
     async fn may_eject_avatar(
         &self,
-        caller: &String,
+        caller: &C,
         account_id: &Id,
         avatar: &SceneAvatar,
     ) -> Result<bool, MemoryError> {
+        let caller = &acting_user(caller, account_id);
         // "Region owners and administrators MAY eject avatars".
         let inner = self.locked().await;
         Ok(inner.admins.contains(caller)
@@ -1402,7 +1449,7 @@ impl SceneBackend for MemoryBackend {
 
     async fn accept_interaction(
         &self,
-        _caller: &String,
+        _caller: &C,
         _account_id: &Id,
         event: &SceneInteractionEvent,
     ) -> Result<bool, MemoryError> {
@@ -1414,7 +1461,7 @@ impl SceneBackend for MemoryBackend {
         Ok(true)
     }
 
-    fn supports_type<O: JmapObject>(&self, _caller: &String, _account_id: &Id) -> bool {
+    fn supports_type<O: JmapObject>(&self, _caller: &C, _account_id: &Id) -> bool {
         [
             SceneAsset::TYPE_NAME,
             SceneRegion::TYPE_NAME,
@@ -1435,10 +1482,10 @@ impl SceneBackend for MemoryBackend {
 /// and queued deliveries together. Under an atomic scope the backend leaves
 /// `maxAvatarsPerRegion` to the commit, which checks the final state
 /// (`final_state_failures`).
-impl ConditionalBackend for MemoryBackend {
+impl<C: MemoryCaller> ConditionalBackend for MemoryBackend<C> {
     async fn begin_set(
         &self,
-        _caller: &String,
+        _caller: &C,
         request: SetScopeRequest<'_>,
     ) -> Result<Box<dyn SetScope>, BeginSetError<MemoryError>> {
         Ok(self.inner.open(request, final_state_failures).await)
@@ -1535,8 +1582,6 @@ mod max_changes_tests {
     use super::*;
     use jmap_scene_types::SceneObject as T;
 
-    const CALLER: String = String::new();
-
     /// A backend whose `T` log holds one commit per element of `states`,
     /// each creating the listed ids under one state.
     fn with_creates(states: &[&[&str]]) -> MemoryBackend {
@@ -1600,7 +1645,7 @@ mod max_changes_tests {
     ) -> Result<ChangesResult, BackendChangesError<<MemoryBackend as JmapAccounts>::Error>> {
         backend
             .get_changes::<T>(
-                &CALLER,
+                &Id::from("caller"),
                 &Id::from("acc1"),
                 jmap_server::ChangesParams::new(&State::from(since)).max_changes(Some(max)),
             )

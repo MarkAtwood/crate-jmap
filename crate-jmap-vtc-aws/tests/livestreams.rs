@@ -78,7 +78,7 @@ fn backend() -> MemoryBackend {
 
 async fn livestream_set(b: &MemoryBackend, mut args: Value) -> Value {
     args["accountId"] = json!(ACCOUNT);
-    handle_vtc_livestream_set(b, &BOB.to_owned(), &BTreeMap::new(), args)
+    handle_vtc_livestream_set(b, &jmap_types::Id::from(BOB), &BTreeMap::new(), args)
         .await
         .unwrap()
         .primary
@@ -87,7 +87,7 @@ async fn livestream_set(b: &MemoryBackend, mut args: Value) -> Value {
 async fn livestream_get(b: &MemoryBackend, id: &Id) -> Value {
     handle_vtc_livestream_get(
         b,
-        &BOB.to_owned(),
+        &jmap_types::Id::from(BOB),
         json!({"accountId": ACCOUNT, "ids": [id]}),
     )
     .await
@@ -170,7 +170,7 @@ async fn hosted_livestream_lifecycle() {
     let channel: IvsChannel =
         serde_json::from_value(serde_json::to_value(&channel).unwrap()).unwrap();
 
-    let caller = SYSTEM.to_owned();
+    let caller = jmap_types::Id::from(SYSTEM);
     let reporter = MediaReporter::new(&b, &caller, Id::from(ACCOUNT));
     ivs.report_event(&reporter, &channel, &event("Session Created"))
         .await
@@ -234,7 +234,7 @@ async fn quota_failure_reports_unavailable() {
     let err = ivs.start(&ls).await.unwrap_err();
     assert_eq!(err.failure_reason(), LivestreamFailureReason::Unavailable);
 
-    let caller = SYSTEM.to_owned();
+    let caller = jmap_types::Id::from(SYSTEM);
     MediaReporter::new(&b, &caller, Id::from(ACCOUNT))
         .livestream_failed(&ls.id, err.failure_reason())
         .await
@@ -279,7 +279,7 @@ async fn events_map_to_failure_reasons() {
     .await;
     let ivs = IvsLivestreams::new(client(&server), ChannelTemplate::default());
     let b = backend();
-    let caller = SYSTEM.to_owned();
+    let caller = jmap_types::Id::from(SYSTEM);
     let reporter = MediaReporter::new(&b, &caller, Id::from(ACCOUNT));
 
     livestream_set(

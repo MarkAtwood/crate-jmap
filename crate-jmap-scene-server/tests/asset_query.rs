@@ -55,7 +55,7 @@ fn backend_with_assets() -> MemoryBackend {
 async fn query(backend: &MemoryBackend, args: Value) -> Result<Value, jmap_types::JmapError> {
     let mut args = args;
     args["accountId"] = json!(ACCOUNT);
-    handle_scene_asset_query(backend, &ALICE.to_owned(), args)
+    handle_scene_asset_query(backend, &jmap_types::Id::from(ALICE), args)
         .await
         .map(|o| o.primary)
 }

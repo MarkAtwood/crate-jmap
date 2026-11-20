@@ -190,7 +190,7 @@ async fn call_end_requests_stops() {
 #[tokio::test]
 async fn atomic_failure_requests_no_media_effect() {
     let b = Arc::new(media_backend());
-    let mut d: Dispatcher<String> = Dispatcher::new();
+    let mut d: Dispatcher<jmap_types::Id> = Dispatcher::new();
     register_vtc_handlers(&mut d, Arc::clone(&b));
     register_vtc_conditional(&mut d, Arc::clone(&b));
     let req: JmapRequest = serde_json::from_value(json!({
@@ -209,8 +209,11 @@ async fn atomic_failure_requests_no_media_effect() {
         }, "0"]]
     }))
     .expect("request");
-    let resp = serde_json::to_value(d.dispatch(req, BOB.to_owned(), State::from("s")).await)
-        .expect("response");
+    let resp = serde_json::to_value(
+        d.dispatch(req, jmap_types::Id::from(BOB), State::from("s"))
+            .await,
+    )
+    .expect("response");
     assert_eq!(
         resp["methodResponses"][0][1]["type"], "atomicFailure",
         "{resp}"

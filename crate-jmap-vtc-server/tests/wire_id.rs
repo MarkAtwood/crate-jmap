@@ -43,7 +43,7 @@ async fn vtc_participant_set_rejects_malformed_call_id() {
     });
     let resp = handle_vtc_participant_set(
         &backend,
-        &ALICE.to_owned(),
+        &jmap_types::Id::from(ALICE),
         &std::collections::BTreeMap::new(),
         args,
     )
@@ -67,7 +67,7 @@ async fn vtc_participant_set_non_string_destroy_element_does_not_echo_value() {
     args["accountId"] = json!(ACCOUNT);
     let err = handle_vtc_participant_set(
         &backend,
-        &ALICE.to_owned(),
+        &jmap_types::Id::from(ALICE),
         &std::collections::BTreeMap::new(),
         args,
     )

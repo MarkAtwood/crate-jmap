@@ -272,7 +272,7 @@ async fn unknown_filter_property_is_unsupported() {
 #[tokio::test]
 async fn registers_the_five_vtc_call_methods() {
     let backend = Arc::new(seeded());
-    let mut dispatcher: Dispatcher<String> = Dispatcher::new();
+    let mut dispatcher: Dispatcher<jmap_types::Id> = Dispatcher::new();
     register_vtc_handlers(&mut dispatcher, backend);
 
     // L713-957: `VTCCall/get`, `/changes`, `/set`, `/query`,
@@ -302,7 +302,7 @@ async fn registers_the_five_vtc_call_methods() {
             None,
         );
         let resp = dispatcher
-            .dispatch(req, BOB.to_owned(), State::from("s0"))
+            .dispatch(req, jmap_types::Id::from(BOB), State::from("s0"))
             .await;
         let out = &resp.method_responses[0].arguments;
         assert_ne!(out["type"], "unknownMethod", "{method}: {out}");
@@ -314,7 +314,7 @@ async fn unknown_account_is_account_not_found() {
     let backend = seeded();
     // RFC 8620 §3.6.2 "accountNotFound: The accountId does not correspond
     // to a valid account", checked before the L933 chat-filter rule.
-    let caller = BOB.to_owned();
+    let caller = jmap_types::Id::from(BOB);
     let err = jmap_vtc_server::handle_vtc_call_query(
         &backend,
         &caller,

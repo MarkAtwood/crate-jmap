@@ -34,7 +34,7 @@ fn args(method: &str, account: &str) -> Value {
 }
 
 async fn run(backend: &MemoryBackend, method: &str, account: &str) -> Result<(), JmapError> {
-    let caller = ALICE.to_owned();
+    let caller = jmap_types::Id::from(ALICE);
     let a = args(method, account);
     match method {
         "get" => handle_scene_asset_get(backend, &caller, a).await.map(drop),

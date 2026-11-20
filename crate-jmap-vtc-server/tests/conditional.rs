@@ -29,7 +29,7 @@ const USING: &[&str] = &[
     "urn:ietf:params:jmap:conditional",
 ];
 
-fn dispatcher(b: &Arc<MemoryBackend>) -> Dispatcher<String> {
+fn dispatcher(b: &Arc<MemoryBackend>) -> Dispatcher<jmap_types::Id> {
     let mut d = Dispatcher::new();
     register_vtc_handlers(&mut d, Arc::clone(b));
     register_vtc_conditional(&mut d, Arc::clone(b));
@@ -37,7 +37,7 @@ fn dispatcher(b: &Arc<MemoryBackend>) -> Dispatcher<String> {
 }
 
 async fn call(
-    d: &Dispatcher<String>,
+    d: &Dispatcher<jmap_types::Id>,
     caller: &str,
     method: &str,
     mut args: Value,
@@ -46,8 +46,11 @@ async fn call(
     let req: JmapRequest =
         serde_json::from_value(json!({"using": USING, "methodCalls": [[method, args, "0"]]}))
             .unwrap();
-    let resp =
-        serde_json::to_value(d.dispatch(req, caller.to_owned(), State::from("s")).await).unwrap();
+    let resp = serde_json::to_value(
+        d.dispatch(req, jmap_types::Id::from(caller), State::from("s"))
+            .await,
+    )
+    .unwrap();
     let inv = &resp["methodResponses"][0];
     (inv[0].as_str().unwrap().to_owned(), inv[1].clone())
 }
@@ -200,7 +203,7 @@ async fn second_record_for_a_user_is_rejected_at_commit() {
 }
 
 /// ALICE joins C1; her participant id.
-async fn join(d: &Dispatcher<String>) -> String {
+async fn join(d: &Dispatcher<jmap_types::Id>) -> String {
     let (_, r) = call(
         d,
         ALICE,
@@ -214,7 +217,7 @@ async fn join(d: &Dispatcher<String>) -> String {
 #[test]
 fn ready_after_handlers_and_conditional() {
     let b = room(capability());
-    let mut d: Dispatcher<String> = Dispatcher::new();
+    let mut d: Dispatcher<jmap_types::Id> = Dispatcher::new();
     register_vtc_handlers(&mut d, Arc::clone(&b));
     assert_eq!(d.conditional_gaps().len(), 4, "{:?}", d.conditional_gaps());
     register_vtc_conditional(&mut d, b);

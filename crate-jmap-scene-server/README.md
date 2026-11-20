@@ -45,12 +45,12 @@ and `SceneBackend::region_binding`.
 
 ```rust,ignore
 use std::sync::Arc;
-use jmap_server::Dispatcher;
+use jmap_server::{Dispatcher, Id};
 use jmap_scene_server::{memory::MemoryBackend, register_scene_handlers};
 
 // `capability`: the account-level object the Session advertises.
 let backend = Arc::new(MemoryBackend::new().with_account(&account_id, capability));
-let mut dispatcher: Dispatcher<String> = Dispatcher::new();
+let mut dispatcher: Dispatcher<Id> = Dispatcher::new();
 register_scene_handlers(&mut dispatcher, backend);
 ```
 
@@ -218,8 +218,9 @@ sort over destroyed objects.
 - The `name` filter is a case-insensitive substring match, as in the
   draft's example. The `name` sort ignores `collation` and puts assets
   without a name last.
-- The `MemoryBackend` caller context is the caller's userId `String`; the
-  creator owns an asset. `grant_region_access` admits a user to an
+- The `MemoryBackend` caller context is a `jmap_server::MemoryCaller`: the
+  caller's Principal `Id` (whose string is the userId), or `()` (the
+  account id is the userId); the creator owns an asset. `grant_region_access` admits a user to an
   `invite` region. Its `/queryChanges` always returns
   `cannotCalculateChanges`.
 

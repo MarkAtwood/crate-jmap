@@ -33,7 +33,7 @@ fn history_backend() -> MemoryBackend {
 
 struct Server {
     b: MemoryBackend,
-    d: Dispatcher<String>,
+    d: Dispatcher<jmap_types::Id>,
 }
 
 impl Server {
@@ -52,9 +52,12 @@ impl Server {
             "methodCalls": [[method, args, "0"]]
         }))
         .unwrap();
-        let resp =
-            serde_json::to_value(self.d.dispatch(req, who.to_owned(), State::from("s")).await)
-                .unwrap();
+        let resp = serde_json::to_value(
+            self.d
+                .dispatch(req, jmap_types::Id::from(who), State::from("s"))
+                .await,
+        )
+        .unwrap();
         resp["methodResponses"][0].clone()
     }
 
@@ -178,10 +181,10 @@ async fn participant_has_no_history() {
 
 #[test]
 fn registration_has_no_gaps() {
-    let mut d: Dispatcher<String> = Dispatcher::new();
+    let mut d: Dispatcher<jmap_types::Id> = Dispatcher::new();
     register_vtc_handlers_with_history(&mut d, Arc::new(history_backend()));
     assert!(d.object_history_gaps(&TYPES).is_empty());
-    let mut d: Dispatcher<String> = Dispatcher::new();
+    let mut d: Dispatcher<jmap_types::Id> = Dispatcher::new();
     register_vtc_handlers(&mut d, Arc::new(history_backend()));
     assert_eq!(d.object_history_gaps(&["VTCCall"]).len(), 4);
 }

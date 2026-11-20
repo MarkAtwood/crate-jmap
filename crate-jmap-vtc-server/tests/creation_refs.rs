@@ -30,7 +30,7 @@ use jmap_vtc_server::register_vtc_handlers;
 use serde_json::{Value, json};
 
 async fn dispatch(method_calls: Value) -> JmapResponse {
-    let mut dispatcher: Dispatcher<String> = Dispatcher::new();
+    let mut dispatcher: Dispatcher<jmap_types::Id> = Dispatcher::new();
     register_vtc_handlers(&mut dispatcher, Arc::new(backend()));
     let request: JmapRequest = serde_json::from_value(json!({
         "using": ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:vtc"],
@@ -38,7 +38,7 @@ async fn dispatch(method_calls: Value) -> JmapResponse {
     }))
     .expect("request JSON must deserialize");
     dispatcher
-        .dispatch(request, BOB.to_owned(), State::from("s0"))
+        .dispatch(request, jmap_types::Id::from(BOB), State::from("s0"))
         .await
 }
 

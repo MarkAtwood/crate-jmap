@@ -31,7 +31,7 @@ fn scheduled_call(start: &str) -> Value {
 
 async fn participants(backend: &jmap_vtc_server::memory::MemoryBackend) -> Vec<VtcParticipant> {
     backend
-        .get_objects::<VtcParticipant>(&BOB.to_owned(), &Id::from(ACCOUNT), None, None)
+        .get_objects::<VtcParticipant>(&jmap_types::Id::from(BOB), &Id::from(ACCOUNT), None, None)
         .await
         .expect("participants")
         .0

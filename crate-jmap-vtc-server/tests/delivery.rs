@@ -105,7 +105,7 @@ async fn delivers_with_own_account(
 ) -> bool {
     should_deliver(
         backend,
-        &recipient.to_owned(),
+        &jmap_types::Id::from(recipient),
         &Id::from(ACCOUNT),
         &Id::from(own_account),
         sub,

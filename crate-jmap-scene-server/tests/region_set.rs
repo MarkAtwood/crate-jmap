@@ -842,7 +842,7 @@ async fn destroy_removes_contained_objects_and_avatars() {
     assert!(get(&backend, &id).await.is_null());
 
     let acct = Id::from(ACCOUNT);
-    let caller = ALICE.to_owned();
+    let caller = jmap_types::Id::from(ALICE);
     let (objects, missing) = backend
         .get_objects::<SceneObject>(
             &caller,
