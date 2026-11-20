@@ -2,11 +2,13 @@
   "id": "JMAP-saks",
   "title": "jmap-server: DelegateJmapAccounts",
   "description": "(a1, medium) Without it a wrapper must know which JmapAccounts methods the inner backend overrides (e.g. metadata_info) and forward them by hand. Found by the toy-consumer check (docs/audits/2026-11-20-toy-consumers/README.md).",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "task",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-20T03:00:09.863621957Z",
   "created_by": "Mark Atwood",
-  "updated_at": "2026-11-20T03:00:09.863621957Z"
+  "updated_at": "2026-11-20T04:17:11.757763997Z",
+  "closed_at": "2026-11-20T04:17:11.757763997Z",
+  "close_reason": "Done (1f7d819c..0f82e214); toy-consumer probes rerun green."
 }

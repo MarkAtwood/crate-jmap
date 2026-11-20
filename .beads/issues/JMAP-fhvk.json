@@ -2,11 +2,13 @@
   "id": "JMAP-fhvk",
   "title": "graph, vtc, scene memory backends: public way to add an account",
   "description": "(b2, high) MemoryBackend::register_account is #[doc(hidden)] with no public alternative, so a consumer cannot get past accountNotFound. Found by the toy-consumer check (docs/audits/2026-11-20-toy-consumers/README.md).",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "task",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-20T03:00:09.108139389Z",
   "created_by": "Mark Atwood",
-  "updated_at": "2026-11-20T03:00:09.108139389Z"
+  "updated_at": "2026-11-20T04:17:08.738936679Z",
+  "closed_at": "2026-11-20T04:17:08.738936679Z",
+  "close_reason": "Done (1f7d819c..0f82e214); toy-consumer probes rerun green."
 }

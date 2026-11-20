@@ -1,1 +1,2 @@
 {"id":"01a1f6e5-ae4a-7683-90c0-96c54f3590ce","issue_id":"JMAP-saks","event_type":"created","actor":"Mark Atwood","old_value":"","new_value":"","created_at":"2026-11-20T03:00:09.930428162Z"}
+{"id":"01a1f72c-34b0-7aca-a970-a11ef7effe53","issue_id":"JMAP-saks","event_type":"closed","actor":"Mark Atwood","old_value":"","new_value":"Done (1f7d819c..0f82e214); toy-consumer probes rerun green.","created_at":"2026-11-20T04:17:11.856709279Z"}
