@@ -1041,6 +1041,7 @@ async fn start_livestream<B: VtcBackend>(
 
 /// The `overQuota` SetError for a livestream create over the account's
 /// limit of livestreams in `"starting"` or `"live"` (§Livestream States).
+#[cfg(feature = "memory")]
 pub(crate) fn livestream_over_quota() -> jmap_server::SetError {
     jmap_server::SetError::new(jmap_server::SetErrorType::OverQuota)
         .with_description("the account has reached its limit of active livestreams")
