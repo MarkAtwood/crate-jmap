@@ -12,13 +12,11 @@ use std::time::Duration;
 
 use futures::{SinkExt as _, StreamExt as _};
 use jmap_server::{CallContext, Dispatcher, HandlerFuture, HandlerOutput, JmapHandler};
-use jmap_types::{Id, JmapError, JmapRequest, JmapResponse, State, StateChange};
-use jmap_websocket::server::{Connection, DispatcherHandler, PushHub, RequestHandler};
+use jmap_types::{Id, State};
+use jmap_websocket::server::{Connection, DispatcherHandler, PublishingHandler, PushHub};
 use serde_json::{Value, json};
-use std::collections::BTreeMap;
 use tokio::net::{TcpListener, TcpStream};
 use tokio_tungstenite::tungstenite::client::IntoClientRequest as _;
-use tokio_tungstenite::tungstenite::handshake::server::{ErrorResponse, Request, Response};
 use tokio_tungstenite::tungstenite::http::{HeaderValue, StatusCode};
 use tokio_tungstenite::tungstenite::{Bytes, Message};
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
@@ -32,39 +30,6 @@ impl JmapHandler<()> for Echo {
     fn call(&self, cx: CallContext<()>) -> HandlerFuture {
         let args = cx.args;
         Box::pin(async move { Ok(HandlerOutput::new(args)) })
-    }
-}
-
-/// Dispatches, then publishes the `newState` of every `/set` that changed
-/// state, the way a deployment feeds its push hub after a write.
-struct Notifying {
-    inner: DispatcherHandler<()>,
-    hub: PushHub,
-}
-
-impl RequestHandler for Notifying {
-    async fn handle(&self, request: JmapRequest) -> Result<JmapResponse, JmapError> {
-        let response = self.inner.handle(request).await?;
-        for call in &response.method_responses {
-            let Some(type_name) = call.name.strip_suffix("/set") else {
-                continue;
-            };
-            let args = &call.arguments;
-            let (Some(account), Some(new)) =
-                (args["accountId"].as_str(), args["newState"].as_str())
-            else {
-                continue;
-            };
-            if args["oldState"].as_str() == Some(new) {
-                continue;
-            }
-            let mut types = BTreeMap::new();
-            types.insert(type_name.to_owned(), State::from(new));
-            let mut changed = BTreeMap::new();
-            changed.insert(Id::from(account), types);
-            self.hub.publish(StateChange::new(changed));
-        }
-        Ok(response)
     }
 }
 
@@ -85,17 +50,17 @@ async fn server() -> std::net::SocketAddr {
             let Ok((tcp, _)) = listener.accept().await else {
                 return;
             };
-            let handler = Arc::new(Notifying {
-                inner: DispatcherHandler::new(Arc::clone(&dispatcher), (), || State::from("s0"))
+            let handler = Arc::new(PublishingHandler::new(
+                DispatcherHandler::new(Arc::clone(&dispatcher), (), || State::from("s0"))
                     .with_known_capabilities([
                         "urn:ietf:params:jmap:core",
                         "urn:ietf:params:jmap:mail",
                     ]),
-                hub: hub.clone(),
-            });
+                hub.clone(),
+            ));
             let hub = hub.clone();
             tokio::spawn(async move {
-                let Ok(ws) = tokio_tungstenite::accept_hdr_async(tcp, negotiate).await else {
+                let Ok(ws) = jmap_websocket::tungstenite::accept(tcp).await else {
                     return;
                 };
                 let conn = Connection::new(handler).with_push(hub);
@@ -104,28 +69,6 @@ async fn server() -> std::net::SocketAddr {
         }
     });
     addr
-}
-
-/// RFC 8887 §4.2: the server's reply MUST carry `Sec-WebSocket-Protocol:
-/// jmap`; a handshake that does not offer it is refused.
-#[allow(clippy::result_large_err)]
-fn negotiate(req: &Request, mut resp: Response) -> Result<Response, ErrorResponse> {
-    let offered = req
-        .headers()
-        .get_all("Sec-WebSocket-Protocol")
-        .iter()
-        .filter_map(|v| v.to_str().ok())
-        .any(jmap_websocket::offers_jmap);
-    if !offered {
-        let mut err = ErrorResponse::new(Some("the jmap subprotocol is required".to_owned()));
-        *err.status_mut() = StatusCode::BAD_REQUEST;
-        return Err(err);
-    }
-    resp.headers_mut().insert(
-        "Sec-WebSocket-Protocol",
-        HeaderValue::from_static(jmap_websocket::SUBPROTOCOL),
-    );
-    Ok(resp)
 }
 
 type Client = WebSocketStream<MaybeTlsStream<TcpStream>>;

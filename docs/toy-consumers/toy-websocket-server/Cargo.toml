@@ -1,0 +1,18 @@
+# Toy consumer (bd:JMAP-698j.3, JMAP-95rh): an RFC 8887 WebSocket front
+# end on a Tasks dispatcher, built only from jmap-websocket's public API.
+# Built by scripts/toy-consumers.sh outside the workspace; @WORKSPACE@ is
+# replaced with the workspace root.
+[package]
+name = "toy-websocket-server"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+jmap-websocket = { path = "@WORKSPACE@/crate-jmap-websocket", features = ["tungstenite"] }
+jmap-tasks-server = { path = "@WORKSPACE@/crate-jmap-tasks-server", features = ["memory"] }
+jmap-types = { path = "@WORKSPACE@/crate-jmap-types" }
+serde_json = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "time"] }
+tokio-tungstenite = "0.29"
+futures = "0.3"

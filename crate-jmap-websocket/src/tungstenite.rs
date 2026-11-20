@@ -1,20 +1,65 @@
 //! Running a [`Connection`] over tokio-tungstenite.
 //!
-//! The opening handshake stays the deployment's: accept with
-//! `tokio_tungstenite::accept_hdr_async`, authenticate the request
-//! (RFC 8887 §4.1), check [`offers_jmap`](crate::offers_jmap) on its
-//! `Sec-WebSocket-Protocol` and set `Sec-WebSocket-Protocol: jmap` on the
-//! response (§4.2), then hand the stream to [`serve`]. Cap the message
-//! size in the `WebSocketConfig` too.
+//! The opening handshake stays the deployment's, because it carries the
+//! authentication (RFC 8887 §4.1). [`negotiate_jmap`] does the §4.2 part:
+//! call it from the `accept_hdr_async` callback after authenticating, or
+//! use [`accept`] when the transport authenticated already. Then hand the
+//! stream to [`serve`]. Cap the message size in the `WebSocketConfig` too.
 
 use futures::{SinkExt as _, StreamExt as _, future};
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio_tungstenite::WebSocketStream;
+use tokio_tungstenite::tungstenite::handshake::server::{ErrorResponse, Request, Response};
+use tokio_tungstenite::tungstenite::http::{HeaderValue, StatusCode};
 use tokio_tungstenite::tungstenite::protocol::CloseFrame;
 use tokio_tungstenite::tungstenite::protocol::frame::coding::CloseCode;
 use tokio_tungstenite::tungstenite::{Error, Message};
 
 use crate::server::{Connection, ConnectionError, Inbound, Outbound, PushSource, RequestHandler};
+
+/// The RFC 8887 §4.2 subprotocol negotiation, as an `accept_hdr_async`
+/// callback: refuse (400) a handshake whose `Sec-WebSocket-Protocol` does
+/// not offer `jmap`, otherwise answer with `Sec-WebSocket-Protocol: jmap`.
+///
+/// # Errors
+///
+/// The 400 response, when `jmap` is not offered.
+#[allow(clippy::result_large_err)] // the callback signature is tungstenite's
+pub fn negotiate_jmap(
+    request: &Request,
+    mut response: Response,
+) -> Result<Response, ErrorResponse> {
+    let offered = request
+        .headers()
+        .get_all("Sec-WebSocket-Protocol")
+        .iter()
+        .filter_map(|v| v.to_str().ok())
+        .any(crate::offers_jmap);
+    if !offered {
+        let mut err = ErrorResponse::new(Some("the jmap subprotocol is required".to_owned()));
+        *err.status_mut() = StatusCode::BAD_REQUEST;
+        return Err(err);
+    }
+    response.headers_mut().insert(
+        "Sec-WebSocket-Protocol",
+        HeaderValue::from_static(crate::SUBPROTOCOL),
+    );
+    Ok(response)
+}
+
+/// Accept a WebSocket on `stream` with [`negotiate_jmap`] and no other
+/// checks: for a transport that authenticated the client already.
+///
+/// # Errors
+///
+/// tungstenite's handshake error, including the refusal when `jmap` is not
+/// offered.
+pub async fn accept<S>(stream: S) -> Result<WebSocketStream<S>, Error>
+where
+    S: AsyncRead + AsyncWrite + Unpin,
+{
+    tokio_tungstenite::accept_hdr_async(stream, negotiate_jmap).await
+}
 
 /// The [`Inbound`] for a tungstenite message; `None` for Ping, Pong and
 /// raw frames, which tungstenite handles itself.

@@ -410,6 +410,87 @@ impl<C: Clone + Send + Sync + 'static> RequestHandler for DispatcherHandler<C> {
     }
 }
 
+/// The [`StateChange`](jmap_types::StateChange) a Response implies: the
+/// `newState` of every `Foo/set` response whose state changed
+/// (`oldState` differs, RFC 8620 §5.3), keyed by its `accountId` and the
+/// data type `Foo`. `None` when nothing changed.
+///
+/// A deployment that learns of changes from its store instead (for
+/// example changes other connections or other protocols make) publishes
+/// those itself; this covers the writes made through this dispatcher.
+pub fn state_change_for_response(response: &JmapResponse) -> Option<jmap_types::StateChange> {
+    let mut changed: std::collections::BTreeMap<
+        jmap_types::Id,
+        std::collections::BTreeMap<String, State>,
+    > = std::collections::BTreeMap::new();
+    for call in &response.method_responses {
+        let Some(type_name) = call.name.strip_suffix("/set") else {
+            continue;
+        };
+        let args = &call.arguments;
+        let (Some(account), Some(new)) = (
+            args.get("accountId").and_then(serde_json::Value::as_str),
+            args.get("newState").and_then(serde_json::Value::as_str),
+        ) else {
+            continue;
+        };
+        if args.get("oldState").and_then(serde_json::Value::as_str) == Some(new) {
+            continue;
+        }
+        changed
+            .entry(jmap_types::Id::from(account))
+            .or_default()
+            .insert(type_name.to_owned(), State::from(new));
+    }
+    (!changed.is_empty()).then(|| jmap_types::StateChange::new(changed))
+}
+
+/// A [`RequestHandler`] that runs `inner`, then publishes the state
+/// changes of its `/set` responses ([`state_change_for_response`]) to a
+/// [`PushHub`], so connections with push enabled hear about writes made
+/// over the WebSocket without the deployment wiring it by hand.
+///
+/// ```
+/// use std::sync::Arc;
+/// use jmap_websocket::server::{DispatcherHandler, PublishingHandler, PushHub};
+/// use jmap_websocket::jmap_server::Dispatcher;
+/// use jmap_websocket::jmap_types::State;
+///
+/// let dispatcher: Arc<Dispatcher<()>> = Arc::new(Dispatcher::new());
+/// let hub = PushHub::new(64);
+/// let handler = PublishingHandler::new(
+///     DispatcherHandler::new(dispatcher, (), || State::from("s0")),
+///     hub.clone(),
+/// );
+/// # let _ = handler;
+/// ```
+#[derive(Debug)]
+pub struct PublishingHandler<H> {
+    inner: H,
+    hub: PushHub,
+}
+
+impl<H: RequestHandler> PublishingHandler<H> {
+    /// Publish `inner`'s `/set` state changes to `hub`.
+    pub fn new(inner: H, hub: PushHub) -> Self {
+        Self { inner, hub }
+    }
+}
+
+impl<H: RequestHandler> RequestHandler for PublishingHandler<H> {
+    async fn handle(&self, request: JmapRequest) -> Result<JmapResponse, JmapError> {
+        let response = self.inner.handle(request).await?;
+        if let Some(change) = state_change_for_response(&response) {
+            self.hub.publish(change);
+        }
+        Ok(response)
+    }
+
+    fn prepare_problem(&self, problem: &mut ProblemDetails) {
+        self.inner.prepare_problem(problem);
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Push
 // ---------------------------------------------------------------------------
