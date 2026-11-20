@@ -357,22 +357,57 @@ where
         return Err(JmapError::state_mismatch());
     }
 
+    let ctx = SetCtx {
+        backend,
+        caller,
+        account_id: &account_id,
+        created_ids,
+        kind,
+    };
     let mut acc = SetAccumulators::default();
-    let mut mutated = false;
+    let mut mutated = set_create(&ctx, &mut args, &mut acc).await?;
+    // RFC 8620 §5.3: update keys and destroy ids may name this call's creates.
+    jmap_server::resolve_set_id_refs(&mut args, created_ids, &acc.created);
+    mutated |= set_update(&ctx, &mut args, &mut acc).await?;
+    mutated |= set_destroy::<O, B>(&ctx, &mut args, &mut acc).await?;
 
+    finalize_set_response::<B, O>(backend, caller, &account_id, old_state, mutated, acc).await
+}
+
+/// What every VTCRecording/set and VTCLivestream/set sub-function needs
+/// from the request (docs/design/set-handler-split.md).
+struct SetCtx<'a, B: VtcBackend> {
+    backend: &'a B,
+    caller: &'a B::CallerCtx,
+    account_id: &'a Id,
+    /// The request's creation ids, for a `#creationId` `callId`.
+    created_ids: &'a BTreeMap<Id, Id>,
+    /// Which of the two media types this `/set` is for.
+    kind: Kind,
+}
+
+/// The `create` part of the media `/set`. Returns whether the backend was
+/// written.
+async fn set_create<B: VtcBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    let mut mutated = false;
     if let Some(Value::Object(create_map)) = args.remove("create") {
         for (create_id, mut obj) in create_map {
-            if let Err(err) = resolve_refs(&mut obj, &["callId"], created_ids) {
+            if let Err(err) = resolve_refs(&mut obj, &["callId"], ctx.created_ids) {
                 acc.not_created
                     .insert(create_id, serde_json::Value::from(&*err));
                 continue;
             }
-            let result = match kind {
+            let (backend, caller, account_id) = (ctx.backend, ctx.caller, ctx.account_id);
+            let result = match ctx.kind {
                 Kind::Recording => {
-                    create_recording(backend, caller, &account_id, &create_id, obj).await
+                    create_recording(backend, caller, account_id, &create_id, obj).await
                 }
                 Kind::Livestream => {
-                    create_livestream(backend, caller, &account_id, &create_id, obj).await
+                    create_livestream(backend, caller, account_id, &create_id, obj).await
                 }
             };
             match result {
@@ -386,9 +421,17 @@ where
             }
         }
     }
+    Ok(mutated)
+}
 
-    // RFC 8620 §5.3: update keys and destroy ids may name this call's creates.
-    jmap_server::resolve_set_id_refs(&mut args, created_ids, &acc.created);
+/// The `update` part of the media `/set`. Returns whether the backend was
+/// written.
+async fn set_update<B: VtcBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    let mut mutated = false;
     if let Some(Value::Object(update_map)) = args.remove("update") {
         for (id_str, mut patch) in update_map {
             let id = match jmap_server::parse_wire_id(&id_str, "id") {
@@ -399,15 +442,16 @@ where
                     continue;
                 }
             };
-            if let Err(err) = resolve_refs(&mut patch, &["callId"], created_ids) {
+            if let Err(err) = resolve_refs(&mut patch, &["callId"], ctx.created_ids) {
                 acc.not_updated
                     .insert(id_str, serde_json::Value::from(&*err));
                 continue;
             }
-            let result = match kind {
-                Kind::Recording => update_recording(backend, caller, &account_id, &id, patch).await,
+            let (backend, caller, account_id) = (ctx.backend, ctx.caller, ctx.account_id);
+            let result = match ctx.kind {
+                Kind::Recording => update_recording(backend, caller, account_id, &id, patch).await,
                 Kind::Livestream => {
-                    update_livestream(backend, caller, &account_id, &id, patch).await
+                    update_livestream(backend, caller, account_id, &id, patch).await
                 }
             };
             match result {
@@ -421,7 +465,22 @@ where
             }
         }
     }
+    Ok(mutated)
+}
 
+/// The `destroy` part of the media `/set`, including the whole-request
+/// `invalidArguments` for a non-string element. Returns whether the
+/// backend was written.
+async fn set_destroy<O, B>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError>
+where
+    O: SetObject + GetObject + MediaObject + Serialize + Send + Sync,
+    B: VtcBackend,
+{
+    let mut mutated = false;
     if let Some(Value::Array(destroy_arr)) = args.remove("destroy") {
         // RFC 8620 §5.3: every element of `destroy` is an Id.
         let ids: Vec<&str> = destroy_arr
@@ -443,7 +502,7 @@ where
                     continue;
                 }
             };
-            match destroy_media::<O, B>(backend, caller, &account_id, &id).await {
+            match destroy_media::<O, B>(ctx.backend, ctx.caller, ctx.account_id, &id).await {
                 Ok(()) => {
                     mutated = true;
                     acc.destroyed.push(Value::String(id_str.to_owned()));
@@ -454,8 +513,7 @@ where
             }
         }
     }
-
-    finalize_set_response::<B, O>(backend, caller, &account_id, old_state, mutated, acc).await
+    Ok(mutated)
 }
 
 /// The `callId` both media types carry, and the object itself for its

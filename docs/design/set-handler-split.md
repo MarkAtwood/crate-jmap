@@ -177,3 +177,13 @@ orchestrator, in lines.
   takes no `ctx` and does not feed `mutated`. New spec features go into `set_create` /
   `set_update` or the per-entry functions, not the orchestrators. `update_avatar` (180 lines)
   is still over 100.
+- **jmap-vtc-server** (`handle_vtc_participant_set` 122 → 53, `handle_vtc_call_set` 121 → 47,
+  the media `handle_set` behind VTCRecording/set and VTCLivestream/set 135 → 51). Same as
+  jmap-scene-server: the existing per-entry functions keep their names, VTCCall passes its
+  `created_ids` clone beside `acc` like SceneObject, and the others keep `created_ids` in
+  `SetCtx`. VTCParticipant's `set_destroy` only reads (`forbidden` or `notFound`), so it returns
+  `Result<(), JmapError>` and does not feed `mutated`. The media driver serves two types:
+  `SetCtx` carries the `Kind`, and `set_destroy` is generic over the object type. Per-entry
+  functions still over 100 lines: `update_participant` (300), `create_call` (179),
+  `update_call` (157), `update_recording` (138), `create_livestream` (125),
+  `create_participant` (109).
