@@ -12,6 +12,27 @@ wire behaviour that a conforming peer can observe.
 
 ## [Unreleased]
 
+### Added
+
+- **jmap-vtc-ffmpeg**: new support crate, the free-tools media backend
+  for `jmap-vtc-server` (bd:JMAP-po6q.7, decision 57,
+  docs/design/vtc-broadcast-research.md §3.3): the vendor-neutral
+  reference backend and the integration-test backend for the media
+  hooks. `FfmpegMedia` runs one ffmpeg process per livestream and per
+  recording part: hosted livestreams write HLS into a directory a static
+  web server serves (`playback_endpoint` under the configured base URL),
+  push livestreams send to `streamUri` over RTMP(S), SRT or WHIP with the
+  stream key presented per §Presenting the Stream Key, and recordings
+  write one Matroska part per unpaused interval, joined into one MP4 on
+  stop (`RecordedFile`). `watch_livestream` and `watch_recording` report
+  `"live"`, `"failed"` (`timeout`, `rejected`, `interrupted`) and
+  `"stopped"` through `MediaReporter`. `args` builds every ffmpeg
+  argument vector as a pure function (`Source::TestPattern` is ffmpeg's
+  `testsrc2` and `sine`); `process::ProcessRunner` is the seam the tests
+  fake, `process::TokioRunner` the real runner (no shell). Real-process
+  tests are behind the `real-ffmpeg` feature and `#[ignore]`. Re-exports
+  `url`. Not published yet.
+
 ### Changed
 
 - jmap-types, jmap-object-uri: a `jmap:` URI whose type name is longer

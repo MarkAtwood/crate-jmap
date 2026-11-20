@@ -1,0 +1,254 @@
+pub mod jmap_vtc_ffmpeg
+pub use jmap_vtc_ffmpeg::url
+pub mod jmap_vtc_ffmpeg::args
+#[non_exhaustive] pub enum jmap_vtc_ffmpeg::args::Source
+pub jmap_vtc_ffmpeg::args::Source::Input(jmap_vtc_ffmpeg::args::InputSource)
+pub jmap_vtc_ffmpeg::args::Source::TestPattern(jmap_vtc_ffmpeg::args::TestPattern)
+impl jmap_vtc_ffmpeg::args::Source
+pub fn jmap_vtc_ffmpeg::args::Source::input(impl core::convert::Into<std::ffi::os_str::OsString>) -> Self
+pub fn jmap_vtc_ffmpeg::args::Source::test_pattern() -> Self
+impl core::clone::Clone for jmap_vtc_ffmpeg::args::Source
+pub fn jmap_vtc_ffmpeg::args::Source::clone(&self) -> jmap_vtc_ffmpeg::args::Source
+impl core::cmp::Eq for jmap_vtc_ffmpeg::args::Source
+impl core::cmp::PartialEq for jmap_vtc_ffmpeg::args::Source
+pub fn jmap_vtc_ffmpeg::args::Source::eq(&self, &jmap_vtc_ffmpeg::args::Source) -> bool
+impl core::fmt::Debug for jmap_vtc_ffmpeg::args::Source
+pub fn jmap_vtc_ffmpeg::args::Source::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_vtc_ffmpeg::args::Source
+#[non_exhaustive] pub struct jmap_vtc_ffmpeg::args::Encoding
+pub jmap_vtc_ffmpeg::args::Encoding::audio_bitrate_kbps: u32
+pub jmap_vtc_ffmpeg::args::Encoding::audio_codec: alloc::string::String
+pub jmap_vtc_ffmpeg::args::Encoding::frame_rate: u32
+pub jmap_vtc_ffmpeg::args::Encoding::keyframe_interval_secs: u32
+pub jmap_vtc_ffmpeg::args::Encoding::preset: core::option::Option<alloc::string::String>
+pub jmap_vtc_ffmpeg::args::Encoding::video_bitrate_kbps: u32
+pub jmap_vtc_ffmpeg::args::Encoding::video_codec: alloc::string::String
+impl jmap_vtc_ffmpeg::args::Encoding
+pub fn jmap_vtc_ffmpeg::args::Encoding::with_frame_rate(self, u32) -> Self
+pub fn jmap_vtc_ffmpeg::args::Encoding::with_video_bitrate_kbps(self, u32) -> Self
+impl core::clone::Clone for jmap_vtc_ffmpeg::args::Encoding
+pub fn jmap_vtc_ffmpeg::args::Encoding::clone(&self) -> jmap_vtc_ffmpeg::args::Encoding
+impl core::cmp::Eq for jmap_vtc_ffmpeg::args::Encoding
+impl core::cmp::PartialEq for jmap_vtc_ffmpeg::args::Encoding
+pub fn jmap_vtc_ffmpeg::args::Encoding::eq(&self, &jmap_vtc_ffmpeg::args::Encoding) -> bool
+impl core::default::Default for jmap_vtc_ffmpeg::args::Encoding
+pub fn jmap_vtc_ffmpeg::args::Encoding::default() -> Self
+impl core::fmt::Debug for jmap_vtc_ffmpeg::args::Encoding
+pub fn jmap_vtc_ffmpeg::args::Encoding::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_vtc_ffmpeg::args::Encoding
+#[non_exhaustive] pub struct jmap_vtc_ffmpeg::args::HlsSettings
+pub jmap_vtc_ffmpeg::args::HlsSettings::delete_segments: bool
+pub jmap_vtc_ffmpeg::args::HlsSettings::list_size: u32
+pub jmap_vtc_ffmpeg::args::HlsSettings::segment_secs: u32
+impl jmap_vtc_ffmpeg::args::HlsSettings
+pub fn jmap_vtc_ffmpeg::args::HlsSettings::keep_segments(self) -> Self
+pub fn jmap_vtc_ffmpeg::args::HlsSettings::with_list_size(self, u32) -> Self
+pub fn jmap_vtc_ffmpeg::args::HlsSettings::with_segment_secs(self, u32) -> Self
+impl core::clone::Clone for jmap_vtc_ffmpeg::args::HlsSettings
+pub fn jmap_vtc_ffmpeg::args::HlsSettings::clone(&self) -> jmap_vtc_ffmpeg::args::HlsSettings
+impl core::cmp::Eq for jmap_vtc_ffmpeg::args::HlsSettings
+impl core::cmp::PartialEq for jmap_vtc_ffmpeg::args::HlsSettings
+pub fn jmap_vtc_ffmpeg::args::HlsSettings::eq(&self, &jmap_vtc_ffmpeg::args::HlsSettings) -> bool
+impl core::default::Default for jmap_vtc_ffmpeg::args::HlsSettings
+pub fn jmap_vtc_ffmpeg::args::HlsSettings::default() -> Self
+impl core::fmt::Debug for jmap_vtc_ffmpeg::args::HlsSettings
+pub fn jmap_vtc_ffmpeg::args::HlsSettings::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_vtc_ffmpeg::args::HlsSettings
+#[non_exhaustive] pub struct jmap_vtc_ffmpeg::args::InputSource
+pub jmap_vtc_ffmpeg::args::InputSource::options: alloc::vec::Vec<std::ffi::os_str::OsString>
+pub jmap_vtc_ffmpeg::args::InputSource::realtime: bool
+pub jmap_vtc_ffmpeg::args::InputSource::url: std::ffi::os_str::OsString
+impl jmap_vtc_ffmpeg::args::InputSource
+pub fn jmap_vtc_ffmpeg::args::InputSource::new(impl core::convert::Into<std::ffi::os_str::OsString>) -> Self
+pub fn jmap_vtc_ffmpeg::args::InputSource::realtime(self) -> Self
+pub fn jmap_vtc_ffmpeg::args::InputSource::with_options<I, S>(self, I) -> Self where I: core::iter::traits::collect::IntoIterator<Item = S>, S: core::convert::Into<std::ffi::os_str::OsString>
+impl core::clone::Clone for jmap_vtc_ffmpeg::args::InputSource
+pub fn jmap_vtc_ffmpeg::args::InputSource::clone(&self) -> jmap_vtc_ffmpeg::args::InputSource
+impl core::cmp::Eq for jmap_vtc_ffmpeg::args::InputSource
+impl core::cmp::PartialEq for jmap_vtc_ffmpeg::args::InputSource
+pub fn jmap_vtc_ffmpeg::args::InputSource::eq(&self, &jmap_vtc_ffmpeg::args::InputSource) -> bool
+impl core::fmt::Debug for jmap_vtc_ffmpeg::args::InputSource
+pub fn jmap_vtc_ffmpeg::args::InputSource::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_vtc_ffmpeg::args::InputSource
+pub struct jmap_vtc_ffmpeg::args::PushTarget
+impl jmap_vtc_ffmpeg::args::PushTarget
+pub fn jmap_vtc_ffmpeg::args::PushTarget::host(&self) -> &str
+pub fn jmap_vtc_ffmpeg::args::PushTarget::new(&str, core::option::Option<&str>) -> core::result::Result<Self, jmap_vtc_ffmpeg::FfmpegError>
+pub fn jmap_vtc_ffmpeg::args::PushTarget::scheme(&self) -> &'static str
+impl core::clone::Clone for jmap_vtc_ffmpeg::args::PushTarget
+pub fn jmap_vtc_ffmpeg::args::PushTarget::clone(&self) -> jmap_vtc_ffmpeg::args::PushTarget
+impl core::cmp::Eq for jmap_vtc_ffmpeg::args::PushTarget
+impl core::cmp::PartialEq for jmap_vtc_ffmpeg::args::PushTarget
+pub fn jmap_vtc_ffmpeg::args::PushTarget::eq(&self, &jmap_vtc_ffmpeg::args::PushTarget) -> bool
+impl core::fmt::Debug for jmap_vtc_ffmpeg::args::PushTarget
+pub fn jmap_vtc_ffmpeg::args::PushTarget::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_vtc_ffmpeg::args::PushTarget
+#[non_exhaustive] pub struct jmap_vtc_ffmpeg::args::TestPattern
+pub jmap_vtc_ffmpeg::args::TestPattern::frame_rate: u32
+pub jmap_vtc_ffmpeg::args::TestPattern::height: u32
+pub jmap_vtc_ffmpeg::args::TestPattern::tone_hz: u32
+pub jmap_vtc_ffmpeg::args::TestPattern::width: u32
+impl jmap_vtc_ffmpeg::args::TestPattern
+pub fn jmap_vtc_ffmpeg::args::TestPattern::with_frame_rate(self, u32) -> Self
+pub fn jmap_vtc_ffmpeg::args::TestPattern::with_size(self, u32, u32) -> Self
+impl core::clone::Clone for jmap_vtc_ffmpeg::args::TestPattern
+pub fn jmap_vtc_ffmpeg::args::TestPattern::clone(&self) -> jmap_vtc_ffmpeg::args::TestPattern
+impl core::cmp::Eq for jmap_vtc_ffmpeg::args::TestPattern
+impl core::cmp::PartialEq for jmap_vtc_ffmpeg::args::TestPattern
+pub fn jmap_vtc_ffmpeg::args::TestPattern::eq(&self, &jmap_vtc_ffmpeg::args::TestPattern) -> bool
+impl core::default::Default for jmap_vtc_ffmpeg::args::TestPattern
+pub fn jmap_vtc_ffmpeg::args::TestPattern::default() -> Self
+impl core::fmt::Debug for jmap_vtc_ffmpeg::args::TestPattern
+pub fn jmap_vtc_ffmpeg::args::TestPattern::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_vtc_ffmpeg::args::TestPattern
+pub const jmap_vtc_ffmpeg::args::CONCAT_LIST: &str
+pub const jmap_vtc_ffmpeg::args::PLAYLIST: &str
+pub const jmap_vtc_ffmpeg::args::PROGRESS: &str
+pub const jmap_vtc_ffmpeg::args::PUSH_SCHEMES: &[&str]
+pub const jmap_vtc_ffmpeg::args::RECORDING_FILE: &str
+pub const jmap_vtc_ffmpeg::args::RECORDING_MEDIA_TYPE: &str
+pub const jmap_vtc_ffmpeg::args::SEGMENT_PATTERN: &str
+pub fn jmap_vtc_ffmpeg::args::concat_args() -> alloc::vec::Vec<std::ffi::os_str::OsString>
+pub fn jmap_vtc_ffmpeg::args::concat_list<S: core::convert::AsRef<str>>(&[S]) -> alloc::string::String
+pub fn jmap_vtc_ffmpeg::args::encode_args(&jmap_vtc_ffmpeg::args::Encoding) -> alloc::vec::Vec<std::ffi::os_str::OsString>
+pub fn jmap_vtc_ffmpeg::args::hls_args(&jmap_vtc_ffmpeg::args::Source, &jmap_vtc_ffmpeg::args::Encoding, &jmap_vtc_ffmpeg::args::HlsSettings) -> alloc::vec::Vec<std::ffi::os_str::OsString>
+pub fn jmap_vtc_ffmpeg::args::input_args(&jmap_vtc_ffmpeg::args::Source) -> alloc::vec::Vec<std::ffi::os_str::OsString>
+pub fn jmap_vtc_ffmpeg::args::part_name(u32) -> alloc::string::String
+pub fn jmap_vtc_ffmpeg::args::push_args(&jmap_vtc_ffmpeg::args::Source, &jmap_vtc_ffmpeg::args::Encoding, &jmap_vtc_ffmpeg::args::PushTarget) -> alloc::vec::Vec<std::ffi::os_str::OsString>
+pub fn jmap_vtc_ffmpeg::args::record_args(&jmap_vtc_ffmpeg::args::Source, &jmap_vtc_ffmpeg::args::Encoding, &str) -> alloc::vec::Vec<std::ffi::os_str::OsString>
+pub mod jmap_vtc_ffmpeg::process
+pub struct jmap_vtc_ffmpeg::process::ProcessExit
+impl jmap_vtc_ffmpeg::process::ProcessExit
+pub fn jmap_vtc_ffmpeg::process::ProcessExit::code(&self) -> core::option::Option<i32>
+pub fn jmap_vtc_ffmpeg::process::ProcessExit::new(core::option::Option<i32>) -> Self
+pub fn jmap_vtc_ffmpeg::process::ProcessExit::success(&self) -> bool
+impl core::clone::Clone for jmap_vtc_ffmpeg::process::ProcessExit
+pub fn jmap_vtc_ffmpeg::process::ProcessExit::clone(&self) -> jmap_vtc_ffmpeg::process::ProcessExit
+impl core::cmp::Eq for jmap_vtc_ffmpeg::process::ProcessExit
+impl core::cmp::PartialEq for jmap_vtc_ffmpeg::process::ProcessExit
+pub fn jmap_vtc_ffmpeg::process::ProcessExit::eq(&self, &jmap_vtc_ffmpeg::process::ProcessExit) -> bool
+impl core::fmt::Debug for jmap_vtc_ffmpeg::process::ProcessExit
+pub fn jmap_vtc_ffmpeg::process::ProcessExit::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_vtc_ffmpeg::process::ProcessExit
+pub fn jmap_vtc_ffmpeg::process::ProcessExit::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for jmap_vtc_ffmpeg::process::ProcessExit
+impl core::marker::StructuralPartialEq for jmap_vtc_ffmpeg::process::ProcessExit
+pub struct jmap_vtc_ffmpeg::process::TokioProcess
+impl core::fmt::Debug for jmap_vtc_ffmpeg::process::TokioProcess
+pub fn jmap_vtc_ffmpeg::process::TokioProcess::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl jmap_vtc_ffmpeg::process::MediaProcess for jmap_vtc_ffmpeg::process::TokioProcess
+pub async fn jmap_vtc_ffmpeg::process::TokioProcess::kill(&mut self) -> core::io::error::Result<()>
+pub async fn jmap_vtc_ffmpeg::process::TokioProcess::request_stop(&mut self) -> core::io::error::Result<()>
+pub fn jmap_vtc_ffmpeg::process::TokioProcess::try_wait(&mut self) -> core::io::error::Result<core::option::Option<jmap_vtc_ffmpeg::process::ProcessExit>>
+pub async fn jmap_vtc_ffmpeg::process::TokioProcess::wait(&mut self) -> core::io::error::Result<jmap_vtc_ffmpeg::process::ProcessExit>
+pub struct jmap_vtc_ffmpeg::process::TokioRunner
+impl jmap_vtc_ffmpeg::process::TokioRunner
+pub fn jmap_vtc_ffmpeg::process::TokioRunner::inherit_stderr(self) -> Self
+pub fn jmap_vtc_ffmpeg::process::TokioRunner::new() -> Self
+impl core::clone::Clone for jmap_vtc_ffmpeg::process::TokioRunner
+pub fn jmap_vtc_ffmpeg::process::TokioRunner::clone(&self) -> jmap_vtc_ffmpeg::process::TokioRunner
+impl core::default::Default for jmap_vtc_ffmpeg::process::TokioRunner
+pub fn jmap_vtc_ffmpeg::process::TokioRunner::default() -> jmap_vtc_ffmpeg::process::TokioRunner
+impl core::fmt::Debug for jmap_vtc_ffmpeg::process::TokioRunner
+pub fn jmap_vtc_ffmpeg::process::TokioRunner::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl jmap_vtc_ffmpeg::process::ProcessRunner for jmap_vtc_ffmpeg::process::TokioRunner
+pub type jmap_vtc_ffmpeg::process::TokioRunner::Process = jmap_vtc_ffmpeg::process::TokioProcess
+pub fn jmap_vtc_ffmpeg::process::TokioRunner::spawn(&self, &std::path::Path, &[std::ffi::os_str::OsString], &std::path::Path) -> core::io::error::Result<jmap_vtc_ffmpeg::process::TokioProcess>
+pub trait jmap_vtc_ffmpeg::process::MediaProcess: core::marker::Send
+pub fn jmap_vtc_ffmpeg::process::MediaProcess::kill(&mut self) -> impl core::future::future::Future<Output = core::io::error::Result<()>> + core::marker::Send
+pub fn jmap_vtc_ffmpeg::process::MediaProcess::request_stop(&mut self) -> impl core::future::future::Future<Output = core::io::error::Result<()>> + core::marker::Send
+pub fn jmap_vtc_ffmpeg::process::MediaProcess::try_wait(&mut self) -> core::io::error::Result<core::option::Option<jmap_vtc_ffmpeg::process::ProcessExit>>
+pub fn jmap_vtc_ffmpeg::process::MediaProcess::wait(&mut self) -> impl core::future::future::Future<Output = core::io::error::Result<jmap_vtc_ffmpeg::process::ProcessExit>> + core::marker::Send
+impl jmap_vtc_ffmpeg::process::MediaProcess for jmap_vtc_ffmpeg::process::TokioProcess
+pub async fn jmap_vtc_ffmpeg::process::TokioProcess::kill(&mut self) -> core::io::error::Result<()>
+pub async fn jmap_vtc_ffmpeg::process::TokioProcess::request_stop(&mut self) -> core::io::error::Result<()>
+pub fn jmap_vtc_ffmpeg::process::TokioProcess::try_wait(&mut self) -> core::io::error::Result<core::option::Option<jmap_vtc_ffmpeg::process::ProcessExit>>
+pub async fn jmap_vtc_ffmpeg::process::TokioProcess::wait(&mut self) -> core::io::error::Result<jmap_vtc_ffmpeg::process::ProcessExit>
+pub trait jmap_vtc_ffmpeg::process::ProcessRunner: core::marker::Send + core::marker::Sync
+pub type jmap_vtc_ffmpeg::process::ProcessRunner::Process: jmap_vtc_ffmpeg::process::MediaProcess
+pub fn jmap_vtc_ffmpeg::process::ProcessRunner::spawn(&self, &std::path::Path, &[std::ffi::os_str::OsString], &std::path::Path) -> core::io::error::Result<Self::Process>
+impl jmap_vtc_ffmpeg::process::ProcessRunner for jmap_vtc_ffmpeg::process::TokioRunner
+pub type jmap_vtc_ffmpeg::process::TokioRunner::Process = jmap_vtc_ffmpeg::process::TokioProcess
+pub fn jmap_vtc_ffmpeg::process::TokioRunner::spawn(&self, &std::path::Path, &[std::ffi::os_str::OsString], &std::path::Path) -> core::io::error::Result<jmap_vtc_ffmpeg::process::TokioProcess>
+#[non_exhaustive] pub enum jmap_vtc_ffmpeg::FfmpegError
+pub jmap_vtc_ffmpeg::FfmpegError::EmptyRecording(jmap_types::id::Id)
+pub jmap_vtc_ffmpeg::FfmpegError::Exited(jmap_vtc_ffmpeg::process::ProcessExit)
+pub jmap_vtc_ffmpeg::FfmpegError::InvalidStreamUri
+pub jmap_vtc_ffmpeg::FfmpegError::Io
+pub jmap_vtc_ffmpeg::FfmpegError::Io::path: std::path::PathBuf
+pub jmap_vtc_ffmpeg::FfmpegError::Io::source: core::io::error::Error
+pub jmap_vtc_ffmpeg::FfmpegError::MissingStreamUri
+pub jmap_vtc_ffmpeg::FfmpegError::NotRunning(jmap_types::id::Id)
+pub jmap_vtc_ffmpeg::FfmpegError::Process(core::io::error::Error)
+pub jmap_vtc_ffmpeg::FfmpegError::Spawn
+pub jmap_vtc_ffmpeg::FfmpegError::Spawn::program: std::path::PathBuf
+pub jmap_vtc_ffmpeg::FfmpegError::Spawn::source: core::io::error::Error
+pub jmap_vtc_ffmpeg::FfmpegError::UnsafeId(jmap_types::id::Id)
+pub jmap_vtc_ffmpeg::FfmpegError::UnsupportedMode(jmap_vtc_types::recording::LivestreamMode)
+pub jmap_vtc_ffmpeg::FfmpegError::UnsupportedScheme(alloc::string::String)
+impl jmap_vtc_ffmpeg::FfmpegError
+pub fn jmap_vtc_ffmpeg::FfmpegError::failure_reason(&self) -> jmap_vtc_types::recording::LivestreamFailureReason
+pub fn jmap_vtc_ffmpeg::FfmpegError::set_error(&self) -> core::option::Option<jmap_types::set_error::SetError>
+impl core::error::Error for jmap_vtc_ffmpeg::FfmpegError
+pub fn jmap_vtc_ffmpeg::FfmpegError::source(&self) -> core::option::Option<&(dyn core::error::Error + 'static)>
+impl core::fmt::Debug for jmap_vtc_ffmpeg::FfmpegError
+pub fn jmap_vtc_ffmpeg::FfmpegError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_vtc_ffmpeg::FfmpegError
+pub fn jmap_vtc_ffmpeg::FfmpegError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+#[non_exhaustive] pub struct jmap_vtc_ffmpeg::FfmpegConfig
+pub jmap_vtc_ffmpeg::FfmpegConfig::base_url: url::Url
+pub jmap_vtc_ffmpeg::FfmpegConfig::encoding: jmap_vtc_ffmpeg::args::Encoding
+pub jmap_vtc_ffmpeg::FfmpegConfig::hls: jmap_vtc_ffmpeg::args::HlsSettings
+pub jmap_vtc_ffmpeg::FfmpegConfig::hls_root: std::path::PathBuf
+pub jmap_vtc_ffmpeg::FfmpegConfig::poll_interval: core::time::Duration
+pub jmap_vtc_ffmpeg::FfmpegConfig::program: std::path::PathBuf
+pub jmap_vtc_ffmpeg::FfmpegConfig::start_timeout: core::time::Duration
+pub jmap_vtc_ffmpeg::FfmpegConfig::stop_grace: core::time::Duration
+pub jmap_vtc_ffmpeg::FfmpegConfig::work_root: std::path::PathBuf
+impl jmap_vtc_ffmpeg::FfmpegConfig
+pub fn jmap_vtc_ffmpeg::FfmpegConfig::new(impl core::convert::Into<std::path::PathBuf>, url::Url, impl core::convert::Into<std::path::PathBuf>) -> Self
+pub fn jmap_vtc_ffmpeg::FfmpegConfig::with_encoding(self, jmap_vtc_ffmpeg::args::Encoding) -> Self
+pub fn jmap_vtc_ffmpeg::FfmpegConfig::with_hls(self, jmap_vtc_ffmpeg::args::HlsSettings) -> Self
+pub fn jmap_vtc_ffmpeg::FfmpegConfig::with_poll_interval(self, core::time::Duration) -> Self
+pub fn jmap_vtc_ffmpeg::FfmpegConfig::with_program(self, impl core::convert::Into<std::path::PathBuf>) -> Self
+pub fn jmap_vtc_ffmpeg::FfmpegConfig::with_start_timeout(self, core::time::Duration) -> Self
+pub fn jmap_vtc_ffmpeg::FfmpegConfig::with_stop_grace(self, core::time::Duration) -> Self
+impl core::clone::Clone for jmap_vtc_ffmpeg::FfmpegConfig
+pub fn jmap_vtc_ffmpeg::FfmpegConfig::clone(&self) -> jmap_vtc_ffmpeg::FfmpegConfig
+impl core::fmt::Debug for jmap_vtc_ffmpeg::FfmpegConfig
+pub fn jmap_vtc_ffmpeg::FfmpegConfig::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct jmap_vtc_ffmpeg::FfmpegMedia<R: jmap_vtc_ffmpeg::process::ProcessRunner>
+impl jmap_vtc_ffmpeg::FfmpegMedia<jmap_vtc_ffmpeg::process::TokioRunner>
+pub fn jmap_vtc_ffmpeg::FfmpegMedia<jmap_vtc_ffmpeg::process::TokioRunner>::new(jmap_vtc_ffmpeg::FfmpegConfig) -> Self
+impl<R: jmap_vtc_ffmpeg::process::ProcessRunner> jmap_vtc_ffmpeg::FfmpegMedia<R>
+pub fn jmap_vtc_ffmpeg::FfmpegMedia<R>::config(&self) -> &jmap_vtc_ffmpeg::FfmpegConfig
+pub async fn jmap_vtc_ffmpeg::FfmpegMedia<R>::pause_recording(&self, &jmap_types::id::Id) -> core::result::Result<(), jmap_vtc_ffmpeg::FfmpegError>
+pub fn jmap_vtc_ffmpeg::FfmpegMedia<R>::playback_endpoint(&self, &jmap_types::id::Id) -> core::result::Result<jmap_vtc_types::recording::VtcPlaybackEndpoint, jmap_vtc_ffmpeg::FfmpegError>
+pub async fn jmap_vtc_ffmpeg::FfmpegMedia<R>::resume_recording(&self, &jmap_types::id::Id) -> core::result::Result<(), jmap_vtc_ffmpeg::FfmpegError>
+pub async fn jmap_vtc_ffmpeg::FfmpegMedia<R>::start_livestream(&self, &jmap_vtc_types::recording::VtcLivestream, &jmap_vtc_ffmpeg::args::Source) -> core::result::Result<(), jmap_vtc_ffmpeg::FfmpegError>
+pub async fn jmap_vtc_ffmpeg::FfmpegMedia<R>::start_recording(&self, &jmap_vtc_types::recording::VtcRecording, &jmap_vtc_ffmpeg::args::Source) -> core::result::Result<(), jmap_vtc_ffmpeg::FfmpegError>
+pub async fn jmap_vtc_ffmpeg::FfmpegMedia<R>::stop_livestream(&self, &jmap_types::id::Id) -> core::result::Result<(), jmap_vtc_ffmpeg::FfmpegError>
+pub async fn jmap_vtc_ffmpeg::FfmpegMedia<R>::stop_recording(&self, &jmap_types::id::Id) -> core::result::Result<jmap_vtc_ffmpeg::RecordedFile, jmap_vtc_ffmpeg::FfmpegError>
+pub async fn jmap_vtc_ffmpeg::FfmpegMedia<R>::watch_livestream<B: jmap_vtc_server::backend::VtcBackend>(&self, &jmap_vtc_server::media_report::MediaReporter<'_, B>, &jmap_types::id::Id) -> jmap_vtc_server::media_report::LivestreamReport<<B as jmap_server::backend::JmapAccounts>::Error>
+pub async fn jmap_vtc_ffmpeg::FfmpegMedia<R>::watch_recording<B: jmap_vtc_server::backend::VtcBackend>(&self, &jmap_vtc_server::media_report::MediaReporter<'_, B>, &jmap_types::id::Id) -> jmap_vtc_server::media_report::RecordingReport<<B as jmap_server::backend::JmapAccounts>::Error>
+pub fn jmap_vtc_ffmpeg::FfmpegMedia<R>::with_runner(jmap_vtc_ffmpeg::FfmpegConfig, R) -> Self
+impl<R: jmap_vtc_ffmpeg::process::ProcessRunner> core::fmt::Debug for jmap_vtc_ffmpeg::FfmpegMedia<R>
+pub fn jmap_vtc_ffmpeg::FfmpegMedia<R>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+#[non_exhaustive] pub struct jmap_vtc_ffmpeg::RecordedFile
+pub jmap_vtc_ffmpeg::RecordedFile::duration: u64
+pub jmap_vtc_ffmpeg::RecordedFile::media_type: alloc::string::String
+pub jmap_vtc_ffmpeg::RecordedFile::path: std::path::PathBuf
+pub jmap_vtc_ffmpeg::RecordedFile::size: u64
+impl jmap_vtc_ffmpeg::RecordedFile
+pub fn jmap_vtc_ffmpeg::RecordedFile::recording_file(&self, jmap_types::id::Id) -> jmap_vtc_server::media_report::RecordingFile
+impl core::clone::Clone for jmap_vtc_ffmpeg::RecordedFile
+pub fn jmap_vtc_ffmpeg::RecordedFile::clone(&self) -> jmap_vtc_ffmpeg::RecordedFile
+impl core::cmp::Eq for jmap_vtc_ffmpeg::RecordedFile
+impl core::cmp::PartialEq for jmap_vtc_ffmpeg::RecordedFile
+pub fn jmap_vtc_ffmpeg::RecordedFile::eq(&self, &jmap_vtc_ffmpeg::RecordedFile) -> bool
+impl core::fmt::Debug for jmap_vtc_ffmpeg::RecordedFile
+pub fn jmap_vtc_ffmpeg::RecordedFile::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_vtc_ffmpeg::RecordedFile
+pub const jmap_vtc_ffmpeg::DEFAULT_POLL_INTERVAL: core::time::Duration
+pub const jmap_vtc_ffmpeg::DEFAULT_START_TIMEOUT: core::time::Duration
+pub const jmap_vtc_ffmpeg::DEFAULT_STOP_GRACE: core::time::Duration

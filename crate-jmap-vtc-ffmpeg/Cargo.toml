@@ -1,0 +1,38 @@
+[package]
+name = "jmap-vtc-ffmpeg"
+version = "0.6.0"
+authors.workspace = true
+repository.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Free-tools media backend for jmap-vtc-server livestreams and recordings: ffmpeg to a static HLS origin, no vendor"
+keywords = ["jmap", "vtc", "ffmpeg", "hls", "livestream"]
+categories = ["network-programming", "multimedia::video"]
+exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
+
+[features]
+# Compiles tests/real_ffmpeg.rs, which runs the real ffmpeg binary. Those
+# tests are also #[ignore]: run them with
+# `cargo test -p jmap-vtc-ffmpeg --features real-ffmpeg -- --ignored`
+# on a machine with ffmpeg on PATH (decision 57). No library code changes.
+real-ffmpeg = []
+
+[dependencies]
+jmap-types = { workspace = true }
+jmap-vtc-server = { workspace = true }
+jmap-vtc-types = { workspace = true }
+thiserror = { workspace = true }
+# Child processes, their stdin, the polling timer and the output files.
+tokio = { workspace = true, features = ["process", "io-util", "time", "fs"] }
+url = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+# Integration tests drive the adapter through MemoryBackend.
+jmap-vtc-server = { workspace = true, features = ["memory", "test-helpers"] }
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
