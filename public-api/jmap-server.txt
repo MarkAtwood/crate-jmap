@@ -618,6 +618,12 @@ pub fn T::get_objects<O: jmap_types::backend::GetObject + core::marker::Send + c
 pub fn T::get_state<O: jmap_types::backend::JmapObject + core::marker::Send + core::marker::Sync>(&self, &Self::CallerCtx, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<jmap_types::id::State, Self::Error>> + core::marker::Send
 pub fn T::query_changes<O: jmap_types::backend::QueryObject + core::marker::Send + core::marker::Sync>(&self, &Self::CallerCtx, &jmap_types::id::Id, jmap_server::QueryChangesParams<'_, O>) -> impl core::future::future::Future<Output = core::result::Result<jmap_server::QueryChangesResult, jmap_server::BackendChangesError<Self::Error>>> + core::marker::Send
 pub fn T::query_objects<O: jmap_types::backend::QueryObject + core::marker::Send + core::marker::Sync>(&self, &Self::CallerCtx, &jmap_types::id::Id, jmap_server::QueryParams<'_, O>) -> impl core::future::future::Future<Output = core::result::Result<jmap_server::QueryResult, jmap_server::BackendQueryError<Self::Error>>> + core::marker::Send
+pub trait jmap_server::MemoryCaller: core::clone::Clone + core::marker::Send + core::marker::Sync + 'static
+pub fn jmap_server::MemoryCaller::principal(&self) -> core::option::Option<&jmap_types::id::Id>
+impl jmap_server::MemoryCaller for ()
+pub fn ()::principal(&self) -> core::option::Option<&jmap_types::id::Id>
+impl jmap_server::MemoryCaller for jmap_types::id::Id
+pub fn jmap_types::id::Id::principal(&self) -> core::option::Option<&jmap_types::id::Id>
 pub trait jmap_server::ObjectHistoryBackend: jmap_server::JmapBackend
 pub fn jmap_server::ObjectHistoryBackend::get_object_history<O: jmap_object_history_types::HistoryObject>(&self, &Self::CallerCtx, &jmap_types::id::Id, jmap_server::HistoryGetParams<'_>) -> impl core::future::future::Future<Output = core::result::Result<jmap_server::HistoryGetResult<O>, jmap_server::BackendQueryError<Self::Error>>> + core::marker::Send
 pub fn jmap_server::ObjectHistoryBackend::object_history_capability(&self, &Self::CallerCtx, &jmap_types::id::Id) -> core::option::Option<jmap_object_history_types::ObjectHistoryAccountCapability>

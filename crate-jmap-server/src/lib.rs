@@ -33,6 +33,7 @@ pub use jmap_types::{
 };
 
 mod backend;
+mod caller;
 mod conditional;
 mod handlers;
 mod helpers;
@@ -50,6 +51,7 @@ pub use backend::{
     JmapObject, JmapReads, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
     QueryResult, ReservedExtrasKey, SetError, SetErrorType, SetObject, backend_set_error_value,
 };
+pub use caller::MemoryCaller;
 pub use conditional::{
     BeginSetError, CommitError, CommitFuture, ConditionalBackend, DeferredFailure,
     RegistrationError, RollbackFuture, SetMode, SetOp, SetScope, SetScopeId, SetScopeRequest,
