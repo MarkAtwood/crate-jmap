@@ -2,12 +2,12 @@
   "id": "JMAP-76tz",
   "title": "Propose a registered per-object serverFail SetError to the JMAP WG",
   "description": "DECISIONS.md 38 (Mark 2026-11-19): handlers report unexpected per-object storage failures as SetError type serverFail, which RFC 8620 §5.3 does not define (it is a method-level error there). Keep current behaviour; draft a short proposal for the JMAP WG (mailing list or an errata/registry request for the JMAP SetError types registry) for Mark to send. Revisit code after the discussion.",
-  "notes": "2026-11-19: list message drafted at docs/upstream/2026-11-19/serverfail-seterror.md; awaiting Mark's review and send. Close when sent.\nMark 2026-11-20: decision 51: Gmail draft for Mark to send.\n2026-11-20: Gmail draft created in Mark's account to jmap@ietf.org; Mark reviews and sends.\n2026-11-20: Mark: hold. Note the Gmail draft's GitHub link was rewritten to a google.com/url redirect; fix before sending (plain https://github.com/MarkAtwood/crate-jmap).\nMark 2026-11-20: decision 59, we don't use Gmail. The text to send is docs/upstream/2026-11-19/serverfail-seterror.md (link must be plain https://github.com/MarkAtwood/crate-jmap). Still held by Mark. The earlier Gmail draft is left untouched pending Mark's word.\n2026-11-20: Fastmail draft StlNSTESfqO7 (fm draft new, from mark@reviewcommit.com to jmap@ietf.org, plain GitHub link verified). Held; send with 'fm draft send StlNSTESfqO7' on Mark's OK, then record in notes and close. Old Gmail draft untouched.",
+  "notes": "2026-11-19: list message drafted at docs/upstream/2026-11-19/serverfail-seterror.md; awaiting Mark's review and send. Close when sent.\nMark 2026-11-20: decision 51: Gmail draft for Mark to send.\n2026-11-20: Gmail draft created in Mark's account to jmap@ietf.org; Mark reviews and sends.\n2026-11-20: Mark: hold. Note the Gmail draft's GitHub link was rewritten to a google.com/url redirect; fix before sending (plain https://github.com/MarkAtwood/crate-jmap).\nMark 2026-11-20: decision 59, we don't use Gmail. The text to send is docs/upstream/2026-11-19/serverfail-seterror.md (link must be plain https://github.com/MarkAtwood/crate-jmap). Still held by Mark. The earlier Gmail draft is left untouched pending Mark's word.\n2026-11-20: Fastmail draft StlNSTESfqO7 (fm draft new, from mark@reviewcommit.com to jmap@ietf.org, plain GitHub link verified). Held; send with 'fm draft send StlNSTESfqO7' on Mark's OK, then record in notes and close. Old Gmail draft untouched.\n2026-11-20: Gmail draft deleted on Mark's request. Only the Fastmail draft StlNSTESfqO7 remains.",
   "status": "open",
   "priority": 2,
   "issue_type": "task",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-19T17:55:02.905193414Z",
   "created_by": "Mark Atwood",
-  "updated_at": "2026-11-20T22:50:10.476227021Z"
+  "updated_at": "2026-11-20T22:50:45.329398553Z"
 }

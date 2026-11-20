@@ -1,0 +1,95 @@
+diff --git a/draft-atwood-jmap-object-uri-00.md b/draft-atwood-jmap-object-uri-00.md
+--- a/draft-atwood-jmap-object-uri-00.md
++++ b/draft-atwood-jmap-object-uri-00.md
+@@ -73,7 +73,7 @@
+ 
+ ~~~abnf
+ jmap-object-uri = "jmap:" type-name ":" account-id ":" object-id
+-type-name       = 1*( %x61-7A / DIGIT )
++type-name       = 1*255( %x61-7A / DIGIT )
+                   ; registered in "JMAP Object URI Types"
+ account-id      = 1*255id-char
+ object-id       = 1*255id-char
+@@ -81,7 +81,7 @@
+                   ; the Id character set of RFC 8620, Section 1.2
+ ~~~
+ 
+-`type-name` is a type name registered in the "JMAP Object URI Types" registry ({{iana-uri-types}}), which maps it to the JMAP data type it stands for. `account-id` is the JMAP accountId of the account holding the object, and `object-id` is the object's `id`. For example, `jmap:calendarevent:A13824:E6B2` refers to the CalendarEvent with id `E6B2` in account `A13824`.
++`type-name` is a type name registered in the "JMAP Object URI Types" registry ({{iana-uri-types}}), which maps it to the JMAP data type it stands for. Like `account-id` and `object-id`, it is at most 255 octets long, the limit {{RFC8620, Section 1.2}} sets for an Id, so a JMAP object URI is at most 772 octets long. `account-id` is the JMAP accountId of the account holding the object, and `object-id` is the object's `id`. For example, `jmap:calendarevent:A13824:E6B2` refers to the CalendarEvent with id `E6B2` in account `A13824`.
+ 
+ ## Interpretation
+ 
+diff --git a/draft-atwood-jmap-chat-00.md b/draft-atwood-jmap-chat-00.md
+--- a/draft-atwood-jmap-chat-00.md
++++ b/draft-atwood-jmap-chat-00.md
+@@ -415,7 +415,7 @@
+ 
+ ## MessageAction {#message-action}
+ 
+-A MessageAction is a per-message out-of-band action invitation carried in a Message and in `Peer/deliver`. It signals that a message is associated with an out-of-band interaction — a video call invitation, a payment request, a file available outside the blob channel, etc. Servers MUST store and forward MessageAction records without inspection or transformation, except that a server implementing {{JMAP-CHAT-FED}} maps any user reference that this or a companion specification defines in `metadata`, and removes from data it receives from a peer every MessageAction whose `uri` is a JMAP object URI ({{JMAP-OBJECT-URI}}), both as {{JMAP-CHAT-FED}} specifies. Clients SHOULD NOT act on a MessageAction automatically; all OOB actions require explicit user initiation.
++A MessageAction is a per-message out-of-band action invitation carried in a Message and in `Peer/deliver`. It signals that a message is associated with an out-of-band interaction — a video call invitation, a payment request, a file available outside the blob channel, etc. Servers MUST store and forward MessageAction records without inspection or transformation, except that a server implementing {{JMAP-CHAT-FED}} maps any user reference that this or a companion specification defines in `metadata`, and removes from data it receives from a peer every MessageAction whose `uri` is a `jmap` URI ({{JMAP-OBJECT-URI}}), both as {{JMAP-CHAT-FED}} specifies. Clients SHOULD NOT act on a MessageAction automatically; all OOB actions require explicit user initiation.
+ 
+ `type` (String):
+ : Same URI namespace as Endpoint `type` (see {{endpoint}}). Clients MUST ignore actions whose `type` they do not recognize.
+@@ -1617,7 +1617,7 @@
+ | `"blockquote"` | none | Quoted text |
+ | `"mention"` | `userId` (String) | Per-user @mention, for display; `userId` is display data written by the composing client, with no server meaning, and need not be an id on the receiving server |
+ | `"broadcast"` | `scope` (String) | Broadcast-scope @mention, for display; `scope` is one of `"everyone"`, `"here"`, or `"admins"` (see {{broadcast-mention}}) |
+-| `"link"` | `uri` (String) | Hyperlink; `uri` SHOULD be treated as untrusted, and MUST NOT be a JMAP object URI ({{JMAP-OBJECT-URI}}), because `body` is relayed between servers unchanged |
++| `"link"` | `uri` (String) | Hyperlink; `uri` SHOULD be treated as untrusted, and MUST NOT be a `jmap` URI of any form, including a JMAP object URI ({{JMAP-OBJECT-URI}}), because `body` is relayed between servers unchanged |
+ 
+ Servers MUST NOT reject messages solely because they contain unrecognized span types; this allows protocol evolution. Clients MUST silently ignore unknown span types and render the `text` field as plaintext, preserving forward compatibility.
+ 
+diff --git a/draft-atwood-jmap-chat-federation-00.md b/draft-atwood-jmap-chat-federation-00.md
+--- a/draft-atwood-jmap-chat-federation-00.md
++++ b/draft-atwood-jmap-chat-federation-00.md
+@@ -425,7 +425,7 @@
+ 
+ The receiving server stores the resolved local reference wherever {{JMAP-CHAT}} or a companion specification stores a user reference, for example in Chat members, `Message.senderId`, Mention `id` values, and `deliveryReceipts` keys. A server that does not recognise a field passes it through unmapped. Neither server maps, validates, or rewrites the `userId` of a `"mention"` span in a rich `body`: spans are display data with no server meaning ({{JMAP-CHAT}}), and servers never modify `body`. Only the `mentions` array is mapped and authoritative. A receiving server creates placeholders only as part of a request it accepts; a rejected request creates none.
+ 
+-A JMAP object URI ({{JMAP-OBJECT-URI}}) is meaningful only on the server whose account it names, so it is not passed through between servers. A receiving server removes every MessageAction and every Endpoint whose `uri` is a JMAP object URI (a URI with the scheme `jmap`) from data it receives from a peer, whether in a Peer/* call or from the peer's Session object (such as `ownerEndpoints`), before storing the data or delivering it to its clients. The remaining entries keep their order, and an array left empty is stored as absent. MessageActions and Endpoints with other URIs, such as `https` URLs, are kept. A sending server MAY omit such MessageActions and Endpoints itself. Rich-body `"link"` spans never carry JMAP object URIs ({{JMAP-CHAT}}), and encrypted content does not either, so neither needs to be inspected.
++A JMAP object URI ({{JMAP-OBJECT-URI}}) is meaningful only on the server whose account it names, so it is not passed through between servers. Nor is any other `jmap` URI: {{JMAP-OBJECT-URI}} reserves other forms of the scheme for future definition, and a receiving server cannot tell whether such a form is meaningful away from its origin. A receiving server removes every MessageAction and every Endpoint whose `uri` is a `jmap` URI (any URI with the scheme `jmap`, whether or not it is a JMAP object URI) from data it receives from a peer, whether in a Peer/* call or from the peer's Session object (such as `ownerEndpoints`), before storing the data or delivering it to its clients. The remaining entries keep their order, and an array left empty is stored as absent. MessageActions and Endpoints with other URIs, such as `https` URLs, are kept. A sending server MAY omit such MessageActions and Endpoints itself. Rich-body `"link"` spans never carry `jmap` URIs ({{JMAP-CHAT}}), and clients do not put JMAP object URIs in encrypted content ({{JMAP-CHAT}}), so neither needs to be inspected.
+ 
+ ## Peer/deliver {#peer-deliver}
+ 
+@@ -458,7 +458,7 @@
+   - `attachments` (Object\[]) — Each entry carries Attachment fields (as defined in {{JMAP-CHAT}}) plus `fetchUrl` (String): the URL from which the receiver fetches the blob, with a signed request ({{blob-fetch}}).
+   - `mentions` (Mention\[], optional) — Structured per-user @mention annotations. Each Mention `id` carries an identity string ({{identity-mapping}}).
+   - `broadcastMentions` (BroadcastMention\[], optional) — Structured broadcast-scope mention annotations (`@everyone`, `@here`, `@admins`). The receiving server is authoritative for computing the local recipient set; the sending server's set is informational only. See {{broadcast-mention-resolution}}.
+-  - `actions` (MessageAction\[], optional) — Out-of-band action invitations. Servers MUST store and forward without inspection, except that user-reference fields the server recognises are mapped, and MessageActions whose `uri` is a JMAP object URI are removed, per {{identity-mapping}}.
++  - `actions` (MessageAction\[], optional) — Out-of-band action invitations. Servers MUST store and forward without inspection, except that user-reference fields the server recognises are mapped, and MessageActions whose `uri` is a `jmap` URI are removed, per {{identity-mapping}}.
+   - `replyTo` (String, optional) — The `senderMsgId` of the message being replied to, as assigned by the sending server. The receiver resolves this to a local message `id` via the `senderMsgId` index. See {{outbound-preparation}} for how the sending server constructs this value.
+   - `threadRootId` (String, optional) — The `senderMsgId` of the thread root message, as assigned by the sending server. The receiver resolves this similarly. See {{outbound-preparation}}. If the receiver cannot resolve a `replyTo` or `threadRootId` senderMsgId to a local message id (because the referenced message was never received or was hard-deleted), the receiver MUST store the message with `replyTo` and/or `threadRootId` set to null. The message MUST NOT be rejected on this basis.
+   - `topicId` (String, optional): Topic identifier, carried unchanged. Validated per `topicId` in {{JMAP-CHAT}}; reject with `invalidArguments` if invalid.
+diff --git a/draft-atwood-jmap-chat-tasks-00.md b/draft-atwood-jmap-chat-tasks-00.md
+--- a/draft-atwood-jmap-chat-tasks-00.md
++++ b/draft-atwood-jmap-chat-tasks-00.md
+@@ -57,6 +57,7 @@
+       Internet-Draft: draft-atwood-jmap-chat-federation-00
+     date: 2026
+   RFC8984:
++  RFC9404:
+ 
+ --- abstract
+ 
+@@ -315,6 +316,8 @@
+ | tasklist | TaskList | This document |
+ | task | Task | This document |
+ 
++The designated expert for that registry checks that each Data Type is registered in the "JMAP Data Types" registry ({{RFC9404, Section 6.3}}). {{JMAP-TASKS}} does not register Task or TaskList there, and no other document does yet. These two entries therefore depend on a document that registers Task and TaskList as JMAP data types; IANA is requested to add them once that registration has been made.
++
+ ## MessageAction Type URI
+ 
+ The `urn:ietf:params:jmap:chat:cap:task` URI value used in MessageAction and Endpoint contexts is assigned by {{JMAP-CHAT}} under the `urn:ietf:params:jmap:chat:cap:` placeholder it registers. This document refines its semantics in a JMAP Tasks context and requests no IANA action for it.
+diff --git a/draft-atwood-jmap-graph-projection-00.md b/draft-atwood-jmap-graph-projection-00.md
+--- a/draft-atwood-jmap-graph-projection-00.md
++++ b/draft-atwood-jmap-graph-projection-00.md
+@@ -150,7 +150,7 @@
+ 
+ The server MAY project objects of any data type available in the account, subject to the following:
+ 
+-- A data type is projected only if it has a type name registered in the "JMAP Object URI Types" registry ({{JMAP-OBJECT-URI}}), because each node refers to its source object by object URI ({{object-uri-property}}). This document registers type names for the data types of {{RFC8621}} and {{RFC9610}} ({{iana}}).
++- A data type is projected only if it has a type name registered in the "JMAP Object URI Types" registry ({{JMAP-OBJECT-URI}}), because each node refers to its source object by object URI ({{object-uri-property}}). This document registers type names for the data types of {{RFC8621}} and {{RFC9610}} ({{iana}}), except SearchSnippet, which has no `id` and so cannot be named by an object URI, and VacationResponse, a per-account singleton that refers to no other object and that no object refers to.
+ - The server MUST NOT project the Graph, GraphNode, or GraphEdge data types. Projecting them would make the projection contain itself.
+ - If the server projects a data type, it projects every object of that type in the account. Which objects a given user sees is then determined by {{visibility}}.
+ 

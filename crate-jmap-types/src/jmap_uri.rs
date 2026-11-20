@@ -50,7 +50,8 @@ pub enum JmapUriError {
     /// A `jmap://` authority form, which §Other Forms reserves and which is
     /// not a JMAP object URI.
     ReservedForm,
-    /// The `<type>` segment is empty or not lowercase ASCII alphanumeric.
+    /// The `<type>` segment is empty, longer than 255 octets, or not
+    /// lowercase ASCII alphanumeric.
     InvalidDataType,
     /// The `<accountId>` segment is missing or not a valid `Id`.
     InvalidAccountId(Option<ValidationError>),
@@ -130,7 +131,10 @@ impl JmapUri {
 }
 
 fn validate_data_type(s: &str) -> Result<(), JmapUriError> {
+    // type-name = 1*255( %x61-7A / DIGIT ), the RFC 8620 §1.2 limit that
+    // account-id and object-id also have.
     if !s.is_empty()
+        && s.len() <= 255
         && s.bytes()
             .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit())
     {

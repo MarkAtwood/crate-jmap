@@ -174,6 +174,18 @@ fn ids_of_255_octets_and_every_id_char_are_accepted() {
     let all = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
     let s = format!("jmap:email:{all}:{all}");
     assert_eq!(parse(&s).unwrap().to_string(), s);
+    // type-name = 1*255( %x61-7A / DIGIT ).
+    let ty = "t".repeat(255);
+    assert_eq!(parse(&format!("jmap:{ty}:a:o")).unwrap().data_type(), ty);
+    let too_long = format!("jmap:{}:a:o", "t".repeat(256));
+    assert!(matches!(
+        parse(&too_long),
+        Err(JmapUriError::InvalidDataType)
+    ));
+    assert!(matches!(
+        JmapUri::new("t".repeat(256), Id::from("a"), Id::from("o")),
+        Err(JmapUriError::InvalidDataType)
+    ));
     // type-name allows digits anywhere, and needs no registration to parse.
     assert_eq!(parse("jmap:0x9:-:_").unwrap().data_type(), "0x9");
 }
@@ -358,9 +370,11 @@ fn registry_rows_satisfy_the_expert_review_rules() {
     // the "JMAP Data Types" registry.
     for e in URI_TYPES {
         assert!(
-            e.type_name
-                .bytes()
-                .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit()),
+            !e.type_name.is_empty()
+                && e.type_name.len() <= 255
+                && e.type_name
+                    .bytes()
+                    .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit()),
             "{}",
             e.type_name
         );
@@ -553,7 +567,7 @@ fn abnf_matches(s: &str) -> bool {
     let ok = |p: &str, chars: &[u8], max: usize| {
         !p.is_empty() && p.len() <= max && p.bytes().all(|b| chars.contains(&b))
     };
-    ok(ty, TYPE_CHARS, usize::MAX) && ok(account, ID_CHARS, 255) && ok(object, ID_CHARS, 255)
+    ok(ty, TYPE_CHARS, 255) && ok(account, ID_CHARS, 255) && ok(object, ID_CHARS, 255)
 }
 
 #[test]
@@ -600,7 +614,11 @@ fn parser_accepts_exactly_what_the_abnf_matches() {
             1 => format!("jmap:{}", rng.string(NOISY, 0, 12)),
             _ => {
                 let len = [255, 256][rng.below(2)];
-                format!("jmap:t:{}:{}", rng.string(ID_CHARS, len, len), "o")
+                if rng.below(2) == 0 {
+                    format!("jmap:t:{}:{}", rng.string(ID_CHARS, len, len), "o")
+                } else {
+                    format!("jmap:{}:a:o", rng.string(TYPE_CHARS, len, len))
+                }
             }
         };
         let expected = abnf_matches(&s);

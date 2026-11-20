@@ -12,6 +12,14 @@ wire behaviour that a conforming peer can observe.
 
 ## [Unreleased]
 
+### Changed
+
+- jmap-types, jmap-object-uri: a `jmap:` URI whose type name is longer
+  than 255 octets is now `JmapUriError::InvalidDataType`, matching
+  draft-atwood-jmap-object-uri-00's `type-name = 1*255(...)`
+  (jmap-chat-spec 55246b1). No registered type name comes near the
+  limit.
+
 ## [0.6.0] - 2026-11-20
 
 ### Added
