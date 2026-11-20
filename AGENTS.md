@@ -376,6 +376,17 @@ not reproduce the flaw for consistency's sake.
 
 JMAP PatchObject path application (RFC 8620 §5.3) lives in `jmap-server::helpers` (`apply_jmap_patch`); extension servers must call it rather than reimplement it.
 
+**Recorded divergence: `jmap-chat-server`'s `testkit` feature.** The
+backend conformance suite (`jmap_chat_server::testkit`, the
+`ConformanceBackend` trait and the `chat_backend_conformance!` macro) exists
+in `jmap-chat-server` only, with no counterpart in the canonical
+`jmap-mail-server`. This is deliberate (Mark, 2026-11-20, decision 48,
+bd:JMAP-j0y7): the suite exists to test backends outside this workspace,
+and mimid is the only outside backend so far, a chat one. Do not mirror it
+to the other server crates on consistency grounds. When another family
+gets an outside backend, add the same `testkit` shape to `jmap-mail-server`
+first and then mirror it to the siblings, as the rules above require.
+
 `jmap-chat-types` is *also* a canonical reference for the JMAP Chat draft
 specifically (its wire format is normative for that extension), even
 though the broader extension-types family takes its idiom shape from
