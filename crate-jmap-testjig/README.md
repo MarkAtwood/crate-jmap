@@ -157,9 +157,11 @@ synchronously (e.g. before spawning a second jig on the same port).
 
 ## How it works
 
-- HTTP transport is `axum` on `tokio`; WebSocket transport is
-  `tokio-tungstenite`. This is the only workspace crate that takes
-  either dep.
+- HTTP transport is `axum` on `tokio`; WebSocket transport is axum's
+  `ws` (tokio-tungstenite underneath). `GET /ws` maps the socket onto
+  the `jmap-websocket` session driver, which owns the RFC 8887 message
+  rules; the jig supplies the dispatcher, the push source and the
+  localized RequestError titles.
 - Layering bottom-up: the 8 extension `MemoryBackend`s sit at the
   bottom, each fronted by its `*-server` extension's method handlers,
   all registered against a single `jmap_server::Dispatcher`. The

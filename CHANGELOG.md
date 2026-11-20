@@ -29,6 +29,15 @@ wire behaviour that a conforming peer can observe.
   with 1003, and pushes `StateChange`s from a `PushSource` cut to
   `dataTypes`; `PushHub` is an in-memory source with `pushState` replay.
   Feature `tungstenite`: `tungstenite::serve`.
+- **jmap-testjig**: `GET /ws` now runs on the `jmap-websocket` driver.
+  Visible differences: a RequestError with no known id writes
+  `"requestId": null`; a malformed `WebSocketPushEnable` is answered
+  with `notRequest` instead of being read as "all types";
+  `"dataTypes": []` pushes nothing; text messages over `maxSizeRequest`
+  get a `limit` error; more than `maxConcurrentRequests` (4) requests in
+  flight on one connection get a `limit` error, and requests may answer
+  out of order.
+
 - **jmap-vtc-aws**: new support crate, an AWS media backend for hosted
   `VTCLivestream`s on Amazon IVS low-latency channels (bd:JMAP-po6q.2,
   docs/design/vtc-broadcast-research.md Recommendation 4).

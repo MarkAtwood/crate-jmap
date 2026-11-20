@@ -48,10 +48,11 @@
 //!   exposing `GET /events` (RFC 8620 §7.3) that pushes
 //!   [RFC 8620 §7.1] `StateChange` events derived from a tight
 //!   polling loop across all 7 backends.
-//! - `bd:JMAP-cf7p.5` (this slice): WebSocket endpoint
+//! - `bd:JMAP-cf7p.5` (closed): WebSocket endpoint
 //!   [`ws::get_ws`] exposing `GET /ws` (RFC 8887) that frames
 //!   `Request`/`Response`/`RequestError`/`StateChange` envelopes
-//!   over a `jmap` subprotocol connection.
+//!   over a `jmap` subprotocol connection; since bd:JMAP-tzcc served
+//!   by the `jmap-websocket` session driver.
 //! - `bd:JMAP-cf7p.6` (closed): bearer-token middleware.
 //! - `bd:JMAP-cf7p.7` (closed): [`spawn_in_process`] for tests.
 //! - `bd:JMAP-cf7p.8` (closed): README + rustdoc warnings.

@@ -175,6 +175,7 @@ jmap-graph-client      = { path = "crate-jmap-graph-client",     version = "0.5"
 jmap-tasks-client      = { path = "crate-jmap-tasks-client",     version = "0.5" }
 jmap-contacts-client   = { path = "crate-jmap-contacts-client",  version = "0.5" }
 jmap-calendars-client  = { path = "crate-jmap-calendars-client", version = "0.5" }
+jmap-websocket         = { path = "crate-jmap-websocket",        version = "0.5" }
 mime-tree              = "0.6"
 futures                = "0.3"
 serde                  = { version = "1", features = ["derive"] }

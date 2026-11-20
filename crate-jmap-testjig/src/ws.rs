@@ -1,54 +1,26 @@
-//! WebSocket endpoint per RFC 8887 (bd:JMAP-cf7p.5).
+//! WebSocket endpoint per RFC 8887 (bd:JMAP-cf7p.5), served by the
+//! [`jmap_websocket::server::Connection`] driver (bd:JMAP-tzcc).
 //!
 //! Wires `GET /ws` as the JMAP-over-WebSocket subprotocol endpoint.
-//! Negotiates the `jmap` subprotocol on the upgrade handshake; runs a
-//! single concurrent recv-and-push loop on each established socket.
+//! Negotiates the `jmap` subprotocol on the upgrade handshake, maps
+//! axum's WebSocket messages to the driver's
+//! [`Inbound`] / [`Outbound`], and supplies the two jig-specific parts:
 //!
-//! # Frame envelopes (RFC 8887 §4.3)
+//! - `JigHandler`: dispatches each Request on the jig's dispatcher,
+//!   then records state changes for SSE / WS push, the same as `POST
+//!   /jmap`; it localizes RequestError titles from the handshake's
+//!   Accept-Language (draft-atwood-jmap-updates-00 §4.3).
+//! - `JigPush`: the push source. Same signal-driven mechanism as
+//!   [`crate::sse`] (bd:JMAP-cf7p.9): it waits on a state-change watch
+//!   wake or a safety-net poll tick and emits one `StateChange` with the
+//!   entries the producer-driven log recorded since its last one.
+//!   `pushState` is the decimal event id of the latest entry; a
+//!   `WebSocketPushEnable.pushState` the log still covers replays from
+//!   there (bd:JMAP-cf7p.12).
 //!
-//! Every WS message is a single JSON object. The `@type` field is the
-//! discriminator that picks which RFC 8887 envelope shape applies.
-//!
-//! From the client:
-//!
-//! | `@type` | Body |
-//! |---------|------|
-//! | `Request` | RFC 8620 §3.3 JmapRequest + optional `id` |
-//! | `WebSocketPushEnable` | optional `dataTypes`, optional `pushState` |
-//! | `WebSocketPushDisable` | (none) |
-//!
-//! From the server:
-//!
-//! | `@type` | Body |
-//! |---------|------|
-//! | `Response` | RFC 8620 §3.4 JmapResponse + `requestId` (echoed) |
-//! | `RequestError` | RFC 9457 problem details + `requestId` |
-//! | `StateChange` | RFC 8620 §7.1 StateChange + optional `pushState` |
-//!
-//! Per §4.3.1, any binary frame, fragmented-message that does not
-//! coalesce, or text frame that is not valid JSON, is answered with
-//! a `RequestError` envelope (when correlation is possible) or
-//! ignored (when not).
-//!
-//! # Push notifications (RFC 8887 §4.3.5)
-//!
-//! Same signal-driven mechanism as [`crate::sse`] (bd:JMAP-cf7p.9):
-//! the push task `select!`s between a state-change watch wake and a
-//! safety-net poll tick. Each wake re-snapshots per-type state across
-//! the 7 reference MemoryBackends, diffs against the previous
-//! snapshot, and emits a `StateChange` frame when any tracked type's
-//! token advanced.
-//!
-//! `WebSocketPushEnable` starts the push task. The handshake's
-//! `dataTypes` array (or `null` for "all") feeds the same
-//! `TypesFilter` enum the SSE handler uses; subsequent `StateChange`
-//! frames are filtered by it. `WebSocketPushDisable` aborts the task.
-//! Re-enabling after a disable starts a fresh push task with a
-//! fresh baseline snapshot and a fresh watch subscription.
-//!
-//! The `pushState` token on `PushEnable` is parsed but not honored
-//! (filed as bd:JMAP-cf7p.12 — analogous to the SSE Last-Event-ID
-//! follow-up at bd:JMAP-cf7p.10).
+//! Message parsing, `requestId` echo, RFC 8887 §4.3.1 error rules,
+//! `dataTypes` filtering, push enable / disable and the binary-frame
+//! close (1003) are the driver's; see `jmap-websocket`.
 //!
 //! # Permission posture
 //!
@@ -63,18 +35,23 @@ use std::sync::Arc;
 use axum::{
     extract::{
         State as AxumState,
-        ws::{Message, WebSocket, WebSocketUpgrade},
+        ws::{CloseFrame, Message, WebSocket, WebSocketUpgrade},
     },
     response::Response,
 };
-use jmap_server::{JmapError, parse_request};
-use jmap_types::{Id, State};
-use serde::Deserialize;
-use serde_json::{Value, json};
-use tokio::sync::mpsc;
-use tokio::task::JoinHandle;
+use futures::stream::BoxStream;
+use futures::{SinkExt as _, StreamExt as _, future};
+use jmap_server::JmapError;
+use jmap_types::{Id, JmapRequest, JmapResponse, State, StateChange};
+use jmap_websocket::jmap_types::problem::ProblemDetails;
+use jmap_websocket::server::{
+    Connection, ConnectionConfig, Inbound, Outbound, PushSource, RequestHandler,
+};
+use jmap_websocket::{WebSocketPushEnable, WsStateChange};
 
-use crate::http::{AppState, AppStateInner, MAX_CALLS_IN_REQUEST};
+use crate::http::{
+    AppState, AppStateInner, MAX_CALLS_IN_REQUEST, MAX_CONCURRENT_REQUESTS, MAX_REQUEST_BYTES,
+};
 use crate::session;
 use crate::sse::{POLL_INTERVAL, TypesFilter};
 
@@ -87,15 +64,7 @@ use crate::sse::{POLL_INTERVAL, TypesFilter};
 /// response header accordingly; if the client did not request
 /// `"jmap"`, the response header is omitted and most WS client
 /// libraries abort the handshake on their side.
-pub const JMAP_SUBPROTOCOL: &str = "jmap";
-
-/// Outbound channel bound between the push poll task and the main WS
-/// recv-and-send loop. Same rationale as
-/// [`crate::sse::SSE_CHANNEL_BOUND`] — a slow consumer parks the
-/// producer rather than dropping frames, and JMAP state-change
-/// semantics tolerate the back-pressure because clients can always
-/// resync via `/changes`.
-const PUSH_CHANNEL_BOUND: usize = 64;
+pub const JMAP_SUBPROTOCOL: &str = jmap_websocket::SUBPROTOCOL;
 
 /// `GET /ws` — RFC 8887 §4 JMAP-over-WebSocket upgrade endpoint.
 ///
@@ -134,292 +103,148 @@ pub async fn get_ws(
     }
 }
 
-/// Main per-connection loop. Reads incoming frames, dispatches each
-/// per its `@type` discriminator, and forwards push frames from the
-/// optional polling task.
-///
-/// Exits cleanly on receiving a Close frame, on a stream error, on a
-/// non-text frame followed by a close, or when the push channel
-/// becomes inert (no push task active and no recv task pending).
-async fn handle_socket(mut socket: WebSocket, state: AppState, lang: crate::locale::Lang) {
-    let inner = Arc::clone(&state.inner);
-    let account = Id::from(session::ACCOUNT_ID);
-
-    let (push_tx, mut push_rx) = mpsc::channel::<Message>(PUSH_CHANNEL_BOUND);
-    let mut push_task: Option<JoinHandle<()>> = None;
-
-    loop {
-        tokio::select! {
-            // Outbound: forward a push-task-generated StateChange
-            // frame to the client. The `push_tx` Sender stays alive
-            // for the lifetime of this loop (we keep our own clone),
-            // so the channel never closes from sender-drop; a `None`
-            // here would mean the runtime tore the channel down
-            // under us, in which case the cleanest action is to
-            // break out of the WS loop.
-            maybe_frame = push_rx.recv() => {
-                let Some(frame) = maybe_frame else { break };
-                if socket.send(frame).await.is_err() {
-                    break;
-                }
-            }
-
-            // Inbound: handle the next client message.
-            maybe_msg = socket.recv() => {
-                let Some(Ok(msg)) = maybe_msg else {
-                    // None → stream closed; Some(Err) → transport
-                    // error. Either way, the WS connection is done.
-                    break;
-                };
-
-                match msg {
-                    Message::Text(text) => {
-                        if let Err(reason) = handle_text_frame(
-                            &text,
-                            Arc::clone(&inner),
-                            &account,
-                            &mut socket,
-                            &push_tx,
-                            &mut push_task,
-                            lang,
-                        ).await {
-                            // Any inability to write back means the
-                            // socket is gone; exit cleanly.
-                            tracing_eprintln(&reason);
-                            break;
-                        }
-                    }
-                    Message::Binary(_) => {
-                        // RFC 8887 §4.3.1: binary frames may be
-                        // ignored or the connection closed with 1003
-                        // (Unsupported Data). We close — the testjig
-                        // has no use for binary frames.
-                        let _ = socket
-                            .send(Message::Close(Some(axum::extract::ws::CloseFrame {
-                                code: 1003,
-                                reason: "binary frames not supported".into(),
-                            })))
-                            .await;
-                        break;
-                    }
-                    Message::Close(_) => {
-                        // Polite client close — exit.
-                        break;
-                    }
-                    // Ping/Pong are auto-handled by axum's WS layer;
-                    // we receive them here for visibility but no
-                    // action is needed.
-                    Message::Ping(_) | Message::Pong(_) => {}
-                }
-            }
-        }
-    }
-
-    if let Some(handle) = push_task.take() {
-        handle.abort();
-    }
-}
-
-/// stderr breadcrumb shim — there is no `tracing` dep in this crate,
-/// and the test jig deliberately emits diagnostic output via
-/// `eprintln!` so smoke testing without a subscriber works. Wrapping
-/// the call here keeps the call site clean.
-fn tracing_eprintln(reason: &str) {
-    eprintln!("jmap-testjig ws: {reason}");
-}
-
-/// Decode an inbound text frame and route it through the appropriate
-/// RFC 8887 envelope handler.
-///
-/// Returns `Err(reason)` only when sending the response back to the
-/// client failed (the socket is gone); in that case the caller breaks
-/// out of the recv loop.
-async fn handle_text_frame(
-    text: &str,
-    state: Arc<AppStateInner>,
-    account: &Id,
-    socket: &mut WebSocket,
-    push_tx: &mpsc::Sender<Message>,
-    push_task: &mut Option<JoinHandle<()>>,
-    lang: crate::locale::Lang,
-) -> Result<(), String> {
-    let value: Value = match serde_json::from_str(text) {
-        Ok(v) => v,
-        Err(_) => {
-            return send_request_error(socket, JmapError::not_json(), None, lang).await;
-        }
-    };
-
-    // The `@type` discriminator is at the top level. A missing or
-    // non-string value is a notRequest per RFC 8887 §4.3.1.
-    let request_id = value.get("id").and_then(Value::as_str).map(str::to_owned);
-    let envelope = value.get("@type").and_then(Value::as_str).unwrap_or("");
-
-    match envelope {
-        "Request" => handle_request_frame(value, state, request_id, socket, lang).await,
-        "WebSocketPushEnable" => {
-            handle_push_enable(value, state, account.clone(), push_tx.clone(), push_task);
-            Ok(())
-        }
-        "WebSocketPushDisable" => {
-            handle_push_disable(push_task);
-            Ok(())
-        }
-        _ => send_request_error(socket, JmapError::not_request(), request_id, lang).await,
-    }
-}
-
-/// Dispatch a `Request` envelope and emit a matching `Response` or
-/// `RequestError` envelope on the same socket.
-async fn handle_request_frame(
-    value: Value,
-    state: Arc<AppStateInner>,
-    request_id: Option<String>,
-    socket: &mut WebSocket,
-    lang: crate::locale::Lang,
-) -> Result<(), String> {
-    let request = match parse_request(value, MAX_CALLS_IN_REQUEST) {
-        Ok(r) => r,
-        Err(err) => return send_request_error(socket, err, request_id, lang).await,
-    };
-
-    let mut response = state
-        .dispatcher
-        .dispatch(request, (), State::from(session::STATE))
-        .await;
-
-    // Signal-driven SSE / WS push (bd:JMAP-cf7p.9 / .10 / .12):
-    // snapshot per-type state, record any changes into the
-    // producer-driven event log, and bump the watch counter so the
-    // SSE / WS push loops wake and pull the new entries.
-    state.notify_state_changed().await;
-
-    // RFC 8887 §4.3.3 adds two fields to the wire JmapResponse: a
-    // fixed `@type: "Response"` discriminator and the echoed
-    // `requestId` (if the request carried an `id`). Both ride on the
-    // workspace's extras-preservation `extra` field — see
-    // jmap-types::wire::JmapResponse.
-    response
-        .extra
-        .insert("@type".to_owned(), Value::String("Response".to_owned()));
-    if let Some(req_id) = request_id {
-        response
-            .extra
-            .insert("requestId".to_owned(), Value::String(req_id));
-    }
-    let body =
-        serde_json::to_string(&response).map_err(|e| format!("serialize JmapResponse: {e}"))?;
-    socket
-        .send(Message::Text(body.into()))
-        .await
-        .map_err(|e| format!("send Response frame: {e}"))
-}
-
-/// Build and send an RFC 8887 §4.3.4 RequestError envelope.
-async fn send_request_error(
-    socket: &mut WebSocket,
-    err: JmapError,
-    request_id: Option<String>,
-    lang: crate::locale::Lang,
-) -> Result<(), String> {
-    let body = request_error_body(&err, request_id, lang);
-    let txt = serde_json::to_string(&body).map_err(|e| format!("serialize RequestError: {e}"))?;
-    socket
-        .send(Message::Text(txt.into()))
-        .await
-        .map_err(|e| format!("send RequestError frame: {e}"))
-}
-
-/// Build the JSON body of an RFC 8887 §4.3.4 RequestError envelope.
-fn request_error_body(
-    err: &JmapError,
-    request_id: Option<String>,
-    lang: crate::locale::Lang,
-) -> Value {
-    // RFC 9457 problem details + RFC 8887 extension fields. The
-    // testjig's POST /jmap path uses jmap-server's
-    // `RequestError::into_response` to assemble this shape, but that
-    // helper produces an HTTP response (with status + body); over
-    // WebSocket we only need the JSON body, with `@type` and the
-    // optional `requestId` added on top.
-    let mut body = json!({
-        "@type": "RequestError",
-        "type": format!("urn:ietf:params:jmap:error:{}", err.error_type),
-        "status": jmap_server::error_status(err).as_u16(),
+/// Run the RFC 8887 driver on one upgraded socket until it closes.
+async fn handle_socket(socket: WebSocket, state: AppState, lang: crate::locale::Lang) {
+    let handler = Arc::new(JigHandler {
+        state: Arc::clone(&state.inner),
+        lang,
     });
-    // RFC 8620 §3.6.1: `limit` errors MUST carry a `limit` property
-    // naming the exceeded limit.
-    if let Some(name) = err.limit_name.as_deref() {
-        body["limit"] = Value::String(name.to_owned());
+    let push = JigPush {
+        state: Arc::clone(&state.inner),
+        account: Id::from(session::ACCOUNT_ID),
+    };
+    // The limits the Session's core capability advertises.
+    let config = ConnectionConfig::default()
+        .max_calls_in_request(MAX_CALLS_IN_REQUEST)
+        .max_size_request(Some(MAX_REQUEST_BYTES))
+        .max_concurrent_requests(MAX_CONCURRENT_REQUESTS);
+
+    let (sink, stream) = socket.split();
+    let incoming = stream.filter_map(|m| future::ready(m.map(inbound).transpose()));
+    let outgoing = sink.with(|m: Outbound| future::ready(Ok::<_, axum::Error>(outbound(m))));
+    futures::pin_mut!(incoming, outgoing);
+
+    let connection = Connection::new(handler).with_push(push).with_config(config);
+    if let Err(e) = connection.run(incoming, outgoing).await {
+        // There is no `tracing` dep in this crate; the jig emits
+        // diagnostics via `eprintln!` so smoke testing without a
+        // subscriber works.
+        eprintln!("jmap-testjig ws: {e}");
     }
-    if let Some(detail) = err.description.as_deref() {
-        body["detail"] = Value::String(detail.to_owned());
-    }
-    if let Some(req_id) = request_id {
-        body["requestId"] = Value::String(req_id);
-    }
-    // draft-atwood-jmap-updates-00 §4.3: the handshake's Accept-Language
-    // picks the title language for the whole connection. A WebSocket
-    // message has no Content-Language header.
-    let status = jmap_server::error_status(err).as_u16();
-    if let Some(title) = crate::locale::title(status, lang) {
-        body["title"] = Value::String(title.to_owned());
-    }
-    body
 }
 
-/// Parse RFC 8887 §4.3.5.2 `WebSocketPushEnable` arguments.
-#[derive(Debug, Default, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct PushEnable {
-    /// RFC 8887 §4.3.5.2: a list of data type names the client is
-    /// interested in. `null` (or missing) means "all types".
-    #[serde(default)]
-    data_types: Option<Vec<String>>,
-    /// RFC 8887 §4.3.5.2: an opaque server-issued token from a prior
-    /// `StateChange` event the client wants to resume from. The
-    /// testjig (bd:JMAP-cf7p.12) honors this by parsing the token as
-    /// a u64 event id and replaying retained entries past that id
-    /// before entering the live push loop. Tokens that fail to parse
-    /// or predate the log's oldest retained entry fall through to
-    /// "start at current" — the client is expected to resync via
-    /// `Foo/changes`.
-    #[serde(default)]
-    push_state: Option<String>,
+/// The driver's view of an axum message; Ping and Pong are answered by
+/// axum and dropped here.
+fn inbound(message: Message) -> Option<Inbound> {
+    match message {
+        Message::Text(text) => Some(Inbound::Text(text.as_str().to_owned())),
+        Message::Binary(_) => Some(Inbound::Binary),
+        Message::Close(_) => Some(Inbound::Close),
+        Message::Ping(_) | Message::Pong(_) => None,
+    }
 }
 
-/// Spawn a polling task that pushes `StateChange` frames on every
-/// detected per-type state advance.
-///
-/// If a push task is already running (the client re-sent
-/// `WebSocketPushEnable` without an intervening `WebSocketPushDisable`),
-/// the existing task is aborted and replaced with a fresh one that
-/// snapshots a new baseline. This matches the spec's silent-replace
-/// semantics — RFC 8887 §4.3.5.2 does not forbid re-enabling.
-fn handle_push_enable(
-    value: Value,
+/// The axum message for a driver message.
+fn outbound(message: Outbound) -> Message {
+    match message {
+        Outbound::Text(text) => Message::Text(text.into()),
+        Outbound::Close { code, reason } => Message::Close(Some(CloseFrame {
+            code,
+            reason: reason.into(),
+        })),
+        // `Outbound` is non-exhaustive; a future variant the jig does
+        // not know ends the connection rather than being dropped.
+        _ => Message::Close(None),
+    }
+}
+
+/// Answers Requests on the jig's dispatcher.
+struct JigHandler {
+    state: Arc<AppStateInner>,
+    lang: crate::locale::Lang,
+}
+
+impl RequestHandler for JigHandler {
+    async fn handle(&self, request: JmapRequest) -> Result<JmapResponse, JmapError> {
+        let response = self
+            .state
+            .dispatcher
+            .dispatch(request, (), State::from(session::STATE))
+            .await;
+        // Signal-driven SSE / WS push (bd:JMAP-cf7p.9 / .10 / .12):
+        // snapshot per-type state, record any changes into the
+        // producer-driven event log, and bump the watch counter so the
+        // SSE / WS push loops wake and pull the new entries.
+        self.state.notify_state_changed().await;
+        Ok(response)
+    }
+
+    /// draft-atwood-jmap-updates-00 §4.3: the handshake's Accept-Language
+    /// picks the title language for the whole connection. A WebSocket
+    /// message has no Content-Language header.
+    fn prepare_problem(&self, problem: &mut ProblemDetails) {
+        if let Some(title) = problem
+            .status
+            .and_then(|status| crate::locale::title(status, self.lang))
+        {
+            problem.title = Some(title.to_owned());
+        }
+    }
+}
+
+/// The jig's push source: the producer-driven state change log.
+struct JigPush {
     state: Arc<AppStateInner>,
     account: Id,
-    push_tx: mpsc::Sender<Message>,
-    push_task: &mut Option<JoinHandle<()>>,
-) {
-    // Pull args from the envelope. Parse failure (e.g. dataTypes is
-    // an object instead of an array) maps to the default (no filter
-    // / wildcard) — we deliberately do not emit a RequestError here
-    // because PushEnable is a control message, not a Request, and
-    // RFC 8887 §4.3.1 says the receiver MAY ignore malformed
-    // non-Request frames.
-    let args: PushEnable = serde_json::from_value(value).unwrap_or_default();
-    let filter = TypesFilter::from_data_types(args.data_types);
-    let push_state = args.push_state.as_deref().and_then(parse_push_state);
+}
 
-    // Replace any existing push task before spawning a fresh one.
-    if let Some(existing) = push_task.take() {
-        existing.abort();
+impl PushSource for JigPush {
+    /// Mirrors the SSE [`crate::sse`] poll loop: same signal-driven
+    /// cadence, same log-pull semantics.
+    ///
+    /// If `pushState` was supplied (bd:JMAP-cf7p.12) the stream first
+    /// replays retained entries past that id. If the log no longer holds
+    /// every entry past it, or the token is newer than the log (e.g.
+    /// after a jig restart), it starts at "current" without replay and
+    /// the client must resync via `Foo/changes`
+    /// ([`crate::replay::StateChangeLog::resume_point`]).
+    fn subscribe(&mut self, enable: &WebSocketPushEnable) -> BoxStream<'static, WsStateChange> {
+        // Only a prefilter: the driver applies RFC 8887 `dataTypes`
+        // rules to every notification.
+        let filter = TypesFilter::from_data_types(enable.data_types.clone());
+        let push_state = enable.push_state.as_deref().and_then(parse_push_state);
+
+        // Subscribe before reading the log so any racing dispatcher wake
+        // is captured (cf. SSE poll_loop module docs).
+        let mut wake = self.state.subscribe_state_changes();
+        wake.mark_unchanged();
+        let last_seen = self.state.state_log.resume_point(push_state);
+        let mut interval =
+            tokio::time::interval_at(tokio::time::Instant::now() + POLL_INTERVAL, POLL_INTERVAL);
+        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
+        let state = Arc::clone(&self.state);
+        let account = self.account.clone();
+        futures::stream::unfold(
+            (state, account, filter, wake, interval, last_seen),
+            |(state, account, filter, mut wake, mut interval, last_seen)| async move {
+                loop {
+                    if let Some((change, max_id)) = pending(&state, &account, last_seen, &filter) {
+                        return Some((change, (state, account, filter, wake, interval, max_id)));
+                    }
+                    tokio::select! {
+                        changed = wake.changed() => {
+                            if changed.is_err() {
+                                return None; // sender dropped — AppState tearing down
+                            }
+                        }
+                        _ = interval.tick() => {}
+                    }
+                }
+            },
+        )
+        .boxed()
     }
-
-    let handle = tokio::spawn(push_loop(state, account, filter, push_state, push_tx));
-    *push_task = Some(handle);
 }
 
 /// Parse a wire-format `pushState` token into a `u64` event id.
@@ -431,7 +256,7 @@ fn handle_push_enable(
 /// is used by both the emit-side and the parse-side.
 ///
 /// Returns `None` for an empty / non-numeric / out-of-range token,
-/// in which case `push_loop` treats the subscriber as "no prior
+/// in which case the push source treats the subscriber as "no prior
 /// state" and starts at the log's current id.
 fn parse_push_state(s: &str) -> Option<u64> {
     let t = s.trim();
@@ -441,171 +266,72 @@ fn parse_push_state(s: &str) -> Option<u64> {
     t.parse::<u64>().ok()
 }
 
-/// Stop an in-flight push polling task on `WebSocketPushDisable`.
+/// The entries past `last_seen` in the state log as one `StateChange`,
+/// and the largest event id in it; `None` when there are none.
 ///
-/// No-op if no task is running. Per RFC 8887 §4.3.5.3, the server
-/// stops sending `StateChange` frames after this; the client is
-/// expected to resync via `/changes` if it needs to recover state
-/// changes that occurred between disable and a subsequent enable.
-fn handle_push_disable(push_task: &mut Option<JoinHandle<()>>) {
-    if let Some(handle) = push_task.take() {
-        handle.abort();
-    }
-}
-
-/// Push task that emits `StateChange` frames from the producer-driven
-/// state change log. Mirrors the SSE [`crate::sse::poll_loop`] —
-/// same signal-driven cadence, same log-pull semantics — but emits
-/// text WS frames instead of SSE events.
-///
-/// On entry, if `push_state` was supplied on `WebSocketPushEnable`
-/// (bd:JMAP-cf7p.12), the loop replays retained entries past that id
-/// before entering the live loop. If the log no longer holds every
-/// entry past it, or the token is newer than the log (e.g. after a jig
-/// restart), the subscriber starts at "current" without replay and the
-/// client must resync via `Foo/changes`
-/// ([`crate::replay::StateChangeLog::resume_point`]).
-///
-/// Wakes on either:
-/// - The state-change watch [`tokio::sync::watch::Receiver::changed`]
-///   future (signal-driven, bd:JMAP-cf7p.9), or
-/// - The [`POLL_INTERVAL`] safety-net timer (5 s belt-and-suspenders).
-///
-/// Terminates when the `push_tx` send fails (the main WS task ended,
-/// either because the client disconnected or PushDisable aborted
-/// this task) or when the watch sender is dropped.
-async fn push_loop(
-    state: Arc<AppStateInner>,
-    account: Id,
-    filter: TypesFilter,
-    push_state: Option<u64>,
-    push_tx: mpsc::Sender<Message>,
-) {
-    // Subscribe before reading the log so any racing dispatcher wake
-    // is captured. The watch channel's seen-version semantics make
-    // this race-free (cf. SSE poll_loop module docs).
-    let mut state_changes = state.subscribe_state_changes();
-    state_changes.mark_unchanged();
-
-    // Replay from pushState when the log can; otherwise start at
-    // current (jmap-chat-wss-guide §State-change push).
-    let mut last_seen = state.state_log.resume_point(push_state);
-
-    // Replay any pending events at startup (bd:JMAP-cf7p.12).
-    let _ = emit_pending(&state, &account, &mut last_seen, &filter, &push_tx).await;
-    if push_tx.is_closed() {
-        return;
-    }
-
-    let mut interval = tokio::time::interval(POLL_INTERVAL);
-    interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
-    interval.tick().await;
-
-    loop {
-        tokio::select! {
-            changed = state_changes.changed() => {
-                if changed.is_err() {
-                    return; // sender dropped — AppState tearing down
-                }
-            }
-            _ = interval.tick() => {}
-        }
-
-        let _ = emit_pending(&state, &account, &mut last_seen, &filter, &push_tx).await;
-        if push_tx.is_closed() {
-            return;
-        }
-    }
-}
-
-/// Pull entries past `last_seen` from the state log, emit them as a
-/// single `StateChange` WS frame, and advance `last_seen` to the
-/// largest emitted id.
-///
-/// The wire frame carries one state token per type (the latest one
-/// emitted in this batch) plus a `pushState` field encoding the
-/// largest event id — clients can echo that back on reconnect.
-///
-/// Returns `Some(())` iff a frame was emitted; `None` when the log
-/// had no new entries OR when `push_tx.send` failed (caller checks
-/// `push_tx.is_closed()` to distinguish).
-async fn emit_pending(
-    state: &Arc<AppStateInner>,
+/// The frame carries one state token per type (the latest one in this
+/// batch) and a `pushState` naming the largest event id, which clients
+/// can echo back on reconnect.
+fn pending(
+    state: &AppStateInner,
     account: &Id,
-    last_seen: &mut u64,
+    last_seen: u64,
     filter: &TypesFilter,
-    push_tx: &mpsc::Sender<Message>,
-) -> Option<()> {
-    let replay_filter = filter.as_replay_filter();
-    let entries = state.state_log.events_since(*last_seen, &replay_filter);
+) -> Option<(WsStateChange, u64)> {
+    let entries = state
+        .state_log
+        .events_since(last_seen, &filter.as_replay_filter());
     if entries.is_empty() {
         return None;
     }
-
-    let mut latest_per_type: BTreeMap<&'static str, &str> = BTreeMap::new();
-    let mut max_id = *last_seen;
+    let mut changes: BTreeMap<String, String> = BTreeMap::new();
+    let mut max_id = last_seen;
     for entry in &entries {
-        latest_per_type.insert(entry.type_name, entry.state_token.as_str());
-        if entry.event_id > max_id {
-            max_id = entry.event_id;
-        }
+        changes.insert(entry.type_name.to_owned(), entry.state_token.clone());
+        max_id = max_id.max(entry.event_id);
     }
-    let changes: BTreeMap<String, String> = latest_per_type
-        .into_iter()
-        .map(|(k, v)| (k.to_owned(), v.to_owned()))
-        .collect();
-
-    let body = build_state_change_frame(account, &changes, max_id);
-    let serialized = match serde_json::to_string(&body) {
-        Ok(s) => s,
-        Err(_) => return None, // unreachable for JSON-safe primitives
-    };
-    if push_tx
-        .send(Message::Text(serialized.into()))
-        .await
-        .is_err()
-    {
-        return None; // receiver gone — main WS task ended
-    }
-    *last_seen = max_id;
-    Some(())
+    Some((build_state_change(account, changes, max_id), max_id))
 }
 
-/// Build the JSON body for a `StateChange` WS frame per RFC 8887
-/// §4.3.5.1 (which extends RFC 8620 §7.1).
-///
-/// Carries a `pushState` field (bd:JMAP-cf7p.12) encoded as the
-/// decimal `u64` event id of the latest entry in the batch. Clients
-/// can echo this on `WebSocketPushEnable` reconnect to resume from
-/// that point.
-fn build_state_change_frame(
+/// The `StateChange` WS frame per RFC 8887 §4.3.5.1 (which extends
+/// RFC 8620 §7.1), with `pushState` the decimal `u64` event id
+/// (bd:JMAP-cf7p.12).
+fn build_state_change(
     account: &Id,
-    changes: &BTreeMap<String, String>,
+    changes: BTreeMap<String, String>,
     push_state: u64,
-) -> Value {
-    json!({
-        "@type": "StateChange",
-        "changed": {
-            account.as_ref(): changes,
-        },
-        "pushState": push_state.to_string(),
-    })
+) -> WsStateChange {
+    let types = changes
+        .into_iter()
+        .map(|(k, v)| (k, State::from(v)))
+        .collect();
+    let mut changed = BTreeMap::new();
+    changed.insert(account.clone(), types);
+    WsStateChange::new(StateChange::new(changed), Some(push_state.to_string()))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
 
     /// Oracle: RFC 8620 §3.6.1 ("limit" errors MUST carry a "limit"
     /// property naming the limit), RFC 9457 §3.1.4 ("detail" is a
-    /// human-readable explanation) and RFC 8887 §4.3.4 (`@type` and
-    /// `requestId`). Expected object is hand-written.
+    /// human-readable explanation), RFC 8887 §4.3.4 (`@type` and
+    /// `requestId`) and draft-atwood-jmap-updates-00 §4.3 (the handshake
+    /// language picks the title). Expected object is hand-written.
     #[test]
-    fn request_error_body_limit_carries_limit_and_detail() {
+    fn request_error_title_follows_the_handshake_language() {
         let mut err = JmapError::limit("maxCallsInRequest");
         err.description = Some("17 calls exceed 16".to_owned());
+        let handler = JigHandler {
+            state: Arc::clone(&AppState::new().inner),
+            lang: crate::locale::Lang::En,
+        };
+        let mut frame = jmap_websocket::server::request_error(&err, Some("r1".to_owned()));
+        handler.prepare_problem(&mut frame.problem);
         assert_eq!(
-            request_error_body(&err, Some("r1".to_owned()), crate::locale::Lang::En),
+            serde_json::to_value(&frame).unwrap(),
             json!({
                 "@type": "RequestError",
                 "type": "urn:ietf:params:jmap:error:limit",
@@ -616,12 +342,13 @@ mod tests {
                 "requestId": "r1",
             })
         );
-        // draft-atwood-jmap-updates-00 §4.3: the handshake language picks
-        // the title.
-        assert_eq!(
-            request_error_body(&err, None, crate::locale::Lang::De)["title"],
-            "Ungültige Anfrage"
-        );
+        let handler = JigHandler {
+            lang: crate::locale::Lang::De,
+            ..handler
+        };
+        let mut problem = ProblemDetails::new("urn:ietf:params:jmap:error:notJSON", 400);
+        handler.prepare_problem(&mut problem);
+        assert_eq!(problem.title.as_deref(), Some("Ungültige Anfrage"));
     }
 
     /// Oracle: RFC 8887 §4.3.5.2 — `dataTypes: null` means
@@ -632,10 +359,10 @@ mod tests {
         assert_eq!(f, TypesFilter::Wildcard);
     }
 
-    /// Oracle: an empty `dataTypes: []` array is functionally
-    /// equivalent to `null` — no type names listed. We map both to
-    /// wildcard; the alternative ("never match") is an attractive
-    /// trap.
+    /// The push source's prefilter maps an empty `dataTypes: []` to
+    /// wildcard; the driver then applies RFC 8887 §4.3.5.2 to every
+    /// notification (an empty list matches nothing), so the prefilter
+    /// only has to never drop a wanted type.
     #[test]
     fn types_filter_from_data_types_empty_is_wildcard() {
         let f = TypesFilter::from_data_types(Some(Vec::new()));
@@ -655,33 +382,6 @@ mod tests {
         assert_eq!(set.len(), 2);
     }
 
-    /// Oracle: RFC 8887 §4.3.5.2 — the `PushEnable` envelope can omit
-    /// `dataTypes` (the `null` case) and `pushState` (optional).
-    #[test]
-    fn push_enable_parses_minimal_envelope() {
-        let v = json!({"@type": "WebSocketPushEnable"});
-        let parsed: PushEnable = serde_json::from_value(v).expect("parse PushEnable");
-        assert!(parsed.data_types.is_none());
-        assert!(parsed.push_state.is_none());
-    }
-
-    /// Oracle: RFC 8887 §4.3.5.2 — `dataTypes` populates the typed
-    /// filter list; `pushState` is parsed (and currently ignored).
-    #[test]
-    fn push_enable_parses_full_envelope() {
-        let v = json!({
-            "@type": "WebSocketPushEnable",
-            "dataTypes": ["Email", "Mailbox"],
-            "pushState": "opaque-token-42"
-        });
-        let parsed: PushEnable = serde_json::from_value(v).expect("parse PushEnable");
-        assert_eq!(
-            parsed.data_types,
-            Some(vec!["Email".to_owned(), "Mailbox".to_owned()])
-        );
-        assert_eq!(parsed.push_state.as_deref(), Some("opaque-token-42"));
-    }
-
     /// Oracle: RFC 8887 §4.3.5.1 + RFC 8620 §7.1 — StateChange frame
     /// shape is `{"@type":"StateChange","changed":{"<acct>":{...}},
     /// "pushState":"<id>"}`. Per bd:JMAP-cf7p.12, the testjig encodes
@@ -693,12 +393,14 @@ mod tests {
         let account = Id::from("acct-1");
         let mut changes = BTreeMap::new();
         changes.insert("Space".to_owned(), "7".to_owned());
-        let body = build_state_change_frame(&account, &changes, 42);
-        assert_eq!(body["@type"], "StateChange");
-        assert_eq!(body["changed"]["acct-1"]["Space"], "7");
+        let frame = build_state_change(&account, changes, 42);
         assert_eq!(
-            body["pushState"], "42",
-            "pushState must be the decimal u64 event id per bd:JMAP-cf7p.12; got {body}"
+            serde_json::to_value(&frame).unwrap(),
+            json!({
+                "@type": "StateChange",
+                "changed": {"acct-1": {"Space": "7"}},
+                "pushState": "42",
+            })
         );
     }
 

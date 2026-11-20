@@ -58,6 +58,11 @@ pub const MAX_REQUEST_BYTES: usize = 10 * 1024 * 1024;
 /// `limit("maxCallsInRequest")` per RFC 8620 §3.6.1.
 pub const MAX_CALLS_IN_REQUEST: usize = 16;
 
+/// `maxConcurrentRequests` the testjig advertises (the RFC 8620 §2
+/// suggested minimum). The WebSocket endpoint enforces it per connection
+/// (RFC 8887 §4.3.2); `POST /jmap` does not count requests.
+pub const MAX_CONCURRENT_REQUESTS: usize = 4;
+
 /// Application state shared with axum route handlers.
 ///
 /// Wrapped in [`Arc`] internally so cloning the router state is cheap

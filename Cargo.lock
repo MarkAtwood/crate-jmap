@@ -2882,6 +2882,7 @@ version = "0.0.0"
 dependencies = [
  "axum",
  "axum-core",
+ "futures",
  "futures-util",
  "http",
  "http-body-util",
@@ -2909,6 +2910,7 @@ dependencies = [
  "jmap-tasks-server",
  "jmap-tasks-types",
  "jmap-types",
+ "jmap-websocket",
  "reqwest",
  "serde",
  "serde_json",

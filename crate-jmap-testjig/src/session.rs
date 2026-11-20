@@ -251,7 +251,7 @@ pub fn session_json_for(addr: SocketAddr) -> Value {
         "maxSizeUpload": 50_000_000_u64,
         "maxConcurrentUpload": 4_u32,
         "maxSizeRequest": crate::http::MAX_REQUEST_BYTES,
-        "maxConcurrentRequests": 4_u32,
+        "maxConcurrentRequests": crate::http::MAX_CONCURRENT_REQUESTS,
         "maxCallsInRequest": crate::http::MAX_CALLS_IN_REQUEST,
         "maxObjectsInGet": 500_u32,
         "maxObjectsInSet": 500_u32,

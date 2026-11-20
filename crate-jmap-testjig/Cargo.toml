@@ -111,6 +111,12 @@ axum-core = "0.5"
 # workspace.dependencies in the root Cargo.toml.
 tokio-tungstenite = { workspace = true }
 
+# The RFC 8887 session driver behind `GET /ws` (bd:JMAP-tzcc), and
+# `futures` for splitting and mapping axum's WebSocket into its
+# Stream / Sink.
+jmap-websocket = { workspace = true, features = ["server"] }
+futures = { workspace = true }
+
 # tokio-stream — wraps a `tokio::sync::mpsc::Receiver<T>` as a
 # `futures_core::Stream<Item = T>`, which is what axum's
 # `Sse::new(stream)` constructor accepts. Used by the SSE handler

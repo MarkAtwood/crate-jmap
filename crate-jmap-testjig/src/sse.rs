@@ -204,7 +204,7 @@ impl PingMode {
 }
 
 /// Type-name filter derived from [`EventQuery::types`] (SSE) or
-/// [`crate::ws::PushEnable::data_types`] (WebSocket).
+/// [`jmap_websocket::WebSocketPushEnable::data_types`] (WebSocket).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum TypesFilter {
     /// `types=*` (or missing) — every type passes through.

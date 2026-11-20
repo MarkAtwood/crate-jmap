@@ -42,7 +42,8 @@ tokio-tungstenite `WebSocketStream`.
 
 Servers built from the kit that want to offer RFC 8887. The `*-server`
 crates stay transport-free (workspace AGENTS.md); a deployment adds this
-crate next to its HTTP stack. Clients use `jmap-base-client`'s `connect_ws`, which
+crate next to its HTTP stack. `jmap-testjig` serves its `/ws` endpoint
+with it over axum. Clients use `jmap-base-client`'s `connect_ws`, which
 has its own frame types today.
 
 ## How to use

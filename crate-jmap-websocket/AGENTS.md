@@ -16,6 +16,8 @@ Scope:
   `Outbound`); library adapters go behind their own feature, like
   `tungstenite`.
 - The opening handshake, authentication and TLS stay the deployment's.
+- `jmap-testjig`'s `/ws` runs on this driver: change the driver, run
+  `cargo test -p jmap-testjig` too.
 
 This project uses **bd** (beads) for issue tracking. Run `bd prime` for
 full workflow context.
@@ -24,6 +26,7 @@ full workflow context.
 
 ```bash
 cargo test -p jmap-websocket
+cargo test -p jmap-testjig
 ```
 
 ## Restrictions
