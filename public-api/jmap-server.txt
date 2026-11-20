@@ -565,6 +565,16 @@ pub const jmap_server::SERVER_FAIL_INTERNAL_DESC: &str
 pub trait jmap_server::ConditionalBackend: jmap_server::JmapBackend
 pub fn jmap_server::ConditionalBackend::begin_set(&self, &Self::CallerCtx, jmap_server::SetScopeRequest<'_>) -> impl core::future::future::Future<Output = core::result::Result<alloc::boxed::Box<dyn jmap_server::SetScope>, jmap_server::BeginSetError<Self::Error>>> + core::marker::Send
 pub fn jmap_server::ConditionalBackend::hidden_properties(&self, &Self::CallerCtx, core::option::Option<&jmap_types::id::Id>, &str, &[jmap_types::id::Id]) -> impl core::future::future::Future<Output = core::result::Result<alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, alloc::vec::Vec<alloc::string::String>>, Self::Error>> + core::marker::Send
+pub trait jmap_server::DelegateJmapAccounts: core::marker::Send + core::marker::Sync + 'static
+pub type jmap_server::DelegateJmapAccounts::Target: jmap_server::JmapAccounts
+pub fn jmap_server::DelegateJmapAccounts::accept_language(&<Self::Target as jmap_server::JmapAccounts>::CallerCtx) -> core::option::Option<&str>
+pub fn jmap_server::DelegateJmapAccounts::account_exists(&self, &<Self::Target as jmap_server::JmapAccounts>::CallerCtx, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<bool, <Self::Target as jmap_server::JmapAccounts>::Error>> + core::marker::Send
+pub fn jmap_server::DelegateJmapAccounts::i18n_info(&self, &<Self::Target as jmap_server::JmapAccounts>::CallerCtx, &jmap_types::id::Id) -> core::option::Option<jmap_server::I18nInfo>
+pub fn jmap_server::DelegateJmapAccounts::jmap_accounts(&self) -> &Self::Target
+pub fn jmap_server::DelegateJmapAccounts::max_objects_in_get(&self, &<Self::Target as jmap_server::JmapAccounts>::CallerCtx, &jmap_types::id::Id) -> u64
+pub fn jmap_server::DelegateJmapAccounts::max_objects_in_set(&self, &<Self::Target as jmap_server::JmapAccounts>::CallerCtx, &jmap_types::id::Id) -> u64
+pub fn jmap_server::DelegateJmapAccounts::metadata_info<O: jmap_types::backend::JmapObject>(&self, &<Self::Target as jmap_server::JmapAccounts>::CallerCtx, &jmap_types::id::Id) -> core::option::Option<jmap_metadata_types::capability::DataTypeMetadataInfo>
+pub fn jmap_server::DelegateJmapAccounts::principal_id(&<Self::Target as jmap_server::JmapAccounts>::CallerCtx) -> core::option::Option<&jmap_types::id::Id>
 pub trait jmap_server::DelegateJmapReads: jmap_server::JmapAccounts
 pub type jmap_server::DelegateJmapReads::Target: jmap_server::JmapReads<Error = Self::Error, CallerCtx = Self::CallerCtx>
 pub fn jmap_server::DelegateJmapReads::jmap_reads(&self) -> &Self::Target
@@ -578,6 +588,16 @@ pub fn jmap_server::JmapAccounts::max_objects_in_get(&self, &Self::CallerCtx, &j
 pub fn jmap_server::JmapAccounts::max_objects_in_set(&self, &Self::CallerCtx, &jmap_types::id::Id) -> u64
 pub fn jmap_server::JmapAccounts::metadata_info<O: jmap_types::backend::JmapObject>(&self, &Self::CallerCtx, &jmap_types::id::Id) -> core::option::Option<jmap_metadata_types::capability::DataTypeMetadataInfo>
 pub fn jmap_server::JmapAccounts::principal_id(&Self::CallerCtx) -> core::option::Option<&jmap_types::id::Id>
+impl<T: jmap_server::DelegateJmapAccounts> jmap_server::JmapAccounts for T
+pub type T::CallerCtx = <<T as jmap_server::DelegateJmapAccounts>::Target as jmap_server::JmapAccounts>::CallerCtx
+pub type T::Error = <<T as jmap_server::DelegateJmapAccounts>::Target as jmap_server::JmapAccounts>::Error
+pub fn T::accept_language(&Self::CallerCtx) -> core::option::Option<&str>
+pub fn T::account_exists(&self, &Self::CallerCtx, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<bool, Self::Error>> + core::marker::Send
+pub fn T::i18n_info(&self, &Self::CallerCtx, &jmap_types::id::Id) -> core::option::Option<jmap_server::I18nInfo>
+pub fn T::max_objects_in_get(&self, &Self::CallerCtx, &jmap_types::id::Id) -> u64
+pub fn T::max_objects_in_set(&self, &Self::CallerCtx, &jmap_types::id::Id) -> u64
+pub fn T::metadata_info<O: jmap_types::backend::JmapObject>(&self, &Self::CallerCtx, &jmap_types::id::Id) -> core::option::Option<jmap_metadata_types::capability::DataTypeMetadataInfo>
+pub fn T::principal_id(&Self::CallerCtx) -> core::option::Option<&jmap_types::id::Id>
 pub trait jmap_server::JmapBackend: jmap_server::JmapAccounts + jmap_server::JmapReads
 impl<T: jmap_server::JmapAccounts + jmap_server::JmapReads> jmap_server::JmapBackend for T
 pub trait jmap_server::JmapHandler<CallerCtx>: core::marker::Send + core::marker::Sync

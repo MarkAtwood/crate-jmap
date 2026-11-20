@@ -50,6 +50,18 @@ wire behaviour that a conforming peer can observe.
   `update_object_if` with the draft's source states, delivering the
   recording consent events and stop effects a client update would;
   `ReportError` says why a report changed nothing.
+- **jmap-server**: `DelegateJmapAccounts`, the `JmapAccounts` companion of
+  `DelegateJmapReads` (found by the toy-consumer check, bd:JMAP-saks). A
+  wrapper implements it instead of `JmapAccounts` (`type Target`,
+  `fn jmap_accounts`) and overrides only the methods it changes; each
+  method defaults to the target's, and a blanket impl provides
+  `JmapAccounts`, so a method the wrapped backend overrides (a
+  `metadata_info`, say) no longer falls back to the trait default when the
+  wrapper forgets to forward it. `principal_id` and `accept_language`,
+  which have no `self`, default to the target type's functions. With both
+  traits in scope, call a method on the concrete wrapper as
+  `JmapAccounts::method(&wrapper, ..)`.
+
 - **jmap-object-history-types**: `ObjectHistoryAccountCapability::new(max_history_duration,
   supported_types)`, so a server builds the value it advertises without
   going through JSON (found by the toy-consumer check, bd:JMAP-m59l). The
@@ -1219,6 +1231,12 @@ wire behaviour that a conforming peer can observe.
   sets `progressUpdated` to the current time, unless the same write sets
   it, as the local Tasks profile's {#workflow} rule 1 says for every
   server change of `progress` (bd:JMAP-gr6p).
+- **jmap-chat-slack**: `SlackBridge` gets `JmapAccounts` through
+  `DelegateJmapAccounts` instead of a hand-written impl, so every
+  `JmapAccounts` answer of the embedded `MemoryBackend` reaches the
+  bridge, not only `account_exists` and `metadata_info`; the direct
+  `jmap-metadata-types` dependency is gone (bd:JMAP-saks).
+
 - **BREAKING** **jmap-mime**: depends on mime-tree 0.6 (was 0.4). jmap-mime's
   public API takes and returns mime-tree types (`ParsedPart`,
   `ParsedMessage`, `DecodedBodyValue`), and mime-tree 0.5 made them

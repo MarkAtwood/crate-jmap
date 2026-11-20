@@ -17,7 +17,7 @@ use jmap_chat_types::{
     SpacePatchOp,
 };
 use jmap_server::{
-    BackendSetError, DelegateJmapReads, JmapAccounts, JmapObject, JmapReads, SetError,
+    BackendSetError, DelegateJmapAccounts, DelegateJmapReads, JmapObject, JmapReads, SetError,
     SetErrorType, SetObject,
 };
 use jmap_types::{Id, PatchObject, UTCDate};
@@ -434,20 +434,10 @@ impl SlackBridge {
     }
 }
 
-impl JmapAccounts for SlackBridge {
-    type Error = MemoryError;
-    type CallerCtx = ();
-
-    async fn account_exists(&self, caller: &(), account_id: &Id) -> Result<bool, MemoryError> {
-        self.inner.account_exists(caller, account_id).await
-    }
-
-    fn metadata_info<O: JmapObject>(
-        &self,
-        caller: &(),
-        account_id: &Id,
-    ) -> Option<jmap_metadata_types::DataTypeMetadataInfo> {
-        self.inner.metadata_info::<O>(caller, account_id)
+impl DelegateJmapAccounts for SlackBridge {
+    type Target = MemoryBackend;
+    fn jmap_accounts(&self) -> &MemoryBackend {
+        &self.inner
     }
 }
 

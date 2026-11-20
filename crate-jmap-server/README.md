@@ -112,8 +112,8 @@ method calls (a `(method, args, callId)` tuple); `ResultReference` and
 
 ```rust
 pub use backend::{
-    AddedItem, BackendChangesError, BackendSetError, ChangesResult, DelegateJmapReads,
-    GetObject, JmapAccounts, JmapBackend, JmapObject, JmapReads, QueryChangesResult,
+    AddedItem, BackendChangesError, BackendSetError, ChangesResult, DelegateJmapAccounts,
+    DelegateJmapReads, GetObject, JmapAccounts, JmapBackend, JmapObject, JmapReads, QueryChangesResult,
     QueryObject, QueryResult, SetError, SetErrorType, SetObject,
 };
 ```
@@ -128,6 +128,40 @@ own `JmapAccounts` (an `account_exists` against a directory, say) and
 serves the reads from the backend it wraps implements `DelegateJmapReads`
 (`type Target`, `fn jmap_reads(&self) -> &Self::Target`) instead of
 `JmapReads`. The target has the wrapper's `Error` and `CallerCtx`.
+
+To keep the wrapped backend's other `JmapAccounts` answers too (its
+`metadata_info`, `i18n_info` or limits, whichever it overrides), the
+wrapper implements `DelegateJmapAccounts` instead of `JmapAccounts`:
+`type Target`, `fn jmap_accounts(&self) -> &Self::Target`, and only the
+methods it changes. Every method of `DelegateJmapAccounts` defaults to the
+target's, so none falls back to a `JmapAccounts` default by mistake; the
+wrapper's `Error` and `CallerCtx` are the target's. `principal_id` and
+`accept_language` have no `self`, so their defaults call the target
+type's functions (the caller context is the same type). A type implements
+either `DelegateJmapAccounts` or `JmapAccounts`, not both. With both
+`JmapAccounts` and `DelegateJmapAccounts` in scope, call a method on the
+concrete wrapper as `JmapAccounts::account_exists(&wrapper, ..)`, since
+method-call syntax finds it in both traits.
+
+```rust,ignore
+impl DelegateJmapAccounts for Wrapper {
+    type Target = Inner;
+    fn jmap_accounts(&self) -> &Inner {
+        &self.inner
+    }
+    // Override only what changes; the rest is Inner's.
+    async fn account_exists(&self, caller: &Ctx, id: &Id) -> Result<bool, InnerError> {
+        self.directory.contains(caller, id).await
+    }
+}
+
+impl DelegateJmapReads for Wrapper {
+    type Target = Inner;
+    fn jmap_reads(&self) -> &Inner {
+        &self.inner
+    }
+}
+```
 
 Generic backend traits (`JmapBackend`, `GetObject`, `QueryObject`, `SetObject`),
 result and error envelopes (`ChangesResult`, `QueryResult`, `QueryChangesResult`,

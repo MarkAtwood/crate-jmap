@@ -15,8 +15,6 @@ exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
 jmap-types = { workspace = true }
 jmap-chat-types = { workspace = true }
 jmap-server = { workspace = true }
-# `DataTypeMetadataInfo` in the `JmapAccounts::metadata_info` forward.
-jmap-metadata-types = { workspace = true }
 # The local store: the bridge embeds the reference MemoryBackend for JMAP
 # state, ids and change logs, and delegates the hook traits it does not
 # override (docs/design/chat-backend-split.md §3.2).

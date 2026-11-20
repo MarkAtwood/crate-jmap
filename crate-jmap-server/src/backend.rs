@@ -780,7 +780,8 @@ impl<T: JmapAccounts + JmapReads> JmapBackend for T {}
 /// A backend implements both, and gets [`JmapBackend`] from the blanket
 /// impl. The split lets a wrapper override [`Self::account_exists`] (or
 /// any method here) while forwarding the reads to the backend it wraps
-/// through [`DelegateJmapReads`].
+/// through [`DelegateJmapReads`], and the rest of this trait through
+/// [`DelegateJmapAccounts`].
 ///
 /// # CallerCtx
 ///
@@ -1338,6 +1339,192 @@ impl<T: DelegateJmapReads> JmapReads for T {
         Output = Result<QueryChangesResult, BackendChangesError<Self::Error>>,
     > + Send {
         self.jmap_reads().query_changes(caller, account_id, params)
+    }
+}
+
+/// Forward [`JmapAccounts`] to another backend, overriding only what the
+/// wrapper changes: implement this instead of [`JmapAccounts`], and the
+/// blanket impl answers every [`JmapAccounts`] method with this trait's
+/// method of the same name, each of which defaults to the one of
+/// [`Self::jmap_accounts`].
+///
+/// For a wrapper that changes one answer (an `account_exists` that
+/// consults a directory, say) and keeps the wrapped backend's others,
+/// whichever of them that backend overrides (a `metadata_info` or
+/// `i18n_info`, the `max_objects_*` limits): a method the wrapper does not
+/// override cannot silently fall back to the [`JmapAccounts`] default.
+/// The wrapper's `Error` and `CallerCtx` are the target's. Pair it with
+/// [`DelegateJmapReads`] to forward the reads too.
+///
+/// `principal_id` and `accept_language` are associated functions with no
+/// `self` (see [`JmapAccounts::principal_id`] for why), so their defaults
+/// call the target *type*'s functions, `<Self::Target as
+/// JmapAccounts>::principal_id(caller)`; that is the same answer, since the
+/// caller context is the target's. A wrapper may still override them.
+///
+/// A type implements either this trait or [`JmapAccounts`], never both:
+/// the blanket impl is the [`JmapAccounts`] impl of every type that
+/// implements this one.
+///
+/// ```rust
+/// use jmap_server::{DelegateJmapAccounts, Id, JmapAccounts};
+/// # #[derive(Debug)]
+/// # struct MyError;
+/// # impl std::fmt::Display for MyError {
+/// #     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { f.write_str("e") }
+/// # }
+/// # impl std::error::Error for MyError {}
+///
+/// /// Some backend whose `max_objects_in_set` is not the default.
+/// struct Inner;
+///
+/// impl JmapAccounts for Inner {
+///     type Error = MyError;
+///     type CallerCtx = ();
+///     async fn account_exists(&self, _: &(), _: &Id) -> Result<bool, MyError> {
+///         Ok(true)
+///     }
+///     fn max_objects_in_set(&self, _: &(), _: &Id) -> u64 {
+///         50
+///     }
+/// }
+///
+/// /// Knows only the accounts of its directory; every other answer is
+/// /// `Inner`'s.
+/// struct Wrapper {
+///     inner: Inner,
+///     directory: Vec<Id>,
+/// }
+///
+/// impl DelegateJmapAccounts for Wrapper {
+///     type Target = Inner;
+///
+///     fn jmap_accounts(&self) -> &Inner {
+///         &self.inner
+///     }
+///
+///     async fn account_exists(&self, _: &(), account_id: &Id) -> Result<bool, MyError> {
+///         Ok(self.directory.contains(account_id))
+///     }
+/// }
+///
+/// let wrapper = Wrapper { inner: Inner, directory: vec![Id::from("a1")] };
+/// // Through `JmapAccounts`, as a handler sees it: the limit is `Inner`'s.
+/// assert_eq!(JmapAccounts::max_objects_in_set(&wrapper, &(), &Id::from("a1")), 50);
+/// ```
+///
+/// # Method-call syntax
+///
+/// The wrapper has each method twice, once from each trait. With both
+/// traits in scope, `wrapper.account_exists(..)` is ambiguous (E0034);
+/// call it as `JmapAccounts::account_exists(&wrapper, ..)`. Generic code
+/// bounded by `JmapAccounts` (every handler) is unaffected.
+pub trait DelegateJmapAccounts: Send + Sync + 'static {
+    /// The backend the answers come from.
+    type Target: JmapAccounts;
+
+    /// The backend the answers come from.
+    fn jmap_accounts(&self) -> &Self::Target;
+
+    /// [`JmapAccounts::account_exists`]; defaults to the target's.
+    fn account_exists(
+        &self,
+        caller: &<Self::Target as JmapAccounts>::CallerCtx,
+        account_id: &jmap_types::Id,
+    ) -> impl std::future::Future<Output = Result<bool, <Self::Target as JmapAccounts>::Error>> + Send
+    {
+        self.jmap_accounts().account_exists(caller, account_id)
+    }
+
+    /// [`JmapAccounts::principal_id`]; defaults to the target type's.
+    fn principal_id(caller: &<Self::Target as JmapAccounts>::CallerCtx) -> Option<&jmap_types::Id> {
+        <Self::Target as JmapAccounts>::principal_id(caller)
+    }
+
+    /// [`JmapAccounts::accept_language`]; defaults to the target type's.
+    fn accept_language(caller: &<Self::Target as JmapAccounts>::CallerCtx) -> Option<&str> {
+        <Self::Target as JmapAccounts>::accept_language(caller)
+    }
+
+    /// [`JmapAccounts::max_objects_in_set`]; defaults to the target's.
+    fn max_objects_in_set(
+        &self,
+        caller: &<Self::Target as JmapAccounts>::CallerCtx,
+        account_id: &jmap_types::Id,
+    ) -> u64 {
+        self.jmap_accounts().max_objects_in_set(caller, account_id)
+    }
+
+    /// [`JmapAccounts::max_objects_in_get`]; defaults to the target's.
+    fn max_objects_in_get(
+        &self,
+        caller: &<Self::Target as JmapAccounts>::CallerCtx,
+        account_id: &jmap_types::Id,
+    ) -> u64 {
+        self.jmap_accounts().max_objects_in_get(caller, account_id)
+    }
+
+    /// [`JmapAccounts::metadata_info`]; defaults to the target's.
+    fn metadata_info<O: JmapObject>(
+        &self,
+        caller: &<Self::Target as JmapAccounts>::CallerCtx,
+        account_id: &jmap_types::Id,
+    ) -> Option<jmap_metadata_types::DataTypeMetadataInfo> {
+        self.jmap_accounts().metadata_info::<O>(caller, account_id)
+    }
+
+    /// [`JmapAccounts::i18n_info`]; defaults to the target's.
+    fn i18n_info(
+        &self,
+        caller: &<Self::Target as JmapAccounts>::CallerCtx,
+        account_id: &jmap_types::Id,
+    ) -> Option<crate::I18nInfo> {
+        self.jmap_accounts().i18n_info(caller, account_id)
+    }
+}
+
+impl<T: DelegateJmapAccounts> JmapAccounts for T {
+    type Error = <T::Target as JmapAccounts>::Error;
+    type CallerCtx = <T::Target as JmapAccounts>::CallerCtx;
+
+    fn account_exists(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+    ) -> impl std::future::Future<Output = Result<bool, Self::Error>> + Send {
+        DelegateJmapAccounts::account_exists(self, caller, account_id)
+    }
+
+    fn principal_id(caller: &Self::CallerCtx) -> Option<&jmap_types::Id> {
+        <T as DelegateJmapAccounts>::principal_id(caller)
+    }
+
+    fn accept_language(caller: &Self::CallerCtx) -> Option<&str> {
+        <T as DelegateJmapAccounts>::accept_language(caller)
+    }
+
+    fn max_objects_in_set(&self, caller: &Self::CallerCtx, account_id: &jmap_types::Id) -> u64 {
+        DelegateJmapAccounts::max_objects_in_set(self, caller, account_id)
+    }
+
+    fn max_objects_in_get(&self, caller: &Self::CallerCtx, account_id: &jmap_types::Id) -> u64 {
+        DelegateJmapAccounts::max_objects_in_get(self, caller, account_id)
+    }
+
+    fn metadata_info<O: JmapObject>(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+    ) -> Option<jmap_metadata_types::DataTypeMetadataInfo> {
+        DelegateJmapAccounts::metadata_info::<O>(self, caller, account_id)
+    }
+
+    fn i18n_info(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+    ) -> Option<crate::I18nInfo> {
+        DelegateJmapAccounts::i18n_info(self, caller, account_id)
     }
 }
 

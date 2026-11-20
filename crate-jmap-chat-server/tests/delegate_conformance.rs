@@ -3,39 +3,22 @@
 //! conformance suite passes on it (bd JMAP-it7g.6.2;
 //! docs/design/chat-backend-split.md §3.2, §6 step 2).
 
-use jmap_chat_server::memory::{MemoryBackend, MemoryError};
+use jmap_chat_server::memory::MemoryBackend;
 use jmap_chat_server::testkit::ConformanceBackend;
 use jmap_chat_server::{
     DelegateChatAccessPolicy, DelegateChatEvents, DelegateChatMessageLifecycle,
     DelegateChatModeration, DelegateChatResolvers, DelegateChatRestrictions, DelegateChatSettings,
     DelegateChatSpaces, DelegateChatStore, DelegateSpacePolicy, OutboundEvent,
 };
-use jmap_server::{DelegateJmapReads, JmapAccounts, JmapObject};
+use jmap_server::{DelegateJmapAccounts, DelegateJmapReads};
 use jmap_types::Id;
 use serde_json::Value;
 
-/// Delegates every hook trait and the `JmapReads` to `inner`; forwards
-/// the two `JmapAccounts` methods `MemoryBackend` overrides by hand
-/// (`JmapAccounts` has no delegate: a wrapper owns its accounts).
+/// Delegates every hook trait, `JmapAccounts` and the `JmapReads` to
+/// `inner`.
 #[derive(Clone, Default)]
 struct Wrapper {
     inner: MemoryBackend,
-}
-
-impl JmapAccounts for Wrapper {
-    type Error = MemoryError;
-    type CallerCtx = ();
-
-    async fn account_exists(&self, caller: &(), account_id: &Id) -> Result<bool, MemoryError> {
-        self.inner.account_exists(caller, account_id).await
-    }
-    fn metadata_info<O: JmapObject>(
-        &self,
-        caller: &(),
-        account_id: &Id,
-    ) -> Option<jmap_metadata_types::DataTypeMetadataInfo> {
-        self.inner.metadata_info::<O>(caller, account_id)
-    }
 }
 
 macro_rules! delegate {
@@ -50,6 +33,7 @@ macro_rules! delegate {
 }
 
 delegate!(
+    DelegateJmapAccounts => jmap_accounts,
     DelegateJmapReads => jmap_reads,
     DelegateChatStore => chat_store,
     DelegateChatSpaces => chat_spaces,
