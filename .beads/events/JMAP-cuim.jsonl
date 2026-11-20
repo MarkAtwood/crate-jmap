@@ -1,1 +1,2 @@
 {"id":"01a1f6e5-aa43-757c-88bd-3a397c9935a0","issue_id":"JMAP-cuim","event_type":"created","actor":"Mark Atwood","old_value":"","new_value":"","created_at":"2026-11-20T03:00:08.899360903Z"}
+{"id":"01a1f77a-f88c-7865-9eda-aae589c2f584","issue_id":"JMAP-cuim","event_type":"closed","actor":"Mark Atwood","old_value":"","new_value":"Landed 37f2de88..09d7a3ee equivalents on main: shared jmap_server::MemoryCaller, every memory backend C=Id default; toy multi-server on one Dispatcher\u003cId\u003e. Full gate 8482 passed 0 failed.","created_at":"2026-11-20T05:43:13.804551795Z"}

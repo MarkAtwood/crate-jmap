@@ -2,11 +2,13 @@
   "id": "JMAP-cuim",
   "title": "memory backends: one CallerCtx so a single Dispatcher can host every family",
   "description": "(b1, high) Reference memory backends use different CallerCtx types ((), Id, String), so no single Dispatcher hosts them; a bridge handler loses conditional-02 for bridged families (atomic Mailbox/set refused). Found by the toy-consumer check (docs/audits/2026-11-20-toy-consumers/README.md).",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "task",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-20T03:00:08.875971916Z",
   "created_by": "Mark Atwood",
-  "updated_at": "2026-11-20T03:00:08.875971916Z"
+  "updated_at": "2026-11-20T05:43:13.79979888Z",
+  "closed_at": "2026-11-20T05:43:13.79979888Z",
+  "close_reason": "Landed 37f2de88..09d7a3ee equivalents on main: shared jmap_server::MemoryCaller, every memory backend C=Id default; toy multi-server on one Dispatcher\u003cId\u003e. Full gate 8482 passed 0 failed."
 }

@@ -1,0 +1,12 @@
+{
+  "id": "JMAP-madz",
+  "title": "mail memory: Mailbox/set accepts parentId naming no Mailbox (owner path)",
+  "description": "RFC 8621 §2.5: parentId must name an existing Mailbox. crate-jmap-mail-server/src/memory/mod.rs mailbox_failures checks name/role uniqueness and parent loops but not that parentId exists in the final state; only the sharee path (memory/sharing.rs) checks it. Found by the JMAP-cuim agent with an atomic Mailbox/set create in toy-multi-server. Fix: in mailbox_failures, a parentId not in 'after' is invalidProperties [parentId] (checked at commit so a same-request parent creation still works).",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-20T05:31:59.296234846Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-20T05:31:59.296234846Z"
+}
