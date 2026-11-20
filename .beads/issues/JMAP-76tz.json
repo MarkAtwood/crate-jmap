@@ -2,12 +2,12 @@
   "id": "JMAP-76tz",
   "title": "Propose a registered per-object serverFail SetError to the JMAP WG",
   "description": "DECISIONS.md 38 (Mark 2026-11-19): handlers report unexpected per-object storage failures as SetError type serverFail, which RFC 8620 §5.3 does not define (it is a method-level error there). Keep current behaviour; draft a short proposal for the JMAP WG (mailing list or an errata/registry request for the JMAP SetError types registry) for Mark to send. Revisit code after the discussion.",
-  "notes": "2026-11-19: list message drafted at docs/upstream/2026-11-19/serverfail-seterror.md; awaiting Mark's review and send. Close when sent.",
+  "notes": "2026-11-19: list message drafted at docs/upstream/2026-11-19/serverfail-seterror.md; awaiting Mark's review and send. Close when sent.\nMark 2026-11-20: decision 51: Gmail draft for Mark to send.",
   "status": "open",
   "priority": 2,
   "issue_type": "task",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-19T17:55:02.905193414Z",
   "created_by": "Mark Atwood",
-  "updated_at": "2026-11-19T19:01:13.948634944Z"
+  "updated_at": "2026-11-20T00:37:26.362184941Z"
 }

@@ -2,14 +2,14 @@
   "id": "JMAP-38uq.17",
   "title": "scene spec: leave/eject examples omit leftAt echo",
   "description": "draft-atwood-jmap-scene-00 at jmap-chat-spec 33702a5: the leave example response (L2349-2351, after the L2320-2338 request), the Step 6 leave response (L3296-3310: 'The server records its own current time as leftAt and responds') and the Step 4 eject response (L3571-3585) show updated: {id: null}. L2302 says the server records its own current time as leftAt and the client value only signals intent, so RFC 8620 §5.3 requires echoing it ('any properties that were changed in a way not explicitly requested by the client'). jmap-scene-server echoes {id: {leftAt: \u003cstored\u003e}} (tests/avatar_set.rs spec_leave_example, spec_eject_example). Spec examples should echo leftAt. Found in JMAP-0x0q.68.",
-  "notes": "2026-11-19: spec patch drafted for Mark's review in docs/upstream/2026-11-19/spec-patches/ (see README there); not committed to jmap-chat-spec.",
+  "notes": "2026-11-19: spec patch drafted for Mark's review in docs/upstream/2026-11-19/spec-patches/ (see README there); not committed to jmap-chat-spec.\nMark 2026-11-20: decision 51: commit the patch to jmap-chat-spec.",
   "status": "open",
   "priority": 3,
   "issue_type": "task",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-21T15:56:42.745424782Z",
   "created_by": "agent",
-  "updated_at": "2026-11-19T23:34:51.595770302Z",
+  "updated_at": "2026-11-20T00:37:25.565295828Z",
   "dependencies": [
     {
       "issue_id": "JMAP-38uq.17",
