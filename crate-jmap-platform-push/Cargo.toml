@@ -1,0 +1,31 @@
+[package]
+name = "jmap-platform-push"
+version = "0.5.0"
+authors.workspace = true
+repository.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "JMAP push delivery through FCM, APNs, ADM, Huawei Push Kit, MiPush and WNS"
+keywords = ["jmap", "push", "fcm", "apns", "wns"]
+categories = ["network-programming", "asynchronous"]
+exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
+
+[dependencies]
+base64 = { workspace = true }
+jmap-types = { workspace = true }
+p256 = { workspace = true }
+# APNs requires HTTP/2 (jmap-push-platform-guide §Apple APNs); the
+# workspace reqwest pin turns the default features, http2 among them, off.
+reqwest = { workspace = true, features = ["http2"] }
+ring = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["sync"] }
+url = { workspace = true }
+
+[dev-dependencies]
+rsa = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+wiremock = { workspace = true }

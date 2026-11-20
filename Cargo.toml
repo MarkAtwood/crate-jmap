@@ -30,6 +30,7 @@ members = [
     "crate-jmap-did",
     "crate-jmap-did-resolver",
     "crate-jmap-web-push",
+    "crate-jmap-platform-push",
     "crate-jmap-peer-auth",
     "crate-jmap-peer-auth-io",
     "crate-jmap-chat-mimi-types",
@@ -195,6 +196,19 @@ getrandom              = "0.3"
 # buffer before returning it to the allocator. RustCrypto-stack crate,
 # pure-Rust, no_std-compatible. See bd:JMAP-6r7c.59.
 zeroize                = "1.8"
+# base64url for JWT segments (jmap-platform-push FCM and APNs tokens).
+# Already in the tree via reqwest and jmap-web-push.
+base64                 = "0.22"
+# RS256 (RSASSA-PKCS1-v1_5 SHA-256) for the Google service-account JWT of
+# FCM HTTP v1 (jmap-platform-push). Already in the tree as the rustls
+# crypto provider of reqwest, and constant-time where pure-Rust `rsa` has
+# a history of timing side channels (RUSTSEC-2023-0071); `rsa` is a test
+# oracle only.
+ring                   = "0.17"
+# ES256 for the APNs provider token (jmap-platform-push), parsed from the
+# PKCS #8 `.p8` key Apple issues. Already in the tree via jmap-web-push and
+# jmap-did-types.
+p256                   = { version = "0.13", default-features = false, features = ["ecdsa", "pkcs8", "std"] }
 thiserror              = "2"
 tokio                  = { version = "1", features = ["rt"] }
 http                   = "1"
@@ -206,5 +220,9 @@ tracing                = "0.1"
 # Cargo.toml dev-dependencies blocks can use `<dep> = { workspace = true }`
 # and a future version bump touches one file instead of N. See bd:JMAP-ops7.32.
 wiremock               = "0.6"
+# Dev-only (jmap-platform-push tests): generates throwaway RS256 keys and
+# verifies RS256 signatures independently of ring. 0.10, not 0.9: 0.9 is
+# RUSTSEC-2023-0071 (Marvin), fixed in the 0.10 crypto-bigint rewrite.
+rsa                    = { version = "0.10", default-features = false, features = ["std", "encoding", "getrandom", "pkcs1v15"] }
 criterion              = { version = "0.8", default-features = false, features = ["cargo_bench_support"] }
 tracing-subscriber     = { version = "0.3", default-features = false, features = ["fmt"] }
