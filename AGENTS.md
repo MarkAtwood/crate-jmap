@@ -978,6 +978,14 @@ landed in bd:JMAP-ga0q.1.
   `privateMetadata` filtering. Test fixtures and single-user dev servers use
   the default `None`-returning impl and are fine; multi-user
   production deployments MUST override.
+- **Reference backends share one caller type.** Every in-repo
+  `MemoryBackend` is `MemoryBackend<C = Id>` over
+  `jmap_server::MemoryCaller` (impls for `Id` and `()`), and its
+  `principal_id` returns `MemoryCaller::principal`, so one
+  `Dispatcher<C>` hosts every family (bd:JMAP-cuim). A new memory backend
+  follows the same shape: `new()` on the `Id` default, `Default` for any
+  `C`, and a `()` caller acting as the account owner. Do not add a
+  crate-local caller trait or a `String` caller.
 - **Chat gates do not depend on identity.** Chat permission and
   role-hierarchy gates resolve against the owner's Space member
   entry, whose id is the accountId (draft-atwood-jmap-chat-00

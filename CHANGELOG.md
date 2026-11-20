@@ -1241,6 +1241,45 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-server**, every reference `MemoryBackend`: one caller
+  type for all the in-memory backends, so one `Dispatcher<C>` hosts every
+  family's handlers, conditional-02 `SetSupport` included, without a
+  bridge handler (bd:JMAP-cuim, toy-consumer audit row b1). The new
+  `jmap_server::MemoryCaller` trait (`fn principal(&self) -> Option<&Id>`,
+  implemented for `Id` and `()`) replaces the two crate-local copies
+  (`jmap_mail_server::memory::MemoryCaller`,
+  `jmap_filenode_server::memory::MemoryCaller`, removed). Every backend is
+  `MemoryBackend<C = Id>` over it (jmap-chat-mimi-server:
+  `MemoryBackend<P, C = Id>`, `P` the MLS crypto provider), and its
+  `principal_id` returns `MemoryCaller::principal`. `MemoryBackend::new()`
+  is the `Id` backend everywhere; `MemoryBackend::<()>::default()` (mimi:
+  `MemoryBackend::<_, ()>::with_crypto(crypto)`) takes callers without
+  identity, who act as the account owner. Per crate:
+  - **jmap-mail-server**: the default caller is now `Id` (was `()`), so
+    `MemoryBackend::new()` takes Principal ids; `seed::setup_seed_data` is
+    generic over `C` and writes as the owner.
+  - **jmap-graph-server**: was `CallerCtx = Id`; a `()` caller acts as the
+    account owner (rights, `isSubscribed`), has blocked no one, and
+    leaves `createdBy`/`updatedBy` `null`.
+  - **jmap-scene-server**, **jmap-vtc-server**: were `CallerCtx = String`
+    (the userId); now the caller's `Id`, whose string is the userId, or
+    `()`, which acts as the user named by the account id and has blocked
+    no one. Callers that passed a `String` pass an `Id`.
+  - **jmap-blob-server**, **jmap-calendars-server**, **jmap-chat-server**,
+    **jmap-contacts-server**, **jmap-quotas-server**,
+    **jmap-sharing-server**, **jmap-tasks-server**,
+    **jmap-chat-mimi-server**: were `CallerCtx = ()`; any caller acts as
+    the account owner, as before. Code that dispatched with `&()` names the
+    `()` backend (`MemoryBackend::<()>::default()`) or passes an `Id`.
+    `jmap_blob_server::memory::MemoryBackend::default_capability` is on
+    `MemoryBackend` (the `Id` default); `with_scope_gate` and
+    `jmap_sharing_server::memory::MemoryBackend::new_with_accounts` are on
+    every `MemoryBackend<C>`. The chat `testkit::ConformanceBackend` impl
+    covers `MemoryBackend<()>` and `MemoryBackend<Id>` (the account id is
+    the caller).
+  - **jmap-chat-slack**, **jmap-testjig**: keep the `()` caller, now named
+    as `MemoryBackend<()>`.
+
 - **jmap-filenode-server**: `FileNode/get` sends every withheld property
   of a node the caller can discover but not read as null, whatever the
   backend returned (draft-ietf-jmap-filenode-20 §5: it "returns null for
