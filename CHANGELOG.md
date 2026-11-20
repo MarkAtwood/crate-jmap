@@ -1135,6 +1135,22 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-tasks-types**, **jmap-tasks-server**: Task/query sort
+  properties follow draft-ietf-jmap-calendars-34 §5.11.2 as the local Tasks
+  profile does (docs/specs/jmap-tasks-local.md, Sorting: `id`, `uid`,
+  `start` MUST; `created`, `updated` SHOULD). `TaskComparatorProperty`
+  gains `Id` and loses `RecurrenceId`, which -34 dropped: `id` is now
+  accepted and `recurrenceId` is `unsupportedSort`. The tasks memory
+  backend now sorts Task/query by all five (collations `i;octet`,
+  `i;ascii-casemap`, `i;unicode-casemap`; ties by id; a `start` sort over
+  tasks in more than one time zone is `unsupportedSort`, as it has no
+  time-zone database) instead of answering `unsupportedSort` for any sort
+  (bd:JMAP-gr6p).
+- **jmap-tasks-server**: when the decision 42 workflow mirror clears
+  `progress` (say `completed` to `pending`), `apply_workflow_status` now
+  sets `progressUpdated` to the current time, unless the same write sets
+  it, as the local Tasks profile's {#workflow} rule 1 says for every
+  server change of `progress` (bd:JMAP-gr6p).
 - **BREAKING** **jmap-mime**: depends on mime-tree 0.6 (was 0.4). jmap-mime's
   public API takes and returns mime-tree types (`ParsedPart`,
   `ParsedMessage`, `DecodedBodyValue`), and mime-tree 0.5 made them

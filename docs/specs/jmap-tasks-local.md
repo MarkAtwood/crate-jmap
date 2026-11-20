@@ -136,9 +136,9 @@ Sources of the changes:
 ## Implementation notes {#impl-notes-convention}
 
 Paragraphs headed **Implementation note** describe where crate-jmap (at
-the commit that adds this file) differs from the normative text around
-them: a rule the crates do not enforce, enforce differently, or leave to
-the backend. They are not part of the specification. {{impl-index}}
+the commit that last changed this file) differs from the normative text
+around them: a rule the crates do not enforce, enforce differently, or
+leave to the backend. They are not part of the specification. {{impl-index}}
 lists them all.
 
 crate-jmap is a library kit, not a server: the handlers in
@@ -738,11 +738,6 @@ let a value through. `jmap-tasks-server` implements it as
 `workflow::apply_workflow_status`, which a backend calls inside the
 write.
 
-> **Implementation note:** when the mirror clears `progress` (for
-> example `completed` to `pending`), `apply_workflow_status` removes
-> `progress` but does not set `progressUpdated`; `progressUpdated` is set
-> only when the mirror gives `progress` a new non-null value.
-
 ## Extensions to JSCalendar data types
 
 ### Relation
@@ -1089,13 +1084,6 @@ Section 5.9) apply to Task, with "event" read as "task", "calendar" as
 > not read, and `noSupportedScheduleMethods` is never returned); and
 > `privacy` rules.
 
-> **Implementation note:** decision 44's order is not yet applied to one
-> case: an update of a missing task whose patch changes a server-set
-> property (`id`, `baseTaskId`, `isOrigin`) gets `invalidProperties`
-> from the shared `jmap_server::check_read_only_patch`, not `notFound`.
-> A patch without server-set properties reaches the backend, which
-> answers `notFound`.
-
 ## Task/copy
 
 This is a standard "/copy" method as described in {{RFC8620}}
@@ -1221,12 +1209,16 @@ Sorting by `start` orders tasks by the absolute time they start, not by
 the lexical value of `start`; a floating task's start is read in the
 `timeZone` argument.
 
-> **Implementation note:** the handler accepts the sort properties
-> `start`, `uid`, `recurrenceId`, `created` and `updated` (the list of
-> draft-ietf-jmap-calendars-26, which -06 inherited) and answers any
-> other, including `id`, with `unsupportedSort`. The reference backend
-> supports no sort at all (`unsupportedSort` for any comparator) and
-> returns ids in id order.
+> **Implementation note:** the handler accepts exactly these five sort
+> properties and answers any other with `unsupportedSort`, including
+> `recurrenceId`, which draft-ietf-jmap-calendars-26 (and so -06) listed
+> and -34 dropped. The reference backend sorts by all five, with no
+> collation or `i;octet`, `i;ascii-casemap` or `i;unicode-casemap`, and
+> breaks ties by id; a task without the sort property comes after the
+> tasks with it in ascending order. Having no time-zone database, it
+> compares `start` values as strings and answers `unsupportedSort` when
+> the matched tasks with a `start` are in more than one time zone (a
+> floating task counts as the `timeZone` argument's zone).
 
 ## Task/queryChanges
 
@@ -1760,40 +1752,35 @@ Every Implementation note above, in document order:
    convert ({{task}}).
 9. Task properties all optional and omitted when unset; `taskListId`
    existence unchecked by the reference backend ({{task}}).
-10. The mirror clearing `progress` does not set `progressUpdated`
-    ({{workflow}}).
-11. Person `uri` must be an RFC 3986 URI; the uri-or-principalId rule
+10. Person `uri` must be an RFC 3986 URI; the uri-or-principalId rule
     unchecked; `principalId` a plain string; missing `@type` filled
     ({{checklists}}).
-12. No blob-reference tracking or `data:` URL translation for
+11. No blob-reference tracking or `data:` URL translation for
     attachments.
-13. Per-user routing only when every patch key is per-user; reference
+12. Per-user routing only when every patch key is per-user; reference
     backend stores per-user data on the shared task ({{per-user}}).
-14. Task/get: no `utcStart`+`recurrenceOverrides` rejection, no
+13. Task/get: no `utcStart`+`recurrenceOverrides` rejection, no
     `recurrenceOverridesBefore`/`After`/`reduceParticipants`, no
     `hideAttendees`/`privacy` filtering, no zone check ({{task-get}}).
-15. Task/set: no `uid`/`created`/`updated`/`sequence`, `isOrigin`,
+14. Task/set: no `uid`/`created`/`updated`/`sequence`, `isOrigin`,
     `method` rejection, date and participant limits, `utcStart`/`utcDue`
     translation, scheduling, or `privacy` rules ({{task-set}}).
-16. Decision 44 not applied when an update of a missing task changes a
-    server-set property: `invalidProperties`, not `notFound`
-    ({{task-set}}).
-17. `expandDurationTooLarge` pre-check reads the bounds as UTC; the
+15. `expandDurationTooLarge` pre-check reads the bounds as UTC; the
     reference backend cannot expand recurring tasks ({{task-query}}).
-18. Filter matching is backend work; the reference backend evaluates
+16. Filter matching is backend work; the reference backend evaluates
     five conditions, no operators, same-zone `after`/`before` only
     ({{task-filter}}).
-19. Sort: `id` is `unsupportedSort`, `recurrenceId` accepted; the
-    reference backend sorts nothing ({{task-sort}}).
-20. Task/queryChanges does not pass `timeZone`/`expandRecurrences` to
+17. Sort: the reference backend sorts `start` only when the tasks are
+    in one time zone ({{task-sort}}).
+18. Task/queryChanges does not pass `timeZone`/`expandRecurrences` to
     the backend.
-21. The crates never create TaskNotifications ({{tasknotification}}).
-22. The reference backend evaluates no TaskNotification filter or sort.
-23. `created`/`updated` echo the whole stored Task; a cleared `progress`
+19. The crates never create TaskNotifications ({{tasknotification}}).
+20. The reference backend evaluates no TaskNotification filter or sort.
+21. `created`/`updated` echo the whole stored Task; a cleared `progress`
     is an absent key, not null ({{examples}}).
-24. The Data Types rows are not yet in `jmap_types::DATA_TYPES`
+22. The Data Types rows are not yet in `jmap_types::DATA_TYPES`
     (JMAP-tna1.3.26) ({{iana-datatypes}}).
-25. Relation and role values need no crate change.
+23. Relation and role values need no crate change.
 
 # Open points for the task-lists effort {#open-points}
 

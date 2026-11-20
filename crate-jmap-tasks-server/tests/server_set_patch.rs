@@ -160,6 +160,28 @@ async fn task_empty_patch_of_missing_id_is_not_found() {
     assert_eq!(resp["notUpdated"]["t9"]["type"], "notFound", "{resp}");
 }
 
+/// docs/specs/jmap-tasks-local.md {#task-set}, Permissions: "Existence and
+/// permission are checked before shape: an update of a task the user
+/// cannot see is `notFound`, not `invalidProperties` (decision 44)."
+/// Each patch changes a server-set Task property (draft-ietf-jmap-tasks-06
+/// §4: `id`, `baseTaskId`, `isOrigin`), which on a stored task would be
+/// `invalidProperties`.
+#[tokio::test]
+async fn task_changed_server_set_value_of_missing_id_is_not_found() {
+    let backend = seeded_backend();
+    for patch in [
+        json!({ "id": "t8" }),
+        json!({ "baseTaskId": "t1", "title": "x" }),
+        json!({ "isOrigin": false }),
+    ] {
+        let resp = task_set(&backend, "t9", patch.clone()).await;
+        assert_eq!(
+            resp["notUpdated"]["t9"]["type"], "notFound",
+            "{patch}: {resp}"
+        );
+    }
+}
+
 #[tokio::test]
 async fn task_list_identical_server_set_values_are_a_noop() {
     let backend = seeded_backend();

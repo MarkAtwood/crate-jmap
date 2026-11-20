@@ -333,3 +333,151 @@ async fn recurring_match_without_engine_cannot_calculate_occurrences() {
     .expect_err("recurring task cannot be expanded");
     assert_eq!(err.error_type.to_string(), "cannotCalculateOccurrences");
 }
+
+// ─── Sorting ────────────────────────────────────────────────────────────────
+//
+// docs/specs/jmap-tasks-local.md Sorting, after draft-ietf-jmap-calendars-34
+// §5.11.2 (calendars-34.txt L2372-2391): "The following properties MUST be
+// supported for sorting: `id`, `uid`, `start`. The following SHOULD be
+// supported: `created`, `updated`. Sorting by `start` orders tasks by the
+// absolute time they start, not by the lexical value of `start`; a floating
+// task's start is read in the `timeZone` argument." RFC 8620 §5.5:
+// "isAscending: Boolean (optional; default: true) If true, sort in
+// ascending order.  If false, reverse the comparator's results to sort in
+// descending order."
+
+async fn sorted(backend: &UserBackend, sort: Value) -> Value {
+    query(backend, json!({ "sort": sort }))
+        .await
+        .expect("Task/query succeeds")
+}
+
+/// Sort by `id`, both directions.
+#[tokio::test]
+async fn sorts_by_id() {
+    let b = backend(&[("b", json!({})), ("c", json!({})), ("a", json!({}))]);
+    assert_eq!(
+        sorted(&b, json!([{ "property": "id" }])).await,
+        json!(["a", "b", "c"])
+    );
+    assert_eq!(
+        sorted(&b, json!([{ "property": "id", "isAscending": false }])).await,
+        json!(["c", "b", "a"])
+    );
+}
+
+/// Sort by `uid`, which here orders the tasks differently from their ids.
+#[tokio::test]
+async fn sorts_by_uid() {
+    let b = backend(&[
+        ("a", json!({ "uid": "zebra" })),
+        ("b", json!({ "uid": "apple" })),
+        ("c", json!({ "uid": "mango" })),
+    ]);
+    assert_eq!(
+        sorted(&b, json!([{ "property": "uid" }])).await,
+        json!(["b", "c", "a"])
+    );
+}
+
+/// Sort by `start` for tasks in one zone; floating tasks are read in the
+/// `timeZone` argument, so with it equal to the zoned task's zone all three
+/// compare directly.
+#[tokio::test]
+async fn sorts_by_start() {
+    let b = backend(&[
+        ("a", json!({ "start": "2026-03-10T09:00:00" })),
+        (
+            "b",
+            json!({ "start": "2026-03-01T09:00:00", "timeZone": "Test/Plus2" }),
+        ),
+        ("c", json!({ "start": "2026-03-05T09:00:00" })),
+    ]);
+    let got = query(
+        &b,
+        json!({ "timeZone": "Test/Plus2", "sort": [{ "property": "start" }] }),
+    )
+    .await
+    .expect("Task/query succeeds");
+    assert_eq!(got, json!(["b", "c", "a"]));
+}
+
+/// The memory backend has no time-zone database, so it cannot order starts
+/// in different zones by absolute time; RFC 8620 §5.5: "A server MUST
+/// reject the call with an unsupportedSort error if it cannot sort by the
+/// given properties."
+#[tokio::test]
+async fn start_sort_across_zones_is_unsupported_sort() {
+    let b = backend(&[
+        ("a", json!({ "start": "2026-03-10T09:00:00" })),
+        (
+            "b",
+            json!({ "start": "2026-03-01T09:00:00", "timeZone": "Test/Plus2" }),
+        ),
+    ]);
+    let err = query(&b, json!({ "sort": [{ "property": "start" }] }))
+        .await
+        .expect_err("cannot sort across zones");
+    assert_eq!(err.error_type.to_string(), "unsupportedSort");
+}
+
+/// Sort by `created` and `updated` (UTCDateTime, compared as instants).
+#[tokio::test]
+async fn sorts_by_created_and_updated() {
+    let b = backend(&[
+        (
+            "a",
+            json!({ "created": "2026-01-03T00:00:00Z", "updated": "2026-02-01T00:00:00Z" }),
+        ),
+        (
+            "b",
+            json!({ "created": "2026-01-01T00:00:00Z", "updated": "2026-02-01T00:00:00.5Z" }),
+        ),
+        (
+            "c",
+            json!({ "created": "2026-01-02T00:00:00Z", "updated": "2026-01-15T00:00:00Z" }),
+        ),
+    ]);
+    assert_eq!(
+        sorted(&b, json!([{ "property": "created" }])).await,
+        json!(["b", "c", "a"])
+    );
+    // 00:00:00.5Z is half a second after 00:00:00Z.
+    assert_eq!(
+        sorted(&b, json!([{ "property": "updated" }])).await,
+        json!(["c", "a", "b"])
+    );
+}
+
+/// A later comparator breaks ties of an earlier one (RFC 8620 §5.5: "If
+/// two Foo records have an identical value for the first comparator, the
+/// next comparator will be considered, and so on.").
+#[tokio::test]
+async fn second_comparator_breaks_ties() {
+    let b = backend(&[
+        ("a", json!({ "uid": "same" })),
+        ("b", json!({ "uid": "same" })),
+        ("c", json!({ "uid": "first" })),
+    ]);
+    assert_eq!(
+        sorted(
+            &b,
+            json!([{ "property": "uid" }, { "property": "id", "isAscending": false }])
+        )
+        .await,
+        json!(["c", "b", "a"])
+    );
+}
+
+/// -26's `recurrenceId`, dropped by -34, and an unlisted property are
+/// `unsupportedSort`.
+#[tokio::test]
+async fn unlisted_sort_properties_are_unsupported_sort() {
+    let b = backend(&[("a", json!({}))]);
+    for property in ["recurrenceId", "title"] {
+        let err = query(&b, json!({ "sort": [{ "property": property }] }))
+            .await
+            .expect_err("unlisted sort property");
+        assert_eq!(err.error_type.to_string(), "unsupportedSort", "{property}");
+    }
+}

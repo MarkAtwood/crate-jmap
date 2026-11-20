@@ -1616,16 +1616,19 @@ fn task_rights_may_set_metadata_typed_and_optional() {
 // ─── Comparators ─────────────────────────────────────────────────────────────
 
 /// draft-ietf-jmap-tasks-06 §4.13: Task/query "is the \"CalendarEvent/query\"
-/// method", whose sort properties are `start`, `uid`, `recurrenceId`,
-/// `created`, `updated` (draft-ietf-jmap-calendars-26 §5.11.2). A name not
-/// listed survives as `Other` and re-encodes to the same JSON.
+/// method"; draft-ietf-jmap-calendars-34 §5.11.2 (calendars-34.txt
+/// L2372-2381): "The following properties MUST be supported for sorting:
+/// id, uid, start" and "SHOULD be supported for sorting: created,
+/// updated" (docs/specs/jmap-tasks-local.md, Sorting). A name not listed,
+/// including -26's `recurrenceId`, survives as `Other` and re-encodes to
+/// the same JSON.
 #[test]
 fn task_comparator_sort_properties() {
     use jmap_tasks_types::{TaskComparator, TaskComparatorProperty as P};
     for (wire, want) in [
+        ("id", P::Id),
         ("start", P::Start),
         ("uid", P::Uid),
-        ("recurrenceId", P::RecurrenceId),
         ("created", P::Created),
         ("updated", P::Updated),
     ] {
@@ -1637,6 +1640,10 @@ fn task_comparator_sort_properties() {
     let wire = serde_json::json!({ "property": "due", "isAscending": false });
     let c: TaskComparator = serde_json::from_value(wire.clone()).unwrap();
     assert_eq!(c.property, P::Other("due".to_owned()));
+    assert_eq!(serde_json::to_value(&c).unwrap(), wire);
+    let wire = serde_json::json!({ "property": "recurrenceId" });
+    let c: TaskComparator = serde_json::from_value(wire.clone()).unwrap();
+    assert_eq!(c.property, P::Other("recurrenceId".to_owned()));
     assert_eq!(serde_json::to_value(&c).unwrap(), wire);
 }
 

@@ -267,3 +267,46 @@ async fn moving_to_a_list_without_the_status() {
     .await
     .unwrap();
 }
+
+/// docs/specs/jmap-tasks-local.md {#workflow} rule 1: "For any other value
+/// (`pending`, ...) the server sets `progress` to null. Whenever the server
+/// changes `progress` this way it also sets `progressUpdated` ... to the
+/// current time, unless the same create or update sets `progressUpdated`."
+/// RFC 8984 §5.2.6: `progressUpdated` is "the date/time the "progress"
+/// property ... was last updated". Clearing it is such an update.
+#[tokio::test]
+async fn clearing_progress_sets_progress_updated() {
+    let b = backend();
+    let c = create(
+        &b,
+        json!({ "taskListId": "L1", "workflowStatus": "completed",
+                "progressUpdated": "2020-01-01T00:00:00Z" }),
+    )
+    .await
+    .unwrap();
+    let id = c["id"].as_str().unwrap();
+    let echo = update(&b, id, json!({ "workflowStatus": "pending" }))
+        .await
+        .unwrap();
+    let now = echo["progressUpdated"].as_str().expect("echoed").to_owned();
+    assert_ne!(now, "2020-01-01T00:00:00Z", "{echo}");
+    let t = stored(&b, id).await;
+    assert!(t.get("progress").is_none_or(Value::is_null), "{t}");
+    assert_eq!(t["progressUpdated"], now.as_str(), "{t}");
+
+    // "unless the same ... update sets progressUpdated".
+    update(&b, id, json!({ "workflowStatus": "failed" }))
+        .await
+        .unwrap();
+    update(
+        &b,
+        id,
+        json!({ "workflowStatus": "pending", "progressUpdated": "2021-02-03T04:05:06Z" }),
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        stored(&b, id).await["progressUpdated"],
+        "2021-02-03T04:05:06Z"
+    );
+}

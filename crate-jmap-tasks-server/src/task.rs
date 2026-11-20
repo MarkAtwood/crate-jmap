@@ -1158,16 +1158,20 @@ mod tests {
 
     /// Oracle: RFC 8620 §5.5 `unsupportedSort`: "The sort is syntactically
     /// valid, but includes a property the server does not support sorting
-    /// on". draft-ietf-jmap-tasks-06 §4.13 defers to CalendarEvent/query, whose sort
-    /// properties are start, uid, recurrenceId, created and updated; `title` is not among them.
+    /// on". docs/specs/jmap-tasks-local.md Sorting (draft-ietf-jmap-calendars-34
+    /// §5.11.2): "MUST be supported for sorting: `id`, `uid`, `start`. The
+    /// following SHOULD be supported: `created`, `updated`." `title` is not
+    /// among them, nor is -26's `recurrenceId`, which -34 dropped.
     #[tokio::test]
     async fn query_unlisted_sort_property_returns_unsupported_sort() {
         let backend = MockBackend::new_with_account("acc1");
-        let args = json!({ "accountId": "acc1", "sort": [{ "property": "title" }] });
-        let err = handle_task_query(&backend, &(), args, &[])
-            .await
-            .expect_err("unlisted sort property must be rejected");
-        assert_eq!(err.error_type.to_string(), "unsupportedSort");
+        for property in ["title", "recurrenceId"] {
+            let args = json!({ "accountId": "acc1", "sort": [{ "property": property }] });
+            let err = handle_task_query(&backend, &(), args, &[])
+                .await
+                .expect_err("unlisted sort property must be rejected");
+            assert_eq!(err.error_type.to_string(), "unsupportedSort", "{property}");
+        }
     }
 
     /// Oracle: as above; `Task/queryChanges` carries the same `sort`
@@ -1186,15 +1190,18 @@ mod tests {
         assert_eq!(err.error_type.to_string(), "unsupportedSort");
     }
 
-    /// Oracle: draft-ietf-jmap-tasks-06 §4.13 defers to CalendarEvent/query, whose sort
-    /// properties are start, uid, recurrenceId, created and updated, so a `start` sort is accepted.
+    /// Oracle: docs/specs/jmap-tasks-local.md Sorting: "The following
+    /// properties MUST be supported for sorting: `id`, `uid`, `start`. The
+    /// following SHOULD be supported: `created`, `updated`."
     #[tokio::test]
     async fn query_listed_sort_property_is_accepted() {
         let backend = MockBackend::new_with_account("acc1");
-        let args = json!({ "accountId": "acc1", "sort": [{ "property": "start" }] });
-        handle_task_query(&backend, &(), args, &[])
-            .await
-            .expect("listed sort property must not be rejected");
+        for property in ["id", "uid", "start", "created", "updated"] {
+            let args = json!({ "accountId": "acc1", "sort": [{ "property": property }] });
+            handle_task_query(&backend, &(), args, &[])
+                .await
+                .expect("listed sort property must not be rejected");
+        }
     }
 
     /// Oracle: Task/get with unknown accountId returns accountNotFound.

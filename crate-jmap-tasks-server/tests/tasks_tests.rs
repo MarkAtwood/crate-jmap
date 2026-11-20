@@ -800,45 +800,33 @@ async fn query_with_operator_tree_is_unsupported_filter_on_memory_backend() {
 }
 
 // ---------------------------------------------------------------------------
-// Test: Task/query against MemoryBackend with a non-empty sort fails loud
-// rather than silently returning ids in id-lexicographic order.
+// Test: TaskNotification/query against MemoryBackend with a non-empty sort
+// fails loud rather than silently returning ids in id-lexicographic order.
 //
 // Oracle: RFC 8620 §5.5 — "A server MUST reject the call with an
 // `unsupportedSort` error if it cannot sort by the given properties."
-// The reference MemoryBackend cannot honor any sort key, so a query
-// carrying one must surface a method-level error rather than silently
-// returning ids in id-creation order (which a client following the
-// `task<n:016x>` demo id scheme might mistake for working sort).
-// `start` is a listed Task sort property (draft-ietf-jmap-tasks-06 §4.13
-// via CalendarEvent/query), so the handler forwards it to the backend; an
-// unlisted property is rejected earlier with unsupportedSort (bd JMAP-86o9).
+// The reference MemoryBackend sorts Task/query (tests/task_query.rs) but
+// no other type, so a TaskNotification query carrying a sort must surface
+// a method-level error rather than silently returning ids in id order.
+// `created` is the listed TaskNotification sort property
+// (draft-ietf-jmap-tasks-06 §5.5.2: "The "created" property MUST be
+// supported for sorting."), so the handler forwards it to the backend.
 //
-// Beads: JMAP-h47t.5, JMAP-yt1w.25.
+// Beads: JMAP-h47t.5, JMAP-yt1w.25, JMAP-gr6p.
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
-async fn task_query_with_sort_fails_loud_on_memory_backend() {
+async fn task_notification_query_with_sort_fails_loud_on_memory_backend() {
     let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
-    backend.seed_object(
-        &Id::from("acc1"),
-        "TaskList",
-        &Id::from("tl1"),
-        task_list_fixture("tl1", "Todo"),
-    );
-    backend.seed_object(
-        &Id::from("acc1"),
-        "Task",
-        &Id::from("t1"),
-        task_fixture("t1", "tl1", "Buy milk"),
-    );
-
     let args = json!({
         "accountId": "acc1",
-        "sort": [ { "property": "start", "isAscending": true } ]
+        "sort": [ { "property": "created", "isAscending": true } ]
     });
-    let err = handle_task_query(&backend, &(), args, &[])
+    let err = handle_task_notification_query(&backend, &(), args)
         .await
-        .expect_err("Task/query with sort must fail loud on the reference MemoryBackend");
+        .expect_err(
+            "TaskNotification/query with sort must fail loud on the reference MemoryBackend",
+        );
     assert_eq!(err.error_type.to_string(), "unsupportedSort", "{err:?}");
 }
 

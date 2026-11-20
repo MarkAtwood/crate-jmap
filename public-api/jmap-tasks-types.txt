@@ -47,8 +47,8 @@ impl<'de> serde_core::de::Deserialize<'de> for jmap_tasks_types::NotificationTyp
 pub fn jmap_tasks_types::NotificationType::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
 #[non_exhaustive] pub enum jmap_tasks_types::TaskComparatorProperty
 pub jmap_tasks_types::TaskComparatorProperty::Created
+pub jmap_tasks_types::TaskComparatorProperty::Id
 pub jmap_tasks_types::TaskComparatorProperty::Other(alloc::string::String)
-pub jmap_tasks_types::TaskComparatorProperty::RecurrenceId
 pub jmap_tasks_types::TaskComparatorProperty::Start
 pub jmap_tasks_types::TaskComparatorProperty::Uid
 pub jmap_tasks_types::TaskComparatorProperty::Updated

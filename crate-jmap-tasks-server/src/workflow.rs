@@ -8,9 +8,9 @@
 //!
 //! - A `workflowStatus` that is one of the RFC 8984 §5.2.5 progress values
 //!   is mirrored into `progress` by the server; any other value (`pending`,
-//!   a list-defined one) leaves `progress` `null`. A changed `progress`
-//!   also sets `progressUpdated` (RFC 8984 §5.2.6), unless the client set
-//!   it.
+//!   a list-defined one) leaves `progress` `null`. A changed `progress`,
+//!   including one the mirror clears, also sets `progressUpdated` (RFC
+//!   8984 §5.2.6) to the current time, unless the client set it.
 //! - Setting `progress` to anything else while `workflowStatus` is set is
 //!   `invalidProperties` naming `progress`.
 //! - A `workflowStatus` not in the task list's `workflowStatuses` is
@@ -146,7 +146,10 @@ pub fn apply_workflow_status(
             task.remove("progress");
         }
     }
-    if previous != mirrored.as_ref() && mirrored.is_some() && !wrote_progress_updated {
+    // "Whenever the server changes `progress` this way" (local spec
+    // {#workflow} rule 1; decision 42 "as for any `progress` change"):
+    // clearing it, e.g. `completed` to `pending`, is such a change too.
+    if previous != mirrored.as_ref() && !wrote_progress_updated {
         task.insert("progressUpdated".to_owned(), Value::String(now.to_owned()));
         changed = true;
     }

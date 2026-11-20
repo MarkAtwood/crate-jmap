@@ -17,8 +17,11 @@ use serde::{Deserialize, Serialize};
 /// draft-ietf-jmap-tasks-06 §4.13: Task/query "is the
 /// "CalendarEvent/query" method as described in
 /// [I-D.ietf-jmap-calendars]", so these are the CalendarEvent/query sort
-/// properties (draft-ietf-jmap-calendars-26 §5.11.2: `start`, `uid`,
-/// `recurrenceId` MUST; `created`, `updated` SHOULD).
+/// properties of draft-ietf-jmap-calendars-34 §5.11.2, which the local
+/// profile (docs/specs/jmap-tasks-local.md, Sorting) takes over: "The
+/// following properties MUST be supported for sorting: id, uid, start" and
+/// "SHOULD be supported for sorting: created, updated". -34 dropped -26's
+/// `recurrenceId`, which therefore decodes to `Other`.
 ///
 /// Unknown property names are preserved in
 /// [`Other`](TaskComparatorProperty::Other) so they round-trip; a server
@@ -27,12 +30,12 @@ use serde::{Deserialize, Serialize};
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TaskComparatorProperty {
+    /// Sort by `id`.
+    Id,
     /// Sort by `start`.
     Start,
     /// Sort by `uid`.
     Uid,
-    /// Sort by `recurrenceId`.
-    RecurrenceId,
     /// Sort by `created`.
     Created,
     /// Sort by `updated`.
@@ -43,11 +46,11 @@ pub enum TaskComparatorProperty {
 }
 
 impl_string_enum!(TaskComparatorProperty, "a Task sort property string",
-    "start"        => Start,
-    "uid"          => Uid,
-    "recurrenceId" => RecurrenceId,
-    "created"      => Created,
-    "updated"      => Updated,
+    "id"      => Id,
+    "start"   => Start,
+    "uid"     => Uid,
+    "created" => Created,
+    "updated" => Updated,
 );
 
 /// The property to sort by in a [`TaskNotificationComparator`]

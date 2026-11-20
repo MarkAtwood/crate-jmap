@@ -23,7 +23,8 @@
 //! `Task/query` has no time-zone database and no recurrence engine:
 //! `after` / `before` on a task whose `timeZone` is not the query's is
 //! `unsupportedFilter`, and with `expandRecurrences` a recurring match is
-//! `cannotCalculateOccurrences` (see
+//! `cannotCalculateOccurrences`, and a sort by `start` over tasks in more
+//! than one zone is `unsupportedSort` (see
 //! [`query_tasks`](crate::TasksBackend::query_tasks) on `MemoryBackend`).
 //!
 //! # Feature flag and API stability
@@ -74,6 +75,7 @@
 
 mod history;
 
+use std::cmp::Ordering;
 use std::collections::{BTreeSet, HashMap, HashSet};
 
 use crate::{TaskQueryArgs, TasksBackend};
@@ -93,7 +95,9 @@ use jmap_server::{
     BeginSetError, ConditionalBackend, PatchPathError, ScopedState, SetScope, SetScopeRequest,
     apply_patch_object, check_patch_paths, limit_or_max, resolve_query_start,
 };
-use jmap_tasks_types::{Task, TaskFilterCondition, TaskList};
+use jmap_tasks_types::{
+    Task, TaskComparator, TaskComparatorProperty, TaskFilterCondition, TaskList,
+};
 use jmap_types::{Id, JmapError, State};
 
 // ---------------------------------------------------------------------------
@@ -856,10 +860,23 @@ impl JmapReads for MemoryBackend {
         .with_updated_properties(updated_properties))
     }
 
-    /// Returns all object ids in this account, sorted lexicographically by id,
-    /// paginated by `position` and `limit`.
+    /// Returns the matching object ids in this account, sorted by id unless
+    /// a Task sort says otherwise, paginated by `position` and `limit`.
     ///
-    /// # Filter and sort are NOT honored
+    /// # Task sort
+    ///
+    /// A Task `sort` may use the docs/specs/jmap-tasks-local.md Sorting
+    /// properties `id`, `uid`, `start`, `created` and `updated`, with no
+    /// collation or `i;octet`, `i;ascii-casemap` or `i;unicode-casemap`
+    /// (applied to `id` and `uid`). Ties are broken by id; a task without
+    /// the sort property comes after the tasks with it in ascending order.
+    /// With no time-zone database, `start` is compared as a `LocalDateTime`
+    /// string and the call is `unsupportedSort` when the matched tasks
+    /// with a `start` are in more than one zone (a floating task counts as
+    /// the query's zone, here `Etc/UTC`). Any other sort property, and any
+    /// sort of another type, is `unsupportedSort`.
+    ///
+    /// # Filter and other sorts are NOT honored
     ///
     /// This reference implementation supports exactly one filter shape: a
     /// single Task condition whose only set fields are `inTaskLists` (which
@@ -869,8 +886,8 @@ impl JmapReads for MemoryBackend {
     /// time-zone limit; here the query zone is `Etc/UTC`), and the
     /// draft-ietf-jmap-metadata-05
     /// §3.6 shared-metadata conditions once [`MemoryBackend::with_metadata_info`]
-    /// opts Task in. It does **not** support any other filter or any sort
-    /// shape. RFC 8620 §5.5 mandates that an unsupported `filter` produces
+    /// opts Task in. It does **not** support any other filter, or any sort
+    /// beyond the Task sort above. RFC 8620 §5.5 mandates that an unsupported `filter` produces
     /// `unsupportedFilter` at the method level, and an unsupported `sort`
     /// produces `unsupportedSort`. A production backend MUST inspect both
     /// arguments against the type's [`QueryObject`] supported sets and
@@ -887,8 +904,8 @@ impl JmapReads for MemoryBackend {
     ///   metadata condition on a type that is not opted in is also
     ///   `unsupportedFilter`, and a malformed one `invalidArguments`
     ///   (draft-ietf-jmap-metadata-05 §3.6).
-    /// - `sort` is `Some` with one or more comparators → returns
-    ///   [`BackendQueryError::Method`] carrying `unsupportedSort`.
+    /// - `sort` is `Some` with a comparator other than the Task sort above
+    ///   → returns [`BackendQueryError::Method`] carrying `unsupportedSort`.
     ///
     /// Callers that want "all objects in this account" pass
     /// `filter = None`, `sort = None`.
@@ -1234,6 +1251,126 @@ fn task_matches(
     ))
 }
 
+/// The Task/query sort as [`TaskComparator`]s, checked against what this
+/// backend can evaluate: the docs/specs/jmap-tasks-local.md Sorting
+/// properties ("MUST be supported for sorting: `id`, `uid`, `start`. The
+/// following SHOULD be supported: `created`, `updated`."), with no
+/// collation or one of [`text_cmp`]'s. Anything else is `unsupportedSort`
+/// (RFC 8620 §5.5).
+fn task_sort<C: serde::Serialize>(
+    sort: &[C],
+) -> Result<Vec<TaskComparator>, BackendQueryError<MemoryError>> {
+    sort.iter()
+        .map(|c| {
+            let v = jmap_server::serialize_value(c).map_err(BackendQueryError::Method)?;
+            let c: TaskComparator = serde_json::from_value(v)
+                .map_err(|e| BackendQueryError::Method(JmapError::server_fail(e.to_string())))?;
+            let known = matches!(
+                c.property,
+                TaskComparatorProperty::Id
+                    | TaskComparatorProperty::Uid
+                    | TaskComparatorProperty::Start
+                    | TaskComparatorProperty::Created
+                    | TaskComparatorProperty::Updated
+            );
+            if known && text_cmp(c.collation.as_deref(), "", "").is_some() {
+                Ok(c)
+            } else {
+                Err(BackendQueryError::Method(JmapError::unsupported_sort()))
+            }
+        })
+        .collect()
+}
+
+/// String comparison under a supported RFC 4790 collation (`None` is
+/// `i;octet`); `None` back for any other collation.
+fn text_cmp(collation: Option<&str>, a: &str, b: &str) -> Option<Ordering> {
+    match collation {
+        None | Some("i;octet") => Some(a.cmp(b)),
+        Some("i;ascii-casemap") => Some(a.to_ascii_lowercase().cmp(&b.to_ascii_lowercase())),
+        Some("i;unicode-casemap") => Some(a.to_lowercase().cmp(&b.to_lowercase())),
+        Some(_) => None,
+    }
+}
+
+/// Sorting by `start` "orders tasks by the absolute time they start, not
+/// by the lexical value of `start`; a floating task's start is read in the
+/// `timeZone` argument" (docs/specs/jmap-tasks-local.md Sorting). With no
+/// time-zone database the backend can do that only by comparing `start`
+/// values that are all in one zone (a task's `timeZone`, or `query_zone`
+/// when it floats); tasks in several zones are `unsupportedSort`.
+fn check_one_start_zone(
+    matched: &[(&Id, &serde_json::Value)],
+    query_zone: &str,
+) -> Result<(), BackendQueryError<MemoryError>> {
+    let mut zones = matched
+        .iter()
+        .filter(|(_, t)| t.get("start").is_some_and(serde_json::Value::is_string))
+        .map(|(_, t)| {
+            t.get("timeZone")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or(query_zone)
+        });
+    let first = zones.next();
+    if zones.any(|z| Some(z) != first) {
+        let mut err = JmapError::unsupported_sort();
+        err.description = Some(
+            "sorting tasks in several time zones by start needs a time-zone database".to_owned(),
+        );
+        return Err(BackendQueryError::Method(err));
+    }
+    Ok(())
+}
+
+/// Order two matched Tasks by `comparators` (from [`task_sort`]), then by
+/// id so the order is stable (RFC 8620 §5.5). A task without the sort
+/// property comes after every task with it in ascending order (the spec
+/// leaves this open). `start` compares as a `LocalDateTime` string, which
+/// [`check_one_start_zone`] made safe; `created` and `updated` compare as
+/// UTCDates with the trailing `Z` (RFC 8620 §1.4) dropped, so a
+/// fractional-second value sorts after the whole second.
+fn compare_tasks(
+    comparators: &[TaskComparator],
+    (a_id, a): &(&Id, &serde_json::Value),
+    (b_id, b): &(&Id, &serde_json::Value),
+) -> Ordering {
+    for c in comparators {
+        let text = |id: &Id, t: &serde_json::Value| -> Option<String> {
+            let s = |k: &str| t.get(k).and_then(serde_json::Value::as_str);
+            match c.property {
+                TaskComparatorProperty::Id => Some(id.as_ref().to_owned()),
+                TaskComparatorProperty::Uid => s("uid").map(str::to_owned),
+                TaskComparatorProperty::Start => s("start").map(str::to_owned),
+                TaskComparatorProperty::Created => {
+                    s("created").map(|v| v.trim_end_matches('Z').to_owned())
+                }
+                TaskComparatorProperty::Updated => {
+                    s("updated").map(|v| v.trim_end_matches('Z').to_owned())
+                }
+                _ => None,
+            }
+        };
+        let is_text = matches!(
+            c.property,
+            TaskComparatorProperty::Id | TaskComparatorProperty::Uid
+        );
+        let ord = match (text(a_id, a), text(b_id, b)) {
+            (Some(x), Some(y)) if is_text => {
+                text_cmp(c.collation.as_deref(), &x, &y).unwrap_or(Ordering::Equal)
+            }
+            (Some(x), Some(y)) => x.cmp(&y),
+            (Some(_), None) => Ordering::Less,
+            (None, Some(_)) => Ordering::Greater,
+            (None, None) => Ordering::Equal,
+        };
+        let ord = if c.is_ascending { ord } else { ord.reverse() };
+        if ord != Ordering::Equal {
+            return ord;
+        }
+    }
+    a_id.as_ref().cmp(b_id.as_ref())
+}
+
 /// `true` when the stored Task `task` recurs: it has a non-empty
 /// `recurrenceRules` or `recurrenceOverrides` (RFC 8984 §4.3).
 fn is_recurring(task: &serde_json::Value) -> bool {
@@ -1470,13 +1607,15 @@ impl MemoryBackend {
             }
         }
 
-        // Fail loud on any non-empty sort: this reference impl returns ids
-        // in id-lexicographic order and honors no comparator. RFC 8620 §5.5:
-        // "A server MUST reject the call with an unsupportedSort error if it
-        // cannot sort by the given properties."
-        if sort.is_some_and(|s| !s.is_empty()) {
-            return Err(BackendQueryError::Method(JmapError::unsupported_sort()));
-        }
+        // Task sorts by the local profile's properties (task_sort); any
+        // other type's non-empty sort fails loud, RFC 8620 §5.5: "A server
+        // MUST reject the call with an unsupportedSort error if it cannot
+        // sort by the given properties."
+        let comparators = match sort.filter(|s| !s.is_empty()) {
+            None => Vec::new(),
+            Some(s) if is_task => task_sort(s)?,
+            Some(_) => return Err(BackendQueryError::Method(JmapError::unsupported_sort())),
+        };
 
         let query_zone = task_args.time_zone.as_deref().unwrap_or("Etc/UTC");
         let mut matched: Vec<(&Id, &serde_json::Value)> = Vec::new();
@@ -1519,8 +1658,14 @@ impl MemoryBackend {
             }
         }
 
-        let mut ids: Vec<Id> = matched.into_iter().map(|(k, _)| k.clone()).collect();
-        ids.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
+        if comparators
+            .iter()
+            .any(|c| c.property == TaskComparatorProperty::Start)
+        {
+            check_one_start_zone(&matched, query_zone)?;
+        }
+        matched.sort_by(|a, b| compare_tasks(&comparators, a, b));
+        let ids: Vec<Id> = matched.into_iter().map(|(k, _)| k.clone()).collect();
 
         let total = ids.len() as u64;
         let query_state = State::from(
@@ -1534,7 +1679,7 @@ impl MemoryBackend {
         let start = resolve_query_start(&ids, position, anchor, anchor_offset)
             .map_err(BackendQueryError::Method)?;
 
-        ids = ids[start..]
+        let ids: Vec<Id> = ids[start..]
             .iter()
             .take(limit_or_max(limit))
             .cloned()
@@ -1804,8 +1949,9 @@ impl TasksBackend for MemoryBackend {
     /// `maxExpandedQueryDuration` cap ([`TasksBackend::limits`]) is checked
     /// again; non-recurring matches keep their ids as their single
     /// instances, and a recurring match is `cannotCalculateOccurrences`,
-    /// since there is no recurrence engine. Sorting is unsupported, as in
-    /// [`JmapReads::query_objects`].
+    /// since there is no recurrence engine. Sorting is as in
+    /// [`JmapReads::query_objects`], with `start` and floating tasks read
+    /// in the `timeZone` argument.
     async fn query_tasks(
         &self,
         _caller: &(),
