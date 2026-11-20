@@ -2,11 +2,12 @@
   "id": "JMAP-ew00",
   "title": "object-uri spec: wording inconsistencies found building jmap-object-uri",
   "description": "Mark's call (jmap-chat-spec). 1) chat-federation-00 strip rule says 'JMAP object URI (scheme jmap)' but object-uri-00 reserves jmap:// forms that are not object URIs: say 'a jmap URI'. 2) chat-00 link span 'MUST NOT be a JMAP object URI' leaves jmap:// allowed. 3) chat-tasks-00 registers tasklist/task but no IETF doc registers Task/TaskList in the RFC 9404 Data Types registry, so they fail object-uri's expert check. 4) graph-projection-00 claims all RFC 8621/9610 types but omits VacationResponse. 5) type-name has no length limit (ids capped at 255).",
+  "notes": "Mark 2026-11-20: decision 56 (docs/design/DECISIONS.md).",
   "status": "open",
   "priority": 3,
   "issue_type": "task",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-20T07:40:22.037788406Z",
   "created_by": "Mark Atwood",
-  "updated_at": "2026-11-20T07:40:22.037788406Z"
+  "updated_at": "2026-11-20T22:45:41.320536728Z"
 }

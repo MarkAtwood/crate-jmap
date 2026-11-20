@@ -560,6 +560,20 @@ For Rust crates not in `~/PROJECT`, check `~/GIT` and `~/WORK` before reaching f
   `serde_json::Value` for round-trip fidelity, and add parallel typed
   sub-types in a sibling module (e.g. `jscalendar.rs`) that consumers
   can opt into via `serde_json::from_value`.
+- **Re-exported sub-type crates (decided 2026-11-20, bd:JMAP-84zs)**:
+  jmap-contacts-types re-exports typed names from jmap-jscontact-types
+  (for example `jmap_contacts_types::Name`), and jmap-calendars-types
+  and jmap-tasks-types re-export typed names from jmap-jscalendar-types,
+  each as an explicit `pub use` list at the crate root. There is no
+  whole-crate module alias; a consumer who needs a type that is not
+  re-exported depends on the JS* crate directly. The re-exported names
+  are public API of the re-exporting crate. The JS* crates are
+  workspace members on the shared version line, so they always release
+  together with the crates that re-export them. Any breaking change in
+  a re-exported item (a rename, a removal, a changed field type) is a
+  breaking change in every crate that re-exports it, and CHANGELOG.md
+  lists it under each. Copy this shape for any future family that
+  re-exports a JS* sub-type crate.
 - **Extras-preservation policy for vendor/site fields**: every public
   `Deserialize` struct that appears on the JMAP wire carries a catch-all
   `extra` field, and every wire-format **result** string enum carries an
