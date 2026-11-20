@@ -1,0 +1,12 @@
+{
+  "id": "JMAP-gr6p",
+  "title": "tasks crates: gaps found writing the local Tasks spec",
+  "description": "From docs/specs/jmap-tasks-local.md Implementation notes: (7) stale TasksBackend::destroy_object rustdoc says onDestroyRemoveTasks is not done, but the handler does it (bd JMAP-ji1v); (10) when the workflow mirror clears progress, progressUpdated is not set; (16) decision 44: an update of a missing Task that changes a server-set property gets invalidProperties from jmap_server::check_read_only_patch instead of notFound (check whether the precedence agent fixed the shared helper); (19) Task/query sort by id gets unsupportedSort though Calendars -34 makes id sort MUST, and the MemoryBackend supports no sort. Also JMAP-tna1.3.26: add TaskList/Task/TaskNotification Data Types rows (Yes/Yes/No history) to jmap_types::DATA_TYPES, now unblocked by the local spec.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-20T00:55:55.84571981Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-20T00:55:55.84571981Z"
+}
