@@ -7,7 +7,7 @@ use jmap_server::{
     HandlerOutput, SetError, SetErrorType, backend_set_error_value, enforce_max_objects_in_set,
     extract_account_id, server_fail_from_backend,
 };
-use jmap_types::{JmapError, SetObject};
+use jmap_types::{Id, JmapError, SetObject};
 use openmls::ciphersuite::hash_ref::make_key_package_ref;
 use openmls::component::{ComponentId, ComponentType};
 use openmls::prelude::{
@@ -17,6 +17,7 @@ use openmls::prelude::{
 use serde_json::{Map, Value, json};
 use tls_codec::{Deserialize as _, Serialize as _};
 
+use crate::helpers::{SetAccumulators, finalize_set_response};
 use crate::{MimiBackend, NewKeyPackage};
 
 /// An `invalidProperties` SetError naming `property`.
@@ -222,35 +223,66 @@ pub async fn handle_key_package_set<B: MimiBackend>(
         return Err(JmapError::state_mismatch());
     }
 
-    let mut created = Map::new();
-    let mut not_created = Map::new();
-    let mut not_updated = Map::new();
-    let mut destroyed = Vec::new();
-    let mut not_destroyed = Map::new();
-    let mut mutated = false;
+    let ctx = SetCtx {
+        backend,
+        caller,
+        account_id: &account_id,
+    };
+    let mut acc = SetAccumulators::default();
+    let mut mutated = set_create(&ctx, &mut args, &mut acc).await?;
+    // RFC 8620 §5.3: update keys and destroy ids may name this call's creates.
+    jmap_server::resolve_set_id_refs(&mut args, &std::collections::BTreeMap::new(), &acc.created);
+    set_update(&mut args, &mut acc);
+    mutated |= set_destroy(&ctx, &mut args, &mut acc).await?;
 
+    finalize_set_response::<B, KeyPackage>(backend, caller, &account_id, old_state, mutated, acc)
+        .await
+}
+
+/// What every `KeyPackage/set` sub-function needs from the request
+/// (docs/design/set-handler-split.md).
+struct SetCtx<'a, B: MimiBackend> {
+    backend: &'a B,
+    caller: &'a B::CallerCtx,
+    account_id: &'a Id,
+}
+
+/// The `create` part of `KeyPackage/set`: [`check_key_package_create`],
+/// then [`MimiBackend::create_key_package`]. Returns whether the backend
+/// was written.
+async fn set_create<B: MimiBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    let mut mutated = false;
     if let Some(Value::Object(create_map)) = args.remove("create") {
-        let capability = backend
-            .mimi_capability(caller, &account_id)
+        let capability = ctx
+            .backend
+            .mimi_capability(ctx.caller, ctx.account_id)
             .await
             .map_err(|e| server_fail_from_backend(&e))?;
         for (create_id, obj) in create_map {
             let checked = match decode_create(obj) {
-                Ok(create) => check_key_package_create(backend.mls_crypto(), &capability, &create)
-                    .map(|new| (create.last_resort.is_none(), new)),
+                Ok(create) => {
+                    check_key_package_create(ctx.backend.mls_crypto(), &capability, &create)
+                        .map(|new| (create.last_resort.is_none(), new))
+                }
                 Err(e) => Err(e),
             };
             let (echo_last_resort, new) = match checked {
                 Ok(c) => c,
                 Err(e) => {
-                    not_created.insert(create_id, serde_json::Value::from(&*e));
+                    acc.not_created
+                        .insert(create_id, serde_json::Value::from(&*e));
                     continue;
                 }
             };
             let key_package_ref = new.key_package_ref.clone();
             let last_resort = new.last_resort;
-            match backend
-                .create_key_package(caller, &account_id, new, capability.max_key_packages)
+            match ctx
+                .backend
+                .create_key_package(ctx.caller, ctx.account_id, new, capability.max_key_packages)
                 .await
             {
                 Ok(id) => {
@@ -261,27 +293,40 @@ pub async fn handle_key_package_set<B: MimiBackend>(
                     if echo_last_resort {
                         entry["lastResort"] = Value::Bool(last_resort);
                     }
-                    created.insert(create_id, entry);
+                    acc.created.insert(create_id, entry);
                 }
                 Err(e) => {
-                    not_created.insert(create_id, backend_set_error_value(e));
+                    acc.not_created
+                        .insert(create_id, backend_set_error_value(e));
                 }
             }
         }
     }
+    Ok(mutated)
+}
 
-    // RFC 8620 §5.3: update keys and destroy ids may name this call's creates.
-    jmap_server::resolve_set_id_refs(&mut args, &std::collections::BTreeMap::new(), &created);
+/// The `update` part of `KeyPackage/set`: every entry is `forbidden`.
+fn set_update(args: &mut Map<String, Value>, acc: &mut SetAccumulators) {
     if let Some(Value::Object(update_map)) = args.remove("update") {
         let forbidden = serde_json::Value::from(
             &SetError::new(SetErrorType::Forbidden)
                 .with_description("KeyPackage records cannot be updated"),
         );
         for (id, _) in update_map {
-            not_updated.insert(id, forbidden.clone());
+            acc.not_updated.insert(id, forbidden.clone());
         }
     }
+}
 
+/// The `destroy` part of `KeyPackage/set`, including the whole-request
+/// `invalidArguments` for a non-string element. Returns whether the
+/// backend was written.
+async fn set_destroy<B: MimiBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    let mut mutated = false;
     if let Some(Value::Array(destroy_arr)) = args.remove("destroy") {
         // RFC 8620 §5.3: every element of `destroy` is an Id.
         let ids: Vec<&str> = destroy_arr
@@ -298,50 +343,26 @@ pub async fn handle_key_package_set<B: MimiBackend>(
             let key_package_id = match jmap_server::parse_wire_id(id, "id") {
                 Ok(key_package_id) => key_package_id,
                 Err(err) => {
-                    not_destroyed.insert(id.to_owned(), serde_json::Value::from(&*err));
+                    acc.not_destroyed
+                        .insert(id.to_owned(), serde_json::Value::from(&*err));
                     continue;
                 }
             };
-            match backend
-                .destroy_key_package(caller, &account_id, &key_package_id)
+            match ctx
+                .backend
+                .destroy_key_package(ctx.caller, ctx.account_id, &key_package_id)
                 .await
             {
                 Ok(()) => {
                     mutated = true;
-                    destroyed.push(Value::String(id.to_owned()));
+                    acc.destroyed.push(Value::String(id.to_owned()));
                 }
                 Err(e) => {
-                    not_destroyed.insert(id.to_owned(), backend_set_error_value(e));
+                    acc.not_destroyed
+                        .insert(id.to_owned(), backend_set_error_value(e));
                 }
             }
         }
     }
-
-    let new_state = if mutated {
-        backend
-            .get_state::<KeyPackage>(caller, &account_id)
-            .await
-            .map_err(|e| server_fail_from_backend(&e))?
-    } else {
-        old_state.clone()
-    };
-    let map_or_null = |m: Map<String, Value>| {
-        if m.is_empty() {
-            Value::Null
-        } else {
-            Value::Object(m)
-        }
-    };
-
-    Ok(HandlerOutput::new(json!({
-        "accountId": account_id.as_ref(),
-        "oldState": old_state.as_ref(),
-        "newState": new_state.as_ref(),
-        "created": map_or_null(created),
-        "updated": Value::Null,
-        "destroyed": if destroyed.is_empty() { Value::Null } else { Value::Array(destroyed) },
-        "notCreated": map_or_null(not_created),
-        "notUpdated": map_or_null(not_updated),
-        "notDestroyed": map_or_null(not_destroyed),
-    })))
+    Ok(mutated)
 }

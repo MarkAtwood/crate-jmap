@@ -104,6 +104,7 @@ use jmap_server::{
 mod backend;
 mod fanout;
 mod handout;
+mod helpers;
 mod hub;
 mod keypackage;
 /// In-memory reference implementation of [`MimiBackend`].

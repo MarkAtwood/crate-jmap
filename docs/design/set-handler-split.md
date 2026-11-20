@@ -187,3 +187,8 @@ orchestrator, in lines.
   functions still over 100 lines: `update_participant` (300), `create_call` (179),
   `update_call` (157), `update_recording` (138), `create_livestream` (125),
   `create_participant` (109).
+- **jmap-chat-mimi-server** (`handle_key_package_set` 152 → 44). The crate had no
+  `SetAccumulators`. A private `helpers.rs` now holds `SetAccumulators` and
+  `finalize_set_response`, copied from jmap-scene-server. The wire output does not change:
+  `updated` is always empty, so it is `null` as before. `set_update` (every entry `forbidden`)
+  takes no `ctx`.
