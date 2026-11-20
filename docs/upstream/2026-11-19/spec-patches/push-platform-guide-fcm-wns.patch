@@ -1,0 +1,46 @@
+--- a/jmap-push-platform-guide.md
++++ b/jmap-push-platform-guide.md
+@@ -146,13 +146,17 @@
+ 
+ ### Error responses
+ 
+-FCM returns `200 OK` even when delivery fails — servers MUST always check the response
+-body:
++The FCM HTTP v1 API answers a failed send with an HTTP error status and a body whose
++`error.status` is the general Google API status (`NOT_FOUND`, `PERMISSION_DENIED`, ...).
++The FCM-specific code is the `errorCode` of the `error.details` entry whose `@type` is
++`type.googleapis.com/google.firebase.fcm.v1.FcmError`; servers MUST read it there, and
++SHOULD fall back to `error.status` only when no such entry is present. A body carrying
++`error` is a failure whatever the HTTP status.
+ 
+-- `error.status: "UNREGISTERED"` or `"SENDER_ID_MISMATCH"` — servers MUST destroy the
++- `errorCode: "UNREGISTERED"` or `"SENDER_ID_MISMATCH"` — servers MUST destroy the
+   `PushSubscription`.
+-- `error.status: "QUOTA_EXCEEDED"` — servers SHOULD back off and retry.
+-- `error.status: "INVALID_ARGUMENT"` — payload problem; servers SHOULD log and fix, and
++- `errorCode: "QUOTA_EXCEEDED"` — servers SHOULD back off and retry.
++- `errorCode: "INVALID_ARGUMENT"` — payload problem; servers SHOULD log and fix, and
+   MUST NOT retry.
+ 
+ ---
+@@ -566,8 +570,9 @@
+ WNS reports errors in response headers, not the response body. Servers MUST check on
+ every response:
+ 
+-- `X-WNS-NotificationStatus`: `received`, `dropped`, or `channelthrottled` — a `200 OK`
+-  with `dropped` means the notification was not delivered.
++- `X-WNS-Status`: `received`, `dropped`, or `channelthrottled` — a `200 OK` with
++  `dropped` means the notification was not delivered. Older documentation names this
++  header `X-WNS-NotificationStatus`; servers SHOULD accept either.
+ - `X-WNS-Error-Description`: human-readable detail.
+ 
+ Key status codes:
+@@ -588,7 +593,7 @@
+ 
+ | HTTP status | Meaning | Action |
+ |---|---|---|
+-| `200 OK` | Accepted (non-Web Push) | For FCM: server MUST check `error.status` in body. For others: none. |
++| `200 OK` | Accepted (non-Web Push) | For FCM: a body carrying `error` is still a failure (see FCM error responses). For WNS: check `X-WNS-Status`. For others: none. |
+ | `201 Created` | Accepted (Web Push) | None |
+ | `400 Bad Request` | Malformed payload | Server SHOULD log and fix; MUST NOT retry this payload |
+ | `401 Unauthorized` | Credential expired | Server MUST refresh credential and retry |
