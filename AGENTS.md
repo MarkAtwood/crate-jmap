@@ -1428,6 +1428,18 @@ rm -rf directory        cp -rf source dest
 
 Other commands that may prompt: `scp`/`ssh` — use `-o BatchMode=yes`; `apt-get` — use `-y`.
 
+## Email and mailing lists
+
+- **`fm`** is the Fastmail CLI for Mark's mail, as in the IETF and mimid
+  workspaces. Never use Gmail. Create a message with
+  `fm draft new --from mark@reviewcommit.com --to <list> --subject <s> --body-file <f>`;
+  for a threaded reply on an IETF list use `/data/PROJECT/IETF/scripts/jmap_reply.py`
+  (`fm draft reply` cannot set the From identity). Keep the text in the repo
+  under `docs/upstream/<date>/` and put the draft id on the bead.
+- **Sending** (`fm draft send <id>`) needs Mark's OK for each message, like
+  any other upstream post. Read with `fm search`, `fm email read` and
+  `fm email thread`.
+
 ## Git Commit and Push Policy
 
 **No AI attribution, ever.** Commit messages and PR descriptions carry no

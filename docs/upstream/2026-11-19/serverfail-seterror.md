@@ -1,5 +1,5 @@
 <!--
-Gmail draft created 2026-11-20 (not sent; Mark sends it). Message to the JMAP WG list (jmap@ietf.org), from Mark.
+Fastmail draft StlNSTESfqO7 created 2026-11-20 with fm, from mark@reviewcommit.com (not sent; held by Mark). Message to the JMAP WG list (jmap@ietf.org).
 crate-jmap decision 38; bd JMAP-76tz. Quotes checked against RFC 8620 and
 draft-ietf-jmap-blobext-03 on 2026-11-19.
 -->
