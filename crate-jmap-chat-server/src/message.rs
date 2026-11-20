@@ -322,7 +322,7 @@ pub async fn handle_message_changes<B: ChatBackend>(
 /// filter condition is `unsupportedFilter` (-05 §3). A JMAP Search
 /// `where` (crate-jmap docs/specs/jmap-search.md) needs
 /// `urn:ietf:params:jmap:search` in `using` and `"Message"` in
-/// [`ChatSettings::search_capability`], else `unsupportedFilter`; it is
+/// [`ChatSettings::search_capability`](crate::ChatSettings::search_capability), else `unsupportedFilter`; it is
 /// checked with [`jmap_search::check_where_filter`] and makes
 /// `canCalculateChanges` `false`. It does not lift the `chatId` /
 /// `hasMention: true` rule.
@@ -445,7 +445,7 @@ pub async fn handle_message_query<B: ChatBackend>(
 }
 
 /// Check the JMAP Search `where` of the undecoded Message `filter`
-/// against `using` and [`ChatSettings::search_capability`], and return
+/// against `using` and [`ChatSettings::search_capability`](crate::ChatSettings::search_capability), and return
 /// whether there was one (crate-jmap docs/specs/jmap-search.md §Errors,
 /// §Opting In a Data Type). The capability is read only for a filter with
 /// `where`.

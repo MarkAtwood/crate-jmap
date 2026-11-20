@@ -193,7 +193,7 @@ async fn where_inside_filter_operators() {
     });
     assert_eq!(
         ids(&query(&b, filter, &using()).await.unwrap()),
-        [large_plain.clone()]
+        std::slice::from_ref(&large_plain)
     );
     let filter = json!({
         "operator": "OR",
