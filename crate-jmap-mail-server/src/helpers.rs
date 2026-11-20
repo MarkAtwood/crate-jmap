@@ -95,27 +95,24 @@ pub(crate) struct SetAccumulators {
 /// Build the final `/set` method response and re-fetch `newState` from the
 /// backend if any mutation occurred.
 ///
-/// Five `/set` handlers in this crate (`Email/set`, `Mailbox/set`,
-/// `Identity/set`, `SieveScript/set`, `VacationResponse/set`) end with the
-/// same boilerplate: refresh the state token if `mutated`, then emit a
-/// `HandlerOutput` wrapping the canonical RFC 8620 §5.3
-/// envelope. Centralising it here keeps the five sites in lockstep — if a
-/// future revision changes which keys are emitted (e.g. RFC 8620 §5.3.1 may
-/// flip a key from `null` to omitted), all five handlers update at once.
+/// Every `/set` handler in this crate ends with the same boilerplate:
+/// refresh the state token if `mutated`, then emit a `HandlerOutput`
+/// wrapping the canonical RFC 8620 §5.3 envelope. Centralising it here
+/// keeps the sites in lockstep — if a future revision changes which keys
+/// are emitted (e.g. RFC 8620 §5.3.1 may flip a key from `null` to
+/// omitted), all handlers update at once.
 ///
-/// `EmailSubmission/set` deliberately does NOT use this helper: it pushes
-/// follow-up `Email/set` invocations from `onSuccessUpdateEmail` /
-/// `onSuccessDestroyEmail` (RFC 8621 §7.4) and therefore needs to control
-/// the returned `extra_invocations` rather than relying on the helper's
-/// empty list.
+/// `EmailSubmission/set` also builds its implicit `Email/set` response
+/// for `onSuccessUpdateEmail` / `onSuccessDestroyEmail` (RFC 8621 §7.5)
+/// here, and attaches it with [`HandlerOutput::with_extra`].
 ///
 /// The `O` type parameter is the JMAP object type for the state token
 /// (e.g. `Email`, `Mailbox`); its only role is to disambiguate the
 /// `get_state::<O>` call inside the helper.
 ///
-/// Empty maps/arrays serialize as `null` (JMAP convention). The `Invocation`
-/// vector is always empty for the five call sites — no `/set` call generates
-/// follow-up invocations today.
+/// Empty maps/arrays serialize as `null` (JMAP convention). The returned
+/// `extra_invocations` is always empty; a caller that needs follow-up
+/// invocations sets them on the result.
 pub(crate) async fn finalize_set_response<B, O>(
     backend: &B,
     caller: &B::CallerCtx,

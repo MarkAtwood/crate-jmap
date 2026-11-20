@@ -728,720 +728,802 @@ pub(crate) async fn mailbox_set<B: MailBackend>(
         .await
         .map_err(|e| server_fail_from_backend(&e))?;
 
-    // -----------------------------------------------------------------------
-    // Pre-compute roles that will be vacated by updates in this request.
-    //
-    // The create loop runs before the update loop (RFC 8620 §5.3 ordering), so
-    // `roles_successfully_vacated` is not yet populated when create role-uniqueness
-    // is checked. To allow a single request that clears a role via update and
-    // then assigns it via create, we scan the update patches up-front and build
-    // the set of role strings that are being set to null.  We only include a
-    // role if the patch actually targets an existing mailbox that currently
-    // holds that role.
-    // -----------------------------------------------------------------------
-    let roles_intended_to_vacate: std::collections::HashSet<String> = {
-        let mut vacated = std::collections::HashSet::new();
-        if let Some(Value::Object(updates)) = args.get("update") {
-            for (id_str, patch) in updates {
-                let sets_role_null = patch
-                    .as_object()
-                    .and_then(|o| o.get("role"))
-                    .is_some_and(|v| v.is_null());
-                if sets_role_null
-                    && let Some(role) = all_mailboxes
-                        .iter()
-                        .find(|m| m.id.as_ref() == id_str.as_str())
-                        .and_then(|m| m.role.as_ref())
-                        .map(|r| r.to_wire_str().to_owned())
-                {
-                    vacated.insert(role);
-                }
-            }
-        }
-        vacated
+    let ctx = SetCtx {
+        backend,
+        caller,
+        account_id: &account_id,
+        using,
+        atomic,
+        i18n_set: &i18n_set,
+        all_mailboxes: &all_mailboxes,
+        on_destroy_remove_emails,
     };
-
-    // -----------------------------------------------------------------------
-    // Create
-    // -----------------------------------------------------------------------
-
-    let mut created = serde_json::Map::new();
-    let mut not_created = serde_json::Map::new();
+    let mut acc = SetAccumulators::default();
     // RFC 8620 §5.3: creates of this call join the request-wide map so
     // later creates and updates in this call can reference them.
     let mut created_ids = created_ids.clone();
-
-    if let Some(Value::Object(creates)) = args.get("create") {
-        for (create_id, props) in parents_first(creates) {
-            if let Some(err) = props.as_object().and_then(reject_server_set::<Mailbox>) {
-                not_created.insert(create_id.clone(), serde_json::Value::from(&err));
-                continue;
-            }
-            if let Some(Err(err)) = props
-                .as_object()
-                .map(|o| check_metadata_entry(o, true, using))
-            {
-                not_created.insert(create_id.clone(), serde_json::Value::from(&*err));
-                continue;
-            }
-            if props
-                .as_object()
-                .is_some_and(|o| o.contains_key("shareWith"))
-                && !shares(using)
-            {
-                not_created.insert(create_id.clone(), share_with_invalid());
-                continue;
-            }
-            let mut props = props.clone();
-            if let Value::Object(m) = &mut props
-                && let Err(err) = i18n_set.check_create(m)
-            {
-                not_created.insert(create_id.clone(), serde_json::Value::from(&*err));
-                continue;
-            }
-            if let Err(err) = resolve_parent_ref(&mut props, &created_ids) {
-                not_created.insert(create_id.clone(), serde_json::Value::from(&*err));
-                continue;
-            }
-            let props = &props;
-            // name is required.
-            if props.get("name").and_then(|v| v.as_str()).is_none() {
-                not_created.insert(
-                    create_id.clone(),
-                    serde_json::Value::from(
-                        &SetError::new(SetErrorType::InvalidProperties).with_properties(["name"]),
-                    ),
-                );
-                continue;
-            }
-
-            // RFC 8621 §2: `parentId` names a Mailbox, existing or created
-            // earlier in this call (deferred to commit when atomic).
-            if !atomic
-                && let Some(parent) = props.get("parentId").and_then(Value::as_str)
-                && !all_mailboxes.iter().any(|m| m.id.as_ref() == parent)
-                && !created_ids.values().any(|id| id.as_ref() == parent)
-            {
-                not_created.insert(
-                    create_id.clone(),
-                    serde_json::Value::from(
-                        &SetError::new(SetErrorType::InvalidProperties)
-                            .with_properties(["parentId"]),
-                    ),
-                );
-                continue;
-            }
-
-            // Role uniqueness check (deferred to commit when atomic).
-            if !atomic
-                && let Some(role_val) = props.get("role").filter(|v| !v.is_null())
-                && let Some(role_str) = role_val.as_str()
-            {
-                // Exclude roles that are being vacated by an update in this
-                // same request (pre-computed above).  No mailbox id to exclude:
-                // we are creating a new object, not updating an existing one.
-                let role_taken =
-                    role_already_held(role_str, &all_mailboxes, &roles_intended_to_vacate, None);
-                // Also check what we already successfully created in this request.
-                // MailboxRole always serializes as a bare JSON string (via
-                // impl_string_enum!), so as_str() is always correct here.
-                let role_just_created = created
-                    .values()
-                    .any(|v| v.get("role").and_then(|r| r.as_str()) == Some(role_str));
-                if role_taken || role_just_created {
-                    not_created.insert(
-                        create_id.clone(),
-                        serde_json::Value::from(
-                            &SetError::new(SetErrorType::InvalidProperties)
-                                .with_properties(["role"]),
-                        ),
-                    );
-                    continue;
-                }
-            }
-
-            // Duplicate name+parentId check (RFC 8621 §2.5 — alreadyExists).
-            //
-            // Two mailboxes under the same parent may not share a name. The
-            // parentId is compared so that null (top-level) and absent (also
-            // top-level) are treated identically.
-            //
-            // The check also covers mailboxes created earlier in this same
-            // request: `created` already holds successfully-created entries
-            // whose serialised form includes the assigned name and parentId.
-            if !atomic && let Some(proposed_name) = props.get("name").and_then(|v| v.as_str()) {
-                // Normalise the proposed parentId: absent/null → None, string → Some(str).
-                let proposed_parent: Option<&str> = match props.get("parentId") {
-                    Some(serde_json::Value::String(s)) => Some(s.as_str()),
-                    _ => None,
-                };
-
-                let name_taken_existing = all_mailboxes.iter().any(|m| {
-                    m.name == proposed_name
-                        && m.parent_id.as_ref().map(|p| p.as_ref()) == proposed_parent
-                });
-
-                // Also check mailboxes created earlier in this same request.
-                let name_taken_this_request = created.values().any(|v| {
-                    v.get("name").and_then(|n| n.as_str()) == Some(proposed_name)
-                        && v.get("parentId").and_then(|p| p.as_str()) == proposed_parent
-                });
-
-                if name_taken_existing || name_taken_this_request {
-                    not_created.insert(
-                        create_id.clone(),
-                        serde_json::Value::from(&SetError::new(SetErrorType::AlreadyExists)),
-                    );
-                    continue;
-                }
-            }
-
-            // Build Mailbox from props.
-            match build_mailbox_from_props(props) {
-                Err(err_val) => {
-                    not_created.insert(create_id.clone(), err_val);
-                }
-                Ok(build) => {
-                    match backend
-                        .create_object::<Mailbox, _>(caller, &account_id, create_id, build)
-                        .await
-                    {
-                        Ok((id, obj)) => {
-                            let mut obj_val = jmap_server::serialize_value(&obj)?;
-                            i18n_set.echo(&mut obj_val);
-                            if let Value::Object(m) = &mut obj_val {
-                                share_view(m, using, true);
-                            }
-                            created_ids.insert(Id::from(create_id.as_str()), id);
-                            created.insert(create_id.clone(), obj_val);
-                        }
-                        Err(e) => {
-                            not_created.insert(create_id.clone(), backend_set_error_value(e));
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    // -----------------------------------------------------------------------
-    // Update
-    // -----------------------------------------------------------------------
-
-    let mut updated: serde_json::Map<String, Value> = serde_json::Map::new();
-    let mut not_updated = serde_json::Map::new();
-    // Roles claimed by non-vacating updates in this request — prevents
-    // two updates in the same request from both claiming the same role.
-    let mut roles_claimed_this_request: std::collections::HashSet<String> =
-        std::collections::HashSet::new();
-    // Roles freed by successful vacating updates (pass 1).  Built only from
-    // updates that actually succeeded, so a failed vacate does NOT release
-    // the role and a same-request claim against it is correctly rejected.
-    let mut roles_successfully_vacated: std::collections::HashSet<String> =
-        std::collections::HashSet::new();
-
-    jmap_server::resolve_set_id_refs(&mut args, &created_ids, &created);
-    if let Some(Value::Object(updates)) = args.remove("update") {
-        // Two-pass update loop — do NOT collapse into a single pass.
-        //
-        // Defense notes (bd:JMAP-q2wa.13): a future contributor might
-        // suggest simplifying this into one pass on the grounds that
-        // `serde_json::Map` iteration is insertion-ordered, or that a
-        // topological sort over the role-claim graph would do the same
-        // job more cleanly. Both refactors are wrong:
-        //
-        //   1. `serde_json::Map` iteration order is currently BTreeMap-
-        //      or insertion-ordered depending on the `preserve_order`
-        //      feature, but neither variant is part of the documented
-        //      semver contract. Relying on a single-pass order is a
-        //      latent bug under a dep bump.
-        //   2. The two-pass model directly mirrors the RFC 8620 §5.3
-        //      "creates before updates" ordering rule applied within
-        //      the update phase: vacating patches free state that
-        //      subsequent claiming patches consume. The shape
-        //      communicates the spec invariant at a glance.
-        //   3. A topological sort would require building a role-
-        //      dependency graph (which role is freed for whom) — net
-        //      negative abstraction vs. two short for-loops over the
-        //      partitioned update map.
-        //   4. The single-request role-swap case (A vacates inbox, B
-        //      claims inbox) is one of the easier-to-reason-about
-        //      correctness properties of `Mailbox/set`; the two-pass
-        //      shape makes the proof obvious. Combining would require
-        //      a complex argument about ordering within a single pass.
-        //
-        // Two invariants govern the role-swap logic across the whole update loop:
-        //
-        //   roles_successfully_vacated — roles freed by pass-1 updates that
-        //     actually succeeded. Only a successful vacate releases the role;
-        //     a backend error on the vacate keeps the role occupied so that
-        //     any same-request claim against it is correctly rejected.
-        //
-        //   roles_claimed_this_request — roles claimed by pass-2 updates so
-        //     far, preventing two non-vacating updates in the same request
-        //     from both claiming the same role.
-        //
-        // Pass 1 runs every patch that sets role: null (vacating a role).
-        // Pass 2 runs everything else (including role-claiming patches).
-        // This ordering allows a single request to swap roles atomically
-        // (RFC 8621 §2.5).
-        let (vacating, non_vacating): (Vec<_>, Vec<_>) = updates
-            .into_iter()
-            .filter_map(|(id_str, mut patch_val)| {
-                match resolve_parent_ref(&mut patch_val, &created_ids) {
-                    Ok(()) => Some((id_str, patch_val)),
-                    Err(err) => {
-                        not_updated.insert(id_str, serde_json::Value::from(&*err));
-                        None
-                    }
-                }
-            })
-            .partition(|(_, v)| {
-                v.as_object()
-                    .and_then(|o| o.get("role"))
-                    .is_some_and(|v| v.is_null())
-            });
-
-        // Returns the error value if `patch` writes metadata the request
-        // may not write (draft-ietf-jmap-metadata-05 §3), or None if the
-        // patch is clean. Used in both passes.
-        // The same for `locale` and `localizations` without the i18n
-        // capability (draft-atwood-jmap-updates-00 §3).
-        // The same for `shareWith` without the mail:share capability
-        // (draft-ietf-jmap-mail-sharing-02 §1.2.1).
-        let metadata_error = |patch: &PatchObject| -> Option<Value> {
-            if !shares(using)
-                && patch
-                    .as_map()
-                    .keys()
-                    .any(|k| k == "shareWith" || k.starts_with("shareWith/"))
-            {
-                return Some(share_with_invalid());
-            }
-            check_metadata_entry(patch.as_map(), false, using)
-                .and_then(|()| i18n_set.check_patch(patch.as_map()))
-                .err()
-                .map(|e| serde_json::Value::from(&*e))
-        };
-
-        // --- Pass 1: role-vacating updates (patch sets role: null) ---
-        for (id_str, patch_val) in vacating {
-            let id = match jmap_server::parse_wire_id(&id_str, "id") {
-                Ok(id) => id,
-                Err(err) => {
-                    not_updated.insert(id_str, serde_json::Value::from(&*err));
-                    continue;
-                }
-            };
-
-            // Convert wire-format Value into a typed PatchObject. RFC 8620
-            // §5.3 mandates a PatchObject is a JSON Object; non-object
-            // values produce an `invalidPatch` SetError.
-            let mut patch = match serde_json::from_value::<PatchObject>(patch_val) {
-                Ok(p) => p,
-                Err(e) => {
-                    not_updated.insert(
-                        id_str,
-                        json!({ "type": "invalidPatch", "description": e.to_string() }),
-                    );
-                    continue;
-                }
-            };
-
-            // A changed server-set Mailbox value (RFC 8621 §2) is rejected,
-            // an identical one dropped (RFC 8620 §5.3); nothing left is a
-            // no-op success.
-            match check_read_only_patch::<_, Mailbox>(
-                backend,
-                caller,
-                &account_id,
-                &id,
-                patch.as_map_mut(),
-            )
-            .await
-            {
-                Ok(false) => {}
-                Ok(true) => {
-                    updated.insert(id_str, Value::Null);
-                    continue;
-                }
-                Err(err) => {
-                    not_updated.insert(id_str, err);
-                    continue;
-                }
-            }
-            if let Some(err) = metadata_error(&patch) {
-                not_updated.insert(id_str, err);
-                continue;
-            }
-
-            // Capture the role currently held by this mailbox before the
-            // update runs; needed to know which role to record as vacated.
-            let current_role: Option<String> = all_mailboxes
-                .iter()
-                .find(|m| m.id == id)
-                .and_then(|m| m.role.as_ref())
-                .map(|r| r.to_wire_str().to_owned());
-
-            if !atomic
-                && let Some(err) = tree_conflict(backend, caller, &account_id, &id, &patch).await?
-            {
-                not_updated.insert(id_str, err);
-                continue;
-            }
-
-            match backend
-                .update_object::<Mailbox>(caller, &account_id, &id, patch)
-                .await
-            {
-                Ok(maybe_obj) => {
-                    // RFC 8620 §5.3: if the backend modified server-set fields
-                    // beyond the patch, echo them in the updated map entry.
-                    let mut entry = maybe_obj
-                        .as_ref()
-                        .map(jmap_server::serialize_value)
-                        .transpose()?
-                        .unwrap_or(Value::Null);
-                    i18n_set.echo(&mut entry);
-                    if let Value::Object(m) = &mut entry {
-                        share_view(m, using, false);
-                    }
-                    updated.insert(id_str, entry);
-                    if let Some(role) = current_role {
-                        roles_successfully_vacated.insert(role);
-                    }
-                }
-                Err(e) => {
-                    not_updated.insert(id_str, backend_set_error_value(e));
-                }
-            }
-        }
-
-        // --- Pass 2: non-vacating updates ---
-        for (id_str, patch_val) in non_vacating {
-            let id = match jmap_server::parse_wire_id(&id_str, "id") {
-                Ok(id) => id,
-                Err(err) => {
-                    not_updated.insert(id_str, serde_json::Value::from(&*err));
-                    continue;
-                }
-            };
-
-            // Convert wire-format Value into a typed PatchObject. RFC 8620
-            // §5.3 mandates a PatchObject is a JSON Object; non-object
-            // values produce an `invalidPatch` SetError.
-            let mut patch = match serde_json::from_value::<PatchObject>(patch_val) {
-                Ok(p) => p,
-                Err(e) => {
-                    not_updated.insert(
-                        id_str,
-                        json!({ "type": "invalidPatch", "description": e.to_string() }),
-                    );
-                    continue;
-                }
-            };
-
-            // A changed server-set Mailbox value (RFC 8621 §2) is rejected,
-            // an identical one dropped (RFC 8620 §5.3); nothing left is a
-            // no-op success.
-            match check_read_only_patch::<_, Mailbox>(
-                backend,
-                caller,
-                &account_id,
-                &id,
-                patch.as_map_mut(),
-            )
-            .await
-            {
-                Ok(false) => {}
-                Ok(true) => {
-                    updated.insert(id_str, Value::Null);
-                    continue;
-                }
-                Err(err) => {
-                    not_updated.insert(id_str, err);
-                    continue;
-                }
-            }
-            if let Some(err) = metadata_error(&patch) {
-                not_updated.insert(id_str, err);
-                continue;
-            }
-
-            // Role uniqueness: check against pre-request state minus
-            // roles freed by successful pass-1 vacates, plus any role
-            // already claimed by an earlier update in this pass, plus
-            // any role claimed by the create loop. Deferred to commit when
-            // atomic.
-            let obj = patch.as_map();
-            if !atomic
-                && let Some(role_val) = obj.get("role").filter(|v| !v.is_null())
-                && let Some(role_str) = role_val.as_str()
-            {
-                // Exclude the mailbox being updated (id) — it may
-                // already hold this role and is about to change it.
-                let role_taken = role_already_held(
-                    role_str,
-                    &all_mailboxes,
-                    &roles_successfully_vacated,
-                    Some(&id),
-                );
-                let role_just_claimed = roles_claimed_this_request.contains(role_str);
-                // MailboxRole always serializes as a bare JSON string (via
-                // impl_string_enum!), so as_str() is always correct here.
-                let role_just_created = created
-                    .values()
-                    .any(|v| v.get("role").and_then(|r| r.as_str()) == Some(role_str));
-                if role_taken || role_just_claimed || role_just_created {
-                    not_updated.insert(
-                        id_str,
-                        serde_json::Value::from(
-                            &SetError::new(SetErrorType::InvalidProperties)
-                                .with_properties(["role"]),
-                        ),
-                    );
-                    continue;
-                }
-                roles_claimed_this_request.insert(role_str.to_owned());
-            }
-
-            if !atomic
-                && let Some(err) = tree_conflict(backend, caller, &account_id, &id, &patch).await?
-            {
-                not_updated.insert(id_str, err);
-                continue;
-            }
-
-            match backend
-                .update_object::<Mailbox>(caller, &account_id, &id, patch)
-                .await
-            {
-                Ok(maybe_obj) => {
-                    // RFC 8620 §5.3: if the backend modified server-set fields
-                    // beyond the patch, echo them in the updated map entry.
-                    let mut entry = maybe_obj
-                        .as_ref()
-                        .map(jmap_server::serialize_value)
-                        .transpose()?
-                        .unwrap_or(Value::Null);
-                    i18n_set.echo(&mut entry);
-                    if let Value::Object(m) = &mut entry {
-                        share_view(m, using, false);
-                    }
-                    updated.insert(id_str, entry);
-                }
-                Err(e) => {
-                    not_updated.insert(id_str, backend_set_error_value(e));
-                }
-            }
-        }
-    }
-
-    // -----------------------------------------------------------------------
-    // Destroy
-    // -----------------------------------------------------------------------
-
-    let mut destroyed: Vec<String> = Vec::new();
-    let mut not_destroyed = serde_json::Map::new();
-
-    if let Some(Value::Array(destroy_ids)) = args.get("destroy") {
-        // RFC 8620 §5.3: every element of the destroy array MUST be a string Id.
-        // Reject the whole request if any element is non-string rather than
-        // silently skipping it, which would produce a misleading response.
-        let id_strs: Vec<&str> = destroy_ids
-            .iter()
-            .map(|v| {
-                v.as_str().ok_or_else(|| {
-                    JmapError::invalid_arguments(format!(
-                        "destroy: every element must be a string Id; got {}",
-                        jmap_server::json_type_name(v)
-                    ))
-                })
-            })
-            .collect::<Result<_, _>>()?;
-
-        // Re-fetch mailboxes after create/update: RFC 8620 §5.3 requires
-        // create/update/destroy to operate in sequence, so a mailbox created
-        // earlier in this request could be a child of the mailbox being
-        // destroyed. Using the pre-mutation snapshot (all_mailboxes) would miss
-        // that child.
-        let (mut mailboxes_after_mutations, _) = backend
-            .get_objects::<Mailbox>(caller, &account_id, None, None)
-            .await
-            .map_err(|e| server_fail_from_backend(&e))?;
-
-        for id_str in id_strs {
-            let id = match jmap_server::parse_wire_id(id_str, "id") {
-                Ok(id) => id,
-                Err(err) => {
-                    not_destroyed.insert(id_str.to_owned(), serde_json::Value::from(&*err));
-                    continue;
-                }
-            };
-
-            // Defense in depth before any cascade: when the backend
-            // enforces ACLs (it names a principal), a Mailbox whose
-            // myRights lack mayDelete, or mayRemoveItems for the
-            // onDestroyRemoveEmails cascade, is forbidden here, before any
-            // Email is removed. The backend's destroy stays the canonical
-            // check (MailBackend "Permission enforcement").
-            if B::principal_id(caller).is_some()
-                && let Some(mailbox) = mailboxes_after_mutations.iter().find(|m| m.id == id)
-                && (!mailbox.my_rights.may_delete
-                    || (on_destroy_remove_emails && !mailbox.my_rights.may_remove_items))
-            {
-                not_destroyed.insert(
-                    id_str.to_owned(),
-                    serde_json::Value::from(&SetError::new(SetErrorType::Forbidden)),
-                );
-                continue;
-            }
-
-            // Check for child mailboxes using the post-create snapshot.
-            let has_child = mailboxes_after_mutations
-                .iter()
-                .any(|m| m.parent_id.as_ref() == Some(&id));
-            if has_child {
-                not_destroyed.insert(
-                    id_str.to_owned(),
-                    serde_json::Value::from(&SetError::new(SetErrorType::MailboxHasChild)),
-                );
-                continue;
-            }
-
-            // Fetch emails in this mailbox. The backend MUST respect the
-            // inMailbox filter in query_objects; if it does not, this may fetch
-            // all emails and cause OOM on large accounts. The secondary
-            // .filter() below is a correctness safety net for backends that
-            // return false positives, not a substitute for proper backend
-            // filtering.
-            let mut email_filter = EmailFilterCondition::default();
-            email_filter.in_mailbox = Some(id.clone());
-            let query_result = backend
-                .query_objects::<Email>(
-                    caller,
-                    &account_id,
-                    QueryParams::new().filter(Some(&EmailFilter::Condition(email_filter))),
-                )
-                .await
-                .map_err(|e| server_fail_from_backend(&e))?;
-            let (fetched, _) = backend
-                .get_objects::<Email>(caller, &account_id, Some(&query_result.ids), None)
-                .await
-                .map_err(|e| server_fail_from_backend(&e))?;
-            let emails_in_mailbox: Vec<Email> = fetched
-                .into_iter()
-                .filter(|e| e.mailbox_ids.contains_key(&id))
-                .collect();
-
-            if !emails_in_mailbox.is_empty() {
-                if !on_destroy_remove_emails {
-                    not_destroyed.insert(
-                        id_str.to_owned(),
-                        serde_json::Value::from(&SetError::new(SetErrorType::MailboxHasEmail)),
-                    );
-                    continue;
-                }
-
-                // onDestroyRemoveEmails=true: cascade.
-                // Emails with only this mailbox are batch-destroyed in a single backend call.
-                // Emails in multiple mailboxes still need individual update_object calls to
-                // patch mailboxIds (no batch-update API exists yet).
-                let ids_to_destroy: Vec<Id> = emails_in_mailbox
-                    .iter()
-                    .filter(|e| e.mailbox_ids.len() == 1)
-                    .map(|e| e.id.clone())
-                    .collect();
-
-                if !ids_to_destroy.is_empty() {
-                    let destroy_results = backend
-                        .batch_destroy_emails(caller, &account_id, &ids_to_destroy)
-                        .await;
-                    for (_, err) in destroy_results {
-                        // A per-object SetError (e.g. already deleted by a
-                        // concurrent request) is ignored: best-effort cascade,
-                        // the email is gone or unreachable, so proceed with
-                        // mailbox destruction. A storage error aborts with a
-                        // redacted serverFail (bd:JMAP-wlip.2).
-                        if let Some(e) = err {
-                            e.into_set_error_or_method_error()?;
-                        }
-                    }
-                }
-
-                for email in &emails_in_mailbox {
-                    if email.mailbox_ids.len() > 1 {
-                        // Email is in other mailboxes — remove this mailbox from mailboxIds.
-                        let mut patch = serde_json::Map::new();
-                        let key = format!("mailboxIds/{}", id.as_ref());
-                        patch.insert(key, Value::Null);
-                        match backend
-                            .update_object::<Email>(
-                                caller,
-                                &account_id,
-                                &email.id,
-                                PatchObject::from_map(patch),
-                            )
-                            .await
-                        {
-                            Ok(_) => {}
-                            // A per-object SetError (e.g. email deleted concurrently)
-                            // is ignored: best-effort, proceed with mailbox
-                            // destruction. A storage error aborts with a redacted
-                            // serverFail.
-                            Err(e) => {
-                                e.into_set_error_or_method_error()?;
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Destroy the mailbox itself.
-            match backend
-                .destroy_object::<Mailbox>(caller, &account_id, &id)
-                .await
-            {
-                Ok(()) => {
-                    destroyed.push(id_str.to_owned());
-                    // RFC 8620 §5.3: each destroy takes effect sequentially.
-                    // Remove the just-destroyed mailbox from the snapshot so
-                    // subsequent has_child checks do not see it as a child.
-                    mailboxes_after_mutations.retain(|m| m.id != id);
-                }
-                Err(e) => {
-                    not_destroyed.insert(id_str.to_owned(), backend_set_error_value(e));
-                }
-            }
-        }
-    }
+    set_create(&ctx, &mut args, &mut acc, &mut created_ids).await?;
+    jmap_server::resolve_set_id_refs(&mut args, &created_ids, &acc.created);
+    set_update(&ctx, &mut args, &mut acc, &created_ids).await?;
+    set_destroy(&ctx, &mut args, &mut acc).await?;
 
     // `mutated` is computed from the result accumulators (matches sieve.rs and
     // the calendars-server canonical). Lets the helper skip the `get_state`
     // round-trip when every operation failed.
+    let mutated = !acc.created.is_empty() || !acc.updated.is_empty() || !acc.destroyed.is_empty();
+    finalize_set_response::<B, Mailbox>(backend, caller, &account_id, current_state, mutated, acc)
+        .await
+}
+
+/// What every `Mailbox/set` sub-function needs from the request
+/// (docs/design/set-handler-split.md).
+struct SetCtx<'a, B: MailBackend> {
+    backend: &'a B,
+    caller: &'a B::CallerCtx,
+    account_id: &'a Id,
+    /// The request's `using` capabilities.
+    using: &'a [String],
+    /// An atomic Foo/set (draft-ietf-jmap-conditional-02 §4): uniqueness
+    /// and tree checks are left to the backend's commit.
+    atomic: bool,
+    /// `locale` / `localizations` handling (draft-atwood-jmap-updates-00).
+    i18n_set: &'a I18nSet,
+    /// The Mailboxes as they were before this call changed anything.
+    all_mailboxes: &'a [Mailbox],
+    /// The RFC 8621 §2.5 `onDestroyRemoveEmails` argument.
+    on_destroy_remove_emails: bool,
+}
+
+/// The roles that update patches of this call set to null on the
+/// existing Mailbox that holds them.
+///
+/// The create loop runs before the update loop (RFC 8620 §5.3 ordering),
+/// so the roles successfully vacated by updates are not yet known when
+/// create role-uniqueness is checked. To allow a single request that
+/// clears a role via update and then assigns it via create, the update
+/// patches are scanned up-front. A role is only included if the patch
+/// actually targets an existing mailbox that currently holds that role.
+fn roles_intended_to_vacate(
+    args: &serde_json::Map<String, Value>,
+    all_mailboxes: &[Mailbox],
+) -> HashSet<String> {
+    let mut vacated = HashSet::new();
+    if let Some(Value::Object(updates)) = args.get("update") {
+        for (id_str, patch) in updates {
+            let sets_role_null = patch
+                .as_object()
+                .and_then(|o| o.get("role"))
+                .is_some_and(|v| v.is_null());
+            if sets_role_null
+                && let Some(role) = all_mailboxes
+                    .iter()
+                    .find(|m| m.id.as_ref() == id_str.as_str())
+                    .and_then(|m| m.role.as_ref())
+                    .map(|r| r.to_wire_str().to_owned())
+            {
+                vacated.insert(role);
+            }
+        }
+    }
+    vacated
+}
+
+/// The `create` part of `Mailbox/set`, parents first. Each create joins
+/// `created_ids`.
+async fn set_create<B: MailBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut serde_json::Map<String, Value>,
+    acc: &mut SetAccumulators,
+    created_ids: &mut BTreeMap<Id, Id>,
+) -> Result<(), JmapError> {
+    let roles_intended_to_vacate = roles_intended_to_vacate(args, ctx.all_mailboxes);
+    if let Some(Value::Object(creates)) = args.get("create") {
+        for (create_id, props) in parents_first(creates) {
+            create_one(
+                ctx,
+                create_id,
+                props,
+                acc,
+                created_ids,
+                &roles_intended_to_vacate,
+            )
+            .await?;
+        }
+    }
+    Ok(())
+}
+
+/// One `create` entry of `Mailbox/set`.
+async fn create_one<B: MailBackend>(
+    ctx: &SetCtx<'_, B>,
+    create_id: &str,
+    props: &Value,
+    acc: &mut SetAccumulators,
+    created_ids: &mut BTreeMap<Id, Id>,
+    roles_intended_to_vacate: &HashSet<String>,
+) -> Result<(), JmapError> {
+    if let Some(err) = props.as_object().and_then(reject_server_set::<Mailbox>) {
+        acc.not_created
+            .insert(create_id.to_owned(), serde_json::Value::from(&err));
+        return Ok(());
+    }
+    if let Some(Err(err)) = props
+        .as_object()
+        .map(|o| check_metadata_entry(o, true, ctx.using))
+    {
+        acc.not_created
+            .insert(create_id.to_owned(), serde_json::Value::from(&*err));
+        return Ok(());
+    }
+    if props
+        .as_object()
+        .is_some_and(|o| o.contains_key("shareWith"))
+        && !shares(ctx.using)
+    {
+        acc.not_created
+            .insert(create_id.to_owned(), share_with_invalid());
+        return Ok(());
+    }
+    let mut props = props.clone();
+    if let Value::Object(m) = &mut props
+        && let Err(err) = ctx.i18n_set.check_create(m)
+    {
+        acc.not_created
+            .insert(create_id.to_owned(), serde_json::Value::from(&*err));
+        return Ok(());
+    }
+    if let Err(err) = resolve_parent_ref(&mut props, created_ids) {
+        acc.not_created
+            .insert(create_id.to_owned(), serde_json::Value::from(&*err));
+        return Ok(());
+    }
+    let props = &props;
+    // name is required.
+    if props.get("name").and_then(|v| v.as_str()).is_none() {
+        acc.not_created.insert(
+            create_id.to_owned(),
+            serde_json::Value::from(
+                &SetError::new(SetErrorType::InvalidProperties).with_properties(["name"]),
+            ),
+        );
+        return Ok(());
+    }
+    if let Some(err) = create_conflict(ctx, props, acc, created_ids, roles_intended_to_vacate) {
+        acc.not_created.insert(create_id.to_owned(), err);
+        return Ok(());
+    }
+
+    // Build Mailbox from props.
+    let build = match build_mailbox_from_props(props) {
+        Ok(build) => build,
+        Err(err_val) => {
+            acc.not_created.insert(create_id.to_owned(), err_val);
+            return Ok(());
+        }
+    };
+    match ctx
+        .backend
+        .create_object::<Mailbox, _>(ctx.caller, ctx.account_id, create_id, build)
+        .await
+    {
+        Ok((id, obj)) => {
+            let mut obj_val = jmap_server::serialize_value(&obj)?;
+            ctx.i18n_set.echo(&mut obj_val);
+            if let Value::Object(m) = &mut obj_val {
+                share_view(m, ctx.using, true);
+            }
+            created_ids.insert(Id::from(create_id), id);
+            acc.created.insert(create_id.to_owned(), obj_val);
+        }
+        Err(e) => {
+            acc.not_created
+                .insert(create_id.to_owned(), backend_set_error_value(e));
+        }
+    }
+    Ok(())
+}
+
+/// The SetError value when a create's `parentId`, `role` or name clashes
+/// with the Mailboxes before this call or those it created so far, else
+/// `None`. Every check is deferred to commit when atomic.
+fn create_conflict<B: MailBackend>(
+    ctx: &SetCtx<'_, B>,
+    props: &Value,
+    acc: &SetAccumulators,
+    created_ids: &BTreeMap<Id, Id>,
+    roles_intended_to_vacate: &HashSet<String>,
+) -> Option<Value> {
+    if ctx.atomic {
+        return None;
+    }
+    // RFC 8621 §2: `parentId` names a Mailbox, existing or created
+    // earlier in this call.
+    if let Some(parent) = props.get("parentId").and_then(Value::as_str)
+        && !ctx.all_mailboxes.iter().any(|m| m.id.as_ref() == parent)
+        && !created_ids.values().any(|id| id.as_ref() == parent)
+    {
+        return Some(serde_json::Value::from(
+            &SetError::new(SetErrorType::InvalidProperties).with_properties(["parentId"]),
+        ));
+    }
+
+    // Role uniqueness check.
+    if let Some(role_val) = props.get("role").filter(|v| !v.is_null())
+        && let Some(role_str) = role_val.as_str()
+    {
+        // Exclude roles that are being vacated by an update in this
+        // same request (pre-computed).  No mailbox id to exclude:
+        // we are creating a new object, not updating an existing one.
+        let role_taken =
+            role_already_held(role_str, ctx.all_mailboxes, roles_intended_to_vacate, None);
+        // Also check what we already successfully created in this request.
+        // MailboxRole always serializes as a bare JSON string (via
+        // impl_string_enum!), so as_str() is always correct here.
+        let role_just_created = acc
+            .created
+            .values()
+            .any(|v| v.get("role").and_then(|r| r.as_str()) == Some(role_str));
+        if role_taken || role_just_created {
+            return Some(serde_json::Value::from(
+                &SetError::new(SetErrorType::InvalidProperties).with_properties(["role"]),
+            ));
+        }
+    }
+
+    // Duplicate name+parentId check (RFC 8621 §2.5 — alreadyExists).
     //
-    // `destroyed: Vec<String>` is converted to `Vec<Value>` here because the
-    // helper's signature uses the canonical `Vec<Value>` shape — pushing the
-    // conversion to the call site keeps the helper identical across all
-    // extension-server siblings.
-    let mutated = !created.is_empty() || !updated.is_empty() || !destroyed.is_empty();
-    let destroyed_list: Vec<Value> = destroyed.into_iter().map(Value::String).collect();
-    finalize_set_response::<B, Mailbox>(
-        backend,
-        caller,
-        &account_id,
-        current_state,
-        mutated,
-        SetAccumulators {
-            created,
-            updated,
-            destroyed: destroyed_list,
-            not_created,
-            not_updated,
-            not_destroyed,
-        },
+    // Two mailboxes under the same parent may not share a name. The
+    // parentId is compared so that null (top-level) and absent (also
+    // top-level) are treated identically.
+    //
+    // The check also covers mailboxes created earlier in this same
+    // request: `created` already holds successfully-created entries
+    // whose serialised form includes the assigned name and parentId.
+    if let Some(proposed_name) = props.get("name").and_then(|v| v.as_str()) {
+        // Normalise the proposed parentId: absent/null → None, string → Some(str).
+        let proposed_parent: Option<&str> = match props.get("parentId") {
+            Some(serde_json::Value::String(s)) => Some(s.as_str()),
+            _ => None,
+        };
+
+        let name_taken_existing = ctx.all_mailboxes.iter().any(|m| {
+            m.name == proposed_name && m.parent_id.as_ref().map(|p| p.as_ref()) == proposed_parent
+        });
+
+        // Also check mailboxes created earlier in this same request.
+        let name_taken_this_request = acc.created.values().any(|v| {
+            v.get("name").and_then(|n| n.as_str()) == Some(proposed_name)
+                && v.get("parentId").and_then(|p| p.as_str()) == proposed_parent
+        });
+
+        if name_taken_existing || name_taken_this_request {
+            return Some(serde_json::Value::from(&SetError::new(
+                SetErrorType::AlreadyExists,
+            )));
+        }
+    }
+    None
+}
+
+/// The `update` part of `Mailbox/set`, in two passes.
+async fn set_update<B: MailBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut serde_json::Map<String, Value>,
+    acc: &mut SetAccumulators,
+    created_ids: &BTreeMap<Id, Id>,
+) -> Result<(), JmapError> {
+    let Some(Value::Object(updates)) = args.remove("update") else {
+        return Ok(());
+    };
+    // Two-pass update loop — do NOT collapse into a single pass.
+    //
+    // Defense notes (bd:JMAP-q2wa.13): a future contributor might
+    // suggest simplifying this into one pass on the grounds that
+    // `serde_json::Map` iteration is insertion-ordered, or that a
+    // topological sort over the role-claim graph would do the same
+    // job more cleanly. Both refactors are wrong:
+    //
+    //   1. `serde_json::Map` iteration order is currently BTreeMap-
+    //      or insertion-ordered depending on the `preserve_order`
+    //      feature, but neither variant is part of the documented
+    //      semver contract. Relying on a single-pass order is a
+    //      latent bug under a dep bump.
+    //   2. The two-pass model directly mirrors the RFC 8620 §5.3
+    //      "creates before updates" ordering rule applied within
+    //      the update phase: vacating patches free state that
+    //      subsequent claiming patches consume. The shape
+    //      communicates the spec invariant at a glance.
+    //   3. A topological sort would require building a role-
+    //      dependency graph (which role is freed for whom) — net
+    //      negative abstraction vs. two short for-loops over the
+    //      partitioned update map.
+    //   4. The single-request role-swap case (A vacates inbox, B
+    //      claims inbox) is one of the easier-to-reason-about
+    //      correctness properties of `Mailbox/set`; the two-pass
+    //      shape makes the proof obvious. Combining would require
+    //      a complex argument about ordering within a single pass.
+    //
+    // Two invariants govern the role-swap logic across the whole update loop:
+    //
+    //   roles_successfully_vacated — roles freed by pass-1 updates that
+    //     actually succeeded. Only a successful vacate releases the role;
+    //     a backend error on the vacate keeps the role occupied so that
+    //     any same-request claim against it is correctly rejected.
+    //
+    //   roles_claimed_this_request — roles claimed by pass-2 updates so
+    //     far, preventing two non-vacating updates in the same request
+    //     from both claiming the same role.
+    //
+    // Pass 1 runs every patch that sets role: null (vacating a role).
+    // Pass 2 runs everything else (including role-claiming patches).
+    // This ordering allows a single request to swap roles atomically
+    // (RFC 8621 §2.5).
+    let mut roles_claimed_this_request: HashSet<String> = HashSet::new();
+    let mut roles_successfully_vacated: HashSet<String> = HashSet::new();
+    let (vacating, non_vacating): (Vec<_>, Vec<_>) = updates
+        .into_iter()
+        .filter_map(|(id_str, mut patch_val)| {
+            match resolve_parent_ref(&mut patch_val, created_ids) {
+                Ok(()) => Some((id_str, patch_val)),
+                Err(err) => {
+                    acc.not_updated
+                        .insert(id_str, serde_json::Value::from(&*err));
+                    None
+                }
+            }
+        })
+        .partition(|(_, v)| {
+            v.as_object()
+                .and_then(|o| o.get("role"))
+                .is_some_and(|v| v.is_null())
+        });
+
+    // --- Pass 1: role-vacating updates (patch sets role: null) ---
+    for (id_str, patch_val) in vacating {
+        update_vacating(ctx, id_str, patch_val, acc, &mut roles_successfully_vacated).await?;
+    }
+    // --- Pass 2: non-vacating updates ---
+    for (id_str, patch_val) in non_vacating {
+        update_claiming(
+            ctx,
+            id_str,
+            patch_val,
+            acc,
+            &roles_successfully_vacated,
+            &mut roles_claimed_this_request,
+        )
+        .await?;
+    }
+    Ok(())
+}
+
+/// The checks both update passes run first: the id, the PatchObject,
+/// read-only properties (RFC 8621 §2) and capability-gated writes.
+/// Returns the id and patch to apply, or `None` once the outcome is in
+/// `acc` (a failure, or a no-op success).
+async fn prepare_update<B: MailBackend>(
+    ctx: &SetCtx<'_, B>,
+    id_str: &str,
+    patch_val: Value,
+    acc: &mut SetAccumulators,
+) -> Option<(Id, PatchObject)> {
+    let id = match jmap_server::parse_wire_id(id_str, "id") {
+        Ok(id) => id,
+        Err(err) => {
+            acc.not_updated
+                .insert(id_str.to_owned(), serde_json::Value::from(&*err));
+            return None;
+        }
+    };
+
+    // Convert wire-format Value into a typed PatchObject. RFC 8620
+    // §5.3 mandates a PatchObject is a JSON Object; non-object
+    // values produce an `invalidPatch` SetError.
+    let mut patch = match serde_json::from_value::<PatchObject>(patch_val) {
+        Ok(p) => p,
+        Err(e) => {
+            acc.not_updated.insert(
+                id_str.to_owned(),
+                json!({ "type": "invalidPatch", "description": e.to_string() }),
+            );
+            return None;
+        }
+    };
+
+    // A changed server-set Mailbox value (RFC 8621 §2) is rejected,
+    // an identical one dropped (RFC 8620 §5.3); nothing left is a
+    // no-op success.
+    match check_read_only_patch::<_, Mailbox>(
+        ctx.backend,
+        ctx.caller,
+        ctx.account_id,
+        &id,
+        patch.as_map_mut(),
     )
     .await
+    {
+        Ok(false) => {}
+        Ok(true) => {
+            acc.updated.insert(id_str.to_owned(), Value::Null);
+            return None;
+        }
+        Err(err) => {
+            acc.not_updated.insert(id_str.to_owned(), err);
+            return None;
+        }
+    }
+    if let Some(err) = capability_write_error(ctx, &patch) {
+        acc.not_updated.insert(id_str.to_owned(), err);
+        return None;
+    }
+    Some((id, patch))
+}
+
+/// The error value if `patch` writes metadata the request may not write
+/// (draft-ietf-jmap-metadata-05 §3), or None if the patch is clean. The
+/// same for `locale` and `localizations` without the i18n capability
+/// (draft-atwood-jmap-updates-00 §3), and for `shareWith` without the
+/// mail:share capability (draft-ietf-jmap-mail-sharing-02 §1.2.1).
+fn capability_write_error<B: MailBackend>(
+    ctx: &SetCtx<'_, B>,
+    patch: &PatchObject,
+) -> Option<Value> {
+    if !shares(ctx.using)
+        && patch
+            .as_map()
+            .keys()
+            .any(|k| k == "shareWith" || k.starts_with("shareWith/"))
+    {
+        return Some(share_with_invalid());
+    }
+    check_metadata_entry(patch.as_map(), false, ctx.using)
+        .and_then(|()| ctx.i18n_set.check_patch(patch.as_map()))
+        .err()
+        .map(|e| serde_json::Value::from(&*e))
+}
+
+/// Apply a checked update patch: the tree check (deferred to commit when
+/// atomic), then the backend write. Returns whether the write succeeded.
+async fn apply_update<B: MailBackend>(
+    ctx: &SetCtx<'_, B>,
+    id_str: String,
+    id: &Id,
+    patch: PatchObject,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    if !ctx.atomic
+        && let Some(err) =
+            tree_conflict(ctx.backend, ctx.caller, ctx.account_id, id, &patch).await?
+    {
+        acc.not_updated.insert(id_str, err);
+        return Ok(false);
+    }
+
+    match ctx
+        .backend
+        .update_object::<Mailbox>(ctx.caller, ctx.account_id, id, patch)
+        .await
+    {
+        Ok(maybe_obj) => {
+            // RFC 8620 §5.3: if the backend modified server-set fields
+            // beyond the patch, echo them in the updated map entry.
+            let mut entry = maybe_obj
+                .as_ref()
+                .map(jmap_server::serialize_value)
+                .transpose()?
+                .unwrap_or(Value::Null);
+            ctx.i18n_set.echo(&mut entry);
+            if let Value::Object(m) = &mut entry {
+                share_view(m, ctx.using, false);
+            }
+            acc.updated.insert(id_str, entry);
+            Ok(true)
+        }
+        Err(e) => {
+            acc.not_updated.insert(id_str, backend_set_error_value(e));
+            Ok(false)
+        }
+    }
+}
+
+/// Pass 1 of the `Mailbox/set` update: a patch that sets `role` to null.
+/// A successful one records the role it freed in
+/// `roles_successfully_vacated`.
+async fn update_vacating<B: MailBackend>(
+    ctx: &SetCtx<'_, B>,
+    id_str: String,
+    patch_val: Value,
+    acc: &mut SetAccumulators,
+    roles_successfully_vacated: &mut HashSet<String>,
+) -> Result<(), JmapError> {
+    let Some((id, patch)) = prepare_update(ctx, &id_str, patch_val, acc).await else {
+        return Ok(());
+    };
+
+    // Capture the role currently held by this mailbox before the
+    // update runs; needed to know which role to record as vacated.
+    let current_role: Option<String> = ctx
+        .all_mailboxes
+        .iter()
+        .find(|m| m.id == id)
+        .and_then(|m| m.role.as_ref())
+        .map(|r| r.to_wire_str().to_owned());
+
+    if apply_update(ctx, id_str, &id, patch, acc).await?
+        && let Some(role) = current_role
+    {
+        roles_successfully_vacated.insert(role);
+    }
+    Ok(())
+}
+
+/// Pass 2 of the `Mailbox/set` update: every other patch, including one
+/// that claims a role.
+async fn update_claiming<B: MailBackend>(
+    ctx: &SetCtx<'_, B>,
+    id_str: String,
+    patch_val: Value,
+    acc: &mut SetAccumulators,
+    roles_successfully_vacated: &HashSet<String>,
+    roles_claimed_this_request: &mut HashSet<String>,
+) -> Result<(), JmapError> {
+    let Some((id, patch)) = prepare_update(ctx, &id_str, patch_val, acc).await else {
+        return Ok(());
+    };
+
+    // Role uniqueness: check against pre-request state minus
+    // roles freed by successful pass-1 vacates, plus any role
+    // already claimed by an earlier update in this pass, plus
+    // any role claimed by the create loop. Deferred to commit when
+    // atomic.
+    let obj = patch.as_map();
+    if !ctx.atomic
+        && let Some(role_val) = obj.get("role").filter(|v| !v.is_null())
+        && let Some(role_str) = role_val.as_str()
+    {
+        // Exclude the mailbox being updated (id) — it may
+        // already hold this role and is about to change it.
+        let role_taken = role_already_held(
+            role_str,
+            ctx.all_mailboxes,
+            roles_successfully_vacated,
+            Some(&id),
+        );
+        let role_just_claimed = roles_claimed_this_request.contains(role_str);
+        // MailboxRole always serializes as a bare JSON string (via
+        // impl_string_enum!), so as_str() is always correct here.
+        let role_just_created = acc
+            .created
+            .values()
+            .any(|v| v.get("role").and_then(|r| r.as_str()) == Some(role_str));
+        if role_taken || role_just_claimed || role_just_created {
+            acc.not_updated.insert(
+                id_str,
+                serde_json::Value::from(
+                    &SetError::new(SetErrorType::InvalidProperties).with_properties(["role"]),
+                ),
+            );
+            return Ok(());
+        }
+        roles_claimed_this_request.insert(role_str.to_owned());
+    }
+
+    apply_update(ctx, id_str, &id, patch, acc).await?;
+    Ok(())
+}
+
+/// The `destroy` part of `Mailbox/set`, with the `onDestroyRemoveEmails`
+/// cascade.
+///
+/// # Errors
+///
+/// `invalidArguments` when an element of `destroy` is not a string;
+/// `serverFail` when the backend cannot read the Mailboxes or Emails, or
+/// a cascade write fails in storage.
+async fn set_destroy<B: MailBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut serde_json::Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<(), JmapError> {
+    let Some(Value::Array(destroy_ids)) = args.get("destroy") else {
+        return Ok(());
+    };
+    // RFC 8620 §5.3: every element of the destroy array MUST be a string Id.
+    // Reject the whole request if any element is non-string rather than
+    // silently skipping it, which would produce a misleading response.
+    let id_strs: Vec<&str> = destroy_ids
+        .iter()
+        .map(|v| {
+            v.as_str().ok_or_else(|| {
+                JmapError::invalid_arguments(format!(
+                    "destroy: every element must be a string Id; got {}",
+                    jmap_server::json_type_name(v)
+                ))
+            })
+        })
+        .collect::<Result<_, _>>()?;
+
+    // Re-fetch mailboxes after create/update: RFC 8620 §5.3 requires
+    // create/update/destroy to operate in sequence, so a mailbox created
+    // earlier in this request could be a child of the mailbox being
+    // destroyed. Using the pre-mutation snapshot (all_mailboxes) would miss
+    // that child.
+    let (mut mailboxes_after_mutations, _) = ctx
+        .backend
+        .get_objects::<Mailbox>(ctx.caller, ctx.account_id, None, None)
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?;
+
+    for id_str in id_strs {
+        let id = match jmap_server::parse_wire_id(id_str, "id") {
+            Ok(id) => id,
+            Err(err) => {
+                acc.not_destroyed
+                    .insert(id_str.to_owned(), serde_json::Value::from(&*err));
+                continue;
+            }
+        };
+
+        // Defense in depth before any cascade: when the backend
+        // enforces ACLs (it names a principal), a Mailbox whose
+        // myRights lack mayDelete, or mayRemoveItems for the
+        // onDestroyRemoveEmails cascade, is forbidden here, before any
+        // Email is removed. The backend's destroy stays the canonical
+        // check (MailBackend "Permission enforcement").
+        if B::principal_id(ctx.caller).is_some()
+            && let Some(mailbox) = mailboxes_after_mutations.iter().find(|m| m.id == id)
+            && (!mailbox.my_rights.may_delete
+                || (ctx.on_destroy_remove_emails && !mailbox.my_rights.may_remove_items))
+        {
+            acc.not_destroyed.insert(
+                id_str.to_owned(),
+                serde_json::Value::from(&SetError::new(SetErrorType::Forbidden)),
+            );
+            continue;
+        }
+
+        // Check for child mailboxes using the post-create snapshot.
+        let has_child = mailboxes_after_mutations
+            .iter()
+            .any(|m| m.parent_id.as_ref() == Some(&id));
+        if has_child {
+            acc.not_destroyed.insert(
+                id_str.to_owned(),
+                serde_json::Value::from(&SetError::new(SetErrorType::MailboxHasChild)),
+            );
+            continue;
+        }
+
+        if let Some(err) = remove_mailbox_emails(ctx, &id).await? {
+            acc.not_destroyed.insert(id_str.to_owned(), err);
+            continue;
+        }
+
+        // Destroy the mailbox itself.
+        match ctx
+            .backend
+            .destroy_object::<Mailbox>(ctx.caller, ctx.account_id, &id)
+            .await
+        {
+            Ok(()) => {
+                acc.destroyed.push(Value::String(id_str.to_owned()));
+                // RFC 8620 §5.3: each destroy takes effect sequentially.
+                // Remove the just-destroyed mailbox from the snapshot so
+                // subsequent has_child checks do not see it as a child.
+                mailboxes_after_mutations.retain(|m| m.id != id);
+            }
+            Err(e) => {
+                acc.not_destroyed
+                    .insert(id_str.to_owned(), backend_set_error_value(e));
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Empty Mailbox `id` before it is destroyed: without
+/// `onDestroyRemoveEmails` an Email in it makes the destroy
+/// `mailboxHasEmail` (the returned SetError value); with it, an Email
+/// only in this Mailbox is destroyed and any other loses this Mailbox
+/// (RFC 8621 §2.5). Returns `None` when the Mailbox may be destroyed.
+///
+/// # Errors
+///
+/// `serverFail` when the Emails cannot be read, or a cascade write fails
+/// in storage (bd:JMAP-wlip.2). A per-object SetError of the cascade is
+/// ignored.
+async fn remove_mailbox_emails<B: MailBackend>(
+    ctx: &SetCtx<'_, B>,
+    id: &Id,
+) -> Result<Option<Value>, JmapError> {
+    // Fetch emails in this mailbox. The backend MUST respect the
+    // inMailbox filter in query_objects; if it does not, this may fetch
+    // all emails and cause OOM on large accounts. The secondary
+    // .filter() below is a correctness safety net for backends that
+    // return false positives, not a substitute for proper backend
+    // filtering.
+    let mut email_filter = EmailFilterCondition::default();
+    email_filter.in_mailbox = Some(id.clone());
+    let query_result = ctx
+        .backend
+        .query_objects::<Email>(
+            ctx.caller,
+            ctx.account_id,
+            QueryParams::new().filter(Some(&EmailFilter::Condition(email_filter))),
+        )
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?;
+    let (fetched, _) = ctx
+        .backend
+        .get_objects::<Email>(ctx.caller, ctx.account_id, Some(&query_result.ids), None)
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?;
+    let emails_in_mailbox: Vec<Email> = fetched
+        .into_iter()
+        .filter(|e| e.mailbox_ids.contains_key(id))
+        .collect();
+
+    if emails_in_mailbox.is_empty() {
+        return Ok(None);
+    }
+    if !ctx.on_destroy_remove_emails {
+        return Ok(Some(serde_json::Value::from(&SetError::new(
+            SetErrorType::MailboxHasEmail,
+        ))));
+    }
+
+    // onDestroyRemoveEmails=true: cascade.
+    // Emails with only this mailbox are batch-destroyed in a single backend call.
+    // Emails in multiple mailboxes still need individual update_object calls to
+    // patch mailboxIds (no batch-update API exists yet).
+    let ids_to_destroy: Vec<Id> = emails_in_mailbox
+        .iter()
+        .filter(|e| e.mailbox_ids.len() == 1)
+        .map(|e| e.id.clone())
+        .collect();
+
+    if !ids_to_destroy.is_empty() {
+        let destroy_results = ctx
+            .backend
+            .batch_destroy_emails(ctx.caller, ctx.account_id, &ids_to_destroy)
+            .await;
+        for (_, err) in destroy_results {
+            // A per-object SetError (e.g. already deleted by a
+            // concurrent request) is ignored: best-effort cascade,
+            // the email is gone or unreachable, so proceed with
+            // mailbox destruction. A storage error aborts with a
+            // redacted serverFail (bd:JMAP-wlip.2).
+            if let Some(e) = err {
+                e.into_set_error_or_method_error()?;
+            }
+        }
+    }
+
+    for email in &emails_in_mailbox {
+        if email.mailbox_ids.len() > 1 {
+            // Email is in other mailboxes — remove this mailbox from mailboxIds.
+            let mut patch = serde_json::Map::new();
+            let key = format!("mailboxIds/{}", id.as_ref());
+            patch.insert(key, Value::Null);
+            // A per-object SetError (e.g. email deleted concurrently)
+            // is ignored: best-effort, proceed with mailbox
+            // destruction. A storage error aborts with a redacted
+            // serverFail.
+            if let Err(e) = ctx
+                .backend
+                .update_object::<Email>(
+                    ctx.caller,
+                    ctx.account_id,
+                    &email.id,
+                    PatchObject::from_map(patch),
+                )
+                .await
+            {
+                e.into_set_error_or_method_error()?;
+            }
+        }
+    }
+    Ok(None)
 }
 
 // ---------------------------------------------------------------------------

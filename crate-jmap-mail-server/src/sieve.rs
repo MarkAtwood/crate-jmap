@@ -47,7 +47,7 @@ use jmap_mail_types::{SieveScript, SieveScriptComparator, SieveScriptComparatorP
 use jmap_types::{Filter, Id, JmapError, PatchObject};
 use serde::Deserialize;
 use serde_json::{Value, json};
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, HashSet};
 
 use crate::MailBackend;
 use crate::helpers::{
@@ -402,594 +402,31 @@ pub(crate) async fn sieve_set<B: MailBackend + SieveBackend>(
     }
 
     // Extract the activation side-effect args before consuming the map.
-    let on_success_activate_script: Option<String> = match args.remove("onSuccessActivateScript") {
-        None | Some(Value::Null) => None,
-        Some(Value::String(s)) => Some(s),
-        Some(v) => {
-            return Err(JmapError::invalid_arguments(format!(
-                "onSuccessActivateScript: expected a string or null, got {}",
-                jmap_server::json_type_name(&v)
-            )));
-        }
+    let activation = take_activation_args(&mut args)?;
+
+    let ctx = SetCtx {
+        backend,
+        caller,
+        account_id: &account_id,
+        created_ids,
+        atomic,
+        vr_script_id: vr_script_id.as_ref(),
+        max_script_bytes,
     };
-    let on_success_deactivate_script: Option<bool> = match args.remove("onSuccessDeactivateScript")
-    {
-        None | Some(Value::Null) => None,
-        Some(v) => Some(v.as_bool().ok_or_else(|| {
-            JmapError::invalid_arguments("onSuccessDeactivateScript: expected a boolean or null")
-        })?),
-    };
-
-    let mut created: serde_json::Map<String, Value> = serde_json::Map::new();
-    let mut not_created: serde_json::Map<String, Value> = serde_json::Map::new();
-    let mut updated: serde_json::Map<String, Value> = serde_json::Map::new();
-    let mut not_updated: serde_json::Map<String, Value> = serde_json::Map::new();
-    let mut destroyed: Vec<Value> = Vec::new();
-    let mut not_destroyed: serde_json::Map<String, Value> = serde_json::Map::new();
-
-    // Map from creation_id to the server-assigned Id (for onSuccessActivateScript ref resolution).
-    let mut created_id_map: HashMap<String, Id> = HashMap::new();
-    // Reverse map: assigned Id → creation_id (for R5: patching isActive into created entries).
-    let mut created_id_reverse_map: HashMap<Id, String> = HashMap::new();
-
-    // Step 4: Process destroys.
-    if let Some(destroy_ids) = args.remove("destroy").and_then(|v| match v {
-        Value::Array(a) => Some(a),
-        _ => None,
-    }) {
-        // RFC 8620 §5.3: every element of the destroy array MUST be a string Id.
-        // Reject the whole request if any element is non-string rather than
-        // silently skipping it, which would produce a misleading response.
-        let id_strs: Vec<&str> = destroy_ids
-            .iter()
-            .map(|v| {
-                v.as_str().ok_or_else(|| {
-                    JmapError::invalid_arguments(format!(
-                        "destroy: every element must be a string Id; got {}",
-                        jmap_server::json_type_name(v)
-                    ))
-                })
-            })
-            .collect::<Result<_, _>>()?;
-        for id_str in id_strs {
-            let id = match jmap_server::parse_wire_id(id_str, "id") {
-                Ok(id) => id,
-                Err(err) => {
-                    not_destroyed.insert(id_str.to_owned(), serde_json::Value::from(&*err));
-                    continue;
-                }
-            };
-
-            // Check existence and isActive before destroying.
-            let (existing, not_found_ids) = backend
-                .get_objects::<SieveScript>(
-                    caller,
-                    &account_id,
-                    Some(std::slice::from_ref(&id)),
-                    None,
-                )
-                .await
-                .map_err(|e| server_fail_from_backend(&e))?;
-
-            if !not_found_ids.is_empty() || existing.is_empty() {
-                not_destroyed.insert(
-                    id_str.to_owned(),
-                    serde_json::Value::from(&SetError::new(SetErrorType::NotFound)),
-                );
-                continue;
-            }
-
-            if existing[0].is_active {
-                not_destroyed.insert(
-                    id_str.to_owned(),
-                    serde_json::Value::from(
-                        &SetError::new(SetErrorType::from(SIEVE_ERR_IS_ACTIVE))
-                            .with_description("cannot destroy the active Sieve script"),
-                    ),
-                );
-                continue;
-            }
-
-            // VR-backed script guard (after sieveIsActive — active VR script takes
-            // priority; inactive VR script gets forbidden per draft §4).
-            if vr_script_id.as_ref() == Some(&id) {
-                not_destroyed.insert(
-                    id_str.to_owned(),
-                    serde_json::Value::from(
-                        &SetError::new(SetErrorType::Forbidden).with_description(
-                            "this script is managed by VacationResponse/set and cannot be \
-                             destroyed via SieveScript/set",
-                        ),
-                    ),
-                );
-                continue;
-            }
-
-            match backend
-                .destroy_object::<SieveScript>(caller, &account_id, &id)
-                .await
-            {
-                Ok(()) => {
-                    destroyed.push(Value::String(id_str.to_owned()));
-                }
-                Err(e) => {
-                    not_destroyed.insert(id_str.to_owned(), backend_set_error_value(e));
-                }
-            }
-        }
-    }
-
-    // Step 5: Process creates.
-    //
-    // R7: Hoist get_objects call before the loop so we can check overQuota
-    // and uniqueness without an extra backend round-trip per create.
-    let (all_scripts_before_create, _) = backend
-        .get_objects::<SieveScript>(caller, &account_id, None, None)
-        .await
-        .map_err(|e| server_fail_from_backend(&e))?;
-
-    // Per-account script-count cap. Hoisted once for the same reason as
-    // get_objects above — the cap is a backend property, not a per-create
-    // decision, so a single fetch suffices for the whole loop.
-    let max_scripts = backend
-        .max_sieve_scripts_per_account(caller, &account_id)
-        .await
-        .map_err(|e| server_fail_from_backend(&e))?;
-
-    let mut successful_creates: usize = 0;
-    // Track names successfully created within this call to detect intra-call duplicates.
-    let mut names_created_this_call: HashSet<String> = HashSet::new();
-
-    if let Some(Value::Object(create_map)) = args.remove("create") {
-        for (creation_id, obj_val) in create_map {
-            if let Some(err) = obj_val
-                .as_object()
-                .and_then(reject_server_set::<SieveScript>)
-            {
-                not_created.insert(creation_id, serde_json::Value::from(&err));
-                continue;
-            }
-            // R7: overQuota check (deferred to commit when atomic).
-            if !atomic && all_scripts_before_create.len() + successful_creates >= max_scripts {
-                not_created.insert(
-                    creation_id,
-                    serde_json::Value::from(&SetError::new(SetErrorType::OverQuota)),
-                );
-                continue;
-            }
-
-            // a. blob_id is required.
-            let Some(blob_id_str) = obj_val.get("blobId").and_then(|v| v.as_str()) else {
-                not_created.insert(
-                    creation_id,
-                    serde_json::Value::from(
-                        &SetError::new(SetErrorType::InvalidProperties)
-                            .with_properties(["blobId"])
-                            .with_description("blobId is required"),
-                    ),
-                );
-                continue;
-            };
-            let blob_id = match jmap_server::parse_wire_id(
-                &resolve_blob_ref(blob_id_str, created_ids),
-                "blobId",
-            ) {
-                Ok(id) => id,
-                Err(err) => {
-                    not_created.insert(creation_id, serde_json::Value::from(&*err));
-                    continue;
-                }
-            };
-
-            // b. Name validation and uniqueness check (if name is provided and non-null).
-            let name: Option<String> = obj_val
-                .get("name")
-                .and_then(|v| if v.is_null() { None } else { v.as_str() })
-                .map(|s| s.to_owned());
-
-            if let Some(ref name_str) = name {
-                // R2: validate name characters.
-                if let Some(name_err) = validate_script_name(name_str) {
-                    not_created.insert(creation_id, serde_json::Value::from(&name_err));
-                    continue;
-                }
-
-                // Intra-call duplicate: another create in this same request already
-                // succeeded with this name (we don't have the new id yet, so omit
-                // existingId — the spec only requires it for DB-level collisions).
-                if !atomic && names_created_this_call.contains(name_str.as_str()) {
-                    not_created.insert(
-                        creation_id,
-                        serde_json::Value::from(
-                            &SetError::new(SetErrorType::AlreadyExists).with_description(
-                                "a script with this name was already created in this request",
-                            ),
-                        ),
-                    );
-                    continue;
-                }
-
-                // R7 + R6: uniqueness check using the pre-fetched all_scripts
-                // list (deferred to commit when atomic).
-                if !atomic
-                    && let Some(existing) = all_scripts_before_create
-                        .iter()
-                        .find(|s| s.name.as_deref() == Some(name_str.as_str()))
-                {
-                    not_created.insert(
-                        creation_id,
-                        serde_json::Value::from(
-                            &SetError::new(SetErrorType::AlreadyExists)
-                                .with_existing_id(existing.id.clone()),
-                        ),
-                    );
-                    continue;
-                }
-            }
-
-            // c. Fetch the script once; check maxSizeScript, then syntax.
-            match check_script(backend, caller, &account_id, &blob_id, max_script_bytes).await {
-                Ok(None) => {}
-                Ok(Some(err)) => {
-                    not_created.insert(creation_id, serde_json::Value::from(&err));
-                    continue;
-                }
-                Err(e) => {
-                    not_created.insert(creation_id, server_fail_value_from_backend(&e));
-                    continue;
-                }
-            }
-
-            // d. Build SieveScript object — is_active always false on creation.
-            let script_name = name.clone();
-            let build = move |id: &Id| {
-                let mut script = SieveScript::new(id.clone(), blob_id, false);
-                script.name = script_name;
-                script
-            };
-
-            // e. Persist via backend.
-            match backend
-                .create_object::<SieveScript, _>(caller, &account_id, &creation_id, build)
-                .await
-            {
-                Ok((assigned_id, created_obj)) => {
-                    // f. Record creation_id → assigned_id for onSuccessActivateScript.
-                    created_id_map.insert(creation_id.clone(), assigned_id.clone());
-                    created_id_reverse_map.insert(assigned_id, creation_id.clone());
-
-                    // Track name for intra-call duplicate detection.
-                    if let Some(ref n) = name {
-                        names_created_this_call.insert(n.clone());
-                    }
-
-                    // R9: propagate serialization errors via ? instead of silently swallowing.
-                    let obj_json = serde_json::to_value(&created_obj)
-                        .map_err(|e| server_fail_from_backend(&e))?;
-                    created.insert(creation_id, obj_json);
-                    successful_creates += 1;
-                }
-                Err(e) => {
-                    not_created.insert(creation_id, backend_set_error_value(e));
-                }
-            }
-        }
-    }
-
-    jmap_server::resolve_set_id_refs(&mut args, created_ids, &created);
-    // Step 6: Process updates.
-    if let Some(Value::Object(update_map)) = args.remove("update") {
-        // For name uniqueness checks on update, fetch current scripts once.
-        let (all_scripts_for_update, _) = backend
-            .get_objects::<SieveScript>(caller, &account_id, None, None)
-            .await
-            .map_err(|e| server_fail_from_backend(&e))?;
-
-        for (id_str, patch_val) in update_map {
-            let id = match jmap_server::parse_wire_id(&id_str, "id") {
-                Ok(id) => id,
-                Err(err) => {
-                    not_updated.insert(id_str, serde_json::Value::from(&*err));
-                    continue;
-                }
-            };
-
-            // Convert wire-format Value into a typed PatchObject. RFC 8620
-            // §5.3 mandates a PatchObject is a JSON Object; non-object
-            // values produce an `invalidPatch` SetError.
-            let mut patch = match serde_json::from_value::<PatchObject>(patch_val) {
-                Ok(p) => p,
-                Err(e) => {
-                    not_updated.insert(
-                        id_str,
-                        json!({ "type": "invalidPatch", "description": e.to_string() }),
-                    );
-                    continue;
-                }
-            };
-
-            // VR-backed script guard: reject blobId changes on the VR-backed script
-            // (RFC 9661 §4). isActive changes are handled separately
-            // by the activation state machine and are not blocked here.
-            // Before the read-only check: permission before shape
-            // (DECISIONS.md 44).
-            if let Some(ref vr_id) = vr_script_id
-                && vr_id == &id
-                && patch.as_map().contains_key("blobId")
-            {
-                not_updated.insert(
-                    id_str,
-                    serde_json::Value::from(
-                        &SetError::new(SetErrorType::Forbidden).with_description(
-                            "blobId of a VacationResponse-backed script cannot be \
-                                 updated via SieveScript/set",
-                        ),
-                    ),
-                );
-                continue;
-            }
-
-            // R4: `id` and `isActive` (RFC 9661 §2), which
-            // onSuccessActivateScript changes, are server-set: a changed
-            // value is rejected, an identical one dropped (RFC 8620 §5.3).
-            // Nothing left to apply is a no-op success.
-            match check_read_only_patch::<_, SieveScript>(
-                backend,
-                caller,
-                &account_id,
-                &id,
-                patch.as_map_mut(),
-            )
-            .await
-            {
-                Ok(false) => {}
-                Ok(true) => {
-                    updated.insert(id_str, Value::Null);
-                    continue;
-                }
-                Err(err) => {
-                    not_updated.insert(id_str, err);
-                    continue;
-                }
-            }
-
-            // R2: validate name character if patch contains "name".
-            if let Some(name_val) = patch.as_map().get("name")
-                && let Some(name_str) = name_val.as_str()
-            {
-                if let Some(name_err) = validate_script_name(name_str) {
-                    not_updated.insert(id_str, serde_json::Value::from(&name_err));
-                    continue;
-                }
-
-                // R6: uniqueness check — exclude the script being updated
-                // (deferred to commit when atomic).
-                if !atomic
-                    && let Some(existing) = all_scripts_for_update
-                        .iter()
-                        .find(|s| s.name.as_deref() == Some(name_str) && s.id != id)
-                {
-                    not_updated.insert(
-                        id_str,
-                        serde_json::Value::from(
-                            &SetError::new(SetErrorType::AlreadyExists)
-                                .with_existing_id(existing.id.clone()),
-                        ),
-                    );
-                    continue;
-                }
-            }
-
-            // If the patch includes blobId, check size then validate the new blob.
-            if let Some(new_blob_id_str) = patch.as_map().get("blobId").and_then(|v| v.as_str()) {
-                let new_blob_id = match jmap_server::parse_wire_id(
-                    &resolve_blob_ref(new_blob_id_str, created_ids),
-                    "blobId",
-                ) {
-                    Ok(id) => id,
-                    Err(err) => {
-                        not_updated.insert(id_str, serde_json::Value::from(&*err));
-                        continue;
-                    }
-                };
-                // The stored script names the resolved blob, not the reference.
-                patch.as_map_mut().insert(
-                    "blobId".to_owned(),
-                    Value::String(new_blob_id.as_ref().to_owned()),
-                );
-
-                // Fetch the script once; check maxSizeScript, then syntax.
-                match check_script(backend, caller, &account_id, &new_blob_id, max_script_bytes)
-                    .await
-                {
-                    Ok(None) => {}
-                    Ok(Some(err)) => {
-                        not_updated.insert(id_str, serde_json::Value::from(&err));
-                        continue;
-                    }
-                    Err(e) => {
-                        not_updated.insert(id_str, server_fail_value_from_backend(&e));
-                        continue;
-                    }
-                }
-            }
-
-            match backend
-                .update_object::<SieveScript>(caller, &account_id, &id, patch)
-                .await
-            {
-                Ok(Some(obj)) => {
-                    // R9: propagate serialization errors via ? instead of silently swallowing.
-                    let obj_json =
-                        serde_json::to_value(&obj).map_err(|e| server_fail_from_backend(&e))?;
-                    updated.insert(id_str, obj_json);
-                }
-                Ok(None) => {
-                    updated.insert(id_str, Value::Null);
-                }
-                Err(e) => {
-                    not_updated.insert(id_str, backend_set_error_value(e));
-                }
-            }
-        }
-    }
+    let mut acc = SetAccumulators::default();
+    // Step 4: destroys; Step 5: creates; Step 6: updates.
+    set_destroy(&ctx, &mut args, &mut acc).await?;
+    let created_scripts = set_create(&ctx, &mut args, &mut acc).await?;
+    jmap_server::resolve_set_id_refs(&mut args, created_ids, &acc.created);
+    set_update(&ctx, &mut args, &mut acc).await?;
 
     // Step 7: Activation state machine (draft §2.4).
     //
     // R1: Per spec §2.4, activation side-effects only run if ALL operations succeeded.
     let any_failure =
-        !not_created.is_empty() || !not_updated.is_empty() || !not_destroyed.is_empty();
-
+        !acc.not_created.is_empty() || !acc.not_updated.is_empty() || !acc.not_destroyed.is_empty();
     if !any_failure {
-        // Step A: onSuccessDeactivateScript
-        if on_success_deactivate_script == Some(true) {
-            let (all_scripts, _) = backend
-                .get_objects::<SieveScript>(caller, &account_id, None, None)
-                .await
-                .map_err(|e| server_fail_from_backend(&e))?;
-            if let Some(active_script) = all_scripts.iter().find(|s| s.is_active) {
-                let active_id = active_script.id.clone();
-                let active_id_str = active_id.as_ref().to_owned();
-                // Build a one-key PatchObject {"isActive": false}.
-                let mut patch_map = serde_json::Map::new();
-                patch_map.insert("isActive".to_owned(), Value::Bool(false));
-                let patch = PatchObject::from_map(patch_map);
-                match backend
-                    .update_object::<SieveScript>(caller, &account_id, &active_id, patch)
-                    .await
-                {
-                    Ok(_) => {
-                        updated.insert(active_id_str, json!({ "isActive": false }));
-                    }
-                    Err(e) => {
-                        not_updated.insert(active_id_str, backend_set_error_value(e));
-                    }
-                }
-            }
-        }
-
-        // Step B: onSuccessActivateScript
-        if let Some(ref activate_ref) = on_success_activate_script {
-            // Resolve the target Id: "#creation_id" or bare Id.
-            let target_id: Option<Id> = if let Some(creation_id) = activate_ref.strip_prefix('#') {
-                // Look up in the created map; silently ignore if not found (spec §2.4).
-                created_id_map.get(creation_id).cloned()
-            } else {
-                Id::new_validated(activate_ref.as_str()).ok()
-            };
-
-            if let Some(ref target_id) = target_id {
-                // Deactivate the current active script if it's different from target
-                // and hasn't already been deactivated in Step A.
-                let (all_scripts, _) = backend
-                    .get_objects::<SieveScript>(caller, &account_id, None, None)
-                    .await
-                    .map_err(|e| server_fail_from_backend(&e))?;
-
-                // Track whether deactivation failed so we can abort the activate step
-                // (Fix R2_3: deactivate failure aborts activate to preserve one-active invariant).
-                let mut deactivation_failed = false;
-
-                // RFC 9661 §2.4: "if the id is either invalid or nonexistent,
-                // it MUST be ignored, and the currently active SieveScript (if
-                // any) will remain as such".
-                let target_exists = all_scripts.iter().any(|s| &s.id == target_id);
-
-                // Read after Step A, so a script it deactivated is not active
-                // here; one the client otherwise updated in this call still is.
-                if target_exists
-                    && let Some(currently_active) = all_scripts.iter().find(|s| s.is_active)
-                    && &currently_active.id != target_id
-                {
-                    let active_id = currently_active.id.clone();
-                    let active_id_str = active_id.as_ref().to_owned();
-                    // A script cannot be in both `updated` and `notUpdated`:
-                    // when the client's own update of it failed, leave it
-                    // active and activate nothing.
-                    if not_updated.contains_key(&active_id_str) {
-                        deactivation_failed = true;
-                    }
-                }
-                if !deactivation_failed
-                    && target_exists
-                    && let Some(currently_active) = all_scripts.iter().find(|s| s.is_active)
-                    && &currently_active.id != target_id
-                {
-                    let active_id = currently_active.id.clone();
-                    let active_id_str = active_id.as_ref().to_owned();
-                    let mut patch_map = serde_json::Map::new();
-                    patch_map.insert("isActive".to_owned(), Value::Bool(false));
-                    let patch = PatchObject::from_map(patch_map);
-                    match backend
-                        .update_object::<SieveScript>(caller, &account_id, &active_id, patch)
-                        .await
-                    {
-                        Ok(_) => {
-                            // Merge with an entry from the client's own update.
-                            let entry = updated.entry(active_id_str).or_insert_with(|| json!({}));
-                            if let Some(obj) = entry.as_object_mut() {
-                                obj.insert("isActive".to_owned(), json!(false));
-                            } else {
-                                *entry = json!({ "isActive": false });
-                            }
-                        }
-                        Err(e) => {
-                            not_updated.insert(active_id_str, backend_set_error_value(e));
-                            deactivation_failed = true;
-                        }
-                    }
-                }
-
-                // If deactivation failed, abort activation to preserve the one-active invariant.
-                if target_exists && !deactivation_failed {
-                    // Activate the target script.
-                    let target_id_str = target_id.as_ref().to_owned();
-                    let mut patch_map = serde_json::Map::new();
-                    patch_map.insert("isActive".to_owned(), Value::Bool(true));
-                    let patch = PatchObject::from_map(patch_map);
-                    match backend
-                        .update_object::<SieveScript>(caller, &account_id, target_id, patch)
-                        .await
-                    {
-                        Ok(_) => {
-                            // R5: If the target was just created in this same set call,
-                            // reflect isActive:true in the `created` map entry and do NOT
-                            // add it to `updated` (spec §2.4 example: activated-on-create
-                            // scripts appear in `created` with isActive:true, not `updated`).
-                            if let Some(creation_id) = created_id_reverse_map.get(target_id) {
-                                // Patch the created entry to show isActive:true.
-                                if let Some(entry) = created.get_mut(creation_id) {
-                                    if let Some(obj) = entry.as_object_mut() {
-                                        obj.insert("isActive".to_owned(), json!(true));
-                                    } else {
-                                        *entry = json!({ "isActive": true });
-                                    }
-                                }
-                                // Do NOT insert into `updated` — the script is new to the client.
-                            } else {
-                                // Existing script: merge with or insert into updated.
-                                let entry =
-                                    updated.entry(target_id_str).or_insert_with(|| json!({}));
-                                if let Some(obj) = entry.as_object_mut() {
-                                    obj.insert("isActive".to_owned(), json!(true));
-                                } else {
-                                    *entry = json!({ "isActive": true });
-                                }
-                            }
-                        }
-                        // Fix R2_1: nonexistent bare id → spec §2.4 says silently ignore.
-                        Err(BackendSetError::SetError(ref se))
-                            if se.error_type == SetErrorType::NotFound =>
-                        {
-                            // Silently skip — no entry in not_updated.
-                        }
-                        Err(e) => {
-                            not_updated.insert(target_id_str, backend_set_error_value(e));
-                        }
-                    }
-                }
-            }
-        }
+        set_activate(&ctx, &activation, &created_scripts, &mut acc).await?;
     }
 
     // Step 8: Build response.
@@ -999,23 +436,746 @@ pub(crate) async fn sieve_set<B: MailBackend + SieveBackend>(
     // entry lands in `created`/`updated`/`destroyed` is on a successful
     // backend mutation. Lets the helper skip the `get_state` round-trip when
     // every operation failed (matches the gating in calendars-server).
-    let mutated = !created.is_empty() || !updated.is_empty() || !destroyed.is_empty();
-    finalize_set_response::<B, SieveScript>(
-        backend,
-        caller,
-        &account_id,
-        old_state,
-        mutated,
-        SetAccumulators {
-            created,
-            updated,
-            destroyed,
-            not_created,
-            not_updated,
-            not_destroyed,
-        },
+    let mutated = !acc.created.is_empty() || !acc.updated.is_empty() || !acc.destroyed.is_empty();
+    finalize_set_response::<B, SieveScript>(backend, caller, &account_id, old_state, mutated, acc)
+        .await
+}
+
+/// What every `SieveScript/set` sub-function needs from the request
+/// (docs/design/set-handler-split.md).
+struct SetCtx<'a, B: MailBackend> {
+    backend: &'a B,
+    caller: &'a B::CallerCtx,
+    account_id: &'a Id,
+    /// The request-wide `#creationId` map (RFC 8620 §5.3).
+    created_ids: &'a BTreeMap<Id, Id>,
+    /// An atomic Foo/set (draft-ietf-jmap-conditional-02 §4): count and
+    /// name-uniqueness checks are left to the backend's commit.
+    atomic: bool,
+    /// The VacationResponse-backed script (RFC 9661 §4), if any.
+    vr_script_id: Option<&'a Id>,
+    /// The `maxSizeScript` limit (RFC 9661 §2.4), if any.
+    max_script_bytes: Option<u64>,
+}
+
+/// The RFC 9661 §2.4 `onSuccessActivateScript` and
+/// `onSuccessDeactivateScript` arguments.
+struct ActivationArgs {
+    activate: Option<String>,
+    deactivate: Option<bool>,
+}
+
+/// Remove and check the activation arguments from `args`.
+///
+/// # Errors
+///
+/// `invalidArguments` for a value of the wrong type.
+fn take_activation_args(
+    args: &mut serde_json::Map<String, Value>,
+) -> Result<ActivationArgs, JmapError> {
+    let activate: Option<String> = match args.remove("onSuccessActivateScript") {
+        None | Some(Value::Null) => None,
+        Some(Value::String(s)) => Some(s),
+        Some(v) => {
+            return Err(JmapError::invalid_arguments(format!(
+                "onSuccessActivateScript: expected a string or null, got {}",
+                jmap_server::json_type_name(&v)
+            )));
+        }
+    };
+    let deactivate: Option<bool> = match args.remove("onSuccessDeactivateScript") {
+        None | Some(Value::Null) => None,
+        Some(v) => Some(v.as_bool().ok_or_else(|| {
+            JmapError::invalid_arguments("onSuccessDeactivateScript: expected a boolean or null")
+        })?),
+    };
+    Ok(ActivationArgs {
+        activate,
+        deactivate,
+    })
+}
+
+/// The `destroy` part of `SieveScript/set` (Step 4): the active script
+/// and the VacationResponse-backed one cannot be destroyed.
+///
+/// # Errors
+///
+/// `invalidArguments` when an element of `destroy` is not a string;
+/// `serverFail` when the backend cannot read a script.
+async fn set_destroy<B: MailBackend + SieveBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut serde_json::Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<(), JmapError> {
+    let Some(destroy_ids) = args.remove("destroy").and_then(|v| match v {
+        Value::Array(a) => Some(a),
+        _ => None,
+    }) else {
+        return Ok(());
+    };
+    // RFC 8620 §5.3: every element of the destroy array MUST be a string Id.
+    // Reject the whole request if any element is non-string rather than
+    // silently skipping it, which would produce a misleading response.
+    let id_strs: Vec<&str> = destroy_ids
+        .iter()
+        .map(|v| {
+            v.as_str().ok_or_else(|| {
+                JmapError::invalid_arguments(format!(
+                    "destroy: every element must be a string Id; got {}",
+                    jmap_server::json_type_name(v)
+                ))
+            })
+        })
+        .collect::<Result<_, _>>()?;
+    for id_str in id_strs {
+        let id = match jmap_server::parse_wire_id(id_str, "id") {
+            Ok(id) => id,
+            Err(err) => {
+                acc.not_destroyed
+                    .insert(id_str.to_owned(), serde_json::Value::from(&*err));
+                continue;
+            }
+        };
+
+        // Check existence and isActive before destroying.
+        let (existing, not_found_ids) = ctx
+            .backend
+            .get_objects::<SieveScript>(
+                ctx.caller,
+                ctx.account_id,
+                Some(std::slice::from_ref(&id)),
+                None,
+            )
+            .await
+            .map_err(|e| server_fail_from_backend(&e))?;
+
+        let err = if !not_found_ids.is_empty() || existing.is_empty() {
+            SetError::new(SetErrorType::NotFound)
+        } else if existing[0].is_active {
+            SetError::new(SetErrorType::from(SIEVE_ERR_IS_ACTIVE))
+                .with_description("cannot destroy the active Sieve script")
+        } else if ctx.vr_script_id == Some(&id) {
+            // VR-backed script guard (after sieveIsActive — active VR script takes
+            // priority; inactive VR script gets forbidden per draft §4).
+            SetError::new(SetErrorType::Forbidden).with_description(
+                "this script is managed by VacationResponse/set and cannot be \
+                 destroyed via SieveScript/set",
+            )
+        } else {
+            match ctx
+                .backend
+                .destroy_object::<SieveScript>(ctx.caller, ctx.account_id, &id)
+                .await
+            {
+                Ok(()) => {
+                    acc.destroyed.push(Value::String(id_str.to_owned()));
+                }
+                Err(e) => {
+                    acc.not_destroyed
+                        .insert(id_str.to_owned(), backend_set_error_value(e));
+                }
+            }
+            continue;
+        };
+        acc.not_destroyed
+            .insert(id_str.to_owned(), serde_json::Value::from(&err));
+    }
+    Ok(())
+}
+
+/// The state the `SieveScript/set` create loop carries from one create
+/// to the next.
+struct CreateRun {
+    /// The scripts before any create (R7: one fetch for the whole loop).
+    all_scripts_before_create: Vec<SieveScript>,
+    /// The per-account script-count cap.
+    max_scripts: usize,
+    successful_creates: usize,
+    /// Names created within this call, to detect intra-call duplicates.
+    names_created_this_call: HashSet<String>,
+    /// Each successful create's creation id and assigned id, in order.
+    created: Vec<(String, Id)>,
+}
+
+/// The `create` part of `SieveScript/set` (Step 5). Returns each
+/// successful create's creation id and assigned id, in order, for
+/// `onSuccessActivateScript`.
+///
+/// # Errors
+///
+/// `serverFail` when the backend cannot read the scripts or the cap, or a
+/// created script cannot be serialized.
+async fn set_create<B: MailBackend + SieveBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut serde_json::Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<Vec<(String, Id)>, JmapError> {
+    // R7: Hoist get_objects call before the loop so we can check overQuota
+    // and uniqueness without an extra backend round-trip per create.
+    let (all_scripts_before_create, _) = ctx
+        .backend
+        .get_objects::<SieveScript>(ctx.caller, ctx.account_id, None, None)
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?;
+
+    // Per-account script-count cap. Hoisted once for the same reason as
+    // get_objects above — the cap is a backend property, not a per-create
+    // decision, so a single fetch suffices for the whole loop.
+    let max_scripts = ctx
+        .backend
+        .max_sieve_scripts_per_account(ctx.caller, ctx.account_id)
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?;
+
+    let mut run = CreateRun {
+        all_scripts_before_create,
+        max_scripts,
+        successful_creates: 0,
+        names_created_this_call: HashSet::new(),
+        created: Vec::new(),
+    };
+    if let Some(Value::Object(create_map)) = args.remove("create") {
+        for (creation_id, obj_val) in create_map {
+            create_one(ctx, &mut run, creation_id, &obj_val, acc).await?;
+        }
+    }
+    Ok(run.created)
+}
+
+/// One `create` entry of `SieveScript/set`.
+async fn create_one<B: MailBackend + SieveBackend>(
+    ctx: &SetCtx<'_, B>,
+    run: &mut CreateRun,
+    creation_id: String,
+    obj_val: &Value,
+    acc: &mut SetAccumulators,
+) -> Result<(), JmapError> {
+    if let Some(err) = obj_val
+        .as_object()
+        .and_then(reject_server_set::<SieveScript>)
+    {
+        acc.not_created
+            .insert(creation_id, serde_json::Value::from(&err));
+        return Ok(());
+    }
+    // R7: overQuota check (deferred to commit when atomic).
+    if !ctx.atomic
+        && run.all_scripts_before_create.len() + run.successful_creates >= run.max_scripts
+    {
+        acc.not_created.insert(
+            creation_id,
+            serde_json::Value::from(&SetError::new(SetErrorType::OverQuota)),
+        );
+        return Ok(());
+    }
+
+    // a. blob_id is required.
+    let blob_id = match create_blob_id(ctx, obj_val) {
+        Ok(id) => id,
+        Err(err) => {
+            acc.not_created.insert(creation_id, err);
+            return Ok(());
+        }
+    };
+
+    // b. Name validation and uniqueness check (if name is provided and non-null).
+    let name: Option<String> = obj_val
+        .get("name")
+        .and_then(|v| if v.is_null() { None } else { v.as_str() })
+        .map(|s| s.to_owned());
+    if let Some(ref name_str) = name
+        && let Some(err) = create_name_error(ctx, run, name_str)
+    {
+        acc.not_created.insert(creation_id, err);
+        return Ok(());
+    }
+
+    // c. Fetch the script once; check maxSizeScript, then syntax.
+    if let Some(err) = script_error(ctx, &blob_id).await {
+        acc.not_created.insert(creation_id, err);
+        return Ok(());
+    }
+
+    // d. Build SieveScript object — is_active always false on creation.
+    let script_name = name.clone();
+    let build = move |id: &Id| {
+        let mut script = SieveScript::new(id.clone(), blob_id, false);
+        script.name = script_name;
+        script
+    };
+
+    // e. Persist via backend.
+    match ctx
+        .backend
+        .create_object::<SieveScript, _>(ctx.caller, ctx.account_id, &creation_id, build)
+        .await
+    {
+        Ok((assigned_id, created_obj)) => {
+            // f. Record creation_id → assigned_id for onSuccessActivateScript.
+            run.created.push((creation_id.clone(), assigned_id));
+
+            // Track name for intra-call duplicate detection.
+            if let Some(ref n) = name {
+                run.names_created_this_call.insert(n.clone());
+            }
+
+            // R9: propagate serialization errors via ? instead of silently swallowing.
+            let obj_json =
+                serde_json::to_value(&created_obj).map_err(|e| server_fail_from_backend(&e))?;
+            acc.created.insert(creation_id, obj_json);
+            run.successful_creates += 1;
+        }
+        Err(e) => {
+            acc.not_created
+                .insert(creation_id, backend_set_error_value(e));
+        }
+    }
+    Ok(())
+}
+
+/// A create's `blobId`, required, with a `#creationId` reference
+/// resolved, or the SetError value for `notCreated`.
+fn create_blob_id<B: MailBackend + SieveBackend>(
+    ctx: &SetCtx<'_, B>,
+    obj_val: &Value,
+) -> Result<Id, Value> {
+    let Some(blob_id_str) = obj_val.get("blobId").and_then(|v| v.as_str()) else {
+        return Err(serde_json::Value::from(
+            &SetError::new(SetErrorType::InvalidProperties)
+                .with_properties(["blobId"])
+                .with_description("blobId is required"),
+        ));
+    };
+    jmap_server::parse_wire_id(&resolve_blob_ref(blob_id_str, ctx.created_ids), "blobId")
+        .map_err(|err| serde_json::Value::from(&*err))
+}
+
+/// Fetch the script in `blob_id` once and check `maxSizeScript`, then
+/// syntax. Returns the SetError value, or `None` for a good script.
+async fn script_error<B: MailBackend + SieveBackend>(
+    ctx: &SetCtx<'_, B>,
+    blob_id: &Id,
+) -> Option<Value> {
+    match check_script(
+        ctx.backend,
+        ctx.caller,
+        ctx.account_id,
+        blob_id,
+        ctx.max_script_bytes,
     )
     .await
+    {
+        Ok(None) => None,
+        Ok(Some(err)) => Some(serde_json::Value::from(&err)),
+        Err(e) => Some(server_fail_value_from_backend(&e)),
+    }
+}
+
+/// The SetError value for a create's `name` that is invalid (R2) or
+/// already taken (R6, R7), else `None`. Uniqueness is deferred to commit
+/// when atomic.
+fn create_name_error<B: MailBackend + SieveBackend>(
+    ctx: &SetCtx<'_, B>,
+    run: &CreateRun,
+    name_str: &str,
+) -> Option<Value> {
+    // R2: validate name characters.
+    if let Some(name_err) = validate_script_name(name_str) {
+        return Some(serde_json::Value::from(&name_err));
+    }
+
+    // Intra-call duplicate: another create in this same request already
+    // succeeded with this name (we don't have the new id yet, so omit
+    // existingId — the spec only requires it for DB-level collisions).
+    if !ctx.atomic && run.names_created_this_call.contains(name_str) {
+        return Some(serde_json::Value::from(
+            &SetError::new(SetErrorType::AlreadyExists)
+                .with_description("a script with this name was already created in this request"),
+        ));
+    }
+
+    // R7 + R6: uniqueness check using the pre-fetched all_scripts
+    // list (deferred to commit when atomic).
+    if !ctx.atomic
+        && let Some(existing) = run
+            .all_scripts_before_create
+            .iter()
+            .find(|s| s.name.as_deref() == Some(name_str))
+    {
+        return Some(serde_json::Value::from(
+            &SetError::new(SetErrorType::AlreadyExists).with_existing_id(existing.id.clone()),
+        ));
+    }
+    None
+}
+
+/// The `update` part of `SieveScript/set` (Step 6).
+///
+/// # Errors
+///
+/// `serverFail` when the backend cannot read the scripts, or an updated
+/// script cannot be serialized.
+async fn set_update<B: MailBackend + SieveBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut serde_json::Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<(), JmapError> {
+    let Some(Value::Object(update_map)) = args.remove("update") else {
+        return Ok(());
+    };
+    // For name uniqueness checks on update, fetch current scripts once.
+    let (all_scripts_for_update, _) = ctx
+        .backend
+        .get_objects::<SieveScript>(ctx.caller, ctx.account_id, None, None)
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?;
+
+    for (id_str, patch_val) in update_map {
+        update_one(ctx, &all_scripts_for_update, id_str, patch_val, acc).await?;
+    }
+    Ok(())
+}
+
+/// One `update` entry of `SieveScript/set`.
+async fn update_one<B: MailBackend + SieveBackend>(
+    ctx: &SetCtx<'_, B>,
+    all_scripts_for_update: &[SieveScript],
+    id_str: String,
+    patch_val: Value,
+    acc: &mut SetAccumulators,
+) -> Result<(), JmapError> {
+    let id = match jmap_server::parse_wire_id(&id_str, "id") {
+        Ok(id) => id,
+        Err(err) => {
+            acc.not_updated
+                .insert(id_str, serde_json::Value::from(&*err));
+            return Ok(());
+        }
+    };
+
+    // Convert wire-format Value into a typed PatchObject. RFC 8620
+    // §5.3 mandates a PatchObject is a JSON Object; non-object
+    // values produce an `invalidPatch` SetError.
+    let mut patch = match serde_json::from_value::<PatchObject>(patch_val) {
+        Ok(p) => p,
+        Err(e) => {
+            acc.not_updated.insert(
+                id_str,
+                json!({ "type": "invalidPatch", "description": e.to_string() }),
+            );
+            return Ok(());
+        }
+    };
+
+    // VR-backed script guard: reject blobId changes on the VR-backed script
+    // (RFC 9661 §4). isActive changes are handled separately
+    // by the activation state machine and are not blocked here.
+    // Before the read-only check: permission before shape
+    // (DECISIONS.md 44).
+    if ctx.vr_script_id == Some(&id) && patch.as_map().contains_key("blobId") {
+        acc.not_updated.insert(
+            id_str,
+            serde_json::Value::from(&SetError::new(SetErrorType::Forbidden).with_description(
+                "blobId of a VacationResponse-backed script cannot be \
+                                 updated via SieveScript/set",
+            )),
+        );
+        return Ok(());
+    }
+
+    // R4: `id` and `isActive` (RFC 9661 §2), which
+    // onSuccessActivateScript changes, are server-set: a changed
+    // value is rejected, an identical one dropped (RFC 8620 §5.3).
+    // Nothing left to apply is a no-op success.
+    match check_read_only_patch::<_, SieveScript>(
+        ctx.backend,
+        ctx.caller,
+        ctx.account_id,
+        &id,
+        patch.as_map_mut(),
+    )
+    .await
+    {
+        Ok(false) => {}
+        Ok(true) => {
+            acc.updated.insert(id_str, Value::Null);
+            return Ok(());
+        }
+        Err(err) => {
+            acc.not_updated.insert(id_str, err);
+            return Ok(());
+        }
+    }
+
+    if let Some(err) = update_name_error(ctx, all_scripts_for_update, &id, &patch) {
+        acc.not_updated.insert(id_str, err);
+        return Ok(());
+    }
+    if let Some(err) = update_blob_error(ctx, &mut patch).await {
+        acc.not_updated.insert(id_str, err);
+        return Ok(());
+    }
+
+    match ctx
+        .backend
+        .update_object::<SieveScript>(ctx.caller, ctx.account_id, &id, patch)
+        .await
+    {
+        Ok(Some(obj)) => {
+            // R9: propagate serialization errors via ? instead of silently swallowing.
+            let obj_json = serde_json::to_value(&obj).map_err(|e| server_fail_from_backend(&e))?;
+            acc.updated.insert(id_str, obj_json);
+        }
+        Ok(None) => {
+            acc.updated.insert(id_str, Value::Null);
+        }
+        Err(e) => {
+            acc.not_updated.insert(id_str, backend_set_error_value(e));
+        }
+    }
+    Ok(())
+}
+
+/// The SetError value for an update `patch` of script `id` whose `name`
+/// is invalid (R2) or taken by another script (R6, deferred to commit
+/// when atomic), else `None`.
+fn update_name_error<B: MailBackend + SieveBackend>(
+    ctx: &SetCtx<'_, B>,
+    all_scripts_for_update: &[SieveScript],
+    id: &Id,
+    patch: &PatchObject,
+) -> Option<Value> {
+    let name_str = patch.as_map().get("name")?.as_str()?;
+    if let Some(name_err) = validate_script_name(name_str) {
+        return Some(serde_json::Value::from(&name_err));
+    }
+    // R6: uniqueness check — exclude the script being updated.
+    if !ctx.atomic
+        && let Some(existing) = all_scripts_for_update
+            .iter()
+            .find(|s| s.name.as_deref() == Some(name_str) && &s.id != id)
+    {
+        return Some(serde_json::Value::from(
+            &SetError::new(SetErrorType::AlreadyExists).with_existing_id(existing.id.clone()),
+        ));
+    }
+    None
+}
+
+/// If `patch` sets `blobId`: resolve a `#creationId` reference into the
+/// patch, then check the new script's size and syntax. Returns the
+/// SetError value for `notUpdated`, or `None`.
+async fn update_blob_error<B: MailBackend + SieveBackend>(
+    ctx: &SetCtx<'_, B>,
+    patch: &mut PatchObject,
+) -> Option<Value> {
+    let new_blob_id_str = patch.as_map().get("blobId").and_then(|v| v.as_str())?;
+    let new_blob_id = match jmap_server::parse_wire_id(
+        &resolve_blob_ref(new_blob_id_str, ctx.created_ids),
+        "blobId",
+    ) {
+        Ok(id) => id,
+        Err(err) => return Some(serde_json::Value::from(&*err)),
+    };
+    // The stored script names the resolved blob, not the reference.
+    patch.as_map_mut().insert(
+        "blobId".to_owned(),
+        Value::String(new_blob_id.as_ref().to_owned()),
+    );
+
+    // Fetch the script once; check maxSizeScript, then syntax.
+    script_error(ctx, &new_blob_id).await
+}
+
+/// The activation part of `SieveScript/set` (Step 7, RFC 9661 §2.4), run
+/// only when every create, update and destroy succeeded.
+async fn set_activate<B: MailBackend + SieveBackend>(
+    ctx: &SetCtx<'_, B>,
+    activation: &ActivationArgs,
+    created_scripts: &[(String, Id)],
+    acc: &mut SetAccumulators,
+) -> Result<(), JmapError> {
+    // Step A: onSuccessDeactivateScript
+    if activation.deactivate == Some(true) {
+        let (all_scripts, _) = ctx
+            .backend
+            .get_objects::<SieveScript>(ctx.caller, ctx.account_id, None, None)
+            .await
+            .map_err(|e| server_fail_from_backend(&e))?;
+        if let Some(active_script) = all_scripts.iter().find(|s| s.is_active) {
+            let active_id = active_script.id.clone();
+            let active_id_str = active_id.as_ref().to_owned();
+            match ctx
+                .backend
+                .update_object::<SieveScript>(
+                    ctx.caller,
+                    ctx.account_id,
+                    &active_id,
+                    is_active_patch(false),
+                )
+                .await
+            {
+                Ok(_) => {
+                    acc.updated
+                        .insert(active_id_str, json!({ "isActive": false }));
+                }
+                Err(e) => {
+                    acc.not_updated
+                        .insert(active_id_str, backend_set_error_value(e));
+                }
+            }
+        }
+    }
+
+    // Step B: onSuccessActivateScript
+    if let Some(ref activate_ref) = activation.activate {
+        // Resolve the target Id: "#creation_id" or bare Id.
+        let target_id: Option<Id> = if let Some(creation_id) = activate_ref.strip_prefix('#') {
+            // Look up in the created map; silently ignore if not found (spec §2.4).
+            created_scripts
+                .iter()
+                .rev()
+                .find(|(c, _)| c == creation_id)
+                .map(|(_, id)| id.clone())
+        } else {
+            Id::new_validated(activate_ref.as_str()).ok()
+        };
+        if let Some(ref target_id) = target_id {
+            activate_script(ctx, target_id, created_scripts, acc).await?;
+        }
+    }
+    Ok(())
+}
+
+/// A one-key PatchObject `{"isActive": active}`.
+fn is_active_patch(active: bool) -> PatchObject {
+    let mut patch_map = serde_json::Map::new();
+    patch_map.insert("isActive".to_owned(), Value::Bool(active));
+    PatchObject::from_map(patch_map)
+}
+
+/// Set `entry`'s `isActive` to `active`, merging with an existing object.
+fn merge_is_active(entry: &mut Value, active: bool) {
+    if let Some(obj) = entry.as_object_mut() {
+        obj.insert("isActive".to_owned(), json!(active));
+    } else {
+        *entry = json!({ "isActive": active });
+    }
+}
+
+/// Step B of the activation: deactivate the script active now, if it is
+/// not `target_id`, then activate `target_id`.
+async fn activate_script<B: MailBackend + SieveBackend>(
+    ctx: &SetCtx<'_, B>,
+    target_id: &Id,
+    created_scripts: &[(String, Id)],
+    acc: &mut SetAccumulators,
+) -> Result<(), JmapError> {
+    // Deactivate the current active script if it's different from target
+    // and hasn't already been deactivated in Step A.
+    let (all_scripts, _) = ctx
+        .backend
+        .get_objects::<SieveScript>(ctx.caller, ctx.account_id, None, None)
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?;
+
+    // RFC 9661 §2.4: "if the id is either invalid or nonexistent,
+    // it MUST be ignored, and the currently active SieveScript (if
+    // any) will remain as such".
+    if !all_scripts.iter().any(|s| &s.id == target_id) {
+        return Ok(());
+    }
+
+    // Read after Step A, so a script it deactivated is not active
+    // here; one the client otherwise updated in this call still is.
+    if let Some(currently_active) = all_scripts.iter().find(|s| s.is_active)
+        && &currently_active.id != target_id
+    {
+        let active_id = currently_active.id.clone();
+        let active_id_str = active_id.as_ref().to_owned();
+        // A script cannot be in both `updated` and `notUpdated`:
+        // when the client's own update of it failed, leave it
+        // active and activate nothing (Fix R2_3: deactivate failure
+        // aborts activate to preserve the one-active invariant).
+        if acc.not_updated.contains_key(&active_id_str) {
+            return Ok(());
+        }
+        match ctx
+            .backend
+            .update_object::<SieveScript>(
+                ctx.caller,
+                ctx.account_id,
+                &active_id,
+                is_active_patch(false),
+            )
+            .await
+        {
+            Ok(_) => {
+                // Merge with an entry from the client's own update.
+                let entry = acc
+                    .updated
+                    .entry(active_id_str)
+                    .or_insert_with(|| json!({}));
+                merge_is_active(entry, false);
+            }
+            Err(e) => {
+                acc.not_updated
+                    .insert(active_id_str, backend_set_error_value(e));
+                // Abort activation to preserve the one-active invariant.
+                return Ok(());
+            }
+        }
+    }
+
+    mark_activated(ctx, target_id, created_scripts, acc).await;
+    Ok(())
+}
+
+/// Activate script `target_id` and report it: in `created` when this
+/// call created it, else in `updated`. A `notFound` is ignored.
+async fn mark_activated<B: MailBackend + SieveBackend>(
+    ctx: &SetCtx<'_, B>,
+    target_id: &Id,
+    created_scripts: &[(String, Id)],
+    acc: &mut SetAccumulators,
+) {
+    let target_id_str = target_id.as_ref().to_owned();
+    match ctx
+        .backend
+        .update_object::<SieveScript>(ctx.caller, ctx.account_id, target_id, is_active_patch(true))
+        .await
+    {
+        Ok(_) => {
+            // R5: If the target was just created in this same set call,
+            // reflect isActive:true in the `created` map entry and do NOT
+            // add it to `updated` (spec §2.4 example: activated-on-create
+            // scripts appear in `created` with isActive:true, not `updated`).
+            if let Some((creation_id, _)) =
+                created_scripts.iter().rev().find(|(_, id)| id == target_id)
+            {
+                // Patch the created entry to show isActive:true.
+                if let Some(entry) = acc.created.get_mut(creation_id) {
+                    merge_is_active(entry, true);
+                }
+                // Do NOT insert into `updated` — the script is new to the client.
+            } else {
+                // Existing script: merge with or insert into updated.
+                let entry = acc
+                    .updated
+                    .entry(target_id_str)
+                    .or_insert_with(|| json!({}));
+                merge_is_active(entry, true);
+            }
+        }
+        // Fix R2_1: nonexistent bare id → spec §2.4 says silently ignore.
+        Err(BackendSetError::SetError(ref se)) if se.error_type == SetErrorType::NotFound => {
+            // Silently skip — no entry in not_updated.
+        }
+        Err(e) => {
+            acc.not_updated
+                .insert(target_id_str, backend_set_error_value(e));
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------

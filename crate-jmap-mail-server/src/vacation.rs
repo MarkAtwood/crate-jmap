@@ -191,151 +191,207 @@ pub async fn handle_vacation_set<B: MailBackend>(
         return Err(JmapError::state_mismatch());
     }
 
-    let mut not_created = serde_json::Map::new();
-    let mut not_updated = serde_json::Map::new();
-    let mut not_destroyed = serde_json::Map::new();
-    let mut mutated = false;
+    let ctx = SetCtx {
+        backend,
+        caller,
+        account_id: &account_id,
+    };
+    let mut acc = SetAccumulators::default();
+    set_create(&args, &mut acc);
+    let mutated = set_update(&ctx, &mut args, &mut acc).await?;
+    set_destroy(&args, &mut acc)?;
 
-    // create — always forbidden for singletons.
+    // VacationResponse is a singleton: created/destroyed are always empty by
+    // construction (see the rejections in `set_create` and `set_destroy`),
+    // so the helper's empty-map → Value::Null conversion emits `null` for
+    // both.
+    finalize_set_response::<B, VacationResponse>(
+        backend,
+        caller,
+        &account_id,
+        old_state,
+        mutated,
+        acc,
+    )
+    .await
+}
+
+/// What every `VacationResponse/set` sub-function needs from the request
+/// (docs/design/set-handler-split.md).
+struct SetCtx<'a, B: MailBackend> {
+    backend: &'a B,
+    caller: &'a B::CallerCtx,
+    account_id: &'a Id,
+}
+
+/// The `create` part of `VacationResponse/set`: every create is
+/// rejected with `singleton`.
+fn set_create(args: &serde_json::Map<String, Value>, acc: &mut SetAccumulators) {
     if let Some(create) = args.get("create").and_then(|v| v.as_object()) {
         for (create_id, _) in create {
             let err = SetError::new(SetErrorType::Singleton)
                 .with_description("VacationResponse is a singleton; use update to modify");
-            not_created.insert(create_id.clone(), serde_json::Value::from(&err));
+            acc.not_created
+                .insert(create_id.clone(), serde_json::Value::from(&err));
         }
     }
+}
 
-    // update — only "singleton" is a valid id.
-    let mut updated = serde_json::Map::new();
+/// The `update` part of `VacationResponse/set`: only `"singleton"` is a
+/// valid id. Returns whether the backend was written.
+async fn set_update<B: MailBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut serde_json::Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    let mut mutated = false;
     if let Some(Value::Object(update)) = args.remove("update") {
         for (id, patch_val) in update {
-            if id != SINGLETON_ID {
-                let err = SetError::new(SetErrorType::NotFound);
-                not_updated.insert(id.clone(), serde_json::Value::from(&err));
-                continue;
-            }
-
-            // Convert wire-format Value into a typed PatchObject. RFC 8620
-            // §5.3 mandates a PatchObject is a JSON Object; non-object
-            // values produce an `invalidPatch` SetError.
-            let mut patch = match serde_json::from_value::<PatchObject>(patch_val) {
-                Ok(p) => p,
-                Err(e) => {
-                    not_updated.insert(
-                        id.clone(),
-                        json!({ "type": "invalidPatch", "description": e.to_string() }),
-                    );
-                    continue;
-                }
-            };
-
-            // The stored `id` is always "singleton" (RFC 8621 §8), so a
-            // whole-object patch may repeat it (RFC 8620 §5.3); it is
-            // dropped, and nothing left is a no-op success.
-            let stored = serde_json::Map::from_iter([("id".to_owned(), json!(SINGLETON_ID))]);
-            if let Err(err) =
-                strip_read_only_patch::<VacationResponse>(patch.as_map_mut(), Some(&stored))
-            {
-                not_updated.insert(id.clone(), serde_json::Value::from(&*err));
-                continue;
-            }
-            if patch.is_empty() {
-                updated.insert(id.clone(), Value::Null);
-                continue;
-            }
-
-            let singleton_id = Id::from(SINGLETON_ID);
-            match backend
-                .update_object::<VacationResponse>(
-                    caller,
-                    &account_id,
-                    &singleton_id,
-                    patch.clone(),
-                )
-                .await
-            {
-                Ok(Some(obj)) => {
-                    updated.insert(id.clone(), jmap_server::serialize_value(&obj)?);
-                    mutated = true;
-                }
-                Ok(None) => {
-                    updated.insert(id.clone(), Value::Null);
-                    mutated = true;
-                }
-                Err(BackendSetError::SetError(ref set_err))
-                    if set_err.error_type == SetErrorType::NotFound =>
-                {
-                    // Singleton does not exist yet — upsert: build a default
-                    // VacationResponse, then create it so it is stored under
-                    // the "singleton" key.
-                    //
-                    // Concurrency note: two concurrent requests can both reach
-                    // this branch and attempt to create the singleton. Backends
-                    // that receive concurrent requests MUST make create_object
-                    // idempotent for the singleton key (e.g. via a unique
-                    // constraint or a compare-and-swap) to avoid duplicate
-                    // creation. The handler layer cannot add locking here
-                    // because it holds no shared state.
-                    // The patch is checked against the default singleton
-                    // first, so an invalid patch stores nothing.
-                    if let Err(err) = patched_default(&patch) {
-                        not_updated.insert(id.clone(), err);
-                        continue;
-                    }
-                    // RFC 8621 §8.1: the singleton always exists; until now
-                    // it was the default /get reports. Store that default,
-                    // then update it, so object history keeps it as the
-                    // version this update replaced. If the update then
-                    // fails, the stored default is what /get showed before,
-                    // so nothing is rolled back (a destroy would break the
-                    // "exactly one" rule).
-                    match backend
-                        .create_object::<VacationResponse, _>(
-                            caller,
-                            &account_id,
-                            SINGLETON_ID,
-                            |id: &Id| VacationResponse::new(id.clone(), false),
-                        )
-                        .await
-                    {
-                        Ok(_) => {
-                            mutated = true;
-                            match backend
-                                .update_object::<VacationResponse>(
-                                    caller,
-                                    &account_id,
-                                    &singleton_id,
-                                    patch,
-                                )
-                                .await
-                            {
-                                Ok(Some(obj)) => {
-                                    updated.insert(id.clone(), jmap_server::serialize_value(&obj)?);
-                                }
-                                Ok(None) => {
-                                    updated.insert(id.clone(), Value::Null);
-                                }
-                                Err(be) => {
-                                    let e = be.into_set_error_or_method_error()?;
-                                    not_updated.insert(id.clone(), serde_json::Value::from(&e));
-                                }
-                            }
-                        }
-                        Err(e) => {
-                            let e = e.into_set_error_or_method_error()?;
-                            not_updated.insert(id.clone(), serde_json::Value::from(&e));
-                        }
-                    }
-                }
-                Err(e) => {
-                    let e = e.into_set_error_or_method_error()?;
-                    not_updated.insert(id.clone(), serde_json::Value::from(&e));
-                }
-            }
+            mutated |= update_one(ctx, id, patch_val, acc).await?;
         }
     }
+    Ok(mutated)
+}
 
-    // destroy — always forbidden for singletons.
+/// One `update` entry of `VacationResponse/set`. Returns whether the
+/// backend was written.
+async fn update_one<B: MailBackend>(
+    ctx: &SetCtx<'_, B>,
+    id: String,
+    patch_val: Value,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    if id != SINGLETON_ID {
+        let err = SetError::new(SetErrorType::NotFound);
+        acc.not_updated.insert(id, serde_json::Value::from(&err));
+        return Ok(false);
+    }
+
+    // Convert wire-format Value into a typed PatchObject. RFC 8620
+    // §5.3 mandates a PatchObject is a JSON Object; non-object
+    // values produce an `invalidPatch` SetError.
+    let mut patch = match serde_json::from_value::<PatchObject>(patch_val) {
+        Ok(p) => p,
+        Err(e) => {
+            acc.not_updated.insert(
+                id,
+                json!({ "type": "invalidPatch", "description": e.to_string() }),
+            );
+            return Ok(false);
+        }
+    };
+
+    // The stored `id` is always "singleton" (RFC 8621 §8), so a
+    // whole-object patch may repeat it (RFC 8620 §5.3); it is
+    // dropped, and nothing left is a no-op success.
+    let stored = serde_json::Map::from_iter([("id".to_owned(), json!(SINGLETON_ID))]);
+    if let Err(err) = strip_read_only_patch::<VacationResponse>(patch.as_map_mut(), Some(&stored)) {
+        acc.not_updated.insert(id, serde_json::Value::from(&*err));
+        return Ok(false);
+    }
+    if patch.is_empty() {
+        acc.updated.insert(id, Value::Null);
+        return Ok(false);
+    }
+
+    let singleton_id = Id::from(SINGLETON_ID);
+    match ctx
+        .backend
+        .update_object::<VacationResponse>(ctx.caller, ctx.account_id, &singleton_id, patch.clone())
+        .await
+    {
+        Ok(Some(obj)) => {
+            acc.updated.insert(id, jmap_server::serialize_value(&obj)?);
+            Ok(true)
+        }
+        Ok(None) => {
+            acc.updated.insert(id, Value::Null);
+            Ok(true)
+        }
+        Err(BackendSetError::SetError(ref set_err))
+            if set_err.error_type == SetErrorType::NotFound =>
+        {
+            upsert_singleton(ctx, id, patch, acc).await
+        }
+        Err(e) => {
+            let e = e.into_set_error_or_method_error()?;
+            acc.not_updated.insert(id, serde_json::Value::from(&e));
+            Ok(false)
+        }
+    }
+}
+
+/// The singleton does not exist yet: store the default, then apply
+/// `patch` to it (upsert). Returns whether the backend was written.
+///
+/// Concurrency note: two concurrent requests can both reach this function
+/// and attempt to create the singleton. Backends that receive concurrent
+/// requests MUST make create_object idempotent for the singleton key (e.g.
+/// via a unique constraint or a compare-and-swap) to avoid duplicate
+/// creation. The handler layer cannot add locking here because it holds no
+/// shared state.
+async fn upsert_singleton<B: MailBackend>(
+    ctx: &SetCtx<'_, B>,
+    id: String,
+    patch: PatchObject,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    // The patch is checked against the default singleton first, so an
+    // invalid patch stores nothing.
+    if let Err(err) = patched_default(&patch) {
+        acc.not_updated.insert(id, err);
+        return Ok(false);
+    }
+    // RFC 8621 §8.1: the singleton always exists; until now it was the
+    // default /get reports. Store that default, then update it, so object
+    // history keeps it as the version this update replaced. If the update
+    // then fails, the stored default is what /get showed before, so
+    // nothing is rolled back (a destroy would break the "exactly one"
+    // rule).
+    if let Err(e) = ctx
+        .backend
+        .create_object::<VacationResponse, _>(
+            ctx.caller,
+            ctx.account_id,
+            SINGLETON_ID,
+            |id: &Id| VacationResponse::new(id.clone(), false),
+        )
+        .await
+    {
+        let e = e.into_set_error_or_method_error()?;
+        acc.not_updated.insert(id, serde_json::Value::from(&e));
+        return Ok(false);
+    }
+    let singleton_id = Id::from(SINGLETON_ID);
+    match ctx
+        .backend
+        .update_object::<VacationResponse>(ctx.caller, ctx.account_id, &singleton_id, patch)
+        .await
+    {
+        Ok(Some(obj)) => {
+            acc.updated.insert(id, jmap_server::serialize_value(&obj)?);
+        }
+        Ok(None) => {
+            acc.updated.insert(id, Value::Null);
+        }
+        Err(be) => {
+            let e = be.into_set_error_or_method_error()?;
+            acc.not_updated.insert(id, serde_json::Value::from(&e));
+        }
+    }
+    Ok(true)
+}
+
+/// The `destroy` part of `VacationResponse/set`: every destroy is
+/// rejected with `singleton`.
+///
+/// # Errors
+///
+/// `invalidArguments` when an element of `destroy` is not a string.
+fn set_destroy(
+    args: &serde_json::Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<(), JmapError> {
     if let Some(destroy) = args.get("destroy").and_then(|v| v.as_array()) {
         // RFC 8620 §5.3: every element of the destroy array MUST be a string Id.
         // Reject the whole request if any element is non-string rather than
@@ -355,29 +411,11 @@ pub async fn handle_vacation_set<B: MailBackend>(
         for id in id_strs {
             let err = SetError::new(SetErrorType::Singleton)
                 .with_description("VacationResponse is a singleton; cannot destroy");
-            not_destroyed.insert(id.to_owned(), serde_json::Value::from(&err));
+            acc.not_destroyed
+                .insert(id.to_owned(), serde_json::Value::from(&err));
         }
     }
-
-    // VacationResponse is a singleton: created/destroyed are always empty by
-    // construction (see the rejection branches above), so the helper's
-    // empty-map → Value::Null conversion produces the same JSON the inline
-    // hardcode used to.
-    finalize_set_response::<B, VacationResponse>(
-        backend,
-        caller,
-        &account_id,
-        old_state,
-        mutated,
-        SetAccumulators {
-            updated,
-            not_created,
-            not_updated,
-            not_destroyed,
-            ..Default::default()
-        },
-    )
-    .await
+    Ok(())
 }
 
 /// The default VacationResponse (RFC 8621 §8: disabled, every other

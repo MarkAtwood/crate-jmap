@@ -734,218 +734,308 @@ pub async fn handle_email_set<B: MailBackend>(
         return Err(JmapError::state_mismatch());
     }
 
-    let mut created = serde_json::Map::new();
-    let mut not_created = serde_json::Map::new();
-    let mut updated = serde_json::Map::new();
-    let mut not_updated = serde_json::Map::new();
-    let mut destroyed_list: Vec<Value> = Vec::new();
-    let mut not_destroyed = serde_json::Map::new();
-    let mut mutated = false;
+    let ctx = SetCtx {
+        backend,
+        caller,
+        account_id: &account_id,
+        created_ids,
+        using,
+    };
+    let mut acc = SetAccumulators::default();
+    let mut mutated = set_create(&ctx, &mut args, &mut acc).await?;
+    jmap_server::resolve_set_id_refs(&mut args, created_ids, &acc.created);
+    mutated |= set_update(&ctx, &mut args, &mut acc).await?;
+    mutated |= set_destroy(&ctx, &mut args, &mut acc).await?;
 
-    // -----------------------------------------------------------------------
-    // create
-    // -----------------------------------------------------------------------
+    finalize_set_response::<B, Email>(backend, caller, &account_id, old_state, mutated, acc).await
+}
+
+/// What every `Email/set` sub-function needs from the request
+/// (docs/design/set-handler-split.md).
+struct SetCtx<'a, B: MailBackend> {
+    backend: &'a B,
+    caller: &'a B::CallerCtx,
+    account_id: &'a Id,
+    /// The request-wide `#creationId` map (RFC 8620 §5.3).
+    created_ids: &'a BTreeMap<Id, Id>,
+    /// The request's `using` capabilities.
+    using: &'a [String],
+}
+
+/// The `create` part of `Email/set`. Returns whether the backend was
+/// written.
+async fn set_create<B: MailBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut serde_json::Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    let mut mutated = false;
     if let Some(create_map) = args.get("create").and_then(|v| v.as_object()) {
         for (create_id, obj_val) in create_map {
-            if let Some(err) = obj_val.as_object().and_then(reject_server_set::<Email>) {
-                not_created.insert(create_id.clone(), serde_json::Value::from(&err));
-                continue;
-            }
-            if let Some(Err(err)) = obj_val
-                .as_object()
-                .map(|o| check_metadata_entry(o, true, using))
-            {
-                not_created.insert(create_id.clone(), serde_json::Value::from(&*err));
-                continue;
-            }
-            let mut obj_val = obj_val.clone();
-            if let Err(err) = resolve_mailbox_id_refs(&mut obj_val, created_ids) {
-                not_created.insert(create_id.clone(), serde_json::Value::from(&*err));
-                continue;
-            }
-            resolve_blob_refs(&mut obj_val, &["blobId"], created_ids);
-            let obj_val = &obj_val;
-            // Validate: at least one mailboxId with value true is required (RFC 8621 §5.5.3).
-            let mailbox_ids_ok = obj_val
-                .get("mailboxIds")
-                .and_then(|v| v.as_object())
-                .map(|m| m.values().any(|v| v.as_bool() == Some(true)))
-                .unwrap_or(false);
-
-            if !mailbox_ids_ok {
-                not_created.insert(
-                    create_id.clone(),
-                    json!({
-                        "type": "invalidProperties",
-                        "properties": ["mailboxIds"],
-                    }),
-                );
-                continue;
-            }
-
-            // Validate client-supplied receivedAt up-front so malformed
-            // values surface as invalidProperties rather than silently
-            // truncating inside build_email_from_create's UTCDate::from.
-            // Helper is shared with Email/import and Email/copy
-            // (`bd:JMAP-j7pa.4`).
-            if let Err(err) = parse_received_at_field(obj_val) {
-                not_created.insert(create_id.clone(), err);
-                continue;
-            }
-
-            // Compose the message and the builder for the stored Email.
-            let (message, build) =
-                match build_email_from_create(obj_val, &account_id, backend, caller).await {
-                    Ok(b) => b,
-                    Err(err) => {
-                        not_created.insert(create_id.clone(), err);
-                        continue;
-                    }
-                };
-
-            match backend
-                .create_email(caller, &account_id, create_id, message, build)
-                .await
-            {
-                Ok((server_id, created_obj)) => {
-                    mutated = true;
-                    // RFC 8621 §5.5: created map contains only server-set fields.
-                    created.insert(
-                        create_id.clone(),
-                        json!({
-                            "id": server_id.as_ref(),
-                            "blobId": created_obj.blob_id.as_ref(),
-                            "threadId": created_obj.thread_id.as_ref(),
-                            "size": created_obj.size,
-                        }),
-                    );
-                }
-                Err(e) => {
-                    not_created.insert(create_id.clone(), backend_set_error_value(e));
-                }
-            }
+            mutated |= create_one(ctx, create_id, obj_val, acc).await?;
         }
     }
+    Ok(mutated)
+}
 
-    // -----------------------------------------------------------------------
-    // update
-    // -----------------------------------------------------------------------
-    jmap_server::resolve_set_id_refs(&mut args, created_ids, &created);
+/// One `create` entry of `Email/set`. Returns whether the backend was
+/// written.
+async fn create_one<B: MailBackend>(
+    ctx: &SetCtx<'_, B>,
+    create_id: &str,
+    obj_val: &Value,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    if let Some(err) = obj_val.as_object().and_then(reject_server_set::<Email>) {
+        acc.not_created
+            .insert(create_id.to_owned(), serde_json::Value::from(&err));
+        return Ok(false);
+    }
+    if let Some(Err(err)) = obj_val
+        .as_object()
+        .map(|o| check_metadata_entry(o, true, ctx.using))
+    {
+        acc.not_created
+            .insert(create_id.to_owned(), serde_json::Value::from(&*err));
+        return Ok(false);
+    }
+    let mut obj_val = obj_val.clone();
+    if let Err(err) = resolve_mailbox_id_refs(&mut obj_val, ctx.created_ids) {
+        acc.not_created
+            .insert(create_id.to_owned(), serde_json::Value::from(&*err));
+        return Ok(false);
+    }
+    resolve_blob_refs(&mut obj_val, &["blobId"], ctx.created_ids);
+    let obj_val = &obj_val;
+    // Validate: at least one mailboxId with value true is required (RFC 8621 §5.5.3).
+    let mailbox_ids_ok = obj_val
+        .get("mailboxIds")
+        .and_then(|v| v.as_object())
+        .map(|m| m.values().any(|v| v.as_bool() == Some(true)))
+        .unwrap_or(false);
+
+    if !mailbox_ids_ok {
+        acc.not_created.insert(
+            create_id.to_owned(),
+            json!({
+                "type": "invalidProperties",
+                "properties": ["mailboxIds"],
+            }),
+        );
+        return Ok(false);
+    }
+
+    // Validate client-supplied receivedAt up-front so malformed
+    // values surface as invalidProperties rather than silently
+    // truncating inside build_email_from_create's UTCDate::from.
+    // Helper is shared with Email/import and Email/copy
+    // (`bd:JMAP-j7pa.4`).
+    if let Err(err) = parse_received_at_field(obj_val) {
+        acc.not_created.insert(create_id.to_owned(), err);
+        return Ok(false);
+    }
+
+    // Compose the message and the builder for the stored Email.
+    let (message, build) =
+        match build_email_from_create(obj_val, ctx.account_id, ctx.backend, ctx.caller).await {
+            Ok(b) => b,
+            Err(err) => {
+                acc.not_created.insert(create_id.to_owned(), err);
+                return Ok(false);
+            }
+        };
+
+    match ctx
+        .backend
+        .create_email(ctx.caller, ctx.account_id, create_id, message, build)
+        .await
+    {
+        Ok((server_id, created_obj)) => {
+            // RFC 8621 §5.5: created map contains only server-set fields.
+            acc.created.insert(
+                create_id.to_owned(),
+                json!({
+                    "id": server_id.as_ref(),
+                    "blobId": created_obj.blob_id.as_ref(),
+                    "threadId": created_obj.thread_id.as_ref(),
+                    "size": created_obj.size,
+                }),
+            );
+            Ok(true)
+        }
+        Err(e) => {
+            acc.not_created
+                .insert(create_id.to_owned(), backend_set_error_value(e));
+            Ok(false)
+        }
+    }
+}
+
+/// The `update` part of `Email/set`. Returns whether the backend was
+/// written.
+async fn set_update<B: MailBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut serde_json::Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    let mut mutated = false;
     if let Some(Value::Object(update_map)) = args.remove("update") {
-        for (id_str, mut patch_val) in update_map {
-            let id = match jmap_server::parse_wire_id(&id_str, "id") {
-                Ok(id) => id,
-                Err(err) => {
-                    not_updated.insert(id_str, serde_json::Value::from(&*err));
-                    continue;
-                }
-            };
-            if let Err(err) = resolve_mailbox_id_refs(&mut patch_val, created_ids) {
-                not_updated.insert(id_str, serde_json::Value::from(&*err));
-                continue;
-            }
-
-            // Convert wire-format Value into a typed PatchObject. RFC 8620
-            // §5.3 mandates a PatchObject is a JSON Object; non-object
-            // values produce an `invalidPatch` SetError.
-            let mut patch = match serde_json::from_value::<PatchObject>(patch_val) {
-                Ok(p) => p,
-                Err(e) => {
-                    not_updated.insert(
-                        id_str.clone(),
-                        json!({ "type": "invalidPatch", "description": e.to_string() }),
-                    );
-                    continue;
-                }
-            };
-
-            // A changed server-set or immutable value is rejected, an
-            // identical one dropped (RFC 8620 §5.3); nothing left is a
-            // no-op success.
-            match check_read_only_patch::<_, Email>(
-                backend,
-                caller,
-                &account_id,
-                &id,
-                patch.as_map_mut(),
-            )
-            .await
-            {
-                Ok(false) => {}
-                Ok(true) => {
-                    updated.insert(id_str.clone(), Value::Null);
-                    continue;
-                }
-                Err(err) => {
-                    not_updated.insert(id_str.clone(), err);
-                    continue;
-                }
-            }
-            if let Err(err) = check_metadata_entry(patch.as_map(), false, using) {
-                not_updated.insert(id_str.clone(), serde_json::Value::from(&*err));
-                continue;
-            }
-            match check_email_patch(patch.as_map_mut()) {
-                Ok(false) => {}
-                Ok(true) => {
-                    // A Mailbox is removed by path: one must remain.
-                    let (current, _) = backend
-                        .get_objects::<Email>(
-                            caller,
-                            &account_id,
-                            Some(std::slice::from_ref(&id)),
-                            None,
-                        )
-                        .await
-                        .map_err(|e| server_fail_from_backend(&e))?;
-                    if let Some(email) = current.first() {
-                        let remaining = email.mailbox_ids.keys().any(|m| {
-                            !matches!(
-                                patch.as_map().get(&format!("mailboxIds/{}", m.as_ref())),
-                                Some(Value::Null)
-                            )
-                        }) || patch
-                            .as_map()
-                            .iter()
-                            .any(|(k, v)| k.starts_with("mailboxIds/") && v == &Value::Bool(true));
-                        if !remaining {
-                            not_updated.insert(
-                                id_str.clone(),
-                                json!({ "type": "invalidProperties", "properties": ["mailboxIds"],
-                                        "description": "an Email must belong to at least one Mailbox" }),
-                            );
-                            continue;
-                        }
-                    }
-                }
-                Err(err) => {
-                    not_updated.insert(id_str.clone(), err);
-                    continue;
-                }
-            }
-
-            match backend
-                .update_object::<Email>(caller, &account_id, &id, patch)
-                .await
-            {
-                Ok(Some(obj)) => {
-                    mutated = true;
-                    updated.insert(id_str.clone(), jmap_server::serialize_value(&obj)?);
-                }
-                Ok(None) => {
-                    mutated = true;
-                    updated.insert(id_str.clone(), Value::Null);
-                }
-                Err(e) => {
-                    not_updated.insert(id_str.clone(), backend_set_error_value(e));
-                }
-            }
+        for (id_str, patch_val) in update_map {
+            mutated |= update_one(ctx, id_str, patch_val, acc).await?;
         }
     }
+    Ok(mutated)
+}
 
-    // -----------------------------------------------------------------------
-    // destroy
-    // -----------------------------------------------------------------------
+/// One `update` entry of `Email/set`. Returns whether the backend was
+/// written.
+async fn update_one<B: MailBackend>(
+    ctx: &SetCtx<'_, B>,
+    id_str: String,
+    mut patch_val: Value,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    let id = match jmap_server::parse_wire_id(&id_str, "id") {
+        Ok(id) => id,
+        Err(err) => {
+            acc.not_updated
+                .insert(id_str, serde_json::Value::from(&*err));
+            return Ok(false);
+        }
+    };
+    if let Err(err) = resolve_mailbox_id_refs(&mut patch_val, ctx.created_ids) {
+        acc.not_updated
+            .insert(id_str, serde_json::Value::from(&*err));
+        return Ok(false);
+    }
+
+    // Convert wire-format Value into a typed PatchObject. RFC 8620
+    // §5.3 mandates a PatchObject is a JSON Object; non-object
+    // values produce an `invalidPatch` SetError.
+    let mut patch = match serde_json::from_value::<PatchObject>(patch_val) {
+        Ok(p) => p,
+        Err(e) => {
+            acc.not_updated.insert(
+                id_str,
+                json!({ "type": "invalidPatch", "description": e.to_string() }),
+            );
+            return Ok(false);
+        }
+    };
+
+    // A changed server-set or immutable value is rejected, an
+    // identical one dropped (RFC 8620 §5.3); nothing left is a
+    // no-op success.
+    match check_read_only_patch::<_, Email>(
+        ctx.backend,
+        ctx.caller,
+        ctx.account_id,
+        &id,
+        patch.as_map_mut(),
+    )
+    .await
+    {
+        Ok(false) => {}
+        Ok(true) => {
+            acc.updated.insert(id_str, Value::Null);
+            return Ok(false);
+        }
+        Err(err) => {
+            acc.not_updated.insert(id_str, err);
+            return Ok(false);
+        }
+    }
+    if let Err(err) = check_metadata_entry(patch.as_map(), false, ctx.using) {
+        acc.not_updated
+            .insert(id_str, serde_json::Value::from(&*err));
+        return Ok(false);
+    }
+    let shape_error = match check_email_patch(patch.as_map_mut()) {
+        Ok(false) => None,
+        Ok(true) => last_mailbox_removed(ctx, &id, &patch).await?,
+        Err(err) => Some(err),
+    };
+    if let Some(err) = shape_error {
+        acc.not_updated.insert(id_str, err);
+        return Ok(false);
+    }
+
+    match ctx
+        .backend
+        .update_object::<Email>(ctx.caller, ctx.account_id, &id, patch)
+        .await
+    {
+        Ok(Some(obj)) => {
+            acc.updated
+                .insert(id_str, jmap_server::serialize_value(&obj)?);
+            Ok(true)
+        }
+        Ok(None) => {
+            acc.updated.insert(id_str, Value::Null);
+            Ok(true)
+        }
+        Err(e) => {
+            acc.not_updated.insert(id_str, backend_set_error_value(e));
+            Ok(false)
+        }
+    }
+}
+
+/// For a `patch` that removes a Mailbox by path, the `invalidProperties`
+/// SetError value when no Mailbox of Email `id` would remain, else `None`.
+///
+/// # Errors
+///
+/// `serverFail` when the backend cannot read the Email.
+async fn last_mailbox_removed<B: MailBackend>(
+    ctx: &SetCtx<'_, B>,
+    id: &Id,
+    patch: &PatchObject,
+) -> Result<Option<Value>, JmapError> {
+    // A Mailbox is removed by path: one must remain.
+    let (current, _) = ctx
+        .backend
+        .get_objects::<Email>(
+            ctx.caller,
+            ctx.account_id,
+            Some(std::slice::from_ref(id)),
+            None,
+        )
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?;
+    let Some(email) = current.first() else {
+        return Ok(None);
+    };
+    let remaining = email.mailbox_ids.keys().any(|m| {
+        !matches!(
+            patch.as_map().get(&format!("mailboxIds/{}", m.as_ref())),
+            Some(Value::Null)
+        )
+    }) || patch
+        .as_map()
+        .iter()
+        .any(|(k, v)| k.starts_with("mailboxIds/") && v == &Value::Bool(true));
+    if remaining {
+        return Ok(None);
+    }
+    Ok(Some(
+        json!({ "type": "invalidProperties", "properties": ["mailboxIds"],
+                "description": "an Email must belong to at least one Mailbox" }),
+    ))
+}
+
+/// The `destroy` part of `Email/set`. Returns whether the backend was
+/// written.
+///
+/// # Errors
+///
+/// `invalidArguments` when an element of `destroy` is not a string.
+async fn set_destroy<B: MailBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut serde_json::Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    let mut mutated = false;
     if let Some(destroy_arr) = args.get("destroy").and_then(|v| v.as_array()) {
         // RFC 8620 §5.3: every element of the destroy array MUST be a string Id.
         // Reject the whole request if any element is non-string rather than
@@ -965,42 +1055,29 @@ pub async fn handle_email_set<B: MailBackend>(
             let id = match jmap_server::parse_wire_id(id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
-                    not_destroyed.insert(id_str.to_owned(), serde_json::Value::from(&*err));
+                    acc.not_destroyed
+                        .insert(id_str.to_owned(), serde_json::Value::from(&*err));
                     continue;
                 }
             };
 
-            match backend
-                .destroy_object::<Email>(caller, &account_id, &id)
+            match ctx
+                .backend
+                .destroy_object::<Email>(ctx.caller, ctx.account_id, &id)
                 .await
             {
                 Ok(()) => {
                     mutated = true;
-                    destroyed_list.push(Value::String(id_str.to_owned()));
+                    acc.destroyed.push(Value::String(id_str.to_owned()));
                 }
                 Err(e) => {
-                    not_destroyed.insert(id_str.to_owned(), backend_set_error_value(e));
+                    acc.not_destroyed
+                        .insert(id_str.to_owned(), backend_set_error_value(e));
                 }
             }
         }
     }
-
-    finalize_set_response::<B, Email>(
-        backend,
-        caller,
-        &account_id,
-        old_state,
-        mutated,
-        SetAccumulators {
-            created,
-            updated,
-            destroyed: destroyed_list,
-            not_created,
-            not_updated,
-            not_destroyed,
-        },
-    )
-    .await
+    Ok(mutated)
 }
 
 // ---------------------------------------------------------------------------

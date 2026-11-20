@@ -221,117 +221,59 @@ pub async fn handle_identity_set<B: MailBackend>(
         return Err(JmapError::state_mismatch());
     }
 
-    let mut created = serde_json::Map::new();
-    let mut not_created = serde_json::Map::new();
-    let mut updated = serde_json::Map::new();
-    let mut not_updated = serde_json::Map::new();
-    let mut destroyed_list: Vec<Value> = Vec::new();
-    let mut not_destroyed = serde_json::Map::new();
+    let ctx = SetCtx {
+        backend,
+        caller,
+        account_id: &account_id,
+    };
+    let mut acc = SetAccumulators::default();
+    let mut mutated = set_create(&ctx, &mut args, &mut acc).await?;
+    jmap_server::resolve_set_id_refs(&mut args, &std::collections::BTreeMap::new(), &acc.created);
+    mutated |= set_update(&ctx, &mut args, &mut acc).await?;
+    mutated |= set_destroy(&ctx, &mut args, &mut acc).await?;
+
+    finalize_set_response::<B, jmap_mail_types::Identity>(
+        backend,
+        caller,
+        &account_id,
+        old_state,
+        mutated,
+        acc,
+    )
+    .await
+}
+
+/// What every `Identity/set` sub-function needs from the request
+/// (docs/design/set-handler-split.md).
+struct SetCtx<'a, B: MailBackend> {
+    backend: &'a B,
+    caller: &'a B::CallerCtx,
+    account_id: &'a Id,
+}
+
+/// The `create` part of `Identity/set`. Returns whether the backend was
+/// written.
+async fn set_create<B: MailBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut serde_json::Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
     let mut mutated = false;
-
-    // -----------------------------------------------------------------------
-    // create
-    // -----------------------------------------------------------------------
     if let Some(Value::Object(create_map)) = args.remove("create") {
-        for (create_id, mut obj_val) in create_map {
-            if let Some(err) = obj_val.as_object().and_then(reject_server_set::<Identity>) {
-                not_created.insert(create_id, serde_json::Value::from(&err));
-                continue;
-            }
-            // Validate: email must be present and non-empty.
-            let email = match obj_val.get("email").and_then(|v| v.as_str()) {
-                Some(s) if !s.is_empty() => s.to_owned(),
-                _ => {
-                    not_created.insert(
-                        create_id,
-                        json!({
-                            "type": "invalidProperties",
-                            "properties": ["email"],
-                        }),
-                    );
+        for (create_id, obj_val) in create_map {
+            let build = match identity_builder(obj_val) {
+                Ok(build) => build,
+                Err(err) => {
+                    acc.not_created.insert(create_id, err);
                     continue;
                 }
             };
 
-            let name = obj_val
-                .get("name")
-                .and_then(|v| v.as_str())
-                .map(str::to_owned);
-            let text_signature = obj_val
-                .get("textSignature")
-                .and_then(|v| v.as_str())
-                .map(str::to_owned);
-            let html_signature = obj_val
-                .get("htmlSignature")
-                .and_then(|v| v.as_str())
-                .map(str::to_owned);
-            let mut reply_to = None;
-            if let Some(rt) = obj_val
-                .get_mut("replyTo")
-                .map(|v| v.take())
-                .filter(|v| !v.is_null())
-            {
-                let Ok(v) = serde_json::from_value(rt) else {
-                    not_created.insert(
-                        create_id,
-                        json!({
-                            "type": "invalidProperties",
-                            "properties": ["replyTo"],
-                        }),
-                    );
-                    continue;
-                };
-                reply_to = Some(v);
-            }
-            let mut bcc = None;
-            if let Some(b) = obj_val
-                .get_mut("bcc")
-                .map(|v| v.take())
-                .filter(|v| !v.is_null())
-            {
-                let Ok(v) = serde_json::from_value(b) else {
-                    not_created.insert(
-                        create_id,
-                        json!({
-                            "type": "invalidProperties",
-                            "properties": ["bcc"],
-                        }),
-                    );
-                    continue;
-                };
-                bcc = Some(v);
-            }
-
-            // Build identity using the constructor (supplies all defaults), then
-            // overlay optional client-supplied fields.
-            let build = move |id: &Id| {
-                let mut identity = jmap_mail_types::Identity::new(
-                    id.clone(),
-                    email,
-                    true, // server-set: may_delete defaults to true on create
-                );
-                if let Some(name) = name {
-                    identity.name = name;
-                }
-                if let Some(ts) = text_signature {
-                    identity.text_signature = ts;
-                }
-                if let Some(hs) = html_signature {
-                    identity.html_signature = hs;
-                }
-                if let Some(rt) = reply_to {
-                    identity.reply_to = rt;
-                }
-                if let Some(b) = bcc {
-                    identity.bcc = b;
-                }
-                identity
-            };
-
-            match backend
+            match ctx
+                .backend
                 .create_object::<jmap_mail_types::Identity, _>(
-                    caller,
-                    &account_id,
+                    ctx.caller,
+                    ctx.account_id,
                     &create_id,
                     build,
                 )
@@ -341,25 +283,121 @@ pub async fn handle_identity_set<B: MailBackend>(
                     mutated = true;
                     // create_object guarantees created_obj.id == server_id;
                     // serialize the full object (id is already correct).
-                    created.insert(create_id, jmap_server::serialize_value(&created_obj)?);
+                    acc.created
+                        .insert(create_id, jmap_server::serialize_value(&created_obj)?);
                 }
                 Err(e) => {
-                    not_created.insert(create_id, backend_set_error_value(e));
+                    acc.not_created
+                        .insert(create_id, backend_set_error_value(e));
                 }
             }
         }
     }
+    Ok(mutated)
+}
 
-    // -----------------------------------------------------------------------
-    // update
-    // -----------------------------------------------------------------------
-    jmap_server::resolve_set_id_refs(&mut args, &std::collections::BTreeMap::new(), &created);
+/// Check one `Identity/set` create object and return the builder for the
+/// stored Identity, or the SetError value for `notCreated`.
+fn identity_builder(
+    mut obj_val: Value,
+) -> Result<impl FnOnce(&Id) -> jmap_mail_types::Identity + Send, Value> {
+    if let Some(err) = obj_val.as_object().and_then(reject_server_set::<Identity>) {
+        return Err(serde_json::Value::from(&err));
+    }
+    // Validate: email must be present and non-empty.
+    let email = match obj_val.get("email").and_then(|v| v.as_str()) {
+        Some(s) if !s.is_empty() => s.to_owned(),
+        _ => {
+            return Err(json!({
+                "type": "invalidProperties",
+                "properties": ["email"],
+            }));
+        }
+    };
+
+    let name = obj_val
+        .get("name")
+        .and_then(|v| v.as_str())
+        .map(str::to_owned);
+    let text_signature = obj_val
+        .get("textSignature")
+        .and_then(|v| v.as_str())
+        .map(str::to_owned);
+    let html_signature = obj_val
+        .get("htmlSignature")
+        .and_then(|v| v.as_str())
+        .map(str::to_owned);
+    let mut reply_to = None;
+    if let Some(rt) = obj_val
+        .get_mut("replyTo")
+        .map(|v| v.take())
+        .filter(|v| !v.is_null())
+    {
+        let Ok(v) = serde_json::from_value(rt) else {
+            return Err(json!({
+                "type": "invalidProperties",
+                "properties": ["replyTo"],
+            }));
+        };
+        reply_to = Some(v);
+    }
+    let mut bcc = None;
+    if let Some(b) = obj_val
+        .get_mut("bcc")
+        .map(|v| v.take())
+        .filter(|v| !v.is_null())
+    {
+        let Ok(v) = serde_json::from_value(b) else {
+            return Err(json!({
+                "type": "invalidProperties",
+                "properties": ["bcc"],
+            }));
+        };
+        bcc = Some(v);
+    }
+
+    // Build identity using the constructor (supplies all defaults), then
+    // overlay optional client-supplied fields.
+    Ok(move |id: &Id| {
+        let mut identity = jmap_mail_types::Identity::new(
+            id.clone(),
+            email,
+            true, // server-set: may_delete defaults to true on create
+        );
+        if let Some(name) = name {
+            identity.name = name;
+        }
+        if let Some(ts) = text_signature {
+            identity.text_signature = ts;
+        }
+        if let Some(hs) = html_signature {
+            identity.html_signature = hs;
+        }
+        if let Some(rt) = reply_to {
+            identity.reply_to = rt;
+        }
+        if let Some(b) = bcc {
+            identity.bcc = b;
+        }
+        identity
+    })
+}
+
+/// The `update` part of `Identity/set`. Returns whether the backend was
+/// written.
+async fn set_update<B: MailBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut serde_json::Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    let mut mutated = false;
     if let Some(Value::Object(update_map)) = args.remove("update") {
         for (id_str, patch_val) in update_map {
             let id = match jmap_server::parse_wire_id(&id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
-                    not_updated.insert(id_str, serde_json::Value::from(&*err));
+                    acc.not_updated
+                        .insert(id_str, serde_json::Value::from(&*err));
                     continue;
                 }
             };
@@ -370,7 +408,7 @@ pub async fn handle_identity_set<B: MailBackend>(
             let mut patch = match serde_json::from_value::<PatchObject>(patch_val) {
                 Ok(p) => p,
                 Err(e) => {
-                    not_updated.insert(
+                    acc.not_updated.insert(
                         id_str,
                         json!({ "type": "invalidPatch", "description": e.to_string() }),
                     );
@@ -382,9 +420,9 @@ pub async fn handle_identity_set<B: MailBackend>(
             // server-set. A changed value is rejected, an identical one
             // dropped (RFC 8620 §5.3); nothing left is a no-op success.
             match check_read_only_patch::<_, Identity>(
-                backend,
-                caller,
-                &account_id,
+                ctx.backend,
+                ctx.caller,
+                ctx.account_id,
                 &id,
                 patch.as_map_mut(),
             )
@@ -392,37 +430,51 @@ pub async fn handle_identity_set<B: MailBackend>(
             {
                 Ok(false) => {}
                 Ok(true) => {
-                    updated.insert(id_str, Value::Null);
+                    acc.updated.insert(id_str, Value::Null);
                     continue;
                 }
                 Err(err) => {
-                    not_updated.insert(id_str, err);
+                    acc.not_updated.insert(id_str, err);
                     continue;
                 }
             }
 
-            match backend
-                .update_object::<jmap_mail_types::Identity>(caller, &account_id, &id, patch)
+            match ctx
+                .backend
+                .update_object::<jmap_mail_types::Identity>(ctx.caller, ctx.account_id, &id, patch)
                 .await
             {
                 Ok(Some(obj)) => {
                     mutated = true;
-                    updated.insert(id_str, jmap_server::serialize_value(&obj)?);
+                    acc.updated
+                        .insert(id_str, jmap_server::serialize_value(&obj)?);
                 }
                 Ok(None) => {
                     mutated = true;
-                    updated.insert(id_str, Value::Null);
+                    acc.updated.insert(id_str, Value::Null);
                 }
                 Err(e) => {
-                    not_updated.insert(id_str, backend_set_error_value(e));
+                    acc.not_updated.insert(id_str, backend_set_error_value(e));
                 }
             }
         }
     }
+    Ok(mutated)
+}
 
-    // -----------------------------------------------------------------------
-    // destroy
-    // -----------------------------------------------------------------------
+/// The `destroy` part of `Identity/set`: an Identity whose `mayDelete`
+/// is false is `forbidden`. Returns whether the backend was written.
+///
+/// # Errors
+///
+/// `invalidArguments` when an element of `destroy` is not a string;
+/// `serverFail` when the backend cannot read an Identity.
+async fn set_destroy<B: MailBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut serde_json::Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    let mut mutated = false;
     if let Some(Value::Array(destroy_arr)) = args.remove("destroy") {
         // RFC 8620 §5.3: the destroy array is Id[]. A non-string element is a
         // malformed request; return invalidArguments for the whole request.
@@ -442,69 +494,57 @@ pub async fn handle_identity_set<B: MailBackend>(
             let id = match jmap_server::parse_wire_id(&id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
-                    not_destroyed.insert(id_str, serde_json::Value::from(&*err));
+                    acc.not_destroyed
+                        .insert(id_str, serde_json::Value::from(&*err));
                     continue;
                 }
             };
 
             // Fetch the identity to check mayDelete.
-            let fetch_result = backend
+            let (found, not_found_ids) = ctx
+                .backend
                 .get_objects::<jmap_mail_types::Identity>(
-                    caller,
-                    &account_id,
+                    ctx.caller,
+                    ctx.account_id,
                     Some(std::slice::from_ref(&id)),
                     None,
                 )
                 .await
                 .map_err(|e| server_fail_from_backend(&e))?;
 
-            let (found, not_found_ids) = fetch_result;
-
             if !not_found_ids.is_empty() {
-                not_destroyed.insert(id_str, json!({ "type": "notFound" }));
+                acc.not_destroyed
+                    .insert(id_str, json!({ "type": "notFound" }));
                 continue;
             }
 
             // found should have exactly one entry.
             let Some(identity) = found.into_iter().next() else {
-                not_destroyed.insert(id_str, json!({ "type": "notFound" }));
+                acc.not_destroyed
+                    .insert(id_str, json!({ "type": "notFound" }));
                 continue;
             };
 
             if !identity.may_delete {
-                not_destroyed.insert(id_str, json!({ "type": "forbidden" }));
+                acc.not_destroyed
+                    .insert(id_str, json!({ "type": "forbidden" }));
                 continue;
             }
 
-            match backend
-                .destroy_object::<jmap_mail_types::Identity>(caller, &account_id, &id)
+            match ctx
+                .backend
+                .destroy_object::<jmap_mail_types::Identity>(ctx.caller, ctx.account_id, &id)
                 .await
             {
                 Ok(()) => {
                     mutated = true;
-                    destroyed_list.push(Value::String(id_str));
+                    acc.destroyed.push(Value::String(id_str));
                 }
                 Err(e) => {
-                    not_destroyed.insert(id_str, backend_set_error_value(e));
+                    acc.not_destroyed.insert(id_str, backend_set_error_value(e));
                 }
             }
         }
     }
-
-    finalize_set_response::<B, jmap_mail_types::Identity>(
-        backend,
-        caller,
-        &account_id,
-        old_state,
-        mutated,
-        SetAccumulators {
-            created,
-            updated,
-            destroyed: destroyed_list,
-            not_created,
-            not_updated,
-            not_destroyed,
-        },
-    )
-    .await
+    Ok(mutated)
 }
