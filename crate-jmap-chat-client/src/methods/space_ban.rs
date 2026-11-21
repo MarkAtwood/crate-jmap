@@ -1,4 +1,4 @@
-//! JMAP Chat — SpaceBan/* method implementations on SessionClient.
+//! JMAP Chat — `SpaceBan`/* method implementations on `SessionClient`.
 //!
 //! Spec: JMAP Chat draft §4.18 (SpaceBan/get, /changes, /set).
 
@@ -9,9 +9,9 @@ use super::{
 };
 
 impl super::SessionClient {
-    /// Fetch SpaceBan objects by IDs (JMAP Chat §4.18 SpaceBan/get).
+    /// Fetch `SpaceBan` objects by IDs (JMAP Chat §4.18 SpaceBan/get).
     ///
-    /// If `ids` is `None`, returns all SpaceBan objects for the account.
+    /// If `ids` is [`None`], returns all `SpaceBan` objects for the account.
     /// Pass `properties: None` to return all fields.
     ///
     /// # Errors
@@ -53,7 +53,7 @@ impl super::SessionClient {
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 
-    /// Fetch changes to SpaceBan objects since `since_state` (RFC 8620 §5.2 / SpaceBan/changes).
+    /// Fetch changes to `SpaceBan` objects since `since_state` (RFC 8620 §5.2 / SpaceBan/changes).
     ///
     /// Only members with `"ban"` permission in the Space see all changes;
     /// other members see changes to their own bans only.
@@ -93,7 +93,7 @@ impl super::SessionClient {
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 
-    /// Create a SpaceBan (RFC 8620 §5.3 / SpaceBan/set create).
+    /// Create a `SpaceBan` (RFC 8620 §5.3 / SpaceBan/set create).
     ///
     /// When `input.client_id` is `None`, a ULID is generated automatically.
     ///
@@ -140,7 +140,7 @@ impl super::SessionClient {
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 
-    /// Update a SpaceBan (RFC 8620 §5.3 / SpaceBan/set update).
+    /// Update a `SpaceBan` (RFC 8620 §5.3 / SpaceBan/set update).
     ///
     /// Fields of `patch` left at `Patch::Keep` are omitted from the patch
     /// and left unchanged server-side. Requires `"ban"` permission in the
@@ -190,7 +190,7 @@ impl super::SessionClient {
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 
-    /// Destroy SpaceBan objects (RFC 8620 §5.3 / SpaceBan/set destroy).
+    /// Destroy `SpaceBan` objects (RFC 8620 §5.3 / SpaceBan/set destroy).
     ///
     /// `ids` must be non-empty; the guard fires before any network call.
     ///

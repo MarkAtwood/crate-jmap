@@ -20,20 +20,20 @@
 //!
 //! - [`contact_server_url`], [`contact_direct_address`] — the
 //!   `ChatContact.serverUrl` and `ChatContact.directAddress` extension
-//!   fields, read from `ChatContact.extra` (draft §ChatContact Type
+//!   fields, read from `ChatContact.extra` (draft §`ChatContact` Type
 //!   Extensions for Federation).
 //! - `peer` — request and response arguments of the eight `Peer/*`
 //!   methods (draft §Server-to-Server Methods). User references are
 //!   identity strings (draft §User References in Peer Methods).
-//! - [`is_jmap_object_uri`] — whether a MessageAction or Endpoint `uri`
+//! - [`is_jmap_object_uri`] — whether a `MessageAction` or Endpoint `uri`
 //!   is one a receiving server removes from peer data (same section).
 //! - [`FederationSession`], [`anonymous_well_known_session`] — the
 //!   `ownerUserId`, `peerSigningKeys` and `ownerDirectAddress` Session
 //!   fields, and the anonymous `/.well-known/jmap` Session object (draft
 //!   §Session Object Extensions for Federation, §Key Publication).
-//! - [`owner_endpoints`] — the `endpoints` of a ChatContact, from the
+//! - [`owner_endpoints`] — the `endpoints` of a `ChatContact`, from the
 //!   `ownerEndpoints` its server's Session publishes
-//!   (draft-atwood-jmap-chat-00 §ChatContact).
+//!   (draft-atwood-jmap-chat-00 §`ChatContact`).
 //!
 //! # Logging safety
 //!

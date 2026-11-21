@@ -1,4 +1,4 @@
-//! Miscellaneous JMAP Chat method implementations on SessionClient.
+//! Miscellaneous JMAP Chat method implementations on `SessionClient`.
 //!
 //! Covers the smaller object surfaces — `ReadPosition/*`, `PresenceStatus/*`,
 //! `PushSubscription/*` (RFC 8620 §7.2 plus the JMAP Chat Push extension,
@@ -15,10 +15,10 @@ use super::{
 };
 
 impl super::SessionClient {
-    /// Fetch ReadPosition objects by IDs (JMAP Chat §5 ReadPosition/get).
+    /// Fetch `ReadPosition` objects by IDs (JMAP Chat §5 ReadPosition/get).
     ///
-    /// If `ids` is `None`, returns all ReadPosition records for the account.
-    /// The server creates one ReadPosition per Chat automatically.
+    /// If `ids` is [`None`], returns all `ReadPosition` records for the account.
+    /// The server creates one `ReadPosition` per Chat automatically.
     ///
     /// # Errors
     ///
@@ -99,9 +99,9 @@ impl super::SessionClient {
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 
-    /// Fetch the singleton PresenceStatus record (JMAP Chat §5 PresenceStatus/get).
+    /// Fetch the singleton `PresenceStatus` record (JMAP Chat §5 PresenceStatus/get).
     ///
-    /// Per spec there is exactly one PresenceStatus per account; `ids: null`
+    /// Per spec there is exactly one `PresenceStatus` per account; `ids: null`
     /// retrieves it.
     ///
     /// # Errors
@@ -125,7 +125,7 @@ impl super::SessionClient {
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 
-    /// Fetch changes to ReadPosition records since `since_state` (JMAP Chat §5 ReadPosition/changes).
+    /// Fetch changes to `ReadPosition` records since `since_state` (JMAP Chat §5 ReadPosition/changes).
     ///
     /// `max_changes` may be `None` to let the server choose the limit (RFC 8620 §5.2).
     ///
@@ -166,7 +166,7 @@ impl super::SessionClient {
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 
-    /// Update the PresenceStatus record (JMAP Chat §5 PresenceStatus/set).
+    /// Update the `PresenceStatus` record (JMAP Chat §5 PresenceStatus/set).
     ///
     /// Only `update` is issued; `create` and `destroy` are forbidden by the spec.
     /// Fields absent from `patch` (i.e. `Patch::Keep` or `None`) are omitted from
@@ -227,7 +227,7 @@ impl super::SessionClient {
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 
-    /// Fetch changes to PresenceStatus records since `since_state` (JMAP Chat §5 PresenceStatus/changes).
+    /// Fetch changes to `PresenceStatus` records since `since_state` (JMAP Chat §5 PresenceStatus/changes).
     ///
     /// `max_changes` may be `None` to let the server choose the limit (RFC 8620 §5.2).
     ///
@@ -266,10 +266,10 @@ impl super::SessionClient {
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 
-    /// Create a PushSubscription with the optional `chatPush` extension
+    /// Create a [`PushSubscription`] with the optional `chatPush` extension
     /// (RFC 8620 §7.2 / draft-atwood-jmap-chat-push-00 §3).
     ///
-    /// PushSubscriptions are account-independent: no `accountId` is included
+    /// `PushSubscription`s are account-independent: no `accountId` is included
     /// in the request (RFC 8620 §7.2). When `input.chat_push` is `Some`, the
     /// `using` array includes `urn:ietf:params:jmap:chat:push` (RFC 8620 §3.3:
     /// capabilities MUST only be declared when used); otherwise `urn:ietf:params:jmap:core`
@@ -357,7 +357,7 @@ impl super::SessionClient {
             .await
     }
 
-    /// Update a PushSubscription (RFC 8620 §7.2.2 `PushSubscription/set` update).
+    /// Update a [`PushSubscription`] (RFC 8620 §7.2.2 `PushSubscription/set` update).
     ///
     /// Issues a `PushSubscription/set` request with only the `update` sub-map
     /// populated. RFC 8620 §7.2 declares `url`, `keys`, and `deviceClientId`
@@ -366,7 +366,7 @@ impl super::SessionClient {
     /// `verificationCode`, `expires`, `types`, and the JMAP Chat Push
     /// extension's `chatPush`.
     ///
-    /// PushSubscriptions are not account-scoped (RFC 8620 §7.2): no
+    /// `PushSubscription`s are not account-scoped (RFC 8620 §7.2): no
     /// `accountId` is sent. When the patch touches `chat_push` at all
     /// (any non-[`Patch::Keep`] value), the `using` array includes
     /// `urn:ietf:params:jmap:chat:push`; otherwise only
@@ -440,15 +440,15 @@ impl super::SessionClient {
             .await
     }
 
-    /// Destroy one or more PushSubscriptions (RFC 8620 §7.2.2 `PushSubscription/set` destroy).
+    /// Destroy one or more `PushSubscription`s (RFC 8620 §7.2.2 `PushSubscription/set` destroy).
     ///
     /// Issues a `PushSubscription/set` request with only the `destroy` array
-    /// populated. PushSubscriptions are not account-scoped (RFC 8620 §7.2):
+    /// populated. `PushSubscription`s are not account-scoped (RFC 8620 §7.2):
     /// no `accountId` is sent. Only `urn:ietf:params:jmap:core` is declared
     /// — destroying never requires the chatPush capability since it is a
     /// property-blind operation.
     ///
-    /// Clients SHOULD NOT destroy a PushSubscription they did not create —
+    /// Clients SHOULD NOT destroy a [`PushSubscription`] they did not create —
     /// RFC 8620 §7.2 reserves that to clients that recognise the
     /// `deviceClientId`. This client does not enforce that rule; the server
     /// may reject the call.
@@ -522,7 +522,7 @@ impl super::SessionClient {
 /// in diagnostics.
 ///
 /// Single-pass: each insert detects collision via the returned previous
-/// value, replacing the previous two-pass (HashSet duplicate check then
+/// value, replacing the previous two-pass (`HashSet` duplicate check then
 /// serialize-and-insert) idiom that was hand-duplicated across two
 /// call sites (bd:JMAP-26di.55).
 /// Extra `using` for a PushSubscription/set: the chat push capability only

@@ -42,7 +42,7 @@ pub fn chat_room_id(extra: &serde_json::Map<String, serde_json::Value>) -> Optio
 }
 
 /// The `responseCode` of a `Room/update` response: the
-/// UpdateResponseCode of draft-ietf-mimi-protocol-06 §5.3, written as its
+/// [`UpdateResponseCode`] of draft-ietf-mimi-protocol-06 §5.3, written as its
 /// name.
 ///
 /// `Other` preserves any code name this version does not know, for
@@ -50,12 +50,12 @@ pub fn chat_room_id(extra: &serde_json::Map<String, serde_json::Value>) -> Optio
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum UpdateResponseCode {
-    /// The UpdateRequest was accepted and will be distributed.
+    /// The `UpdateRequest` was accepted and will be distributed.
     Success,
     /// The hub is using a different epoch.
     WrongEpoch,
     /// Policy or authorization prevented the hub from accepting the
-    /// UpdateRequest.
+    /// `UpdateRequest`.
     NotAllowed,
     /// At least one proposal is invalid.
     InvalidProposal,
@@ -71,7 +71,7 @@ impl_string_enum!(UpdateResponseCode, "an UpdateResponseCode name",
 );
 
 /// The `responseCode` of a `Room/send` response: the `statusCode`
-/// (SubmitResponseCode) of draft-ietf-mimi-protocol-06 §5.4, written as
+/// ([`SubmitResponseCode`]) of draft-ietf-mimi-protocol-06 §5.4, written as
 /// its name.
 ///
 /// `Other` preserves any code name this version does not know, for
@@ -123,11 +123,11 @@ impl_string_enum!(SubmitResponseCode, "a SubmitResponseCode name",
 pub struct RoomCreateRequest {
     /// The account to use.
     pub account_id: Id,
-    /// An MLSMessage (RFC 9420 §6) of wire format `mls_group_info`
-    /// carrying the group's GroupInfo, without the `ratchet_tree`
+    /// An `MLSMessage` (RFC 9420 §6) of wire format `mls_group_info`
+    /// carrying the group's `GroupInfo`, without the `ratchet_tree`
     /// extension.
     pub group_info: Base64Url,
-    /// The group's RatchetTree (RFC 9420 §12.4.3.3).
+    /// The group's `RatchetTree` (RFC 9420 §12.4.3.3).
     pub ratchet_tree: Base64Url,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
@@ -195,7 +195,7 @@ pub struct RoomUpdateRequest {
     pub account_id: Id,
     /// The `roomId` of a Chat in this account.
     pub room_id: String,
-    /// An UpdateRequest (draft-ietf-mimi-protocol-06 §5.3).
+    /// An `UpdateRequest` (draft-ietf-mimi-protocol-06 §5.3).
     pub request: Base64Url,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
@@ -218,7 +218,7 @@ impl RoomUpdateRequest {
 }
 
 /// Response arguments of `Room/update`, decoded from the hub's
-/// UpdateRoomResponse.
+/// `UpdateRoomResponse`.
 ///
 /// Spec: draft-atwood-jmap-chat-mimi-00 §Room/update. `accountId`,
 /// `responseCode` and `errorDescription` are required; each other field
@@ -258,7 +258,7 @@ pub struct RoomUpdateResponse {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub current_epoch: Option<u64>,
     /// When `response_code` is [`UpdateResponseCode::InvalidProposal`]:
-    /// the ProposalRefs (RFC 9420 §5.2) of the invalid proposals.
+    /// the `ProposalRefs` (RFC 9420 §5.2) of the invalid proposals.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub invalid_proposals: Option<Vec<Base64Url>>,
     /// Catch-all for vendor / site / private extension fields not covered
@@ -301,7 +301,7 @@ pub struct RoomSendRequest {
     pub account_id: Id,
     /// The `roomId` of a Chat in this account.
     pub room_id: String,
-    /// An MLSMessage (RFC 9420 §6) of wire format PrivateMessage and
+    /// An `MLSMessage` (RFC 9420 §6) of wire format `PrivateMessage` and
     /// content type application, whose plaintext is MIMI content.
     pub message: Base64Url,
     /// Catch-all for vendor / site / private extension fields not covered
@@ -325,7 +325,7 @@ impl RoomSendRequest {
 }
 
 /// Response arguments of `Room/send`, decoded from the
-/// SubmitMessageResponse.
+/// `SubmitMessageResponse`.
 ///
 /// Spec: draft-atwood-jmap-chat-mimi-00 §Room/send. `accountId` and
 /// `responseCode` are required; each other field is present only for one

@@ -1,4 +1,4 @@
-//! The draft-atwood-jmap-chat-mimi-00 §KeyPackages, §KeyMaterial/fetch
+//! The draft-atwood-jmap-chat-mimi-00 §`KeyPackages`, §KeyMaterial/fetch
 //! and §Rooms method bindings on [`SessionClient`].
 //!
 //! Each method builds its arguments from the `jmap-chat-mimi-types`
@@ -112,11 +112,24 @@ impl SessionClient {
     }
 
     /// `KeyPackage/get` (draft §KeyPackage/get, RFC 8620 §5.1): fetch the
-    /// account's KeyPackage records by id, or all of them when `ids` is
+    /// account's [`KeyPackage`] records by id, or all of them when `ids` is
     /// `None`.
     ///
     /// Every property is requested: [`KeyPackage`] has no optional field,
     /// so a partial object would not decode.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the session has no primary account for
+    ///   `urn:ietf:params:jmap:chat:mimi`.
+    /// - [`ClientError::Serialize`](jmap_base_client::ClientError::Serialize)
+    ///   if an argument does not serialize.
+    /// - The errors of [`JmapClient::call`](jmap_base_client::JmapClient::call)
+    ///   (transport, HTTP status, body size, parse) and of
+    ///   [`extract_response`](jmap_base_client::extract_response), including
+    ///   [`ClientError::MethodError`](jmap_base_client::ClientError::MethodError)
+    ///   when the server answers with a method-level error.
     pub async fn key_package_get(
         &self,
         ids: Option<&[Id]>,
@@ -129,7 +142,7 @@ impl SessionClient {
     }
 
     /// `KeyPackage/set` (draft §KeyPackage/set, RFC 8620 §5.3): publish
-    /// the KeyPackages in `create`, keyed by creation id, and destroy the
+    /// the `KeyPackage`s in `create`, keyed by creation id, and destroy the
     /// records in `destroy`. An empty `create` or `destroy` is omitted.
     ///
     /// There is no `update`: the server "MUST reject every update". A
@@ -143,6 +156,19 @@ impl SessionClient {
     /// `options` carries the conditional-02 `ifUnchangedBy`/`atomic` and the
     /// object-history-03 `restore` ([`SetOptions`](jmap_base_client::SetOptions));
     /// `None` sends neither, and `using` gains a URI only for what is set.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the session has no primary account for
+    ///   `urn:ietf:params:jmap:chat:mimi`.
+    /// - [`ClientError::Serialize`](jmap_base_client::ClientError::Serialize)
+    ///   if an argument does not serialize.
+    /// - The errors of [`JmapClient::call`](jmap_base_client::JmapClient::call)
+    ///   (transport, HTTP status, body size, parse) and of
+    ///   [`extract_response`](jmap_base_client::extract_response), including
+    ///   [`ClientError::MethodError`](jmap_base_client::ClientError::MethodError)
+    ///   when the server answers with a method-level error.
     pub async fn key_package_set(
         &self,
         create: &BTreeMap<String, KeyPackageCreate>,
@@ -171,13 +197,26 @@ impl SessionClient {
         jmap_base_client::extract_response(&resp, CALL_ID)
     }
 
-    /// `KeyMaterial/fetch` (draft §KeyMaterial/fetch): obtain KeyPackages
+    /// `KeyMaterial/fetch` (draft §KeyMaterial/fetch): obtain `KeyPackage`s
     /// for another user's clients, to add that user to the room bound to a
     /// Chat in this account.
     ///
-    /// `request` is a KeyMaterialRequest signed by the client. The
+    /// `request` is a `KeyMaterialRequest` signed by the client. The
     /// provider's verdict is in the response's `user_status` and each
     /// client's `client_status`.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the session has no primary account for
+    ///   `urn:ietf:params:jmap:chat:mimi`.
+    /// - [`ClientError::Serialize`](jmap_base_client::ClientError::Serialize)
+    ///   if an argument does not serialize.
+    /// - The errors of [`JmapClient::call`](jmap_base_client::JmapClient::call)
+    ///   (transport, HTTP status, body size, parse) and of
+    ///   [`extract_response`](jmap_base_client::extract_response), including
+    ///   [`ClientError::MethodError`](jmap_base_client::ClientError::MethodError)
+    ///   when the server answers with a method-level error.
     pub async fn key_material_fetch(
         &self,
         room_id: &str,
@@ -195,9 +234,22 @@ impl SessionClient {
     /// as hub, and a Chat bound to it, from the client's one-member MLS
     /// group.
     ///
-    /// `group_info` is an MLSMessage of wire format `mls_group_info`
+    /// `group_info` is an `MLSMessage` of wire format `mls_group_info`
     /// without the `ratchet_tree` extension; `ratchet_tree` is the group's
     /// ratchet tree.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the session has no primary account for
+    ///   `urn:ietf:params:jmap:chat:mimi`.
+    /// - [`ClientError::Serialize`](jmap_base_client::ClientError::Serialize)
+    ///   if an argument does not serialize.
+    /// - The errors of [`JmapClient::call`](jmap_base_client::JmapClient::call)
+    ///   (transport, HTTP status, body size, parse) and of
+    ///   [`extract_response`](jmap_base_client::extract_response), including
+    ///   [`ClientError::MethodError`](jmap_base_client::ClientError::MethodError)
+    ///   when the server answers with a method-level error.
     pub async fn room_create(
         &self,
         group_info: Base64Url,
@@ -211,11 +263,24 @@ impl SessionClient {
         .await
     }
 
-    /// `Room/update` (draft §Room/update): submit an UpdateRequest (a
+    /// `Room/update` (draft §Room/update): submit an `UpdateRequest` (a
     /// proposal or commit) for the room bound to a Chat in this account.
     ///
     /// The hub's verdict is in the response's `responseCode`; a refusal by
     /// the hub is not an error here.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the session has no primary account for
+    ///   `urn:ietf:params:jmap:chat:mimi`.
+    /// - [`ClientError::Serialize`](jmap_base_client::ClientError::Serialize)
+    ///   if an argument does not serialize.
+    /// - The errors of [`JmapClient::call`](jmap_base_client::JmapClient::call)
+    ///   (transport, HTTP status, body size, parse) and of
+    ///   [`extract_response`](jmap_base_client::extract_response), including
+    ///   [`ClientError::MethodError`](jmap_base_client::ClientError::MethodError)
+    ///   when the server answers with a method-level error.
     pub async fn room_update(
         &self,
         room_id: &str,
@@ -230,9 +295,22 @@ impl SessionClient {
     }
 
     /// `Room/send` (draft §Room/send): submit an application message, an
-    /// MLSMessage of wire format PrivateMessage, to the room's hub.
+    /// `MLSMessage` of wire format `PrivateMessage`, to the room's hub.
     ///
     /// The hub's verdict is in the response's `responseCode`.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the session has no primary account for
+    ///   `urn:ietf:params:jmap:chat:mimi`.
+    /// - [`ClientError::Serialize`](jmap_base_client::ClientError::Serialize)
+    ///   if an argument does not serialize.
+    /// - The errors of [`JmapClient::call`](jmap_base_client::JmapClient::call)
+    ///   (transport, HTTP status, body size, parse) and of
+    ///   [`extract_response`](jmap_base_client::extract_response), including
+    ///   [`ClientError::MethodError`](jmap_base_client::ClientError::MethodError)
+    ///   when the server answers with a method-level error.
     pub async fn room_send(
         &self,
         room_id: &str,
@@ -254,6 +332,19 @@ impl SessionClient {
     /// not check this against the MLS group: unbinding while other clients
     /// of the account remain in the group cuts them off from the room
     /// (draft §Security Considerations).
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the session has no primary account for
+    ///   `urn:ietf:params:jmap:chat:mimi`.
+    /// - [`ClientError::Serialize`](jmap_base_client::ClientError::Serialize)
+    ///   if an argument does not serialize.
+    /// - The errors of [`JmapClient::call`](jmap_base_client::JmapClient::call)
+    ///   (transport, HTTP status, body size, parse) and of
+    ///   [`extract_response`](jmap_base_client::extract_response), including
+    ///   [`ClientError::MethodError`](jmap_base_client::ClientError::MethodError)
+    ///   when the server answers with a method-level error.
     pub async fn room_unbind(
         &self,
         room_id: &str,
@@ -266,15 +357,28 @@ impl SessionClient {
         .await
     }
 
-    /// `GroupInfo/fetch` (draft §GroupInfo/fetch): obtain the GroupInfo
+    /// `GroupInfo/fetch` (draft §GroupInfo/fetch): obtain the `GroupInfo`
     /// and ratchet tree of the room's MLS group for an external join.
     ///
-    /// `request` is a GroupInfoRequest signed by the client. Check the
+    /// `request` is a `GroupInfoRequest` signed by the client. Check the
     /// returned `response` with
     /// [`verify_group_info_response`](crate::verify_group_info_response)
-    /// and the decrypted GroupInfo with
+    /// and the decrypted `GroupInfo` with
     /// [`group_info_names_hub_sender`](crate::group_info_names_hub_sender)
     /// before joining.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the session has no primary account for
+    ///   `urn:ietf:params:jmap:chat:mimi`.
+    /// - [`ClientError::Serialize`](jmap_base_client::ClientError::Serialize)
+    ///   if an argument does not serialize.
+    /// - The errors of [`JmapClient::call`](jmap_base_client::JmapClient::call)
+    ///   (transport, HTTP status, body size, parse) and of
+    ///   [`extract_response`](jmap_base_client::extract_response), including
+    ///   [`ClientError::MethodError`](jmap_base_client::ClientError::MethodError)
+    ///   when the server answers with a method-level error.
     pub async fn group_info_fetch(
         &self,
         room_id: &str,

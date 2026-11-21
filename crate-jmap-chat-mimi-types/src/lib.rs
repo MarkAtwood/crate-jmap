@@ -25,8 +25,8 @@
 //! - [`MIMI_FANOUT_BODY_TYPE`], [`MLS_MESSAGE_BODY_TYPE`] — the
 //!   `bodyType` values of draft §MLS Messages.
 //! - [`KeyPackage`], [`KeyPackageCreate`], [`KeyPackageCreated`],
-//!   [`KeyPackageProperty`] — the KeyPackage object and the `KeyPackage/get`
-//!   and `KeyPackage/set` argument shapes (draft §KeyPackages).
+//!   [`KeyPackageProperty`] — the [`KeyPackage`] object and the `KeyPackage/get`
+//!   and `KeyPackage/set` argument shapes (draft §`KeyPackages`).
 //! - [`KeyMaterialFetchRequest`], [`KeyMaterialFetchResponse`],
 //!   [`ClientKeyMaterial`], [`KeyMaterialUserCode`], [`KeyMaterialClientCode`]
 //!   — the `KeyMaterial/fetch` arguments (draft §KeyMaterial/fetch).

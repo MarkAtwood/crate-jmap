@@ -1,4 +1,4 @@
-//! JMAP Chat — SpaceInvite/* method implementations on SessionClient.
+//! JMAP Chat — `SpaceInvite`/* method implementations on `SessionClient`.
 //!
 //! Spec: JMAP Chat draft §4.17 (SpaceInvite/get, /changes, /set).
 
@@ -7,9 +7,9 @@ use jmap_types::{Id, State};
 use super::{ChangesResponse, GetResponse, PartialObject, SetResponse, SpaceInviteCreateInput};
 
 impl super::SessionClient {
-    /// Fetch SpaceInvite objects by IDs (JMAP Chat §4.17 SpaceInvite/get).
+    /// Fetch `SpaceInvite` objects by IDs (JMAP Chat §4.17 SpaceInvite/get).
     ///
-    /// If `ids` is `None`, returns all SpaceInvite objects for the account.
+    /// If `ids` is [`None`], returns all `SpaceInvite` objects for the account.
     /// Pass `properties: None` to return all fields.
     ///
     /// # Errors
@@ -51,7 +51,7 @@ impl super::SessionClient {
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 
-    /// Fetch changes to SpaceInvite objects since `since_state` (RFC 8620 §5.2 / SpaceInvite/changes).
+    /// Fetch changes to `SpaceInvite` objects since `since_state` (RFC 8620 §5.2 / SpaceInvite/changes).
     ///
     /// If `has_more_changes` is true in the response, call again with `new_state`
     /// as `since_state` until the flag is false.
@@ -91,7 +91,7 @@ impl super::SessionClient {
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 
-    /// Create a SpaceInvite (RFC 8620 §5.3 / SpaceInvite/set create).
+    /// Create a `SpaceInvite` (RFC 8620 §5.3 / SpaceInvite/set create).
     ///
     /// When `input.client_id` is `None`, a ULID is generated automatically.
     ///
@@ -138,7 +138,7 @@ impl super::SessionClient {
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 
-    /// Destroy SpaceInvite objects (RFC 8620 §5.3 / SpaceInvite/set destroy).
+    /// Destroy `SpaceInvite` objects (RFC 8620 §5.3 / SpaceInvite/set destroy).
     ///
     /// `ids` must be non-empty; the guard fires before any network call.
     ///

@@ -7,7 +7,7 @@ use serde::de::Error as _;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// An ephemeral event category in [`ChatStreamEnable::data_types`]
-/// (draft-atwood-jmap-chat-wss-00 §ChatStreamEnable `dataTypes`).
+/// (draft-atwood-jmap-chat-wss-00 §[`ChatStreamEnable`] `dataTypes`).
 ///
 /// "This specification defines `"typing"` and `"presence"`. It also
 /// defines two companion values: `"vtc"` [...] recognized only when the
@@ -66,7 +66,7 @@ pub struct ChatStreamEnable {
     /// Client-chosen identifier for this message; `None` omits it.
     ///
     /// "A `RequestError` caused by this message carries this value as its
-    /// `requestId`" (draft-atwood-jmap-chat-wss-00 §ChatStreamEnable, L186),
+    /// `requestId`" (draft-atwood-jmap-chat-wss-00 §[`ChatStreamEnable`], L186),
     /// so a client can match a failure to the frame that caused it with
     /// `WsFrame::request_id`.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -97,7 +97,7 @@ pub struct ChatStreamDisable {
 #[serde(rename_all = "camelCase")]
 pub struct ChatTypingEvent {
     /// The account that contains the Chat (draft-atwood-jmap-chat-wss-00
-    /// §ChatTypingEvent). Chat ids are unique only within an account, so
+    /// §[`ChatTypingEvent`]). Chat ids are unique only within an account, so
     /// this tells apart same-id Chats in different accounts.
     pub account_id: Id,
     /// The chat in which typing is occurring.
@@ -125,8 +125,8 @@ pub struct ChatTypingEvent {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ChatPresenceEvent {
-    /// The account that contains the ChatContact
-    /// (draft-atwood-jmap-chat-wss-00 §ChatPresenceEvent). ChatContact ids
+    /// The account that contains the `ChatContact`
+    /// (draft-atwood-jmap-chat-wss-00 §[`ChatPresenceEvent`]). `ChatContact` ids
     /// are unique only within an account, so this tells apart same-id
     /// contacts in different accounts.
     pub account_id: Id,

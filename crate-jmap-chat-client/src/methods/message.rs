@@ -1,4 +1,4 @@
-//! JMAP Chat — Message/* method implementations on SessionClient.
+//! JMAP Chat — Message/* method implementations on `SessionClient`.
 //!
 //! Each method follows the standard five-step pattern:
 //!   1. Validate arguments (defence-in-depth empty-state guards).
@@ -191,7 +191,7 @@ impl super::SessionClient {
     /// # Rate limiting
     ///
     /// A channel in slow mode rejects the create with the RFC 8620 §5.3
-    /// `rateLimit` SetError in `not_created` (draft-atwood-jmap-chat-00
+    /// `rateLimit` `SetError` in `not_created` (draft-atwood-jmap-chat-00
     /// §Chat `slowModeSeconds`). This method returns
     /// `Err(ClientError::RateLimited)` for it. `retry_after` is the
     /// `serverRetryAfter` timestamp when the server supplies one; RFC 8620
@@ -223,7 +223,7 @@ impl super::SessionClient {
     ///   (wire `"rateLimit"`). The `retry_after` field carries the
     ///   `serverRetryAfter` deadline, or the receive time when it is absent.
     /// - [`ClientError::UnexpectedResponse`](jmap_base_client::ClientError::UnexpectedResponse)
-    ///   if the server emits a `rateLimit` SetError whose
+    ///   if the server emits a `rateLimit` `SetError` whose
     ///   `serverRetryAfter` is not a valid `UTCDate`.
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
     ///   if the bound session has no primary account for

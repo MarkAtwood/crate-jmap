@@ -1,4 +1,4 @@
-//! Typed JMAP Chat method wrappers — response types, `Patch<T>`, SessionClient,
+//! Typed JMAP Chat method wrappers — response types, `Patch<T>`, [`SessionClient`],
 //! input/patch structs, constants, and helpers.
 //!
 //! Response types mirror RFC 8620 standard shapes (§5.1 /get, §5.5 /query,
@@ -302,7 +302,7 @@ pub(crate) const USING_CHAT: &[&str] =
 pub(crate) const USING_QUOTA: &[&str] =
     &["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:quota"];
 
-/// Capability URIs for Space file tree FileNode calls
+/// Capability URIs for Space file tree `FileNode` calls
 /// (draft-atwood-jmap-chat-filenode-00): the `spaceId` filter is defined by
 /// the chat filenode capability on top of `urn:ietf:params:jmap:filenode`.
 pub(crate) const USING_CHAT_FILENODE: &[&str] = &[
@@ -768,7 +768,7 @@ pub struct PresenceStatusPatch<'a> {
     pub receipt_sharing: Option<bool>,
 }
 
-/// Parameters for creating one CustomEmoji via `CustomEmoji/set`.
+/// Parameters for creating one `CustomEmoji` via `CustomEmoji/set`.
 #[derive(Debug, Clone)]
 pub struct CustomEmojiCreateInput<'a> {
     /// Caller-supplied creation key. When `None` — **or `Some("")`** — a ULID
@@ -800,7 +800,7 @@ pub struct CustomEmojiPatch<'a> {
     pub blob_id: Option<&'a Id>,
 }
 
-/// Parameters for creating one SpaceInvite via `SpaceInvite/set`.
+/// Parameters for creating one `SpaceInvite` via `SpaceInvite/set`.
 #[derive(Debug, Clone)]
 pub struct SpaceInviteCreateInput<'a> {
     /// Caller-supplied creation key. When `None` — **or `Some("")`** — a ULID
@@ -818,7 +818,7 @@ pub struct SpaceInviteCreateInput<'a> {
     pub max_uses: Option<u64>,
 }
 
-/// Parameters for creating one SpaceBan via `SpaceBan/set`.
+/// Parameters for creating one `SpaceBan` via `SpaceBan/set`.
 #[derive(Debug, Clone)]
 pub struct SpaceBanCreateInput<'a> {
     /// Caller-supplied creation key. When `None` — **or `Some("")`** — a ULID
@@ -852,7 +852,7 @@ pub struct SpaceBanPatch<'a> {
     pub expires_at: Patch<&'a jmap_types::UTCDate>,
 }
 
-/// Parameters for creating one ChatBan via `ChatBan/set`
+/// Parameters for creating one `ChatBan` via `ChatBan/set`
 /// (draft-atwood-jmap-chat-00 §ChatBan/set).
 #[derive(Debug, Clone)]
 pub struct ChatBanCreateInput<'a> {
@@ -931,7 +931,7 @@ pub struct SpaceCreateInput<'a> {
 /// not a secret (RFC 8620 §1.2) and is rendered verbatim.
 #[non_exhaustive]
 pub enum SpaceJoinInput<'a> {
-    /// Redeem a SpaceInvite by its `code` field (not its `id`).
+    /// Redeem a `SpaceInvite` by its `code` field (not its `id`).
     ///
     /// Unguessable secret — redacted by the [`std::fmt::Debug`] impl on this enum.
     ///
@@ -1249,7 +1249,7 @@ pub struct SpacePatch<'a> {
 
 /// Input parameters for `PushSubscription/set` create (RFC 8620 §7.2).
 ///
-/// Creates a PushSubscription with the optional `chatPush` extension
+/// Creates a `PushSubscription` with the optional `chatPush` extension
 /// (draft-atwood-jmap-chat-push-00 §3.1).
 ///
 /// `device_client_id` and `url` have no safe defaults and must always be supplied.
@@ -1279,10 +1279,10 @@ pub struct PushSubscriptionCreateInput<'a> {
     pub url: &'a str,
     /// Subscription expiry time. `None` lets the server choose.
     pub expires: Option<&'a jmap_types::UTCDate>,
-    /// Data type names to include in StateChange notifications.
+    /// Data type names to include in `StateChange` notifications.
     /// `None` means the server delivers all changed types.
     pub types: Option<&'a [&'a str]>,
-    /// Per-account ChatPushConfig entries for inline push. Each entry is
+    /// Per-account `ChatPushConfig` entries for inline push. Each entry is
     /// `(accountId, config)`. Pass `None` to omit the `chatPush` property.
     ///
     /// # Why a slice-of-pairs, not a `BTreeMap`?
@@ -1339,7 +1339,7 @@ pub struct PushSubscriptionCreateInput<'a> {
 /// fields are not secrets and are rendered verbatim.
 #[derive(Default)]
 pub struct PushSubscriptionPatch<'a> {
-    /// Replace the verification code (set after receiving a PushVerification
+    /// Replace the verification code (set after receiving a `PushVerification`
     /// payload). `None` = no change.
     ///
     /// RFC 8620 §7.2 ownership proof — redacted by the
@@ -1396,7 +1396,7 @@ pub mod space;
 ///
 /// The raw JSON value is preserved for diagnostics — callers can log it
 /// to surface server-side bugs (e.g. emitting a numeric-seconds form
-/// when the workspace convention is a UTCDate string).
+/// when the workspace convention is a `UTCDate` string).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ServerRetryAfterError {
@@ -1424,20 +1424,23 @@ impl std::error::Error for ServerRetryAfterError {}
 /// The base [`jmap_types::SetError`] type captures unknown extension
 /// fields in its `extra` map via `#[serde(flatten)]`. The chat server's
 /// slow-mode `rateLimit` error (RFC 8620 §5.3) includes a
-/// `serverRetryAfter` UTCDate telling the client when it may retry. This accessor distinguishes the three
+/// `serverRetryAfter` `UTCDate` telling the client when it may retry. This accessor distinguishes the three
 /// possible outcomes so callers can react appropriately:
 ///
 /// - `Ok(None)` — the field is absent. The server is using `rateLimit`
 ///   without a retry hint; the caller may apply a default backoff.
 /// - `Ok(Some(t))` — the field is present and parsed; honour `t`.
-/// - `Err(ServerRetryAfterError::Malformed(raw))` — the field is
-///   present but its value is not a valid `UTCDate`. The raw JSON is
-///   returned so the caller can log a server-side bug; the caller
-///   should still apply a default backoff (the bug is server-side).
 ///
 /// Prior to bd:JMAP-26di.50 this function returned a single `Option`
 /// that conflated absent and malformed; the new shape gives the caller
 /// the diagnostic information it needs to distinguish them.
+///
+/// # Errors
+///
+/// Returns [`ServerRetryAfterError::Malformed`] with the raw JSON if the
+/// field is present but its value is not a string holding a valid
+/// `UTCDate`, so the caller can log the server-side bug; the caller
+/// should still apply a default backoff.
 pub fn server_retry_after(
     err: &SetError,
 ) -> Result<Option<jmap_types::UTCDate>, ServerRetryAfterError> {

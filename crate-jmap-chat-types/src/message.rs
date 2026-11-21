@@ -43,7 +43,7 @@ impl_string_enum!(DeliveryState, "a delivery state string",
 /// `BodyType::Other("text/plain".into())`. The custom serde impl emits the
 /// wrapped string verbatim on serialize and normalises canonical wire strings
 /// to their typed variant on deserialize. Consequences:
-/// * `BodyType::Other("text/plain".into()) != BodyType::Plain` on PartialEq,
+/// * `BodyType::Other("text/plain".into()) != BodyType::Plain` on [`PartialEq`],
 ///   but both serialize to `"text/plain"`.
 /// * `Other("text/plain")` -> `"text/plain"` -> `Plain` is a lossy round-trip
 ///   (the variant changes shape).
@@ -71,7 +71,7 @@ impl_string_enum!(BodyType, "a BodyType MIME-string",
     "application/jmap-chat-rich" => Rich,
 );
 
-/// Why a recipient acknowledged a message (RFC-JMAP-Chat §ReadDisposition).
+/// Why a recipient acknowledged a message (RFC-JMAP-Chat §[`ReadDisposition`]).
 ///
 /// `Other` preserves any unrecognized value for round-trip fidelity.
 /// Servers MUST NOT reject messages carrying unknown values.
@@ -115,11 +115,11 @@ pub struct Attachment {
     pub size: u64,
     /// The `sha256` property: SHA-256 digest of the attachment content
     /// as 64 lowercase hex characters (draft-atwood-jmap-chat-00 §4.1).
-    /// Typed as [`Sha256`], the same wire shape FileNode uses
+    /// Typed as [`Sha256`], the same wire shape `FileNode` uses
     /// (draft-atwood-jmap-cid-00 §2), so a malformed digest is rejected
     /// at deserialize.
     pub sha256: Sha256,
-    /// The `id` of a FileNode in the Space's file tree that this
+    /// The `id` of a `FileNode` in the Space's file tree that this
     /// attachment links to (draft-atwood-jmap-chat-filenode-00
     /// §Attachment Link). Only meaningful when the
     /// `urn:ietf:params:jmap:chat:filenode` capability is active.
@@ -132,7 +132,7 @@ pub struct Attachment {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub filenode_id: Option<Id>,
     /// The `blobId` of a thumbnail or preview image derived from the
-    /// FileNode's blob (draft-atwood-jmap-chat-filenode-00
+    /// `FileNode`'s blob (draft-atwood-jmap-chat-filenode-00
     /// §thumbnailBlobId). SHOULD be set only when
     /// [`filenode_id`](Self::filenode_id) is also present.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -151,7 +151,7 @@ pub struct Attachment {
 /// present on an Attachment, the fields `blobId`, `filename`,
 /// `contentType`, `size`, and `sha256` become OPTIONAL for that
 /// Attachment entry; the server MUST populate any absent fields from the
-/// referenced FileNode's properties before storage. If `filenodeId` is
+/// referenced `FileNode`'s properties before storage. If `filenodeId` is
 /// absent, these fields retain their normal required status." This type
 /// therefore makes those five fields optional; the server, not this
 /// type, rejects an entry that lacks them without a `filenodeId`. A
@@ -226,7 +226,7 @@ pub struct Mention {
 }
 
 /// The scope of a [`BroadcastMention`] (draft-atwood-jmap-chat-00
-/// §BroadcastMention), also used by [`crate::Span::scope`] and
+/// §[`BroadcastMention`]), also used by [`crate::Span::scope`] and
 /// [`crate::ChatMessageEntry::mention_scopes`].
 ///
 /// The spec defines exactly `"everyone"`, `"here"` and `"admins"`. Servers
@@ -260,7 +260,7 @@ impl_string_enum!(BroadcastScope, "a broadcast scope string",
 );
 
 /// A broadcast-scope `@mention` in a [`Message`]
-/// (draft-atwood-jmap-chat-00 §BroadcastMention).
+/// (draft-atwood-jmap-chat-00 §[`BroadcastMention`]).
 ///
 /// Like [`Mention`], a `BroadcastMention` carries no position in `body`.
 /// The `broadcastMentions` array is authoritative for every `bodyType`;
@@ -308,7 +308,7 @@ pub struct BroadcastMention {
 }
 
 impl Mention {
-    /// Construct a [`Mention`] of the user whose ChatContact `id` (or
+    /// Construct a [`Mention`] of the user whose `ChatContact` `id` (or
     /// accountId, for the owner) is `id`.
     pub fn new(id: Id) -> Self {
         Self {

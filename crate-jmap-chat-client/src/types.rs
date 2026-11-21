@@ -33,7 +33,7 @@ pub enum QuotaScope {
     /// canonical wire strings to their typed variant on deserialize.
     /// Consequences:
     /// * `QuotaScope::Other("account".into()) != QuotaScope::Account`
-    ///   on PartialEq, but both serialize to `"account"`.
+    ///   on [`PartialEq`], but both serialize to `"account"`.
     /// * `Other("account")` -> `"account"` -> `Account` is a lossy
     ///   round-trip (the variant changes shape).
     ///
@@ -53,7 +53,7 @@ impl_string_enum!(QuotaScope, "a QuotaScope wire string",
 // QuotaResourceType
 // ---------------------------------------------------------------------------
 
-/// RFC 9425 §3.2 ResourceType — the unit of measure for a quota.
+/// RFC 9425 §3.2 `ResourceType` — the unit of measure for a quota.
 ///
 /// Wire strings: `"count"`, `"octets"`.
 /// `Other(String)` preserves any unrecognized value for lossless round-trip.

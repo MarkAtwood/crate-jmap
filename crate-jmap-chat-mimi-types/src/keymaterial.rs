@@ -2,8 +2,8 @@
 //! response arguments of `KeyMaterial/fetch`.
 //!
 //! The method is not a standard RFC 8620 method: the client passes a
-//! signed MIMI KeyMaterialRequest and the server returns the arguments
-//! "decoded from the KeyMaterialResponse" (draft-ietf-mimi-protocol-06
+//! signed MIMI `KeyMaterialRequest` and the server returns the arguments
+//! "decoded from the `KeyMaterialResponse`" (draft-ietf-mimi-protocol-06
 //! §5.2). The status codes are written as their MIMI code names.
 
 use jmap_types::{Id, impl_string_enum};
@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use crate::Base64Url;
 
 /// The `userStatus` of a `KeyMaterial/fetch` response: the
-/// KeyMaterialUserCode of draft-ietf-mimi-protocol-06 §5.2, "written as
+/// [`KeyMaterialUserCode`] of draft-ietf-mimi-protocol-06 §5.2, "written as
 /// its name".
 ///
 /// `Other` preserves any code name this version does not know, for
@@ -56,7 +56,7 @@ impl_string_enum!(KeyMaterialUserCode, "a KeyMaterialUserCode name",
 );
 
 /// The `clientStatus` of a [`ClientKeyMaterial`]: the
-/// KeyMaterialClientCode of draft-ietf-mimi-protocol-06 §5.2, written as
+/// [`KeyMaterialClientCode`] of draft-ietf-mimi-protocol-06 §5.2, written as
 /// its name.
 ///
 /// `Other` preserves any code name this version does not know, for
@@ -111,7 +111,7 @@ pub struct KeyMaterialFetchRequest {
     /// The `roomId` of a Chat in this account bound to the room the
     /// target user is to be added to.
     pub room_id: String,
-    /// A KeyMaterialRequest (draft-ietf-mimi-protocol-06 §5.2) signed by
+    /// A `KeyMaterialRequest` (draft-ietf-mimi-protocol-06 §5.2) signed by
     /// the client.
     pub request: Base64Url,
     /// Catch-all for vendor / site / private extension fields not covered
@@ -135,7 +135,7 @@ impl KeyMaterialFetchRequest {
 }
 
 /// One entry of [`KeyMaterialFetchResponse::clients`], decoded from a
-/// MIMI ClientKeyMaterial.
+/// MIMI [`ClientKeyMaterial`].
 ///
 /// Spec: draft-atwood-jmap-chat-mimi-00 §KeyMaterial/fetch: "`keyPackage`
 /// (String, present when `clientStatus` is `\"success\"`), and
@@ -151,7 +151,7 @@ pub struct ClientKeyMaterial {
     pub client_status: KeyMaterialClientCode,
     /// The URI of the client.
     pub client_uri: String,
-    /// The client's KeyPackage (RFC 9420 §10).
+    /// The client's `KeyPackage` (RFC 9420 §10).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub key_package: Option<Base64Url>,
     /// The client's MLS Capabilities (RFC 9420 §7.2).
@@ -180,7 +180,7 @@ impl ClientKeyMaterial {
 }
 
 /// Response arguments of `KeyMaterial/fetch`, decoded from a MIMI
-/// KeyMaterialResponse.
+/// `KeyMaterialResponse`.
 ///
 /// Spec: draft-atwood-jmap-chat-mimi-00 §KeyMaterial/fetch. All four
 /// arguments are required. draft-ietf-mimi-protocol-06 §5.2 forbids
@@ -212,7 +212,7 @@ pub struct KeyMaterialFetchResponse {
     pub user_status: KeyMaterialUserCode,
     /// The target user URI.
     pub user_uri: String,
-    /// One entry per ClientKeyMaterial.
+    /// One entry per [`ClientKeyMaterial`].
     pub clients: Vec<ClientKeyMaterial>,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across

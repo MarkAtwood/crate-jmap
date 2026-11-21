@@ -55,7 +55,7 @@ use crate::space::ChatPermission;
 pub struct MemberCreate {
     /// The new member's [`crate::ChatContact`] id.
     pub user_id: Id,
-    /// SpaceRole ids the new member holds. May be empty (the
+    /// `SpaceRole` ids the new member holds. May be empty (the
     /// member gets only `@everyone`).
     pub role_ids: Vec<Id>,
     /// Catch-all for vendor / site / private extension fields not covered
@@ -130,7 +130,7 @@ pub struct ChannelCreate {
 /// Per-entry input for `addCategories` (draft-atwood-jmap-chat-00 §Space/set).
 ///
 /// The draft: "Each entry: `name` (String), optional `position`
-/// (UnsignedInt) and `channelIds` (String[]). Server assigns ULIDs." This
+/// (`UnsignedInt`) and `channelIds` (String[]). Server assigns ULIDs." This
 /// struct carries only that client-supplied subset of [`crate::Category`].
 /// An absent `channelIds` deserializes as an empty list. An absent
 /// `position` is left to the server; the draft does not define a default,
@@ -160,7 +160,7 @@ pub struct CategoryCreate {
 /// Per-entry input for `addRoles` (draft-atwood-jmap-chat-00 §Space/set).
 ///
 /// The draft: "Each entry: `name` (String), `permissions` (String[]),
-/// `position` (UnsignedInt), and optionally `color` [...] Server assigns
+/// `position` (`UnsignedInt`), and optionally `color` [...] Server assigns
 /// ULIDs." This struct carries only that client-supplied subset of
 /// [`crate::SpaceRole`]; the backend mints the role `id`.
 #[non_exhaustive]
@@ -372,7 +372,7 @@ pub struct CategoryPatch {
 ///
 /// Replaces the earlier `serde_json::Map<String, serde_json::Value>`
 /// trait surface (bd:JMAP-x2gd.39) so the public API no longer leaks
-/// the upstream serde_json type into every `ChatBackend` impl.
+/// the upstream `serde_json` type into every `ChatBackend` impl.
 #[non_exhaustive]
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -482,7 +482,7 @@ pub enum SpacePatchOp {
     RemoveRole(Id),
     /// Update an existing role (one entry from wire key `updateRoles`).
     UpdateRole {
-        /// The id of the SpaceRole to update.
+        /// The id of the `SpaceRole` to update.
         id: Id,
         /// The role fields to change.
         patch: RolePatch,
@@ -495,7 +495,7 @@ pub enum SpacePatchOp {
     RemoveMember(Id),
     /// Update an existing member (one entry from wire key `updateMembers`).
     UpdateMember {
-        /// The ChatContact id of the member to update (wire key `id`).
+        /// The `ChatContact` id of the member to update (wire key `id`).
         user_id: Id,
         /// The member fields to change.
         patch: MemberPatch,

@@ -1,4 +1,4 @@
-//! draft-atwood-jmap-chat-federation-00 §ChatContact Type Extensions for
+//! draft-atwood-jmap-chat-federation-00 §`ChatContact` Type Extensions for
 //! Federation — the `ChatContact.serverUrl` and `ChatContact.directAddress`
 //! fields.
 //!
@@ -6,10 +6,10 @@
 //! in `extra`. Both are peer-supplied and untrusted (draft §Direct Address
 //! Hints); these readers do not validate them.
 
-/// The `serverUrl` of a ChatContact, read from the ChatContact's `extra`
+/// The `serverUrl` of a `ChatContact`, read from the `ChatContact`'s `extra`
 /// map.
 ///
-/// Spec: draft-atwood-jmap-chat-federation-00 §ChatContact Type Extensions
+/// Spec: draft-atwood-jmap-chat-federation-00 §`ChatContact` Type Extensions
 /// for Federation: "`serverUrl` (String): Base HTTPS URL of this contact's
 /// mailbox. Used for outbound delivery and for probing `/.well-known/jmap`."
 ///
@@ -30,10 +30,10 @@ pub fn contact_server_url(extra: &serde_json::Map<String, serde_json::Value>) ->
     extra.get("serverUrl")?.as_str()
 }
 
-/// The `directAddress` of a ChatContact, read from the ChatContact's
+/// The `directAddress` of a `ChatContact`, read from the `ChatContact`'s
 /// `extra` map.
 ///
-/// Spec: draft-atwood-jmap-chat-federation-00 §ChatContact Type Extensions
+/// Spec: draft-atwood-jmap-chat-federation-00 §`ChatContact` Type Extensions
 /// for Federation: "`directAddress` (String, optional): A deployment-specific
 /// address at which this contact's client may be reachable directly, without
 /// routing through their mailbox. ... This value is peer-supplied and MUST

@@ -1,11 +1,11 @@
 //! draft-atwood-jmap-chat-mimi-00 §GroupInfo/fetch — the client's checks
-//! on a GroupInfoResponse before an external join.
+//! on a `GroupInfoResponse` before an external join.
 //!
 //! "The client SHOULD verify the response signature with `hub_sender`,
-//! and SHOULD verify that the decrypted GroupInfo's `external_senders`
+//! and SHOULD verify that the decrypted `GroupInfo`'s `external_senders`
 //! extension contains that `hub_sender`, before it joins."
 //!
-//! The GroupInfoResponse is the struct of draft-ietf-mimi-protocol-06
+//! The `GroupInfoResponse` is the struct of draft-ietf-mimi-protocol-06
 //! §5.6:
 //!
 //! ```text
@@ -29,12 +29,12 @@
 //! } GroupInfoResponse;
 //! ```
 //!
-//! GroupInfoResponseTBS is the same struct without `signature`, so for a
+//! `GroupInfoResponseTBS` is the same struct without `signature`, so for a
 //! `success` response it is exactly the received octets in front of
 //! `signature`. The signature is verified over those octets, never over a
 //! re-encoding (draft §Conventions and Definitions).
 //!
-//! `encrypted_groupinfo_and_tree` decrypts to a GroupInfoRatchetTreeTBE
+//! `encrypted_groupinfo_and_tree` decrypts to a `GroupInfoRatchetTreeTBE`
 //! (draft-ietf-mimi-protocol-06 §5.6):
 //!
 //! ```text
@@ -70,12 +70,12 @@ use tls_codec::{Deserialize as _, Serialize as _, VLBytes};
 const MLS10: u8 = 1;
 /// `GroupInfoCode` `success(1)` (draft-ietf-mimi-protocol-06 §5.6).
 const SUCCESS: u8 = 1;
-/// The SignWithLabel label of the GroupInfoResponse signature.
+/// The `SignWithLabel` label of the `GroupInfoResponse` signature.
 const LABEL: &str = "GroupInfoResponseTBS";
-/// The EncryptWithLabel label of `encrypted_groupinfo_and_tree`.
+/// The `EncryptWithLabel` label of `encrypted_groupinfo_and_tree`.
 const TBE_LABEL: &str = "GroupInfo and ratchet_tree encryption";
 
-/// A `success` GroupInfoResponse whose signature verified with its
+/// A `success` `GroupInfoResponse` whose signature verified with its
 /// `hub_sender`.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -85,25 +85,25 @@ pub struct VerifiedGroupInfoResponse {
     /// The `cipher_suite`, which names the signature algorithm.
     pub cipher_suite: Ciphersuite,
     /// The `hub_sender` whose signature key verified the response. Check
-    /// the decrypted GroupInfo with [`group_info_names_hub_sender`].
+    /// the decrypted `GroupInfo` with [`group_info_names_hub_sender`].
     pub hub_sender: ExternalSender,
     /// `encrypted_groupinfo_and_tree`, encrypted to the request's
-    /// `groupInfoPublicKey` with EncryptWithLabel label "GroupInfo and
-    /// ratchet_tree encryption" and context `room_id`.
+    /// `groupInfoPublicKey` with `EncryptWithLabel` label "`GroupInfo` and
+    /// `ratchet_tree` encryption" and context `room_id`.
     pub encrypted_groupinfo_and_tree: HpkeCiphertext,
 }
 
-/// Why [`verify_group_info_response`] refused a GroupInfoResponse.
+/// Why [`verify_group_info_response`] refused a `GroupInfoResponse`.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum GroupInfoResponseError {
-    /// The octets are not a GroupInfoResponse: truncated, a malformed
+    /// The octets are not a `GroupInfoResponse`: truncated, a malformed
     /// field, or trailing octets after `signature`.
     Malformed,
     /// `version` is not `mls10`, the only Protocol defined.
     UnsupportedProtocol(u8),
-    /// `status` is not `success`, so the response carries no GroupInfo
-    /// and no signature. The value is the GroupInfoCode.
+    /// `status` is not `success`, so the response carries no `GroupInfo`
+    /// and no signature. The value is the `GroupInfoCode`.
     NotSuccess(u8),
     /// `cipher_suite` is not one this version of openmls knows.
     UnsupportedCipherSuite(u16),
@@ -112,7 +112,7 @@ pub enum GroupInfoResponseError {
     /// `encrypted_groupinfo_and_tree` does not decrypt with the given
     /// `groupInfoPublicKey` private key.
     DecryptionFailed,
-    /// The decrypted plaintext is not a GroupInfoRatchetTreeTBE.
+    /// The decrypted plaintext is not a `GroupInfoRatchetTreeTBE`.
     MalformedGroupInfoAndTree,
 }
 
@@ -146,7 +146,7 @@ impl From<tls_codec::Error> for GroupInfoResponseError {
     }
 }
 
-/// Parse a GroupInfoResponse and verify its signature with its
+/// Parse a `GroupInfoResponse` and verify its signature with its
 /// `hub_sender` (draft-atwood-jmap-chat-mimi-00 §GroupInfo/fetch: "The
 /// client SHOULD verify the response signature with `hub_sender`").
 ///
@@ -155,7 +155,7 @@ impl From<tls_codec::Error> for GroupInfoResponseError {
 ///
 /// A verified response proves only that the holder of `hub_sender`'s key
 /// signed it. Decrypt `encrypted_groupinfo_and_tree` with
-/// [`decrypt_group_info_and_tree`] and check that the GroupInfo names the
+/// [`decrypt_group_info_and_tree`] and check that the `GroupInfo` names the
 /// same hub with [`group_info_names_hub_sender`] before joining.
 ///
 /// # Errors
@@ -210,14 +210,14 @@ pub fn verify_group_info_response(
     })
 }
 
-/// Whether the GroupInfo's `external_senders` extension contains
+/// Whether the `GroupInfo`'s `external_senders` extension contains
 /// `hub_sender` (draft-atwood-jmap-chat-mimi-00 §GroupInfo/fetch: the
-/// client "SHOULD verify that the decrypted GroupInfo's
+/// client "SHOULD verify that the decrypted `GroupInfo`'s
 /// `external_senders` extension contains that `hub_sender`, before it
 /// joins").
 ///
-/// `external_senders` is a GroupContext extension (RFC 9420 §12.1.8.1).
-/// `group_info` is the decrypted GroupInfo, not yet verified: openmls
+/// `external_senders` is a `GroupContext` extension (RFC 9420 §12.1.8.1).
+/// `group_info` is the decrypted `GroupInfo`, not yet verified: openmls
 /// verifies its signature when the client joins with it by external
 /// commit. Pass the `hub_sender` of the [`VerifiedGroupInfoResponse`].
 pub fn group_info_names_hub_sender(
@@ -231,8 +231,8 @@ pub fn group_info_names_hub_sender(
         .is_some_and(|senders| senders.contains(hub_sender))
 }
 
-/// A RatchetTreeOption (draft-mahy-mls-ratchet-tree-options-04 §3): how
-/// the joiner gets the ratchet tree that the GroupInfo leaves out.
+/// A [`RatchetTreeOption`] (draft-mahy-mls-ratchet-tree-options-04 §3): how
+/// the joiner gets the ratchet tree that the `GroupInfo` leaves out.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
 pub enum RatchetTreeOption {
@@ -248,22 +248,22 @@ pub enum RatchetTreeOption {
     DistributionService,
 }
 
-/// A PendingProposal (draft-ietf-mimi-protocol-06 §5.6): a proposal the
+/// A [`PendingProposal`] (draft-ietf-mimi-protocol-06 §5.6): a proposal the
 /// hub accepted during the current epoch.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
 pub struct PendingProposal {
-    /// The `proposal` MLSMessage.
+    /// The `proposal` `MLSMessage`.
     pub proposal: MlsMessageIn,
     /// `hub_accepted_time`, as the hub sent it.
     pub hub_accepted_time: u64,
 }
 
-/// A decrypted GroupInfoRatchetTreeTBE (draft-ietf-mimi-protocol-06 §5.6).
+/// A decrypted `GroupInfoRatchetTreeTBE` (draft-ietf-mimi-protocol-06 §5.6).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
 pub struct GroupInfoAndTree {
-    /// The GroupInfo, without a `ratchet_tree` extension and not yet
+    /// The `GroupInfo`, without a `ratchet_tree` extension and not yet
     /// verified. Check it with [`group_info_names_hub_sender`] before
     /// joining.
     pub group_info: VerifiableGroupInfo,
@@ -275,11 +275,11 @@ pub struct GroupInfoAndTree {
 }
 
 /// Decrypt `encrypted_groupinfo_and_tree` with the private key of the
-/// request's `groupInfoPublicKey` and parse the GroupInfoRatchetTreeTBE
+/// request's `groupInfoPublicKey` and parse the `GroupInfoRatchetTreeTBE`
 /// inside it (draft-ietf-mimi-protocol-06 §5.6).
 ///
-/// Decryption is RFC 9420 §5.1.3 DecryptWithLabel with label "GroupInfo
-/// and ratchet_tree encryption" and context `room_id`, using the HPKE
+/// Decryption is RFC 9420 §5.1.3 `DecryptWithLabel` with label "`GroupInfo`
+/// and `ratchet_tree` encryption" and context `room_id`, using the HPKE
 /// algorithms of the response's `cipher_suite`: the draft names no other
 /// cipher suite for it, and the group's own suite is inside the
 /// ciphertext. `group_info_private_key` is the HPKE private key in the
@@ -308,7 +308,7 @@ pub fn decrypt_group_info_and_tree(
     group_info_and_tree(&plaintext).ok_or(GroupInfoResponseError::MalformedGroupInfoAndTree)
 }
 
-/// Parse a GroupInfoRatchetTreeTBE; `None` when it does not parse or has
+/// Parse a `GroupInfoRatchetTreeTBE`; [`None`] when it does not parse or has
 /// trailing octets.
 fn group_info_and_tree(mut rest: &[u8]) -> Option<GroupInfoAndTree> {
     let group_info = VerifiableGroupInfo::tls_deserialize(&mut rest).ok()?;
@@ -337,7 +337,7 @@ fn group_info_and_tree(mut rest: &[u8]) -> Option<GroupInfoAndTree> {
     })
 }
 
-/// RFC 9420 §5.1.3 DecryptWithLabel: HPKE OpenBase with info
+/// RFC 9420 §5.1.3 `DecryptWithLabel`: HPKE `OpenBase` with info
 /// `EncryptContext { "MLS 1.0 " + label, context }` and empty aad.
 fn decrypt_with_label(
     crypto: &impl OpenMlsCrypto,
@@ -356,7 +356,7 @@ fn decrypt_with_label(
         .ok()
 }
 
-/// RFC 9420 §5.1.2 VerifyWithLabel: verify `signature` over
+/// RFC 9420 §5.1.2 `VerifyWithLabel`: verify `signature` over
 /// `SignContent { "MLS 1.0 " + label, content }`.
 fn verify_with_label(
     crypto: &impl OpenMlsCrypto,

@@ -1,7 +1,7 @@
 //! draft-atwood-jmap-chat-federation-00 §Session Object Extensions for
 //! Federation — the `ownerUserId`, `peerSigningKeys` and
 //! `ownerDirectAddress` Session fields, the chat `ownerEndpoints` field
-//! as ChatContact `endpoints`, and the anonymous Session object a
+//! as `ChatContact` `endpoints`, and the anonymous Session object a
 //! server answers an unsigned GET of `/.well-known/jmap` with (§Key
 //! Publication).
 //!
@@ -24,7 +24,7 @@ use serde_json::{Map, Value};
 ///
 /// `owner_user_id` is advisory owner metadata, never a peer identity:
 /// "Identity binding does not use these fields". A peer updates the
-/// ChatContact whose `identity` equals it only after it binds to the peer
+/// `ChatContact` whose `identity` equals it only after it binds to the peer
 /// domain the Session was fetched from (`jmap_peer_auth::bind_identity`).
 ///
 /// `peer_signing_keys` holds each entry as raw JSON. The receiving server
@@ -91,22 +91,22 @@ impl FederationSession {
     }
 }
 
-/// The `endpoints` value for the ChatContact whose server published a
+/// The `endpoints` value for the `ChatContact` whose server published a
 /// Session with these extension fields.
 ///
 /// Spec: draft-atwood-jmap-chat-00 §Session Object Extensions:
 /// "`ownerEndpoints` (Endpoint\[\], optional): The owner's advertised
 /// out-of-band capability endpoints ... Peers that probe
 /// `/.well-known/jmap` SHOULD merge these into the `endpoints` field of the
-/// corresponding ChatContact record." §ChatContact: "Servers populate this
-/// field from the ChatContact's `ownerEndpoints` at `/.well-known/jmap`."
+/// corresponding `ChatContact` record." §`ChatContact`: "Servers populate this
+/// field from the `ChatContact`'s `ownerEndpoints` at `/.well-known/jmap`."
 ///
 /// Pass the probed Session's catch-all map, or the whole Session object.
-/// Write the result to the ChatContact's `endpoints`, replacing the stored
+/// Write the result to the `ChatContact`'s `endpoints`, replacing the stored
 /// value, so an endpoint the peer stopped advertising goes away:
 ///
 /// - `None` when `ownerEndpoints` is absent or not an array: the
-///   ChatContact has no `endpoints`.
+///   `ChatContact` has no `endpoints`.
 /// - `None` when no entry remains: draft-atwood-jmap-chat-federation-00
 ///   §User References in Peer Methods: "an array left empty is stored as
 ///   absent."
@@ -114,7 +114,7 @@ impl FederationSession {
 ///   without a string `type` and `uri` is skipped, so one malformed entry
 ///   does not hide the others. An entry whose `uri` is a JMAP object URI
 ///   is removed ([`crate::is_jmap_object_uri`]): the federation draft's
-///   receiving server "removes every MessageAction and every Endpoint
+///   receiving server "removes every `MessageAction` and every Endpoint
 ///   whose `uri` is a JMAP object URI ... from the peer's Session object
 ///   (such as `ownerEndpoints`)". Entries with an unknown `type` are kept:
 ///   clients ignore them (§Endpoint).

@@ -1,9 +1,9 @@
-//! ReadPosition object tracking a user's read cursor in a Chat.
+//! [`ReadPosition`] object tracking a user's read cursor in a Chat.
 
 use jmap_types::{Id, UTCDate};
 use serde::{Deserialize, Serialize};
 
-/// Tracks how far a user has read within a Chat (spec: ReadPosition object).
+/// Tracks how far a user has read within a Chat (spec: [`ReadPosition`] object).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

@@ -26,7 +26,7 @@ impl_string_enum!(ChatKind, "a chat kind string",
     "channel" => Channel,
 );
 
-/// The `role` of a [`ChatMember`] (draft-atwood-jmap-chat-00 §ChatMember).
+/// The `role` of a [`ChatMember`] (draft-atwood-jmap-chat-00 §[`ChatMember`]).
 ///
 /// The draft defines two values: `"admin"` and `"member"`.
 /// `Other(String)` preserves any unrecognized value for lossless round-trip.
@@ -97,16 +97,16 @@ impl ChatMember {
 }
 
 /// The `targetType` of a [`ChannelPermission`] (draft-atwood-jmap-chat-00
-/// §ChannelPermission: "`"role"` or `"member"`").
+/// §[`ChannelPermission`]: "`"role"` or `"member"`").
 ///
 /// Any other string deserializes to [`Other`](Self::Other) and serializes
 /// back unchanged.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ChannelPermissionTargetType {
-    /// `"role"`: `targetId` is a SpaceRole id.
+    /// `"role"`: `targetId` is a `SpaceRole` id.
     Role,
-    /// `"member"`: `targetId` is a SpaceMember `id`.
+    /// `"member"`: `targetId` is a `SpaceMember` `id`.
     Member,
     /// Any value this version does not recognize.
     ///
@@ -229,14 +229,14 @@ pub struct Chat {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub closed_at: Option<UTCDate>,
     /// The server-set `activeCallId` property (draft-atwood-jmap-chat-00
-    /// §4.10): the id of the active VTCCall bound to this Chat. Typed
+    /// §4.10): the id of the active `VTCCall` bound to this Chat. Typed
     /// `String|null`, so `None` serializes as `null`, and it is not a
     /// `Chat/set` patch key.
     #[serde(default)]
     pub active_call_id: Option<Id>,
     /// The server-set `activeCallAccountId` property
     /// (draft-atwood-jmap-chat-00 §4.10): the id of the account hosting
-    /// the VTCCall named by `activeCallId`. Typed `Id|null`, non-null
+    /// the `VTCCall` named by `activeCallId`. Typed `Id|null`, non-null
     /// exactly when `activeCallId` is, and not a `Chat/set` patch key.
     #[serde(default)]
     pub active_call_account_id: Option<Id>,
@@ -329,25 +329,25 @@ impl Chat {
 }
 
 /// A ban preventing a user from being a member of a group Chat
-/// (draft-atwood-jmap-chat-00 §ChatBan).
+/// (draft-atwood-jmap-chat-00 §[`ChatBan`]).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ChatBan {
-    /// The `id` property (draft-atwood-jmap-chat-00 §ChatBan).
+    /// The `id` property (draft-atwood-jmap-chat-00 §[`ChatBan`]).
     pub id: Id,
-    /// The `chatId` property (draft-atwood-jmap-chat-00 §ChatBan).
+    /// The `chatId` property (draft-atwood-jmap-chat-00 §[`ChatBan`]).
     pub chat_id: Id,
-    /// The `userId` property (draft-atwood-jmap-chat-00 §ChatBan).
+    /// The `userId` property (draft-atwood-jmap-chat-00 §[`ChatBan`]).
     pub user_id: Id,
-    /// The `bannedBy` property (draft-atwood-jmap-chat-00 §ChatBan).
+    /// The `bannedBy` property (draft-atwood-jmap-chat-00 §[`ChatBan`]).
     pub banned_by: Id,
-    /// The `createdAt` property (draft-atwood-jmap-chat-00 §ChatBan).
+    /// The `createdAt` property (draft-atwood-jmap-chat-00 §[`ChatBan`]).
     pub created_at: UTCDate,
-    /// The `reason` property (draft-atwood-jmap-chat-00 §ChatBan).
+    /// The `reason` property (draft-atwood-jmap-chat-00 §[`ChatBan`]).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
-    /// The `expiresAt` property (draft-atwood-jmap-chat-00 §ChatBan).
+    /// The `expiresAt` property (draft-atwood-jmap-chat-00 §[`ChatBan`]).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<UTCDate>,
     /// Catch-all for vendor / site / private extension fields not covered

@@ -1,12 +1,12 @@
-//! ChatSessionExt trait for [`jmap_base_client::Session`].
+//! [`ChatSessionExt`] trait for [`jmap_base_client::Session`].
 //!
 //! Adds JMAP Chat extension methods to the base `Session` type.
 //!
 //! Specs:
-//!   - draft-atwood-jmap-chat-00 §3      (ChatCapability fields)
-//!   - draft-atwood-jmap-chat-push-00    (ChatPushCapability fields)
-//!   - draft-atwood-jmap-chat-wss-00     (supports_chat_websocket)
-//!   - draft-atwood-jmap-chat-filenode-00 (ChatFilenodeCapability fields)
+//!   - draft-atwood-jmap-chat-00 §3      ([`ChatCapability`] fields)
+//!   - draft-atwood-jmap-chat-push-00    ([`ChatPushCapability`] fields)
+//!   - draft-atwood-jmap-chat-wss-00     (`supports_chat_websocket`)
+//!   - draft-atwood-jmap-chat-filenode-00 ([`ChatFilenodeCapability`] fields)
 //!   - draft-atwood-jmap-chat-00 §Session Object Extensions (`ownerUserId`,
 //!     `ownerLogin`, `ownerEndpoints`)
 //!   - draft-atwood-jmap-chat-federation-00 §session-extensions
@@ -52,7 +52,11 @@ pub trait ChatSessionExt: sealed::Sealed {
     ///
     /// - `Ok(None)` — the account is absent or has no chat capability key.
     /// - `Ok(Some(...))` — the capability is present and parsed successfully.
-    /// - `Err(ClientError::Parse(...))` — the key is present but malformed JSON.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ClientError::Parse`](jmap_base_client::ClientError::Parse) if the key is present but its value
+    /// does not parse as the capability object.
     fn chat_capability(
         &self,
         account_id: &str,
@@ -64,7 +68,11 @@ pub trait ChatSessionExt: sealed::Sealed {
     ///
     /// - `Ok(None)` — the account is absent or has no chat push capability key.
     /// - `Ok(Some(...))` — the capability is present and parsed successfully.
-    /// - `Err(ClientError::Parse(...))` — the key is present but malformed JSON.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ClientError::Parse`](jmap_base_client::ClientError::Parse) if the key is present but its value
+    /// does not parse as the capability object.
     fn chat_push_capability(
         &self,
         account_id: &str,
@@ -76,7 +84,11 @@ pub trait ChatSessionExt: sealed::Sealed {
     ///
     /// - `Ok(None)` — the account is absent or has no chat filenode capability key.
     /// - `Ok(Some(...))` — the capability is present and parsed successfully.
-    /// - `Err(ClientError::Parse(...))` — the key is present but malformed JSON.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ClientError::Parse`](jmap_base_client::ClientError::Parse) if the key is present but its value
+    /// does not parse as the capability object.
     fn chat_filenode_capability(
         &self,
         account_id: &str,
@@ -98,7 +110,7 @@ pub trait ChatSessionExt: sealed::Sealed {
     /// missing or not a string value.
     fn vapid_public_key(&self) -> Option<&str>;
 
-    /// Returns `true` if the server supports JMAP RefPlus result references.
+    /// Returns `true` if the server supports JMAP `RefPlus` result references.
     ///
     /// Checks for `capabilities["urn:ietf:params:jmap:refplus"]`.
     fn supports_refplus(&self) -> bool;
@@ -136,7 +148,11 @@ pub trait ChatSessionExt: sealed::Sealed {
     ///
     /// - `Ok(None)` — the field is absent.
     /// - `Ok(Some(endpoints))` — the field is present and valid.
-    /// - `Err(ClientError::Parse(...))` — the field is present but malformed.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ClientError::Parse`](jmap_base_client::ClientError::Parse) if the field is present but is not
+    /// an array of valid [`Endpoint`] objects.
     fn owner_endpoints(&self) -> Result<Option<Vec<Endpoint>>, jmap_base_client::ClientError>;
 
     /// Returns the owner's direct-delivery address hint, if advertised.

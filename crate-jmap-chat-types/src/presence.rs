@@ -1,4 +1,4 @@
-//! Presence state and PresenceStatus object.
+//! Presence state and [`PresenceStatus`] object.
 
 use jmap_types::{Id, UTCDate, impl_string_enum};
 use serde::{Deserialize, Serialize};
@@ -36,7 +36,7 @@ fn default_presence() -> Presence {
     Presence::Online
 }
 
-/// A user's current presence state (spec: PresenceStatus object).
+/// A user's current presence state (spec: [`PresenceStatus`] object).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

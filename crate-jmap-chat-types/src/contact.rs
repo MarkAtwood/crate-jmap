@@ -1,4 +1,4 @@
-//! ChatContact and Endpoint objects for remote users.
+//! [`ChatContact`] and Endpoint objects for remote users.
 
 use crate::presence::Presence;
 use jmap_did_types::Did;
@@ -77,17 +77,17 @@ pub struct Endpoint {
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
-/// A remote user known to this server (spec: ChatContact object).
+/// A remote user known to this server (spec: [`ChatContact`] object).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ChatContact {
     /// The `id` property (draft-atwood-jmap-chat-00 §4.8).
     ///
-    /// The server-assigned RFC 8620 §1.2 Id of this ChatContact. It is
+    /// The server-assigned RFC 8620 §1.2 Id of this [`ChatContact`]. It is
     /// local to this server: another server holds a different `id` for
     /// the same user. Every client-facing reference to a user (a
-    /// Message `senderId`, a Mention `id`, a ChatMember `id`) carries
+    /// Message `senderId`, a Mention `id`, a `ChatMember` `id`) carries
     /// this value. The user's authentication-layer identity is in
     /// [`identity`](Self::identity), not here.
     pub id: Id,
@@ -100,7 +100,7 @@ pub struct ChatContact {
     /// owner in `ChatContact/set` create.
     ///
     /// Servers MUST treat the value as opaque and compare it octet for
-    /// octet; within a server, at most one ChatContact has a given
+    /// octet; within a server, at most one [`ChatContact`] has a given
     /// `identity`.
     pub identity: String,
     /// The `login` property (draft-atwood-jmap-chat-00 §4.8).
@@ -140,7 +140,7 @@ pub struct ChatContact {
     /// The `did` property (draft-atwood-jmap-chat-did-00 §Optional `did`
     /// field).
     ///
-    /// A DID-referencing property: a DID URI bound to this ChatContact
+    /// A DID-referencing property: a DID URI bound to this [`ChatContact`]
     /// for cryptographic purposes, for the pseudonymous case where
     /// [`identity`](Self::identity) is not a DID. It is server-set:
     /// `ChatContact/set` create accepts only `identity`, and how the
@@ -148,7 +148,7 @@ pub struct ChatContact {
     /// it checks [`has_consistent_did`](Self::has_consistent_did). When
     /// present, the DID's verification methods are the authoritative
     /// source of public-key material for verifying signatures attributed
-    /// to this ChatContact; when absent, no DID is bound. A JSON value
+    /// to this [`ChatContact`]; when absent, no DID is bound. A JSON value
     /// that is not a valid DID fails to deserialize.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub did: Option<Did>,
@@ -156,7 +156,7 @@ pub struct ChatContact {
     /// changes).
     ///
     /// Server-set. The time the server last saw the DID bound to this
-    /// ChatContact change: a different [`did`](Self::did), or `did` added
+    /// [`ChatContact`] change: a different [`did`](Self::did), or `did` added
     /// or removed. Absent if it has never changed. A client MAY tell the
     /// user when it changes, since the contact may now be someone else;
     /// the server cannot tell a legitimate new DID from a takeover.
@@ -208,7 +208,7 @@ impl ChatContact {
     ///
     /// Returns `false` only when `did` is present and `identity` parses
     /// as a different DID (byte-exact comparison). The draft says a
-    /// server detecting that mismatch "SHOULD treat the ChatContact
+    /// server detecting that mismatch "SHOULD treat the [`ChatContact`]
     /// record as invalid and SHOULD NOT use either DID for
     /// authentication".
     pub fn has_consistent_did(&self) -> bool {

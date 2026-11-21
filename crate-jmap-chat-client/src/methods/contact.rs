@@ -1,4 +1,4 @@
-//! JMAP Chat — ChatContact/* method implementations on SessionClient.
+//! JMAP Chat — `ChatContact`/* method implementations on `SessionClient`.
 //!
 //! Spec: JMAP Chat draft §5 (ChatContact/get, /changes, /set, /query, /queryChanges).
 
@@ -11,9 +11,9 @@ use super::{
 };
 
 impl super::SessionClient {
-    /// Fetch ChatContact objects by IDs (JMAP Chat §5 ChatContact/get).
+    /// Fetch `ChatContact` objects by IDs (JMAP Chat §5 ChatContact/get).
     ///
-    /// If `ids` is `None`, returns all ChatContacts for the account.
+    /// If `ids` is [`None`], returns all `ChatContact`s for the account.
     ///
     /// # Errors
     ///
@@ -54,7 +54,7 @@ impl super::SessionClient {
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 
-    /// Fetch changes to ChatContact objects since `since_state` (RFC 8620 §5.2).
+    /// Fetch changes to `ChatContact` objects since `since_state` (RFC 8620 §5.2).
     ///
     /// # Errors
     ///
@@ -93,7 +93,7 @@ impl super::SessionClient {
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 
-    /// Create a ChatContact for `identity` (JMAP Chat §ChatContact/set
+    /// Create a `ChatContact` for `identity` (JMAP Chat §ChatContact/set
     /// create).
     ///
     /// `identity` is the only property a create carries; the server
@@ -114,7 +114,7 @@ impl super::SessionClient {
     ///   the matching error list on [`Self::chat_contact_get`]. /set
     ///   create errors appear in [`SetResponse::not_created`] rather
     ///   than as [`Err`]: `alreadyExists` (with `existingId`) when a
-    ///   ChatContact with that `identity` exists, and
+    ///   `ChatContact` with that `identity` exists, and
     ///   `invalidProperties` when `identity` is the owner's.
     pub async fn chat_contact_create(
         &self,
@@ -135,7 +135,7 @@ impl super::SessionClient {
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 
-    /// Update ChatContact properties (JMAP Chat §ChatContact/set).
+    /// Update `ChatContact` properties (JMAP Chat §ChatContact/set).
     ///
     /// Supports `blocked` (Boolean) and `displayName` (nullable String).
     /// Create is [`Self::chat_contact_create`]; destroy is not supported
@@ -188,7 +188,7 @@ impl super::SessionClient {
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 
-    /// Query ChatContact IDs (RFC 8620 §5.5 / JMAP Chat §ChatContact/query).
+    /// Query `ChatContact` IDs (RFC 8620 §5.5 / JMAP Chat §ChatContact/query).
     ///
     /// `filter` is an RFC 8620 §5.5 `Filter`: a bare condition
     /// (`Filter::Condition`) or a `FilterOperator` combining sub-filters
@@ -229,7 +229,7 @@ impl super::SessionClient {
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 
-    /// Fetch query-result changes for ChatContact since `since_query_state`
+    /// Fetch query-result changes for `ChatContact` since `since_query_state`
     /// (RFC 8620 §5.6 / ChatContact/queryChanges).
     ///
     /// `filter` and `sort` MUST match the `filter` / `sort` passed to the

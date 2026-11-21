@@ -101,7 +101,7 @@ pub trait ChatWsExt: sealed::Sealed {
     /// [`jmap_base_client::WsFrame::request_id`] on the
     /// [`ChatWsFrame::Other`] frame. A client that sends
     /// several control messages in succession MAY give each an `id`
-    /// (draft-atwood-jmap-chat-wss-00 §ChatStreamEnable, jmap-chat-spec
+    /// (draft-atwood-jmap-chat-wss-00 §[`ChatStreamEnable`], jmap-chat-spec
     /// 77c3474 L191).
     ///
     /// Spec: draft-atwood-jmap-chat-wss-00

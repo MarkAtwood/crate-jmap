@@ -1,6 +1,6 @@
-//! JMAP Chat — ChatBan/* method implementations on SessionClient.
+//! JMAP Chat — `ChatBan`/* method implementations on `SessionClient`.
 //!
-//! Spec: draft-atwood-jmap-chat-00 §ChatBan Methods (ChatBan/get, /changes, /set).
+//! Spec: draft-atwood-jmap-chat-00 §`ChatBan` Methods (ChatBan/get, /changes, /set).
 
 use jmap_types::{Id, PatchObject, State};
 
@@ -9,9 +9,9 @@ use super::{
 };
 
 impl super::SessionClient {
-    /// Fetch ChatBan objects by IDs (draft-atwood-jmap-chat-00 §ChatBan/get).
+    /// Fetch `ChatBan` objects by IDs (draft-atwood-jmap-chat-00 §ChatBan/get).
     ///
-    /// If `ids` is `None`, returns all ChatBan objects for the account.
+    /// If `ids` is [`None`], returns all `ChatBan` objects for the account.
     /// Pass `properties: None` to return all fields.
     ///
     /// # Errors
@@ -53,7 +53,7 @@ impl super::SessionClient {
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 
-    /// Fetch changes to ChatBan objects since `since_state` (RFC 8620 §5.2 / ChatBan/changes).
+    /// Fetch changes to `ChatBan` objects since `since_state` (RFC 8620 §5.2 / ChatBan/changes).
     ///
     /// # Errors
     ///
@@ -90,7 +90,7 @@ impl super::SessionClient {
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 
-    /// Create a ChatBan (RFC 8620 §5.3 / ChatBan/set create).
+    /// Create a `ChatBan` (RFC 8620 §5.3 / ChatBan/set create).
     ///
     /// When `input.client_id` is `None`, a ULID is generated automatically.
     ///
@@ -137,7 +137,7 @@ impl super::SessionClient {
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 
-    /// Update a ChatBan (RFC 8620 §5.3 / ChatBan/set update).
+    /// Update a `ChatBan` (RFC 8620 §5.3 / ChatBan/set update).
     ///
     /// Fields of `patch` left at `Patch::Keep` are omitted from the patch
     /// and left unchanged server-side. Requires the `"admin"` role in the
@@ -187,7 +187,7 @@ impl super::SessionClient {
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 
-    /// Destroy ChatBan objects (RFC 8620 §5.3 / ChatBan/set destroy).
+    /// Destroy `ChatBan` objects (RFC 8620 §5.3 / ChatBan/set destroy).
     ///
     /// `ids` must be non-empty; the guard fires before any network call.
     ///

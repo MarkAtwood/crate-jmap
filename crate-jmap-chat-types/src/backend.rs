@@ -260,19 +260,19 @@ pub enum SpaceBanProperty {
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ChatBanProperty {
-    /// The `id` property (draft-atwood-jmap-chat-00 §ChatBan).
+    /// The `id` property (draft-atwood-jmap-chat-00 §`ChatBan`).
     Id,
-    /// The `chatId` property (draft-atwood-jmap-chat-00 §ChatBan).
+    /// The `chatId` property (draft-atwood-jmap-chat-00 §`ChatBan`).
     ChatId,
-    /// The `userId` property (draft-atwood-jmap-chat-00 §ChatBan).
+    /// The `userId` property (draft-atwood-jmap-chat-00 §`ChatBan`).
     UserId,
-    /// The `bannedBy` property (draft-atwood-jmap-chat-00 §ChatBan).
+    /// The `bannedBy` property (draft-atwood-jmap-chat-00 §`ChatBan`).
     BannedBy,
-    /// The `reason` property (draft-atwood-jmap-chat-00 §ChatBan).
+    /// The `reason` property (draft-atwood-jmap-chat-00 §`ChatBan`).
     Reason,
-    /// The `createdAt` property (draft-atwood-jmap-chat-00 §ChatBan).
+    /// The `createdAt` property (draft-atwood-jmap-chat-00 §`ChatBan`).
     CreatedAt,
-    /// The `expiresAt` property (draft-atwood-jmap-chat-00 §ChatBan).
+    /// The `expiresAt` property (draft-atwood-jmap-chat-00 §`ChatBan`).
     ExpiresAt,
 }
 
@@ -517,7 +517,7 @@ impl GetObject for crate::ChatContact {}
 /// docs/design/DECISIONS.md decision 22).
 impl jmap_object_history_types::HistoryObject for crate::ChatContact {}
 
-/// draft-atwood-jmap-chat-00 §ChatContact (lines 506-539): `id` is
+/// draft-atwood-jmap-chat-00 §`ChatContact` (lines 506-539): `id` is
 /// "immutable, server-set"; `login`, `firstSeenAt`, `lastSeenAt`,
 /// `presence`, `lastActiveAt`, `statusText` and `statusEmoji` are
 /// "server-set"; `identity` is "immutable". draft-atwood-jmap-chat-did-00
@@ -556,7 +556,7 @@ impl JmapObject for crate::ReadPosition {
 
 impl GetObject for crate::ReadPosition {}
 
-/// draft-atwood-jmap-chat-00 §ReadPosition (lines 995-1004): `id` is
+/// draft-atwood-jmap-chat-00 §`ReadPosition` (lines 995-1004): `id` is
 /// "immutable, server-set", `lastReadAt` is "server-set", `chatId` is
 /// "immutable".
 impl SetObject for crate::ReadPosition {
@@ -576,7 +576,7 @@ impl GetObject for crate::CustomEmoji {}
 /// docs/design/DECISIONS.md decision 22).
 impl jmap_object_history_types::HistoryObject for crate::CustomEmoji {}
 
-/// draft-atwood-jmap-chat-00 §CustomEmoji (lines 917-932): `id`,
+/// draft-atwood-jmap-chat-00 §`CustomEmoji` (lines 917-932): `id`,
 /// `createdBy` and `createdAt` are "immutable, server-set".
 /// §CustomEmoji/set: "`create` accepts: `name` ..., `blobId` ..., `spaceId`"
 /// and "`update` supports: `name`, `blobId`", so `spaceId` is immutable.
@@ -602,7 +602,7 @@ impl GetObject for crate::SpaceInvite {}
 /// docs/design/DECISIONS.md decision 22).
 impl jmap_object_history_types::HistoryObject for crate::SpaceInvite {}
 
-/// draft-atwood-jmap-chat-00 §SpaceInvite (lines 939-963): `id`, `code`,
+/// draft-atwood-jmap-chat-00 §`SpaceInvite` (lines 939-963): `id`, `code`,
 /// `createdBy` and `createdAt` are "immutable, server-set"; `uses` is
 /// "server-set"; `spaceId` is "immutable".
 impl SetObject for crate::SpaceInvite {
@@ -623,7 +623,7 @@ impl GetObject for crate::SpaceBan {}
 /// docs/design/DECISIONS.md decision 22).
 impl jmap_object_history_types::HistoryObject for crate::SpaceBan {}
 
-/// draft-atwood-jmap-chat-00 §SpaceBan (lines 970-988): `id`, `bannedBy`
+/// draft-atwood-jmap-chat-00 §`SpaceBan` (lines 970-988): `id`, `bannedBy`
 /// and `createdAt` are "immutable, server-set"; `spaceId` and `userId` are
 /// "immutable".
 impl SetObject for crate::SpaceBan {
@@ -640,10 +640,10 @@ impl JmapObject for crate::ChatBan {
 
 impl GetObject for crate::ChatBan {}
 /// "Supports History: Yes" (draft-atwood-jmap-chat-00 §IANA
-/// Considerations, the ChatBan "JMAP Data Types" row).
+/// Considerations, the `ChatBan` "JMAP Data Types" row).
 impl jmap_object_history_types::HistoryObject for crate::ChatBan {}
 
-/// draft-atwood-jmap-chat-00 §ChatBan: `id`, `bannedBy` and `createdAt`
+/// draft-atwood-jmap-chat-00 §`ChatBan`: `id`, `bannedBy` and `createdAt`
 /// are "immutable, server-set"; `chatId` and `userId` are "immutable".
 impl SetObject for crate::ChatBan {
     type Patch = PatchObject;
@@ -659,7 +659,7 @@ impl JmapObject for crate::PresenceStatus {
 
 impl GetObject for crate::PresenceStatus {}
 
-/// draft-atwood-jmap-chat-00 §PresenceStatus (lines 1013-1031): `id` is
+/// draft-atwood-jmap-chat-00 §`PresenceStatus` (lines 1013-1031): `id` is
 /// "immutable, server-set", `updatedAt` is "server-set".
 impl SetObject for crate::PresenceStatus {
     type Patch = PatchObject;

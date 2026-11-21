@@ -1,11 +1,11 @@
-//! draft-atwood-jmap-chat-mimi-00 §KeyPackages — the `KeyPackage` object
+//! draft-atwood-jmap-chat-mimi-00 §`KeyPackages` — the [`KeyPackage`] object
 //! and the argument shapes of `KeyPackage/get` and `KeyPackage/set`.
 //!
 //! Both methods are standard RFC 8620 methods, so their responses are
 //! [`jmap_types::GetResponse<KeyPackage>`] and
 //! [`jmap_types::SetResponse<KeyPackageCreated>`]. `/set` differs from
 //! RFC 8620 §5.3 only in that "`update` is not supported: the server MUST
-//! reject every update with a SetError of type `forbidden`". That is
+//! reject every update with a `SetError` of type `forbidden`". That is
 //! server behaviour; [`KeyPackage`] still implements
 //! [`SetObject`] so a server can route the method.
 
@@ -14,10 +14,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::Base64Url;
 
-/// One MLS KeyPackage the server publishes for one of the owner's clients
+/// One MLS [`KeyPackage`] the server publishes for one of the owner's clients
 /// and hands out in response to MIMI key material requests.
 ///
-/// Spec: draft-atwood-jmap-chat-mimi-00 §KeyPackage Object Fields
+/// Spec: draft-atwood-jmap-chat-mimi-00 §[`KeyPackage`] Object Fields
 ///
 /// # Strictness
 ///
@@ -46,12 +46,12 @@ use crate::Base64Url;
 pub struct KeyPackage {
     /// The id of the record. Immutable, server-set.
     pub id: Id,
-    /// The KeyPackage (RFC 9420 §10). Immutable.
+    /// The [`KeyPackage`] (RFC 9420 §10). Immutable.
     pub key_package: Base64Url,
-    /// The KeyPackageRef of `key_package` (RFC 9420 §5.2). Immutable,
+    /// The `KeyPackageRef` of `key_package` (RFC 9420 §5.2). Immutable,
     /// server-set.
     pub key_package_ref: Base64Url,
-    /// `true` when `key_package` is the client's last-resort KeyPackage
+    /// `true` when `key_package` is the client's last-resort [`KeyPackage`]
     /// (RFC 9420 §16.8); `false` otherwise. Immutable; the server derives
     /// it from `key_package`.
     pub last_resort: bool,
@@ -65,7 +65,7 @@ pub struct KeyPackage {
 
 /// A value of the `create` map of a `KeyPackage/set` request.
 ///
-/// Spec: draft-atwood-jmap-chat-mimi-00 §KeyPackage Object Fields. `id`
+/// Spec: draft-atwood-jmap-chat-mimi-00 §[`KeyPackage`] Object Fields. `id`
 /// and `keyPackageRef` are server-set and not part of a create.
 /// `lastResort` is optional: "A create MAY include it; the server MUST
 /// reject a create whose `lastResort` differs from the value derived from
@@ -87,10 +87,10 @@ pub struct KeyPackage {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct KeyPackageCreate {
-    /// The KeyPackage (RFC 9420 §10) to publish.
+    /// The [`KeyPackage`] (RFC 9420 §10) to publish.
     pub key_package: Base64Url,
     /// The client's claim that `key_package` is (or is not) its
-    /// last-resort KeyPackage. Absent means no claim.
+    /// last-resort [`KeyPackage`]. Absent means no claim.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_resort: Option<bool>,
     /// Catch-all for vendor / site / private extension fields not covered
@@ -152,7 +152,7 @@ impl KeyPackageCreate {
 pub struct KeyPackageCreated {
     /// The id the server assigned to the record.
     pub id: Id,
-    /// The KeyPackageRef the server computed from `keyPackage`.
+    /// The `KeyPackageRef` the server computed from `keyPackage`.
     pub key_package_ref: Base64Url,
     /// The server-derived `lastResort`, present when the create omitted it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -169,17 +169,17 @@ pub struct KeyPackageCreated {
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum KeyPackageProperty {
-    /// The `id` property (draft-atwood-jmap-chat-mimi-00 §KeyPackage
+    /// The `id` property (draft-atwood-jmap-chat-mimi-00 §[`KeyPackage`]
     /// Object Fields).
     Id,
     /// The `keyPackage` property (draft-atwood-jmap-chat-mimi-00
-    /// §KeyPackage Object Fields).
+    /// §[`KeyPackage`] Object Fields).
     KeyPackage,
     /// The `keyPackageRef` property (draft-atwood-jmap-chat-mimi-00
-    /// §KeyPackage Object Fields).
+    /// §[`KeyPackage`] Object Fields).
     KeyPackageRef,
     /// The `lastResort` property (draft-atwood-jmap-chat-mimi-00
-    /// §KeyPackage Object Fields).
+    /// §[`KeyPackage`] Object Fields).
     LastResort,
 }
 
@@ -190,7 +190,7 @@ impl JmapObject for KeyPackage {
 
 impl GetObject for KeyPackage {}
 
-/// draft-atwood-jmap-chat-mimi-00 §KeyPackage Object Fields: `id` and
+/// draft-atwood-jmap-chat-mimi-00 §[`KeyPackage`] Object Fields: `id` and
 /// `keyPackageRef` are "immutable, server-set"; `keyPackage` and
 /// `lastResort` are "immutable".
 impl SetObject for KeyPackage {

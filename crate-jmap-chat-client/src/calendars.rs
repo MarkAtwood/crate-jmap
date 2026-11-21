@@ -1,9 +1,9 @@
-//! RSVP helpers for `urn:ietf:params:jmap:chat:cap:calendar-event` MessageActions
+//! RSVP helpers for `urn:ietf:params:jmap:chat:cap:calendar-event` `MessageAction`s
 //! (draft-atwood-jmap-chat-calendars-00 §RSVP Handling).
 //!
 //! The draft defines no RSVP method: the client patches
 //! `participants/{participantKey}/participationStatus` on the referenced
-//! CalendarEvent through the existing JMAP Calendars `CalendarEvent/set`.
+//! `CalendarEvent` through the existing JMAP Calendars `CalendarEvent/set`.
 //! These helpers build that patch and find the user's own participant key;
 //! the caller submits the patch with its JMAP Calendars client.
 
@@ -74,11 +74,11 @@ pub fn rsvp_patch(participant_key: &str, status: RsvpStatus) -> PatchObject {
     PatchObject::from_map(map)
 }
 
-/// Find the key of the user's own entry in a CalendarEvent `participants`
+/// Find the key of the user's own entry in a `CalendarEvent` `participants`
 /// map.
 ///
 /// `identity_addresses` are the `calendarAddress` values of the user's
-/// ParticipantIdentity objects. A participant matches when its
+/// `ParticipantIdentity` objects. A participant matches when its
 /// `calendarAddress` equals one of them after RFC 3986 §6.2.2 syntax-based
 /// normalisation (draft-ietf-jmap-calendars-26 §3). Returns the first
 /// matching key in map order, or `None` when `participants` is not an
@@ -181,7 +181,7 @@ fn lowercase_outside_triplets(s: &str) -> String {
         .collect()
 }
 
-/// The remove_dot_segments algorithm of RFC 3986 §5.2.4.
+/// The `remove_dot_segments` algorithm of RFC 3986 §5.2.4.
 fn remove_dot_segments(path: &str) -> String {
     fn pop_segment(out: &mut String) {
         match out.rfind('/') {

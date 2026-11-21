@@ -1,10 +1,10 @@
 //! draft-atwood-jmap-chat-mimi-00 §GroupInfo/fetch — the request and
 //! response arguments of `GroupInfo/fetch`.
 //!
-//! The client passes a signed MIMI GroupInfoRequest and the server returns
-//! the GroupInfoResponse `status` as its name plus "The whole
-//! GroupInfoResponse, unchanged" (draft-ietf-mimi-protocol-06 §5.6). The
-//! GroupInfo and ratchet tree inside it are encrypted to the client, so the
+//! The client passes a signed MIMI `GroupInfoRequest` and the server returns
+//! the `GroupInfoResponse` `status` as its name plus "The whole
+//! `GroupInfoResponse`, unchanged" (draft-ietf-mimi-protocol-06 §5.6). The
+//! `GroupInfo` and ratchet tree inside it are encrypted to the client, so the
 //! server passes them through.
 
 use jmap_types::{Id, impl_string_enum};
@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::Base64Url;
 
-/// The `status` of a `GroupInfo/fetch` response: the GroupInfoCode of
+/// The `status` of a `GroupInfo/fetch` response: the [`GroupInfoCode`] of
 /// draft-ietf-mimi-protocol-06 §5.6, "written as its name".
 ///
 /// `Other` preserves any code name this version does not know, for
@@ -20,9 +20,9 @@ use crate::Base64Url;
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum GroupInfoCode {
-    /// The GroupInfo and ratchet tree were provided as requested.
+    /// The `GroupInfo` and ratchet tree were provided as requested.
     Success,
-    /// The requester was not authorized to access the GroupInfo. A hub
+    /// The requester was not authorized to access the `GroupInfo`. A hub
     /// may also use it in place of `noSuchRoom`.
     NotAuthorized,
     /// The requested room does not exist.
@@ -66,7 +66,7 @@ pub struct GroupInfoFetchRequest {
     pub account_id: Id,
     /// The `roomId` of a Chat in this account.
     pub room_id: String,
-    /// A GroupInfoRequest (draft-ietf-mimi-protocol-06 §5.6) signed by the
+    /// A `GroupInfoRequest` (draft-ietf-mimi-protocol-06 §5.6) signed by the
     /// client.
     pub request: Base64Url,
     /// Catch-all for vendor / site / private extension fields not covered
@@ -92,7 +92,7 @@ impl GroupInfoFetchRequest {
 /// Response arguments of `GroupInfo/fetch`.
 ///
 /// Spec: draft-atwood-jmap-chat-mimi-00 §GroupInfo/fetch. All three
-/// arguments are required. `response` is the GroupInfoResponse as the hub
+/// arguments are required. `response` is the `GroupInfoResponse` as the hub
 /// signed it; the client "MUST verify the response signature with
 /// `hub_sender`" before it joins.
 ///
@@ -115,9 +115,9 @@ impl GroupInfoFetchRequest {
 pub struct GroupInfoFetchResponse {
     /// The account used.
     pub account_id: Id,
-    /// The GroupInfoResponse `status`.
+    /// The `GroupInfoResponse` `status`.
     pub status: GroupInfoCode,
-    /// The whole GroupInfoResponse, unchanged.
+    /// The whole `GroupInfoResponse`, unchanged.
     pub response: Base64Url,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across

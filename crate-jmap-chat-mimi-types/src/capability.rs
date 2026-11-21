@@ -15,7 +15,7 @@ use crate::Base64Url;
 pub const JMAP_CHAT_MIMI_URI: &str = "urn:ietf:params:jmap:chat:mimi";
 
 /// `bodyType` of every Message in a Chat with a `roomId`: one
-/// FanoutMessage (MIMI protocol §5.5) per Message
+/// `FanoutMessage` (MIMI protocol §5.5) per Message
 /// (draft-atwood-jmap-chat-mimi-00 §application/mimi-fanout).
 ///
 /// A server advertising [`JMAP_CHAT_MIMI_URI`] "MUST include
@@ -23,7 +23,7 @@ pub const JMAP_CHAT_MIMI_URI: &str = "urn:ietf:params:jmap:chat:mimi";
 /// create Messages of this type.
 pub const MIMI_FANOUT_BODY_TYPE: &str = "application/mimi-fanout";
 
-/// Media type of an MLSMessage (RFC 9420 §17.10) that a client sends with
+/// Media type of an `MLSMessage` (RFC 9420 §17.10) that a client sends with
 /// `Room/send` (draft-atwood-jmap-chat-mimi-00 §message/mls).
 pub const MLS_MESSAGE_BODY_TYPE: &str = "message/mls";
 
@@ -65,21 +65,21 @@ pub struct MimiCapability {
     /// The prefix of every room ID this server accepts in `Room/create`,
     /// for example `"mimi://a.example/r/"`.
     pub room_id_prefix: String,
-    /// The ExternalSender (RFC 9420 §12.1.8.1) with which this server
+    /// The `ExternalSender` (RFC 9420 §12.1.8.1) with which this server
     /// signs as hub of the rooms it hosts, as the unpadded base64url
     /// encoding of its TLS-encoded octets.
     pub hub_sender: Base64Url,
     /// The MLS cipher suites (RFC 9420 §17.1, `uint16 CipherSuite`) this
-    /// server accepts in KeyPackages and new rooms. Never empty after
+    /// server accepts in `KeyPackage`s and new rooms. Never empty after
     /// deserialize.
     #[serde(deserialize_with = "non_empty_cipher_suites")]
     pub cipher_suites: Vec<u16>,
-    /// The maximum number of KeyPackage records, last-resort KeyPackages
+    /// The maximum number of `KeyPackage` records, last-resort `KeyPackage`s
     /// included, the server stores for this account.
     pub max_key_packages: u64,
     /// `assetUrl`: an RFC 6570 level-1 URL template with the variable
     /// `blobId`, at which a blob the account uploaded is served without
-    /// authentication, for use as an ExternalPart `url`. [`None`] if the
+    /// authentication, for use as an `ExternalPart` `url`. [`None`] if the
     /// server does not store attachments.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub asset_url: Option<String>,
@@ -90,7 +90,7 @@ pub struct MimiCapability {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub asset_download_url: Option<String>,
     /// `assetLifetime`: the number of seconds after its upload that a blob
-    /// stays available at `assetUrl`; a client MAY set an ExternalPart's
+    /// stays available at `assetUrl`; a client MAY set an `ExternalPart`'s
     /// `expires` to the upload time plus this value. [`None`] if the server
     /// states no limit; present only with `assetUrl`.
     #[serde(default, skip_serializing_if = "Option::is_none")]

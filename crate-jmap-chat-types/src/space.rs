@@ -3,7 +3,7 @@
 use jmap_types::{Id, UTCDate, impl_string_enum};
 use serde::{Deserialize, Serialize};
 
-/// A named Space permission (draft-atwood-jmap-chat-00 §SpaceRole
+/// A named Space permission (draft-atwood-jmap-chat-00 §[`SpaceRole`]
 /// `permissions`).
 ///
 /// Carried by [`SpaceRole::permissions`],

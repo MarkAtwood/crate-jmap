@@ -6,7 +6,7 @@
 //! `Peer/subscribePresence`, `Peer/unsubscribePresence`, `Peer/presence`.
 //!
 //! Every field that names a user carries the user's identity string, not a
-//! ChatContact `id` (draft §User References in Peer Methods). Those fields
+//! `ChatContact` `id` (draft §User References in Peer Methods). Those fields
 //! are `String` here, including `recipient_user_id`, which every request
 //! carries to name the mailbox on the receiving server the call is for:
 //! one peer domain may host many mailboxes, and `account_id` is the single
@@ -618,7 +618,7 @@ pub enum GroupUpdateAction {
 }
 
 /// A group member in `Peer/groupUpdate` `members` and `addedMembers`: the
-/// chat ChatMember with `id` and `invitedBy` carrying identity strings.
+/// chat `ChatMember` with `id` and `invitedBy` carrying identity strings.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -1003,7 +1003,7 @@ impl PeerAck {
 /// from peer data.
 ///
 /// Spec: draft-atwood-jmap-chat-federation-00 §User References in Peer
-/// Methods: "A receiving server removes every MessageAction and every
+/// Methods: "A receiving server removes every [`MessageAction`] and every
 /// Endpoint whose `uri` is a JMAP object URI (a URI with the scheme
 /// `jmap`) from data it receives from a peer". Only the scheme is tested,
 /// so a malformed `jmap:` URI is removed too; the scheme name is

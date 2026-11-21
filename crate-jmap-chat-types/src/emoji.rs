@@ -1,9 +1,9 @@
-//! CustomEmoji object for server-global and space-scoped emoji.
+//! [`CustomEmoji`] object for server-global and space-scoped emoji.
 
 use jmap_types::{Id, UTCDate};
 use serde::{Deserialize, Serialize};
 
-/// A server-defined or space-scoped custom emoji (spec: CustomEmoji object).
+/// A server-defined or space-scoped custom emoji (spec: [`CustomEmoji`] object).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

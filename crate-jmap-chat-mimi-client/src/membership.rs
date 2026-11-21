@@ -19,7 +19,7 @@ use openmls::prelude::{BasicCredential, Member};
 /// [`SessionClient::room_unbind`](crate::SessionClient::room_unbind).
 /// A leaf with a non-Basic credential is not one of the account's clients:
 /// the server accepts only Basic credentials in the account's
-/// KeyPackages (draft §KeyPackage/set).
+/// `KeyPackage`s (draft §KeyPackage/set).
 pub fn account_has_left(members: impl IntoIterator<Item = Member>, user_uri: &str) -> bool {
     !members.into_iter().any(|member| {
         BasicCredential::try_from(member.credential)

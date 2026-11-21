@@ -7,7 +7,7 @@
 //! ## Public surface
 //!
 //! - [`JmapMimiExt`] / [`SessionClient`] — the `KeyPackage/get` and
-//!   `KeyPackage/set` bindings (draft §KeyPackages), `KeyMaterial/fetch`
+//!   `KeyPackage/set` bindings (draft §`KeyPackages`), `KeyMaterial/fetch`
 //!   (draft §KeyMaterial/fetch), the `Room/create`, `Room/update`,
 //!   `Room/send`, `Room/unbind` and `GroupInfo/fetch` bindings (draft
 //!   §Rooms) and the account's [`MimiCapability`] (draft §Account-Level
@@ -21,7 +21,7 @@
 //!   external join (draft §GroupInfo/fetch).
 //! - [`decrypt_group_info_and_tree`], [`GroupInfoAndTree`],
 //!   [`RatchetTreeOption`], [`PendingProposal`] — decrypting and parsing
-//!   the response's GroupInfo, ratchet tree option and pending proposals
+//!   the response's `GroupInfo`, ratchet tree option and pending proposals
 //!   (draft-ietf-mimi-protocol-06 §5.6).
 //!
 //! MLS structures are parsed and verified with crates.io `openmls`; the

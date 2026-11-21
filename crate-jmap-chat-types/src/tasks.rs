@@ -24,7 +24,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::Space;
 
-/// Wire name of the Space extension property binding a TaskList
+/// Wire name of the Space extension property binding a `TaskList`
 /// (draft-atwood-jmap-chat-tasks-00 §taskListId).
 pub const SPACE_TASK_LIST_ID_PROPERTY: &str = "taskListId";
 
@@ -33,17 +33,17 @@ pub const SPACE_TASK_LIST_ID_PROPERTY: &str = "taskListId";
 pub const TASK_CHAT_ID_PROPERTY: &str = "chatId";
 
 /// The `type-name` of a JMAP object URI that references a Task
-/// (draft-atwood-jmap-chat-tasks-00 §MessageAction format:
+/// (draft-atwood-jmap-chat-tasks-00 §`MessageAction` format:
 /// `jmap:task:<accountId>:<taskId>`).
 pub const JMAP_URI_TASK_TYPE: &str = "task";
 
 impl Space {
-    /// The `taskListId` of the TaskList bound to this Space
+    /// The `taskListId` of the `TaskList` bound to this Space
     /// (draft-atwood-jmap-chat-tasks-00 §taskListId), read from
     /// [`extra`](Self::extra).
     ///
     /// Returns `Ok(None)` when the property is absent or `null` ("When
-    /// absent, this Space has no bound TaskList").
+    /// absent, this Space has no bound `TaskList`").
     ///
     /// # Errors
     ///
@@ -73,8 +73,8 @@ pub fn task_chat_id(
         .map_or(Ok(None), Option::<Id>::deserialize)
 }
 
-/// `metadata` of a `urn:ietf:params:jmap:chat:cap:task` MessageAction
-/// (draft-atwood-jmap-chat-tasks-00 §MessageAction format).
+/// `metadata` of a `urn:ietf:params:jmap:chat:cap:task` `MessageAction`
+/// (draft-atwood-jmap-chat-tasks-00 §`MessageAction` format).
 ///
 /// Every key is optional: the metadata "MAY include" them. Other keys land
 /// in [`extra`](Self::extra): "Servers MAY include other type-specific
@@ -92,7 +92,7 @@ pub struct TaskMetadata {
     /// `due` (UTCDate): the Task's due date.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub due: Option<UTCDate>,
-    /// `assigneeIds` (String[]): each entry is a ChatContact id, or the
+    /// `assigneeIds` (String[]): each entry is a `ChatContact` id, or the
     /// accountId for the account owner. Between servers the entries carry
     /// identities instead (§Federation).
     #[serde(default, skip_serializing_if = "Option::is_none")]

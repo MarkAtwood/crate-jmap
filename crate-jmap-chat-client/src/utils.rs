@@ -168,7 +168,7 @@ pub fn format_receipt_timestamp(dt: &UTCDate) -> String {
 ///
 /// `now` is typed as [`UTCDate`] (a JMAP-native String newtype, RFC 8620
 /// §1.4) so the public signature leaks no date-library type into this
-/// crate's SemVer surface. Both values must be RFC 8620 `UTCDate`s (`Z`
+/// crate's semver surface. Both values must be RFC 8620 `UTCDate`s (`Z`
 /// suffix). If the reference time is itself unparsable the result falls
 /// back to "Today" (matching the behaviour for an unparsable `dt`, which
 /// is returned unchanged).

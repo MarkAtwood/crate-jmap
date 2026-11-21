@@ -68,8 +68,8 @@ pub fn ulid(time_ms: u64, random: &[u8; 10]) -> Option<String> {
 /// The `senderMsgId` of a MIMI message (draft §Message Identifiers).
 ///
 /// The ULID's 48-bit time component is `accepted_ms`, the hub's acceptance
-/// time in milliseconds: the FanoutMessage `timestamp`, or the
-/// SubmitMessageResponse `accepted_timestamp` for the party's own message.
+/// time in milliseconds: the `FanoutMessage` `timestamp`, or the
+/// `SubmitMessageResponse` `accepted_timestamp` for the party's own message.
 /// Its 80-bit random component is octets 1 through 10 of
 /// `mimi_message_id`. Returns `None` when `accepted_ms` does not fit in 48
 /// bits, which the ULID specification rejects.
@@ -153,6 +153,11 @@ impl std::error::Error for RefKeyCollision {}
 /// Message the key would belong to: the id a new Message will get, or for
 /// an edit's alias the Message that `replaces` resolved to. On `Err` the
 /// caller rejects the MIMI message and keeps the stored one unchanged.
+///
+/// # Errors
+///
+/// Returns [`RefKeyCollision`] if `owner` is `Some` and differs from
+/// `message`: the key already belongs to another Message in the Chat.
 pub fn check_ref_key<I: PartialEq + ?Sized>(
     owner: Option<&I>,
     message: &I,
@@ -194,7 +199,7 @@ pub fn is_media_reaction(content_type: &str) -> bool {
     !media_type.trim().eq_ignore_ascii_case("text")
 }
 
-/// Whether a MIMI message status never sets `readAt` or a ReadDisposition
+/// Whether a MIMI message status never sets `readAt` or a `ReadDisposition`
 /// (draft §Message Status): `expired` (3), `hidden` (5) and `error` (6)
 /// of draft-mahy-mimi-message-status-01 `baseStatus` "are not read
 /// acknowledgements".

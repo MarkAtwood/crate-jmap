@@ -7,12 +7,12 @@ use serde::de::Error as _;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// A client-supplied Web Push urgency in [`ChatPushConfig`]
-/// (draft-atwood-jmap-chat-push-00 §ChatPushConfig, RFC 8030 Section 5.3).
+/// (draft-atwood-jmap-chat-push-00 §[`ChatPushConfig`], RFC 8030 Section 5.3).
 ///
 /// `Other` keeps a value outside RFC 8030 so a server can name it in an
-/// `invalidProperties` SetError ("If the client supplies a value not in
+/// `invalidProperties` `SetError` ("If the client supplies a value not in
 /// `supportedUrgencyValues`, the server MUST return an `invalidProperties`
-/// SetError"). Everything the server advertises or sends uses the closed
+/// `SetError`"). Everything the server advertises or sends uses the closed
 /// [`Urgency`]; [`to_urgency`](Self::to_urgency) converts.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -106,7 +106,7 @@ pub struct ChatPushConfig {
 /// Summary of a single message delivered via push notification.
 ///
 /// Every field is optional on the wire. draft-atwood-jmap-chat-push-00
-/// §ChatPushConfig: "The `properties` list is authoritative: the server
+/// §[`ChatPushConfig`]: "The `properties` list is authoritative: the server
 /// returns exactly the requested fields." A field the subscription did not
 /// request is `None` and is not serialized.
 ///
@@ -163,7 +163,7 @@ pub struct ChatMessageEntry {
     /// The `senderDisplayName` property (draft-atwood-jmap-chat-push-00 §5.2).
     ///
     /// For channel chats, derived from the sender's `SpaceMember.nick` in
-    /// the containing Space if present, otherwise the sender ChatContact's
+    /// the containing Space if present, otherwise the sender `ChatContact`'s
     /// `displayName`, otherwise its `login`, otherwise its `identity`. For
     /// direct and group chats, the same chain without the `nick` step.
     #[serde(skip_serializing_if = "Option::is_none")]

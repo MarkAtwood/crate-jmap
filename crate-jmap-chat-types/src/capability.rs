@@ -167,7 +167,7 @@ pub struct ChatCapability {
     /// - MUST include [`BodyType::Plain`] (`"text/plain"`) unless the
     ///   server accepts only end-to-end encrypted body types.
     /// - SHOULD include [`BodyType::Markdown`] (`"text/markdown"`,
-    ///   RFC 7763 CommonMark).
+    ///   RFC 7763 [CommonMark](https://commonmark.org/)).
     /// - SHOULD include [`BodyType::Rich`]
     ///   (`"application/jmap-chat-rich"`).
     /// - SHOULD include [`BodyType::Other`]`("application/mls-ciphertext".into())`
@@ -211,7 +211,7 @@ pub struct ChatCapability {
     /// `maxCategoriesPerSpace` are not advertised on this capability
     /// in the current draft-atwood-jmap-chat-00 §3 — they are
     /// implementation-defined and enforced via standard `overQuota`
-    /// SetError (RFC 8620 §5.3) at `Chat/set` and `Space/set` time.
+    /// `SetError` (RFC 8620 §5.3) at `Chat/set` and `Space/set` time.
     /// Servers that still emit them will round-trip the values
     /// harmlessly through `extra`.
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
@@ -279,7 +279,7 @@ pub struct ChatPushCapability {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ChatFilenodeCapability {
-    /// Maximum total blob storage in bytes across all FileNodes in a
+    /// Maximum total blob storage in bytes across all `FileNode`s in a
     /// single Space's file tree, counting all of its Space roots. `None`
     /// means the server does not advertise a per-Space limit.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -316,7 +316,7 @@ pub struct ChatCalendarsCapability {
     /// this to `false`".
     pub may_bind_calendar: bool,
     /// `true` if the server parses `.ics` (RFC 5545) attachments to
-    /// surface structured CalendarEvent representations.
+    /// surface structured `CalendarEvent` representations.
     pub supports_ics_parsing: bool,
     /// `true` if the server exposes `Principal/getAvailability` in the
     /// in-chat context.
@@ -345,7 +345,7 @@ pub struct ChatCalendarsCapability {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ChatTasksCapability {
-    /// `true` if accounts on this server may associate a TaskList with a
+    /// `true` if accounts on this server may associate a `TaskList` with a
     /// Space. Deployments that prohibit Space-TaskList binding "MUST set
     /// this to `false`".
     pub may_bind_task_list: bool,

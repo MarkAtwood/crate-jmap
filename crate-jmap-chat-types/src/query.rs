@@ -199,7 +199,7 @@ pub struct MessageFilterCondition {
     pub private_metadata_text_equals: Option<MetadataTextMatch>,
 
     /// JMAP Search (`urn:ietf:params:jmap:search`, crate-jmap
-    /// docs/specs/jmap-search.md §The where FilterCondition Property)
+    /// docs/specs/jmap-search.md §The where `FilterCondition` Property)
     /// `where`: "A filter expression. The candidate matches if the
     /// expression is true for it." It does not lift the
     /// draft-atwood-jmap-chat-00 rule that the filter is a single condition

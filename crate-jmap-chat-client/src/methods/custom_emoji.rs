@@ -1,4 +1,4 @@
-//! CustomEmoji method implementations for SessionClient.
+//! `CustomEmoji` method implementations for `SessionClient`.
 //!
 //! Spec: JMAP Chat draft §4.16 (CustomEmoji/get, /changes, /set, /query, /queryChanges)
 //! Capability: urn:ietf:params:jmap:chat
@@ -12,9 +12,9 @@ use super::{
 };
 
 impl super::SessionClient {
-    /// Fetch CustomEmoji objects by IDs (JMAP Chat §4.16 CustomEmoji/get).
+    /// Fetch `CustomEmoji` objects by IDs (JMAP Chat §4.16 CustomEmoji/get).
     ///
-    /// If `ids` is `None`, returns all CustomEmoji objects visible to the account
+    /// If `ids` is [`None`], returns all `CustomEmoji` objects visible to the account
     /// (Space-specific and server-global).
     ///
     /// # Errors
@@ -56,7 +56,7 @@ impl super::SessionClient {
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 
-    /// Fetch changes to CustomEmoji objects since `since_state`
+    /// Fetch changes to `CustomEmoji` objects since `since_state`
     /// (RFC 8620 §5.2 / JMAP Chat §4.16 CustomEmoji/changes).
     ///
     /// # Errors
@@ -96,7 +96,7 @@ impl super::SessionClient {
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 
-    /// Create a CustomEmoji (RFC 8620 §5.3 / JMAP Chat §4.16 CustomEmoji/set create).
+    /// Create a `CustomEmoji` (RFC 8620 §5.3 / JMAP Chat §4.16 CustomEmoji/set create).
     ///
     /// When `input.client_id` is `None`, a ULID is generated automatically.
     ///
@@ -149,7 +149,7 @@ impl super::SessionClient {
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 
-    /// Update a CustomEmoji (RFC 8620 §5.3 / JMAP Chat §4.16 CustomEmoji/set update).
+    /// Update a `CustomEmoji` (RFC 8620 §5.3 / JMAP Chat §4.16 CustomEmoji/set update).
     ///
     /// Fields of `patch` left at `None` are omitted from the patch and left
     /// unchanged server-side.
@@ -204,7 +204,7 @@ impl super::SessionClient {
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 
-    /// Destroy CustomEmoji objects (RFC 8620 §5.3 / JMAP Chat §4.16 CustomEmoji/set destroy).
+    /// Destroy `CustomEmoji` objects (RFC 8620 §5.3 / JMAP Chat §4.16 CustomEmoji/set destroy).
     ///
     /// `ids` must be non-empty; the guard fires before any network call.
     ///
@@ -248,7 +248,7 @@ impl super::SessionClient {
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 
-    /// Query CustomEmoji IDs (RFC 8620 §5.5 / JMAP Chat §4.16 CustomEmoji/query).
+    /// Query `CustomEmoji` IDs (RFC 8620 §5.5 / JMAP Chat §4.16 CustomEmoji/query).
     ///
     /// `filter` is an RFC 8620 §5.5 `Filter`: a bare condition
     /// (`Filter::Condition`) or a `FilterOperator` combining sub-filters
@@ -291,7 +291,7 @@ impl super::SessionClient {
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 
-    /// Fetch query-result changes for CustomEmoji since `since_query_state`
+    /// Fetch query-result changes for `CustomEmoji` since `since_query_state`
     /// (RFC 8620 §5.6 / JMAP Chat §4.16 CustomEmoji/queryChanges).
     ///
     /// `filter` and `sort` MUST match the `filter` / `sort` passed to the

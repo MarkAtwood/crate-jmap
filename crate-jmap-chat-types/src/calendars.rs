@@ -41,8 +41,8 @@ impl Space {
     }
 }
 
-/// `metadata` of a `urn:ietf:params:jmap:chat:cap:calendar-event` MessageAction
-/// (draft-atwood-jmap-chat-calendars-00 §MessageAction format).
+/// `metadata` of a `urn:ietf:params:jmap:chat:cap:calendar-event` `MessageAction`
+/// (draft-atwood-jmap-chat-calendars-00 §`MessageAction` format).
 ///
 /// Every key is optional. Other keys land in [`extra`](Self::extra):
 /// "Servers MAY include other type-specific metadata keys; clients MUST
@@ -61,7 +61,7 @@ pub struct CalendarEventMetadata {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub location: Option<String>,
     /// `participantCount` (UnsignedInt): count of participants on the
-    /// underlying CalendarEvent.
+    /// underlying `CalendarEvent`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub participant_count: Option<u64>,
     /// Catch-all for other type-specific metadata keys. Preserves unknown
@@ -71,7 +71,7 @@ pub struct CalendarEventMetadata {
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
-/// `metadata` of a `urn:ietf:params:jmap:chat:cap:availability` MessageAction
+/// `metadata` of a `urn:ietf:params:jmap:chat:cap:availability` `MessageAction`
 /// (draft-atwood-jmap-chat-calendars-00 §Availability Lookup).
 #[non_exhaustive]
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -91,7 +91,7 @@ pub struct AvailabilityMetadata {
 /// The `lookupWindow` object of [`AvailabilityMetadata`]: "(Object, with
 /// `startsAt` and `endsAt` fields)".
 ///
-/// The draft does not type the two fields. They are UTCDates, as are the
+/// The draft does not type the two fields. They are `UTCDate`s, as are the
 /// same-named calendar-event metadata keys.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

@@ -75,21 +75,21 @@ pub const SPEC_EPHEMERAL_DATA_TYPES: &[&str] = &["typing", "presence"];
 /// unrecognized and silently ignored" (L196).
 pub const COMPANION_EPHEMERAL_DATA_TYPES: &[&str] = &["vtc", "scene"];
 
-/// Endpoint / MessageAction `type` for a video/voice teleconference
+/// Endpoint / `MessageAction` `type` for a video/voice teleconference
 /// (draft-atwood-jmap-chat-00 §Endpoint).
 pub const CHAT_CAP_VTC: &str = "urn:ietf:params:jmap:chat:cap:vtc";
 
-/// Endpoint / MessageAction `type` for a calendar event link or meeting
+/// Endpoint / `MessageAction` `type` for a calendar event link or meeting
 /// invite (draft-atwood-jmap-chat-00 §Endpoint;
-/// draft-atwood-jmap-chat-calendars-00 §MessageAction format).
+/// draft-atwood-jmap-chat-calendars-00 §`MessageAction` format).
 pub const CHAT_CAP_CALENDAR_EVENT: &str = "urn:ietf:params:jmap:chat:cap:calendar-event";
 
-/// Endpoint / MessageAction `type` for a free/busy availability lookup
+/// Endpoint / `MessageAction` `type` for a free/busy availability lookup
 /// (draft-atwood-jmap-chat-00 §Endpoint;
 /// draft-atwood-jmap-chat-calendars-00 §Availability Lookup).
 pub const CHAT_CAP_AVAILABILITY: &str = "urn:ietf:params:jmap:chat:cap:availability";
 
-/// Endpoint / MessageAction `type` for a task or to-do item link
+/// Endpoint / `MessageAction` `type` for a task or to-do item link
 /// (draft-atwood-jmap-chat-00 §Endpoint;
-/// draft-atwood-jmap-chat-tasks-00 §MessageAction format).
+/// draft-atwood-jmap-chat-tasks-00 §`MessageAction` format).
 pub const CHAT_CAP_TASK: &str = "urn:ietf:params:jmap:chat:cap:task";
