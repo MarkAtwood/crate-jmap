@@ -134,6 +134,34 @@ let connection = connection.with_extension(ToyStream { caller: "u1".into(), even
   closed and a running `handle` finished.
 - A `@type` no handler registered is still answered with `notRequest`.
 
+### Closing on credential expiry
+
+RFC 8887 §4.2 lets the server close the connection when the handshake's
+credentials expire, with a Close frame of status 1008 (Policy
+Violation); the JMAP Chat, VTC and Scene WebSocket drafts make 1008 a
+SHOULD. Take a `CloseHandle` before running the connection and close
+through it from the task that tracks the expiry:
+
+```rust,no_run
+use jmap_websocket::server::{CloseCode, Connection, DispatcherHandler};
+
+# async fn serve(
+#     connection: Connection<DispatcherHandler<()>>,
+#     ws: jmap_websocket::tokio_tungstenite::WebSocketStream<tokio::net::TcpStream>,
+#     expires_in: std::time::Duration,
+# ) -> Result<(), jmap_websocket::server::ConnectionError> {
+let close = connection.close_handle();
+tokio::spawn(async move {
+    tokio::time::sleep(expires_in).await;
+    close.close(CloseCode::POLICY_VIOLATION, "credentials expired");
+});
+jmap_websocket::tungstenite::serve(connection, ws).await
+# }
+```
+
+`run` then sends the Close, drops the push subscription, runs every
+`ExtensionHandler::close`, and returns `Ok(())`.
+
 ## How it works
 
 - Every message type serializes with its `@type` first and checks it on
@@ -187,6 +215,14 @@ let connection = connection.with_extension(ToyStream { caller: "u1".into(), even
   `detail`, `instance`, `limit`, `requestId`, `@type`).
 - `ExtensionHandler::close` does not run if the `run` future is dropped
   (a cancelled task); put cleanup that must happen then in `Drop`.
+- Ending `incoming` ends the connection without a Close frame. To close
+  with a status code (1008 for expired credentials), use
+  `Connection::close_handle`. The first `close` wins; later ones, and
+  any after `run` returned, do nothing and return `false`. Nothing
+  queued is sent ahead of the Close: Responses still running, queued
+  extension events and pending StateChanges are dropped. A reason over
+  123 bytes (the RFC 6455 control-frame limit) is cut on a character
+  boundary. `CloseCode::new` refuses codes an endpoint may not send.
 
 ## References
 

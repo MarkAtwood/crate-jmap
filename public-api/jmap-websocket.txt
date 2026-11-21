@@ -64,8 +64,38 @@ pub fn jmap_websocket::server::Outbound::eq(&self, &jmap_websocket::server::Outb
 impl core::fmt::Debug for jmap_websocket::server::Outbound
 pub fn jmap_websocket::server::Outbound::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for jmap_websocket::server::Outbound
+pub struct jmap_websocket::server::CloseCode(_)
+impl jmap_websocket::server::CloseCode
+pub const jmap_websocket::server::CloseCode::GOING_AWAY: Self
+pub const jmap_websocket::server::CloseCode::NORMAL: Self
+pub const jmap_websocket::server::CloseCode::POLICY_VIOLATION: Self
+pub const fn jmap_websocket::server::CloseCode::as_u16(self) -> u16
+pub const fn jmap_websocket::server::CloseCode::new(u16) -> core::option::Option<Self>
+impl core::clone::Clone for jmap_websocket::server::CloseCode
+pub fn jmap_websocket::server::CloseCode::clone(&self) -> jmap_websocket::server::CloseCode
+impl core::cmp::Eq for jmap_websocket::server::CloseCode
+impl core::cmp::PartialEq for jmap_websocket::server::CloseCode
+pub fn jmap_websocket::server::CloseCode::eq(&self, &jmap_websocket::server::CloseCode) -> bool
+impl core::convert::From<jmap_websocket::server::CloseCode> for u16
+pub fn u16::from(jmap_websocket::server::CloseCode) -> u16
+impl core::fmt::Debug for jmap_websocket::server::CloseCode
+pub fn jmap_websocket::server::CloseCode::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_websocket::server::CloseCode
+pub fn jmap_websocket::server::CloseCode::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_websocket::server::CloseCode
+pub fn jmap_websocket::server::CloseCode::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for jmap_websocket::server::CloseCode
+impl core::marker::StructuralPartialEq for jmap_websocket::server::CloseCode
+pub struct jmap_websocket::server::CloseHandle
+impl jmap_websocket::server::CloseHandle
+pub fn jmap_websocket::server::CloseHandle::close(&self, jmap_websocket::server::CloseCode, impl core::convert::Into<alloc::string::String>) -> bool
+impl core::clone::Clone for jmap_websocket::server::CloseHandle
+pub fn jmap_websocket::server::CloseHandle::clone(&self) -> jmap_websocket::server::CloseHandle
+impl core::fmt::Debug for jmap_websocket::server::CloseHandle
+pub fn jmap_websocket::server::CloseHandle::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 pub struct jmap_websocket::server::Connection<H, P>
 impl<H: jmap_websocket::server::RequestHandler, P: jmap_websocket::server::PushSource> jmap_websocket::server::Connection<H, P>
+pub fn jmap_websocket::server::Connection<H, P>::close_handle(&self) -> jmap_websocket::server::CloseHandle
 pub async fn jmap_websocket::server::Connection<H, P>::run<S, K, E>(self, S, K) -> core::result::Result<(), jmap_websocket::server::ConnectionError> where S: futures_core::stream::Stream<Item = core::result::Result<jmap_websocket::server::Inbound, E>> + core::marker::Unpin, E: core::error::Error + core::marker::Send + core::marker::Sync + 'static, K: futures_sink::Sink<jmap_websocket::server::Outbound> + core::marker::Unpin, <K as futures_sink::Sink>::Error: core::error::Error + core::marker::Send + core::marker::Sync + 'static
 pub fn jmap_websocket::server::Connection<H, P>::with_config(self, jmap_websocket::server::ConnectionConfig) -> Self
 pub fn jmap_websocket::server::Connection<H, P>::with_extension<X: jmap_websocket::server::ExtensionHandler>(self, X) -> Self
@@ -160,6 +190,7 @@ pub fn jmap_websocket::server::PushHub::fmt(&self, &mut core::fmt::Formatter<'_>
 impl jmap_websocket::server::PushSource for jmap_websocket::server::PushHub
 pub fn jmap_websocket::server::PushHub::subscribe(&mut self, &jmap_websocket::WebSocketPushEnable) -> futures_core::stream::BoxStream<'static, jmap_websocket::WsStateChange>
 pub const jmap_websocket::server::CLOSE_UNSUPPORTED_DATA: u16
+pub const jmap_websocket::server::MAX_CLOSE_REASON_LEN: usize
 pub trait jmap_websocket::server::ExtensionHandler: core::marker::Send + 'static
 pub fn jmap_websocket::server::ExtensionHandler::close(&mut self) -> impl core::future::future::Future<Output = ()> + core::marker::Send
 pub fn jmap_websocket::server::ExtensionHandler::handle(&mut self, jmap_websocket::server::ExtensionMessage) -> impl core::future::future::Future<Output = core::result::Result<(), jmap_types::error::JmapError>> + core::marker::Send

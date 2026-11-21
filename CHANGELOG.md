@@ -110,6 +110,19 @@ wire behaviour that a conforming peer can observe.
   the message's `id` and the error's `extra` members; `close` runs once
   when the connection ends. Unregistered types are still answered with
   `notRequest`.
+- **jmap-websocket**: closing a running connection from the deployment
+  (bd:JMAP-ypwe), for credential expiry (RFC 8887 §4.2; status 1008 is
+  a SHOULD in draft-atwood-jmap-chat-wss-00, -vtc-wss-00 and
+  -scene-wss-00). `Connection::close_handle` returns a `CloseHandle`
+  (`Clone + Send`); `CloseHandle::close(code, reason)` makes `run` send
+  a Close frame with that code and reason, run the usual shutdown
+  (push subscription dropped, every `ExtensionHandler::close`), and
+  return `Ok(())`. The first `close` wins; later calls, and calls after
+  `run` returned, return `false` and do nothing. Nothing queued is sent
+  ahead of the Close. A reason over `MAX_CLOSE_REASON_LEN` (123) bytes
+  is cut on a character boundary. `CloseCode` (`POLICY_VIOLATION`,
+  `GOING_AWAY`, `NORMAL`, `CloseCode::new` for others) accepts only
+  codes an endpoint may send.
 - **jmap-scene-types**, **jmap-scene-server**, **jmap-scene-client**,
   **jmap-chat-scene-server**: the optional Scene features of
   jmap-chat-spec 93f2258 (bd:JMAP-24aw, decision 60). Each is off until

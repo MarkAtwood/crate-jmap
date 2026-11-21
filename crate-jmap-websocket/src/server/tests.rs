@@ -717,3 +717,116 @@ fn registering_a_type_twice_panics() {
         .with_extension(toy())
         .with_extension(toy());
 }
+
+// ---------------------------------------------------------------------------
+// Closing from the deployment (RFC 8887 §4.2)
+// ---------------------------------------------------------------------------
+
+/// [`start_toy`], also returning the connection's [`CloseHandle`].
+fn start_closable() -> (Harness, Arc<ToyLog>, CloseHandle) {
+    let log = Arc::new(ToyLog::default());
+    let toy = Toy {
+        log: Arc::clone(&log),
+        events: None,
+    };
+    let mut handle = None;
+    let h = start_with(cfg(), None, |c| {
+        handle = Some(c.close_handle());
+        c.with_extension(toy)
+    });
+    (h, log, handle.unwrap())
+}
+
+async fn next_outbound(h: &mut Harness) -> Outbound {
+    tokio::time::timeout(std::time::Duration::from_secs(5), h.from_server.recv())
+        .await
+        .expect("a message")
+        .expect("open")
+}
+
+/// §4.2: on expired credentials the server "MAY send a Close frame with a
+/// status code of 1008 (Policy Violation)". The Close carries the code and
+/// reason given, `run` returns `Ok`, the extension's `close` ran, and
+/// nothing queued is sent after the Close: a Request still running and an
+/// extension event queued after the request are dropped.
+#[tokio::test]
+async fn close_handle_sends_close_and_shuts_down() {
+    let (mut h, log, handle) = start_closable();
+    h.send(json!({"@type": "ToyStreamEnable", "topics": ["t"]}));
+    sync(&mut h, "s1").await;
+    h.send(req("slow", "wait"));
+    sync(&mut h, "s2").await;
+
+    assert!(handle.close(CloseCode::POLICY_VIOLATION, "credentials expired"));
+    log.publish(7);
+    h.handler.gate.notify_one();
+
+    assert_eq!(
+        next_outbound(&mut h).await,
+        Outbound::Close {
+            code: 1008,
+            reason: "credentials expired".to_owned()
+        }
+    );
+    let Harness {
+        mut from_server,
+        task,
+        to_server,
+        ..
+    } = h;
+    task.await.unwrap().unwrap();
+    assert_eq!(log.seen(), ["ToyStreamEnable", "close"]);
+    // `run` returned and dropped the sink: nothing followed the Close.
+    assert_eq!(from_server.recv().await, None);
+    drop(to_server);
+}
+
+/// The first request wins; a later one, through any clone, is ignored.
+#[tokio::test]
+async fn second_close_is_ignored() {
+    let (mut h, _log, handle) = start_closable();
+    assert!(handle.close(CloseCode::POLICY_VIOLATION, "first"));
+    assert!(!handle.clone().close(CloseCode::GOING_AWAY, "second"));
+    assert_eq!(
+        next_outbound(&mut h).await,
+        Outbound::Close {
+            code: 1008,
+            reason: "first".to_owned()
+        }
+    );
+    h.task.await.unwrap().unwrap();
+}
+
+/// After the client's Close ended `run`, `close` does nothing and says so.
+#[tokio::test]
+async fn close_after_the_client_closed_does_nothing() {
+    let (h, log, handle) = start_closable();
+    h.to_server.send(Ok(Inbound::Close)).unwrap();
+    let Harness {
+        mut from_server,
+        task,
+        to_server,
+        ..
+    } = h;
+    task.await.unwrap().unwrap();
+    assert!(!handle.close(CloseCode::POLICY_VIOLATION, "late"));
+    assert_eq!(from_server.recv().await, None, "no Close was sent");
+    assert_eq!(log.seen(), ["close"]);
+    drop(to_server);
+}
+
+/// RFC 6455 §5.5: a control frame payload is at most 125 bytes, so the
+/// reason is cut to 123 bytes, here inside a 2-byte character.
+#[tokio::test]
+async fn close_reason_is_cut_to_fit_a_control_frame() {
+    let (mut h, _log, handle) = start_closable();
+    let reason = format!("{}é", "x".repeat(122));
+    assert!(handle.close(CloseCode::new(4001).unwrap(), reason));
+    assert_eq!(
+        next_outbound(&mut h).await,
+        Outbound::Close {
+            code: 4001,
+            reason: "x".repeat(122)
+        }
+    );
+}

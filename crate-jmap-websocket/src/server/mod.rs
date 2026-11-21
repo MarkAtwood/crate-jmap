@@ -36,10 +36,16 @@
 //!   `SceneStreamEnable`, ...). The handler sends its server-to-client
 //!   messages through an [`ExtensionSender`]. Any other `@type` is
 //!   answered with `notRequest`.
+//! - A [`CloseHandle`] ([`Connection::close_handle`]) lets the deployment
+//!   end the connection with a Close frame of its choosing, such as 1008
+//!   ([`CloseCode::POLICY_VIOLATION`]) when the credentials of the
+//!   opening handshake expire (§4.2).
 
+mod close;
 mod extension;
 mod hub;
 
+pub use close::{CloseCode, CloseHandle, MAX_CLOSE_REASON_LEN};
 pub use extension::{ExtensionHandler, ExtensionMessage, ExtensionSendError, ExtensionSender};
 pub use hub::PushHub;
 
@@ -627,6 +633,7 @@ pub struct Connection<H, P = NoPush> {
     config: ConnectionConfig,
     shared_limit: Option<Arc<Semaphore>>,
     extensions: Extensions,
+    close: Arc<close::Shared>,
 }
 
 impl<H, P> fmt::Debug for Connection<H, P> {
@@ -649,6 +656,7 @@ impl<H: RequestHandler> Connection<H, NoPush> {
             config: ConnectionConfig::default(),
             shared_limit: None,
             extensions: Extensions::default(),
+            close: close::Shared::new(),
         }
     }
 }
@@ -674,6 +682,7 @@ impl<H: RequestHandler, P: PushSource> Connection<H, P> {
             config: self.config,
             shared_limit: self.shared_limit,
             extensions: self.extensions,
+            close: self.close,
         }
     }
 
@@ -712,11 +721,20 @@ impl<H: RequestHandler, P: PushSource> Connection<H, P> {
         self
     }
 
-    /// Serve the connection until the client closes it or the incoming
-    /// stream ends.
+    /// A handle that closes this connection while it runs, with a Close
+    /// frame code and reason of the deployment's choosing (for expired
+    /// credentials, RFC 8887 §4.2). Take it before calling
+    /// [`run`](Self::run); see [`CloseHandle`] for what closing does.
+    pub fn close_handle(&self) -> CloseHandle {
+        CloseHandle::new(Arc::clone(&self.close))
+    }
+
+    /// Serve the connection until the client closes it, the incoming
+    /// stream ends, or the deployment closes it.
     ///
-    /// Returns `Ok` after a Close, the end of `incoming`, or a binary
-    /// message under [`BinaryFrames::Close`] (after sending the Close).
+    /// Returns `Ok` after a Close, the end of `incoming`, a binary
+    /// message under [`BinaryFrames::Close`] (after sending the Close), or
+    /// a [`CloseHandle::close`] (after sending its Close).
     /// Requests still running then are dropped; method calls the
     /// [`Dispatcher`] already started still finish (see
     /// [`Dispatcher::dispatch`], Cancellation). Before returning, by any
@@ -741,6 +759,7 @@ impl<H: RequestHandler, P: PushSource> Connection<H, P> {
             config,
             shared_limit,
             mut extensions,
+            close,
         } = self;
         let mut in_flight: FuturesUnordered<InFlight> = FuturesUnordered::new();
         let mut subscription: Option<(BoxStream<'static, WsStateChange>, Option<Vec<String>>)> =
@@ -749,7 +768,16 @@ impl<H: RequestHandler, P: PushSource> Connection<H, P> {
 
         let result: Result<(), ConnectionError> = async {
             loop {
+                // Checked first so that, once a Close is requested, no
+                // other ready branch writes ahead of it.
+                if let Some((code, reason)) = close.requested_now() {
+                    let frame = Outbound::Close { code: code.as_u16(), reason };
+                    send(&mut outgoing, frame).await?;
+                    return Ok(());
+                }
                 tokio::select! {
+                    // Only wakes the loop; the check above sends the Close.
+                    _ = close.requested() => {}
                     done = in_flight.next(), if !in_flight.is_empty() => {
                         let Some((request_id, result, permit)) = done else { continue };
                         drop(permit);
@@ -847,6 +875,7 @@ impl<H: RequestHandler, P: PushSource> Connection<H, P> {
         }
         .await;
 
+        close.end();
         // Close the queue first, so a handler waiting to send returns.
         drop(extension_queue);
         extensions.close().await;

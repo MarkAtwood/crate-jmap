@@ -13,6 +13,9 @@
 //! connection"; the subscription "is bound to the WebSocket connection.
 //! When the connection closes ... the subscription is immediately
 //! cancelled" (§Subscription Lifecycle of the VTC and Scene drafts).
+//! Credential expiry: RFC 8887 §4.2, "the server MAY send a Close frame
+//! with a status code of 1008 (Policy Violation)", which the drafts make a
+//! SHOULD (draft-atwood-jmap-chat-wss-00 §Authentication and Identity).
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -22,7 +25,8 @@ use futures::{SinkExt as _, StreamExt as _};
 use jmap_server::{CallContext, Dispatcher, HandlerFuture, HandlerOutput, JmapHandler};
 use jmap_types::{JmapError, State};
 use jmap_websocket::server::{
-    Connection, DispatcherHandler, ExtensionHandler, ExtensionMessage, ExtensionSender,
+    CloseCode, CloseHandle, Connection, DispatcherHandler, ExtensionHandler, ExtensionMessage,
+    ExtensionSender,
 };
 use serde_json::{Value, json};
 use tokio::net::{TcpListener, TcpStream};
@@ -30,6 +34,7 @@ use tokio::sync::{broadcast, mpsc};
 use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::tungstenite::client::IntoClientRequest as _;
 use tokio_tungstenite::tungstenite::http::HeaderValue;
+use tokio_tungstenite::tungstenite::protocol::frame::coding::CloseCode as WireCloseCode;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 
 /// RFC 8620 §4 `Core/echo`.
@@ -111,6 +116,8 @@ struct Server {
     addr: std::net::SocketAddr,
     feed: broadcast::Sender<u64>,
     closed: mpsc::UnboundedReceiver<String>,
+    /// Each connection's [`CloseHandle`], in accept order.
+    close_handles: mpsc::UnboundedReceiver<CloseHandle>,
 }
 
 /// Starts the server. Each connection's caller is `c<n>`, numbered from 1.
@@ -120,6 +127,7 @@ async fn server() -> Server {
     let dispatcher = Arc::new(dispatcher);
     let (feed, _) = broadcast::channel(16);
     let (closed_tx, closed) = mpsc::unbounded_channel();
+    let (handles_tx, close_handles) = mpsc::unbounded_channel();
 
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
@@ -139,16 +147,23 @@ async fn server() -> Server {
                 events: None,
                 closed: closed_tx.clone(),
             };
+            let handles_tx = handles_tx.clone();
             tokio::spawn(async move {
                 let Ok(ws) = jmap_websocket::tungstenite::accept(tcp).await else {
                     return;
                 };
                 let conn = Connection::new(handler).with_extension(toy);
+                let _ = handles_tx.send(conn.close_handle());
                 let _ = jmap_websocket::tungstenite::serve(conn, ws).await;
             });
         }
     });
-    Server { addr, feed, closed }
+    Server {
+        addr,
+        feed,
+        closed,
+        close_handles,
+    }
 }
 
 type Client = WebSocketStream<MaybeTlsStream<TcpStream>>;
@@ -277,4 +292,43 @@ async fn close_hook_runs_when_the_socket_drops() {
     sync(&mut ws, "s1").await;
     drop(ws);
     assert_eq!(closed_caller(&mut server).await, "c1");
+}
+
+/// The deployment closes the connection when the credentials expire: the
+/// client gets a Close frame with 1008 and the reason, the close hook
+/// runs, and the connection ends.
+#[tokio::test]
+async fn deployment_closes_with_1008_on_credential_expiry() {
+    let mut server = server().await;
+    let mut ws = connect(server.addr).await;
+    send(&mut ws, &json!({"@type": "ToyStreamEnable"})).await;
+    sync(&mut ws, "s1").await;
+
+    let handle = tokio::time::timeout(Duration::from_secs(5), server.close_handles.recv())
+        .await
+        .expect("a close handle within 5 s")
+        .unwrap();
+    assert!(handle.close(CloseCode::POLICY_VIOLATION, "credentials expired"));
+
+    let m = tokio::time::timeout(Duration::from_secs(5), ws.next())
+        .await
+        .expect("a message within 5 s")
+        .expect("open")
+        .unwrap();
+    let Message::Close(Some(frame)) = m else {
+        panic!("expected a Close frame, got {m:?}")
+    };
+    assert_eq!(frame.code, WireCloseCode::Policy);
+    assert_eq!(u16::from(frame.code), 1008);
+    assert_eq!(frame.reason.as_str(), "credentials expired");
+    assert_eq!(closed_caller(&mut server).await, "c1");
+
+    // The server is gone: the client's stream ends (or errors) rather
+    // than yielding more messages.
+    let rest = tokio::time::timeout(Duration::from_secs(5), ws.next())
+        .await
+        .expect("the stream ends within 5 s");
+    assert!(!matches!(rest, Some(Ok(Message::Text(_)))), "{rest:?}");
+    // The connection ended, so a second close does nothing.
+    assert!(!handle.close(CloseCode::GOING_AWAY, "again"));
 }
