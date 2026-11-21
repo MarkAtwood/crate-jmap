@@ -12,6 +12,19 @@ wire behaviour that a conforming peer can observe.
 
 ## [Unreleased]
 
+### Changed
+
+- **jmap-types**, **jmap-base-client**: a `Foo/set` response without
+  `newState`, which RFC 8620 §5.3 requires but Stalwart 1.1.1 leaves out
+  when nothing changed, now decodes instead of failing with
+  `ClientError::Parse` (decision 67, bd:JMAP-cyub.5).
+  `SetResponse::new_state` is then the empty state, which is not a real
+  state: re-fetch with `Foo/get` rather than passing it to `Foo/changes`.
+  `extract_response` logs each such response with a `tracing` `WARN`
+  event (`set response has no newState`; fields
+  `method`, `account_id`, `missing`). No public API change;
+  `jmap-base-client` now depends on `tracing`.
+
 ## [0.6.1] - 2026-11-21
 
 A compatible release on the 0.6 line: additions and fixes only, no

@@ -1337,6 +1337,19 @@ pub struct SubscribeEventsSessionParams<'a> {
 /// [`jmap_types::Invocation`] has public `name`, `arguments` and `call_id`
 /// fields.
 ///
+/// # Logging
+///
+/// When the matching invocation is a `Foo/set` response without
+/// `newState` (which RFC 8620 §5.3 requires) and it decodes as `T`, this
+/// function emits one `tracing` event at `WARN` level with the message
+/// `set response has no newState` and the fields `method` (the
+/// response's method name), `account_id` (its `accountId`, empty if
+/// absent) and `missing` (`"newState"`). `PushSubscription/set`, whose
+/// response has no `newState` (RFC 8620 §7.2.2), is not logged. A
+/// [`jmap_types::SetResponse`] decodes such a response with an empty
+/// `new_state`; see that field's docs (docs/design/DECISIONS.md
+/// decision 67).
+///
 /// # Errors
 ///
 /// - [`ClientError::MethodError`] if an invocation with `call_id` is a JMAP
@@ -1379,7 +1392,47 @@ pub fn extract_response<T: serde::de::DeserializeOwned>(
         .iter()
         .find(|inv| inv.call_id == call_id)
         .ok_or_else(|| ClientError::MethodNotFound(call_id.to_owned()))?;
-    <T as serde::Deserialize>::deserialize(&inv.arguments).map_err(ClientError::from_parse)
+    let value =
+        <T as serde::Deserialize>::deserialize(&inv.arguments).map_err(ClientError::from_parse)?;
+    warn_if_set_response_lacks_new_state(inv);
+    Ok(value)
+}
+
+/// Log a `Foo/set` response that decoded although it has no `newState`
+/// (docs/design/DECISIONS.md decision 67).
+///
+/// RFC 8620 §5.3 requires `newState`, but some servers leave it out, and
+/// [`jmap_types::SetResponse`] then decodes it as the empty state. This
+/// is the one place a client sees that substitution, so the warning is
+/// emitted here, once per decoded response; a response that fails to
+/// decode is reported by the returned error instead. Only the method
+/// name, the `accountId` and the missing key are recorded, never the
+/// response's objects. The two server-chosen strings are passed as
+/// `&str` so text formatters escape them.
+///
+/// `PushSubscription/set` is skipped: its response has no `newState` by
+/// definition (RFC 8620 §7.2.2). The check is on the wire arguments, so
+/// it fires whatever `T` the caller decoded into.
+fn warn_if_set_response_lacks_new_state(inv: &jmap_types::Invocation) {
+    if !inv.name.ends_with("/set") || inv.name == "PushSubscription/set" {
+        return;
+    }
+    let Some(args) = inv.arguments.as_object() else {
+        return;
+    };
+    if args.contains_key("newState") {
+        return;
+    }
+    let account_id = args
+        .get("accountId")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("");
+    tracing::warn!(
+        method = inv.name.as_str(),
+        account_id,
+        missing = "newState",
+        "set response has no newState"
+    );
 }
 
 /// Return the full JMAP `"error"` object for `call_id`, including any

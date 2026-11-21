@@ -90,7 +90,13 @@ run). Known for Stalwart v1.1.1:
 | RFC 8620 §3.6.1 | an unsupported `using` capability is `unknownCapability` | `notRequest` (400, problem details) |
 | RFC 8620 §5.3 | every `/set` response has `oldState` (`String\|null`) and `newState` | `Identity/set` has no `oldState`; `Identity/set` and `EmailSubmission/set` without a change omit both; a successful `EmailSubmission/set` create has no `oldState` |
 
-The missing `newState` makes `jmap-mail-client`'s `email_submission_set`
-fail with `ClientError::Parse`, since the client requires the property.
+The clients tolerate the missing `newState` (decision 67 in
+`docs/design/DECISIONS.md`): `jmap_types::SetResponse` decodes it as the
+empty state, so `jmap-mail-client`'s `email_submission_set` succeeds, and
+`jmap_base_client::extract_response` logs a `WARN` event
+(`set response has no newState`, with fields
+`method`, `account_id` and `missing`). The empty state is not a real
+one: re-fetch the state with `Foo/get` rather than passing it to
+`Foo/changes`. The interop tests still report the divergence.
 
 [Stalwart]: https://stalw.art

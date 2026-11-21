@@ -208,31 +208,30 @@ async fn destroy_unknown_mailbox_is_not_found() {
 }
 
 /// RFC 8621 §7.5 with RFC 8620 §5.3: EmailSubmission/set destroy of an
-/// unknown id is `notFound`. `jmap-mail-client` requires the response's
-/// `newState`, which RFC 8620 §5.3 makes mandatory, so a server that
-/// omits it fails to parse here.
+/// unknown id is `notFound`. RFC 8620 §5.3 makes the response's
+/// `newState` mandatory; `jmap-mail-client` tolerates a server that
+/// omits it (decision 67) and decodes it as the empty state, which is
+/// still reported as a divergence.
 #[tokio::test]
 #[ignore = "needs a JMAP server: scripts/stalwart-up.sh, see docs/interop/README.md"]
 async fn destroy_unknown_submission_is_not_found() {
     let _server = jmap_interop::exclusive().await;
     let mail = alice().await;
     let ghost = Id::from("zz9-no-such-submission");
-    match mail
+    let resp = mail
         .email_submission_set(None, None, Some(vec![ghost.clone()]), None, None, None)
         .await
-    {
-        Ok(resp) => {
-            let err = resp
-                .not_destroyed
-                .get(&ghost)
-                .unwrap_or_else(|| panic!("notDestroyed lacks the id: {resp:?}"));
-            assert_eq!(err.error_type.as_str(), "notFound");
-        }
-        Err(jmap_base_client::ClientError::Parse(e)) => known_divergence(&format!(
-            "RFC 8620 §5.3: EmailSubmission/set response without newState does not \
-             parse as SetResponse: {e}"
-        )),
-        Err(e) => panic!("EmailSubmission/set: {e:?}"),
+        .expect("EmailSubmission/set");
+    let err = resp
+        .not_destroyed
+        .get(&ghost)
+        .unwrap_or_else(|| panic!("notDestroyed lacks the id: {resp:?}"));
+    assert_eq!(err.error_type.as_str(), "notFound");
+    if resp.new_state.as_ref().is_empty() {
+        known_divergence(
+            "RFC 8620 §5.3: EmailSubmission/set response has no newState \
+             (decoded as the empty state)",
+        );
     }
 }
 

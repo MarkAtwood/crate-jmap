@@ -227,6 +227,44 @@ async fn email_submission_set_no_on_success_when_none() {
     );
 }
 
+/// Decision 67 (bd:JMAP-cyub.5): a server that leaves `newState` and
+/// `oldState` out of an EmailSubmission/set response, as Stalwart 1.1.1
+/// does when nothing changed, still yields its results. RFC 8620 §5.3
+/// requires `newState`; the client substitutes the empty state.
+#[tokio::test]
+async fn email_submission_set_tolerates_missing_new_state() {
+    let server = MockServer::start().await;
+    let resp_body = json!({
+        "sessionState": "s1",
+        "methodResponses": [[
+            "EmailSubmission/set",
+            {
+                "accountId": "A13824",
+                "notDestroyed": {
+                    "ES-ghost": { "type": "notFound" }
+                }
+            },
+            "r1"
+        ]]
+    });
+    Mock::given(method("POST"))
+        .and(path("/api/"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
+        .mount(&server)
+        .await;
+
+    let sc = helpers::make_client(&server);
+    let ghost = jmap_types::Id::from("ES-ghost");
+    let resp = sc
+        .email_submission_set(None, None, Some(vec![ghost.clone()]), None, None, None)
+        .await
+        .expect("a /set response without newState must still decode");
+    assert_eq!(resp.new_state, "", "absent newState decodes as empty");
+    assert_eq!(resp.old_state, None);
+    assert_eq!(resp.not_destroyed[&ghost].error_type.as_str(), "notFound");
+    assert!(resp.destroyed.is_empty());
+}
+
 // email_submission_set_destroy_with_empty_id_guard was deleted in JMAP-6by7.2
 // (typed-Id refactor): the test passed `Some(vec![""])` to assert that the
 // empty-string destroy id was rejected. Under typed-Id, `destroy: Option<Vec<Id>>`

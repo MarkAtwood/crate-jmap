@@ -255,11 +255,26 @@ where
 pub struct SetResponse<T> {
     /// The account the response refers to.
     pub account_id: Id,
-    /// State token before this `/set` was applied. Optional because some
-    /// servers omit it on no-op responses (per RFC 8620 §5.3 the field is
-    /// nullable).
+    /// State token before this `/set` was applied. RFC 8620 §5.3 makes the
+    /// property `String|null`; `None` when it is `null` or, from a server
+    /// that leaves it out, absent.
     pub old_state: Option<State>,
     /// State token after this `/set`.
+    ///
+    /// RFC 8620 §5.3 requires `newState`, but some servers leave it out
+    /// (Stalwart 1.1.1 does when a `/set` changes nothing). Such a response
+    /// still deserializes, with `new_state` set to the **empty** state
+    /// (`""`), so that its `created` / `updated` / `destroyed` / `not*`
+    /// results are not lost (docs/design/DECISIONS.md decision 67).
+    /// `jmap-base-client`'s `extract_response` logs a `warn` event when
+    /// it decodes such a response.
+    ///
+    /// An empty `new_state` is not a real state: do not store it or pass
+    /// it as `sinceState` or `ifInState`. A `Foo/changes` from it fails
+    /// (typically `cannotCalculateChanges`). Re-fetch the current state
+    /// with `Foo/get` instead. Serializing such a response writes
+    /// `"newState": ""`.
+    #[serde(default = "absent_new_state")]
     pub new_state: State,
     /// Successfully created objects, keyed by caller-supplied creation id.
     #[serde(
@@ -311,6 +326,12 @@ pub struct SetResponse<T> {
     /// policy (see workspace AGENTS.md).
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
     pub extra: serde_json::Map<String, serde_json::Value>,
+}
+
+/// `SetResponse::new_state` when the server leaves `newState` out: the
+/// empty state. See that field's docs (decision 67).
+fn absent_new_state() -> State {
+    State::from("")
 }
 
 /// The partial object a server echoes in `/set` `created` / `updated` and
@@ -1327,6 +1348,35 @@ mod tests {
         assert!(resp.not_created.is_empty());
         assert!(resp.not_updated.is_empty());
         assert!(resp.not_destroyed.is_empty());
+    }
+
+    /// Decision 67: a `/set` response without `newState` (which RFC 8620
+    /// §5.3 requires) or `oldState` still decodes, keeping its results;
+    /// `new_state` is the empty state and `old_state` is `None`.
+    #[test]
+    fn set_response_without_new_or_old_state_decodes() {
+        let raw = json!({
+            "accountId": "A1",
+            "notDestroyed": { "X9": { "type": "notFound" } }
+        });
+        let resp: SetResponse<PartialObject> = serde_json::from_value(raw).unwrap();
+        assert_eq!(resp.new_state, "");
+        assert_eq!(resp.old_state, None);
+        assert_eq!(
+            resp.not_destroyed[&Id::from("X9")].error_type.as_str(),
+            "notFound"
+        );
+        assert!(resp.extra.is_empty(), "no stray extras: {:?}", resp.extra);
+    }
+
+    /// A `/set` response with `newState` but no `oldState` (Stalwart's
+    /// EmailSubmission/set create) keeps the server's `newState`.
+    #[test]
+    fn set_response_without_old_state_keeps_new_state() {
+        let raw = json!({ "accountId": "A1", "newState": "s2" });
+        let resp: SetResponse<PartialObject> = serde_json::from_value(raw).unwrap();
+        assert_eq!(resp.new_state, "s2");
+        assert_eq!(resp.old_state, None);
     }
 
     /// RFC 8620 §5.3 / §5.4: a result field with no entries is `null` on
