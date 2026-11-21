@@ -201,191 +201,237 @@ pub fn register_chat_handlers<B>(dispatcher: &mut Dispatcher<B::CallerCtx>, back
 where
     B: ChatBackend + 'static,
 {
-    // Helper: register one method with a closure that takes
-    // (Arc<B>, call_id, args, ctx).
-    //
-    // `$ci` is the call_id string (echoed back to the client). Most handlers
-    // ignore it and use `_ci` as the identifier.
-    //
-    // `$ctx` is the per-request caller context (`B::CallerCtx`) forwarded
-    // by the dispatcher. Closures pass `&ctx` to the inner `handle_*` fn.
-    // Each optional trailing ident binds the `CallContext` field of that name:
-    // `created_ids`, the request-wide creation id map (RFC 8620 §5.3) that
-    // `/set` handlers use to resolve `#creationId` references, or `using`,
-    // the request's capability list (draft-ietf-jmap-metadata-05 §3).
-    macro_rules! reg {
-        ($method:expr, $backend:expr, |$b:ident, $ci:ident, $a:ident, $ctx:ident $(, $field:ident)*| $body:expr) => {{
-            let backend_arc: Arc<B> = Arc::clone(&$backend);
-            let h: Arc<dyn JmapHandler<B::CallerCtx>> = Arc::new(ClosureHandler::new(
-                backend_arc,
-                move |$b: Arc<B>, cx: CallContext<B::CallerCtx>| {
-                    let CallContext {
-                        call_id: $ci,
-                        args: $a,
-                        caller: $ctx,
-                        $($field,)*
-                        ..
-                    } = cx;
-                    Box::pin(async move { $body }) as HandlerFuture
-                },
-            ));
-            dispatcher.register($method, h);
-        }};
-    }
+    register_chat_message_handlers(dispatcher, &backend);
+    register_space_contact_handlers(dispatcher, &backend);
+    register_space_object_handlers(dispatcher, &backend);
+}
 
+// Helper: register one method on the dispatcher `$d` with a closure that
+// takes (Arc<B>, call_id, args, ctx), where `B` is the backend type of the
+// calling function.
+//
+// `$ci` is the call_id string (echoed back to the client). Most handlers
+// ignore it and use `_ci` as the identifier.
+//
+// `$ctx` is the per-request caller context (`B::CallerCtx`) forwarded
+// by the dispatcher. Closures pass `&ctx` to the inner `handle_*` fn.
+// Each optional trailing ident binds the `CallContext` field of that name:
+// `created_ids`, the request-wide creation id map (RFC 8620 §5.3) that
+// `/set` handlers use to resolve `#creationId` references, or `using`,
+// the request's capability list (draft-ietf-jmap-metadata-05 §3).
+macro_rules! reg {
+    ($d:ident, $method:expr, $backend:expr, |$b:ident, $ci:ident, $a:ident, $ctx:ident $(, $field:ident)*| $body:expr) => {{
+        let backend_arc: Arc<B> = Arc::clone(&$backend);
+        let h: Arc<dyn JmapHandler<B::CallerCtx>> = Arc::new(ClosureHandler::new(
+            backend_arc,
+            move |$b: Arc<B>, cx: CallContext<B::CallerCtx>| {
+                let CallContext {
+                    call_id: $ci,
+                    args: $a,
+                    caller: $ctx,
+                    $($field,)*
+                    ..
+                } = cx;
+                Box::pin(async move { $body }) as HandlerFuture
+            },
+        ));
+        $d.register($method, h);
+    }};
+}
+
+/// The `Chat/*` and `Message/*` part of [`register_chat_handlers`], on the
+/// dispatcher `d`.
+fn register_chat_message_handlers<B>(d: &mut Dispatcher<B::CallerCtx>, backend: &Arc<B>)
+where
+    B: ChatBackend + 'static,
+{
     // Chat
-    reg!("Chat/get", backend, |b, _ci, a, ctx, using| {
+    reg!(d, "Chat/get", backend, |b, _ci, a, ctx, using| {
         handle_chat_get(&*b, &ctx, a, &using).await
     });
-    reg!("Chat/changes", backend, |b, _ci, a, ctx, using| {
+    reg!(d, "Chat/changes", backend, |b, _ci, a, ctx, using| {
         handle_chat_changes(&*b, &ctx, a, &using).await
     });
-    reg!("Chat/query", backend, |b, _ci, a, ctx, using| {
+    reg!(d, "Chat/query", backend, |b, _ci, a, ctx, using| {
         handle_chat_query(&*b, &ctx, a, &using).await
     });
-    reg!("Chat/queryChanges", backend, |b, _ci, a, ctx, using| {
+    reg!(d, "Chat/queryChanges", backend, |b, _ci, a, ctx, using| {
         handle_chat_query_changes(&*b, &ctx, a, &using).await
     });
-    reg!("Chat/set", backend, |b, _ci, a, ctx, created_ids, using| {
-        handle_chat_set(&*b, &ctx, &created_ids, a, &using).await
-    });
-    reg!("Chat/typing", backend, |b, _ci, a, ctx| {
+    reg!(
+        d,
+        "Chat/set",
+        backend,
+        |b, _ci, a, ctx, created_ids, using| {
+            handle_chat_set(&*b, &ctx, &created_ids, a, &using).await
+        }
+    );
+    reg!(d, "Chat/typing", backend, |b, _ci, a, ctx| {
         handle_chat_typing(&*b, &ctx, a).await
     });
 
     // Message
-    reg!("Message/get", backend, |b, _ci, a, ctx, using| {
+    reg!(d, "Message/get", backend, |b, _ci, a, ctx, using| {
         message::handle_message_get(&*b, &ctx, a, &using).await
     });
-    reg!("Message/changes", backend, |b, _ci, a, ctx, using| {
+    reg!(d, "Message/changes", backend, |b, _ci, a, ctx, using| {
         message::handle_message_changes(&*b, &ctx, a, &using).await
     });
-    reg!("Message/query", backend, |b, _ci, a, ctx, using| {
+    reg!(d, "Message/query", backend, |b, _ci, a, ctx, using| {
         message::handle_message_query(&*b, &ctx, a, &using).await
     });
-    reg!("Message/queryChanges", backend, |b, _ci, a, ctx, using| {
-        message::handle_message_query_changes(&*b, &ctx, a, &using).await
-    });
     reg!(
+        d,
+        "Message/queryChanges",
+        backend,
+        |b, _ci, a, ctx, using| {
+            message::handle_message_query_changes(&*b, &ctx, a, &using).await
+        }
+    );
+    reg!(
+        d,
         "Message/set",
         backend,
         |b, _ci, a, ctx, created_ids, using| {
             message::handle_message_set(&*b, &ctx, &created_ids, a, &using).await
         }
     );
+}
 
+/// The `Space/*`, `ChatContact/*` and `ReadPosition/*` part of
+/// [`register_chat_handlers`], on the dispatcher `d`.
+fn register_space_contact_handlers<B>(d: &mut Dispatcher<B::CallerCtx>, backend: &Arc<B>)
+where
+    B: ChatBackend + 'static,
+{
     // Space
-    reg!("Space/get", backend, |b, _ci, a, ctx, using| {
+    reg!(d, "Space/get", backend, |b, _ci, a, ctx, using| {
         handle_space_get(&*b, &ctx, a, &using).await
     });
-    reg!("Space/changes", backend, |b, _ci, a, ctx, using| {
+    reg!(d, "Space/changes", backend, |b, _ci, a, ctx, using| {
         handle_space_changes(&*b, &ctx, a, &using).await
     });
-    reg!("Space/query", backend, |b, _ci, a, ctx, using| {
+    reg!(d, "Space/query", backend, |b, _ci, a, ctx, using| {
         handle_space_query(&*b, &ctx, a, &using).await
     });
-    reg!("Space/queryChanges", backend, |b, _ci, a, ctx, using| {
+    reg!(d, "Space/queryChanges", backend, |b, _ci, a, ctx, using| {
         handle_space_query_changes(&*b, &ctx, a, &using).await
     });
     reg!(
+        d,
         "Space/set",
         backend,
         |b, _ci, a, ctx, created_ids, using| {
             handle_space_set(&*b, &ctx, &created_ids, a, &using).await
         }
     );
-    reg!("Space/join", backend, |b, _ci, a, ctx| {
+    reg!(d, "Space/join", backend, |b, _ci, a, ctx| {
         handle_space_join(&*b, &ctx, a).await
     });
 
     // ChatContact
-    reg!("ChatContact/get", backend, |b, _ci, a, ctx| {
+    reg!(d, "ChatContact/get", backend, |b, _ci, a, ctx| {
         handle_contact_get(&*b, &ctx, a).await
     });
-    reg!("ChatContact/changes", backend, |b, _ci, a, ctx| {
+    reg!(d, "ChatContact/changes", backend, |b, _ci, a, ctx| {
         handle_contact_changes(&*b, &ctx, a).await
     });
-    reg!("ChatContact/query", backend, |b, _ci, a, ctx| {
+    reg!(d, "ChatContact/query", backend, |b, _ci, a, ctx| {
         handle_contact_query(&*b, &ctx, a).await
     });
-    reg!("ChatContact/queryChanges", backend, |b, _ci, a, ctx| {
+    reg!(d, "ChatContact/queryChanges", backend, |b, _ci, a, ctx| {
         handle_contact_query_changes(&*b, &ctx, a).await
     });
-    reg!("ChatContact/set", backend, |b, _ci, a, ctx| {
+    reg!(d, "ChatContact/set", backend, |b, _ci, a, ctx| {
         handle_contact_set(&*b, &ctx, a).await
     });
 
     // ReadPosition
-    reg!("ReadPosition/get", backend, |b, _ci, a, ctx| {
+    reg!(d, "ReadPosition/get", backend, |b, _ci, a, ctx| {
         handle_position_get(&*b, &ctx, a).await
     });
-    reg!("ReadPosition/changes", backend, |b, _ci, a, ctx| {
+    reg!(d, "ReadPosition/changes", backend, |b, _ci, a, ctx| {
         handle_position_changes(&*b, &ctx, a).await
     });
     reg!(
+        d,
         "ReadPosition/set",
         backend,
         |b, _ci, a, ctx, created_ids| handle_position_set(&*b, &ctx, &created_ids, a).await
     );
+}
 
+/// The `SpaceInvite/*`, `SpaceBan/*`, `ChatBan/*`, `CustomEmoji/*` and
+/// `PresenceStatus/*` part of [`register_chat_handlers`], on the
+/// dispatcher `d`.
+fn register_space_object_handlers<B>(d: &mut Dispatcher<B::CallerCtx>, backend: &Arc<B>)
+where
+    B: ChatBackend + 'static,
+{
     // SpaceInvite
-    reg!("SpaceInvite/get", backend, |b, _ci, a, ctx| {
+    reg!(d, "SpaceInvite/get", backend, |b, _ci, a, ctx| {
         handle_invite_get(&*b, &ctx, a).await
     });
-    reg!("SpaceInvite/changes", backend, |b, _ci, a, ctx| {
+    reg!(d, "SpaceInvite/changes", backend, |b, _ci, a, ctx| {
         handle_invite_changes(&*b, &ctx, a).await
     });
-    reg!("SpaceInvite/set", backend, |b, _ci, a, ctx, created_ids| {
-        handle_invite_set(&*b, &ctx, &created_ids, a).await
-    });
+    reg!(
+        d,
+        "SpaceInvite/set",
+        backend,
+        |b, _ci, a, ctx, created_ids| handle_invite_set(&*b, &ctx, &created_ids, a).await
+    );
 
     // SpaceBan
-    reg!("SpaceBan/get", backend, |b, _ci, a, ctx| {
+    reg!(d, "SpaceBan/get", backend, |b, _ci, a, ctx| {
         handle_ban_get(&*b, &ctx, a).await
     });
-    reg!("SpaceBan/changes", backend, |b, _ci, a, ctx| {
+    reg!(d, "SpaceBan/changes", backend, |b, _ci, a, ctx| {
         handle_ban_changes(&*b, &ctx, a).await
     });
-    reg!("SpaceBan/set", backend, |b, _ci, a, ctx, created_ids| {
+    reg!(d, "SpaceBan/set", backend, |b, _ci, a, ctx, created_ids| {
         handle_ban_set(&*b, &ctx, &created_ids, a).await
     });
 
     // ChatBan
-    reg!("ChatBan/get", backend, |b, _ci, a, ctx| {
+    reg!(d, "ChatBan/get", backend, |b, _ci, a, ctx| {
         handle_chat_ban_get(&*b, &ctx, a).await
     });
-    reg!("ChatBan/changes", backend, |b, _ci, a, ctx| {
+    reg!(d, "ChatBan/changes", backend, |b, _ci, a, ctx| {
         handle_chat_ban_changes(&*b, &ctx, a).await
     });
-    reg!("ChatBan/set", backend, |b, _ci, a, ctx, created_ids| {
+    reg!(d, "ChatBan/set", backend, |b, _ci, a, ctx, created_ids| {
         handle_chat_ban_set(&*b, &ctx, &created_ids, a).await
     });
 
     // CustomEmoji
-    reg!("CustomEmoji/get", backend, |b, _ci, a, ctx| {
+    reg!(d, "CustomEmoji/get", backend, |b, _ci, a, ctx| {
         handle_emoji_get(&*b, &ctx, a).await
     });
-    reg!("CustomEmoji/changes", backend, |b, _ci, a, ctx| {
+    reg!(d, "CustomEmoji/changes", backend, |b, _ci, a, ctx| {
         handle_emoji_changes(&*b, &ctx, a).await
     });
-    reg!("CustomEmoji/query", backend, |b, _ci, a, ctx| {
+    reg!(d, "CustomEmoji/query", backend, |b, _ci, a, ctx| {
         handle_emoji_query(&*b, &ctx, a).await
     });
-    reg!("CustomEmoji/queryChanges", backend, |b, _ci, a, ctx| {
+    reg!(d, "CustomEmoji/queryChanges", backend, |b, _ci, a, ctx| {
         handle_emoji_query_changes(&*b, &ctx, a).await
     });
-    reg!("CustomEmoji/set", backend, |b, _ci, a, ctx, created_ids| {
-        handle_emoji_set(&*b, &ctx, &created_ids, a).await
-    });
+    reg!(
+        d,
+        "CustomEmoji/set",
+        backend,
+        |b, _ci, a, ctx, created_ids| handle_emoji_set(&*b, &ctx, &created_ids, a).await
+    );
 
     // PresenceStatus
-    reg!("PresenceStatus/get", backend, |b, _ci, a, ctx| {
+    reg!(d, "PresenceStatus/get", backend, |b, _ci, a, ctx| {
         handle_presence_get(&*b, &ctx, a).await
     });
-    reg!("PresenceStatus/changes", backend, |b, _ci, a, ctx| {
+    reg!(d, "PresenceStatus/changes", backend, |b, _ci, a, ctx| {
         handle_presence_changes(&*b, &ctx, a).await
     });
-    reg!("PresenceStatus/set", backend, |b, _ci, a, ctx| {
+    reg!(d, "PresenceStatus/set", backend, |b, _ci, a, ctx| {
         handle_presence_set(&*b, &ctx, a).await
     });
 }

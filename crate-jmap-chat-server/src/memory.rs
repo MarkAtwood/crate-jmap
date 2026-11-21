@@ -1265,101 +1265,8 @@ impl<C: MemoryCaller> JmapReads for MemoryBackend<C> {
             _ => current_state,
         };
 
-        // RFC 8620 §5.2 ID deduplication across the window, using the
-        // canonical jmap-mail-server `IdFate` rules. `order` keeps first-seen
-        // order so the response lists are deterministic.
-        let mut fates: HashMap<Id, IdFate> = HashMap::new();
-        let mut order: Vec<Id> = Vec::new();
-        let mut window_props = ChangedProperties::new();
-        for entry in &relevant {
-            for id in &entry.created {
-                if fates.insert(id.clone(), IdFate::Created).is_none() {
-                    order.push(id.clone());
-                }
-            }
-            for id in &entry.updated {
-                window_props.record(id.as_ref(), entry.updated_props.as_ref());
-                let fate = match fates.get(id) {
-                    Some(IdFate::Created) => IdFate::Created,
-                    Some(IdFate::Destroyed) => IdFate::Destroyed,
-                    _ => IdFate::Updated,
-                };
-                if fates.insert(id.clone(), fate).is_none() {
-                    order.push(id.clone());
-                }
-            }
-            for id in &entry.destroyed {
-                // "If a record has been created AND destroyed since the old
-                // state, the server SHOULD remove the id from the response
-                // entirely." (RFC 8620 §5.2). Message is the exception:
-                // "Servers SHOULD list it in `destroyed`: a client may have
-                // learned of the Message through a push notification, and
-                // needs the id to purge its copy." (draft-atwood-jmap-chat-00
-                // §Message/changes)
-                if O::TYPE_NAME != "Message" && matches!(fates.get(id), Some(IdFate::Created)) {
-                    fates.remove(id);
-                } else if fates.insert(id.clone(), IdFate::Destroyed).is_none() {
-                    order.push(id.clone());
-                }
-            }
-        }
-
-        let mut created: Vec<Id> = Vec::new();
-        let mut updated: Vec<Id> = Vec::new();
-        let mut destroyed: Vec<Id> = Vec::new();
-        // Object history -04 §5.1: an id restored in the window is
-        // classified by whether it existed at sinceState and exists now,
-        // "exactly as if the object had never been destroyed between them".
-        let mut events: HashMap<Id, Vec<ChangeEvent>> = HashMap::new();
-        for entry in &relevant {
-            for (ids, event) in [
-                (&entry.created, ChangeEvent::Created),
-                (&entry.updated, ChangeEvent::Updated),
-                (&entry.destroyed, ChangeEvent::Destroyed),
-                (&entry.restored, ChangeEvent::Restored),
-            ] {
-                for id in ids {
-                    events.entry(id.clone()).or_default().push(event);
-                }
-            }
-        }
-        for (id, list) in &events {
-            if !list.contains(&ChangeEvent::Restored) {
-                continue;
-            }
-            let fate = match fold_restore(list) {
-                Some(ChangeKind::Created) => IdFate::Created,
-                Some(ChangeKind::Destroyed) => IdFate::Destroyed,
-                Some(_) => {
-                    // A restore is never metadata-only.
-                    window_props.record(id.as_ref(), None);
-                    IdFate::Updated
-                }
-                None => {
-                    fates.remove(id);
-                    continue;
-                }
-            };
-            if fates.insert(id.clone(), fate).is_none() {
-                order.push(id.clone());
-            }
-        }
-
-        // `fates.remove` emits each id once and skips ids omitted above.
-        for id in order {
-            match fates.remove(&id) {
-                Some(IdFate::Created) => created.push(id),
-                // -05 §3.3: under Ignore, "exclude from the updated array
-                // any id whose only changes since sinceState ... are
-                // confined to metadata and/or privateMetadata".
-                Some(IdFate::Updated)
-                    if mode == MetadataOnlyChanges::Ignore
-                        && window_props.is_metadata_only(id.as_ref()) => {}
-                Some(IdFate::Updated) => updated.push(id),
-                Some(IdFate::Destroyed) => destroyed.push(id),
-                None => {}
-            }
-        }
+        let (created, updated, destroyed, window_props) =
+            window_changes(&relevant, O::TYPE_NAME, mode);
 
         // -05 §3.3 `updatedProperties`; no chat type has the RFC 8621
         // §2.2 count properties that only Mailbox/changes may list.
@@ -1417,14 +1324,7 @@ impl<C: MemoryCaller> JmapReads for MemoryBackend<C> {
                     // draft-atwood-jmap-chat-00 §Message/query (jmap-chat-spec
                     // 77c3474 L1301): "messages in channels the caller cannot
                     // view SHOULD be omitted"; done here by choice.
-                    keys.retain(|id| {
-                        m.get(id)
-                            .and_then(|obj| obj.get("chatId"))
-                            .and_then(|v| v.as_str())
-                            .is_none_or(|cid| {
-                                owner_may_view_chat(&inner, account_id, &Id::from(cid))
-                            })
-                    });
+                    keys.retain(|id| message_listed(&inner, m.get(id), account_id));
                 }
 
                 // draft-atwood-jmap-chat-00 §Space/query: "When the request
@@ -1438,23 +1338,7 @@ impl<C: MemoryCaller> JmapReads for MemoryBackend<C> {
                 // applied, so a revealed Space also matches all of it.
                 if O::TYPE_NAME == "Space" {
                     let want_public = filter_val.as_ref().is_some_and(has_is_public_true);
-                    keys.retain(|id| {
-                        let space = &m[id];
-                        let flag = |k: &str| {
-                            space.get(k).and_then(serde_json::Value::as_bool) == Some(true)
-                        };
-                        let is_member = space
-                            .get("members")
-                            .and_then(|v| v.as_array())
-                            .is_some_and(|ms| {
-                                ms.iter().any(|mm| {
-                                    mm.get("id").and_then(|v| v.as_str())
-                                        == Some(account_id.as_ref())
-                                })
-                            });
-                        is_member
-                            || (want_public && flag("isPublic") && flag("isPubliclyPreviewable"))
-                    });
+                    keys.retain(|id| space_listed(&m[id], account_id, want_public));
                 }
 
                 keys.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
@@ -3254,11 +3138,7 @@ fn apply_space_patch_impl(
     }
 
     let mut results = Vec::with_capacity(ops.len());
-    let mut space_mutated = false;
-    let mut chats_created: Vec<Id> = Vec::new();
-    let mut chats_updated: HashSet<Id> = HashSet::new();
-    let mut chats_destroyed: Vec<Id> = Vec::new();
-    let mut messages_destroyed: Vec<Id> = Vec::new();
+    let mut effects = SpacePatchEffects::default();
 
     // Draft §Space/set `removeMembers`: "If the member removing
     // themselves is the last member holding `"manage_space"` and other
@@ -3273,127 +3153,182 @@ fn apply_space_patch_impl(
             .is_some_and(|p| p.contains(&ChatPermission::ManageSpace));
 
     for (op_index, op) in ops.into_iter().enumerate() {
-        let outcome = match &op {
-            SpacePatchOp::AddRole(_) => {
-                apply_add_role(inner, account_id.as_ref(), space_id, op, &mut space_mutated)
-            }
-            SpacePatchOp::RemoveRole(_) => apply_remove_role(
-                inner,
-                account_id.as_ref(),
-                space_id,
-                op,
-                &mut chats_updated,
-                &mut space_mutated,
-            ),
-            SpacePatchOp::UpdateRole { .. } => {
-                apply_update_role(inner, account_id.as_ref(), space_id, op, &mut space_mutated)
-            }
-            SpacePatchOp::AddMember(_) => {
-                apply_add_member(inner, account_id.as_ref(), space_id, op, &mut space_mutated)
-            }
-            SpacePatchOp::RemoveMember(_) => {
-                apply_remove_member(inner, account_id.as_ref(), space_id, op, &mut space_mutated)
-            }
-            SpacePatchOp::UpdateMember { .. } => {
-                apply_update_member(inner, account_id.as_ref(), space_id, op, &mut space_mutated)
-            }
-            SpacePatchOp::AddCategory(_)
-            | SpacePatchOp::RemoveCategory(_)
-            | SpacePatchOp::UpdateCategory { .. } => apply_category_op(
-                inner,
-                account_id.as_ref(),
-                space_id,
-                op,
-                &mut chats_updated,
-                &mut space_mutated,
-            ),
-            SpacePatchOp::AddChannel(_) => apply_add_channel(
-                inner,
-                account_id.as_ref(),
-                space_id,
-                op,
-                &mut chats_created,
-                &mut space_mutated,
-            ),
-            SpacePatchOp::RemoveChannel(_) => apply_remove_channel(
-                inner,
-                account_id.as_ref(),
-                space_id,
-                op,
-                &mut chats_destroyed,
-                &mut messages_destroyed,
-                &mut space_mutated,
-            ),
-            SpacePatchOp::UpdateChannel { .. } => apply_update_channel(
-                inner,
-                account_id.as_ref(),
-                space_id,
-                op,
-                &mut chats_updated,
-                &mut space_mutated,
-            ),
-            // `SpacePatchOp` is `#[non_exhaustive]` upstream. A
-            // future-added variant cannot be matched at compile time;
-            // fail closed.
-            _ => Err(Box::new(
-                SetError::new(SetErrorType::Forbidden).with_description(stub_description(&op)),
-            )),
-        };
+        let outcome = apply_space_patch_op(inner, account_id.as_ref(), space_id, op, &mut effects);
         results.push(OpResult {
             op_index,
             outcome: outcome.map_err(|e| *e),
         });
     }
 
-    if leaving_space_manager
-        && let Some(space) = inner
-            .objects_mut("Space", account_id.as_ref())
-            .get_mut(space_id)
-    {
-        let member_ids: Vec<&str> = space
-            .get("members")
-            .and_then(|v| v.as_array())
-            .map(|arr| arr.iter().filter_map(|m| m["id"].as_str()).collect())
-            .unwrap_or_default();
-        let closes = space.get("closedAt").is_none()
-            && !member_ids.is_empty()
-            && !member_ids.contains(&account_id.as_ref())
-            && member_ids.iter().all(|m| {
-                !member_effective_permissions(space, m, &everyone)
-                    .is_some_and(|p| p.contains(&ChatPermission::ManageSpace))
-            });
-        if closes {
-            space["closedAt"] = serde_json::Value::String(now_utc_string().into_inner());
-            space_mutated = true;
-        }
+    if leaving_space_manager && close_if_no_manager(inner, account_id, space_id, &everyone) {
+        effects.space_mutated = true;
     }
+    log_space_patch(inner, account_id.as_ref(), space_id, effects);
+    Ok(results)
+}
 
+/// What the ops of one [`apply_space_patch_impl`] call changed, for its
+/// change-log entries.
+#[derive(Default)]
+struct SpacePatchEffects {
+    /// Whether the Space itself changed.
+    space_mutated: bool,
+    /// Channel Chats created.
+    chats_created: Vec<Id>,
+    /// Chats updated.
+    chats_updated: HashSet<Id>,
+    /// Channel Chats destroyed.
+    chats_destroyed: Vec<Id>,
+    /// Messages destroyed with their channel.
+    messages_destroyed: Vec<Id>,
+}
+
+/// Apply one [`SpacePatchOp`] of [`apply_space_patch_impl`] to the Space
+/// `space_id`, recording what it changed in `effects`. Returns the id the
+/// op created, if any, or its [`SetError`].
+fn apply_space_patch_op(
+    inner: &mut Inner,
+    account_id: &str,
+    space_id: &Id,
+    op: SpacePatchOp,
+    effects: &mut SpacePatchEffects,
+) -> Result<Option<Id>, Box<SetError>> {
+    let space_mutated = &mut effects.space_mutated;
+    match &op {
+        SpacePatchOp::AddRole(_) => apply_add_role(inner, account_id, space_id, op, space_mutated),
+        SpacePatchOp::RemoveRole(_) => apply_remove_role(
+            inner,
+            account_id,
+            space_id,
+            op,
+            &mut effects.chats_updated,
+            space_mutated,
+        ),
+        SpacePatchOp::UpdateRole { .. } => {
+            apply_update_role(inner, account_id, space_id, op, space_mutated)
+        }
+        SpacePatchOp::AddMember(_) => {
+            apply_add_member(inner, account_id, space_id, op, space_mutated)
+        }
+        SpacePatchOp::RemoveMember(_) => {
+            apply_remove_member(inner, account_id, space_id, op, space_mutated)
+        }
+        SpacePatchOp::UpdateMember { .. } => {
+            apply_update_member(inner, account_id, space_id, op, space_mutated)
+        }
+        SpacePatchOp::AddCategory(_)
+        | SpacePatchOp::RemoveCategory(_)
+        | SpacePatchOp::UpdateCategory { .. } => apply_category_op(
+            inner,
+            account_id,
+            space_id,
+            op,
+            &mut effects.chats_updated,
+            space_mutated,
+        ),
+        SpacePatchOp::AddChannel(_) => apply_add_channel(
+            inner,
+            account_id,
+            space_id,
+            op,
+            &mut effects.chats_created,
+            space_mutated,
+        ),
+        SpacePatchOp::RemoveChannel(_) => apply_remove_channel(
+            inner,
+            account_id,
+            space_id,
+            op,
+            &mut effects.chats_destroyed,
+            &mut effects.messages_destroyed,
+            space_mutated,
+        ),
+        SpacePatchOp::UpdateChannel { .. } => apply_update_channel(
+            inner,
+            account_id,
+            space_id,
+            op,
+            &mut effects.chats_updated,
+            space_mutated,
+        ),
+        // `SpacePatchOp` is `#[non_exhaustive]` upstream. A
+        // future-added variant cannot be matched at compile time;
+        // fail closed.
+        _ => Err(Box::new(
+            SetError::new(SetErrorType::Forbidden).with_description(stub_description(&op)),
+        )),
+    }
+}
+
+/// Close the Space `space_id` (set `closedAt`) when the owner of
+/// `account_id`, the last member holding `"manage_space"`, has left it and
+/// other members remain (draft-atwood-jmap-chat-00 §Space/set
+/// `removeMembers`). Returns whether it was closed.
+fn close_if_no_manager(
+    inner: &mut Inner,
+    account_id: &Id,
+    space_id: &Id,
+    everyone: &HashSet<ChatPermission>,
+) -> bool {
+    let Some(space) = inner
+        .objects_mut("Space", account_id.as_ref())
+        .get_mut(space_id)
+    else {
+        return false;
+    };
+    let member_ids: Vec<&str> = space
+        .get("members")
+        .and_then(|v| v.as_array())
+        .map(|arr| arr.iter().filter_map(|m| m["id"].as_str()).collect())
+        .unwrap_or_default();
+    let closes = space.get("closedAt").is_none()
+        && !member_ids.is_empty()
+        && !member_ids.contains(&account_id.as_ref())
+        && member_ids.iter().all(|m| {
+            !member_effective_permissions(space, m, everyone)
+                .is_some_and(|p| p.contains(&ChatPermission::ManageSpace))
+        });
+    if closes {
+        space["closedAt"] = serde_json::Value::String(now_utc_string().into_inner());
+    }
+    closes
+}
+
+/// Bump the states and log the change entries for what one
+/// [`apply_space_patch_impl`] call changed, and drop the `ReadPosition`s of
+/// the channels it destroyed.
+fn log_space_patch(inner: &mut Inner, account_id: &str, space_id: &Id, effects: SpacePatchEffects) {
+    let SpacePatchEffects {
+        space_mutated,
+        chats_created,
+        chats_updated,
+        chats_destroyed,
+        messages_destroyed,
+    } = effects;
     // Bump state + log a change entry on the Space if any op mutated it.
     // We deliberately log one change per call rather than one per op:
     // the wire response surfaces the whole patch as a single update,
     // and one change-log entry per call keeps `Space/changes` from
     // amplifying state-token rotations unnecessarily.
     if space_mutated {
-        let new_state = inner.bump_state("Space", account_id.as_ref());
-        inner
-            .change_log_mut("Space", account_id.as_ref())
-            .push(ChangeEntry {
-                new_state,
-                created: vec![],
-                updated: vec![space_id.clone()],
-                destroyed: vec![],
-                restored: vec![],
-                updated_props: None,
-            });
+        let new_state = inner.bump_state("Space", account_id);
+        inner.change_log_mut("Space", account_id).push(ChangeEntry {
+            new_state,
+            created: vec![],
+            updated: vec![space_id.clone()],
+            destroyed: vec![],
+            restored: vec![],
+            updated_props: None,
+        });
     }
 
-    destroy_read_positions(inner, account_id.as_ref(), &chats_destroyed);
+    destroy_read_positions(inner, account_id, &chats_destroyed);
 
     // Same batching rationale: one Chat change-log entry per call,
     // combining every channel created, updated, and destroyed by
     // this patch.
     if !chats_created.is_empty() || !chats_updated.is_empty() || !chats_destroyed.is_empty() {
-        let new_state = inner.bump_state("Chat", account_id.as_ref());
+        let new_state = inner.bump_state("Chat", account_id);
         // De-dup `updated` against `created` and `destroyed` so a
         // channel touched by multiple ops in the same patch surfaces
         // in only the most-impactful list (destroyed > created >
@@ -3404,22 +3339,20 @@ fn apply_space_patch_impl(
             .filter(|id| !chats_created.contains(id) && !chats_destroyed.contains(id))
             .collect();
         updated.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
-        inner
-            .change_log_mut("Chat", account_id.as_ref())
-            .push(ChangeEntry {
-                new_state,
-                created: chats_created,
-                updated,
-                destroyed: chats_destroyed,
-                restored: vec![],
-                updated_props: None,
-            });
+        inner.change_log_mut("Chat", account_id).push(ChangeEntry {
+            new_state,
+            created: chats_created,
+            updated,
+            destroyed: chats_destroyed,
+            restored: vec![],
+            updated_props: None,
+        });
     }
 
     if !messages_destroyed.is_empty() {
-        let new_state = inner.bump_state("Message", account_id.as_ref());
+        let new_state = inner.bump_state("Message", account_id);
         inner
-            .change_log_mut("Message", account_id.as_ref())
+            .change_log_mut("Message", account_id)
             .push(ChangeEntry {
                 new_state,
                 created: vec![],
@@ -3429,8 +3362,6 @@ fn apply_space_patch_impl(
                 updated_props: None,
             });
     }
-
-    Ok(results)
 }
 
 /// Convert a typed [`jmap_chat_types::SpaceMetadataPatch`] into the
@@ -3601,305 +3532,350 @@ fn apply_category_op(
     chats_updated: &mut HashSet<Id>,
     space_mutated: &mut bool,
 ) -> Result<Option<Id>, Box<SetError>> {
-    use jmap_chat_types::Category;
-
     // The Space exists (the caller verified). Pull it out as a typed
     // value, apply the mutation, write it back.
-    let mut space_val = inner
-        .objects_ref("Space", account_id)
-        .and_then(|m| m.get(space_id))
-        .cloned()
-        .ok_or_else(|| SetError::new(SetErrorType::NotFound))?;
-
+    let mut space_val = stored_space(inner, account_id, space_id)?;
     let categories: &mut Vec<serde_json::Value> = space_val
         .get_mut("categories")
         .and_then(|v| v.as_array_mut())
-        .ok_or_else(|| {
-            SetError::new(SetErrorType::Forbidden)
-                .with_description("internal: Space.categories not an array")
-        })?;
+        .ok_or_else(categories_not_array)?;
 
     let assigned_id = match op {
-        SpacePatchOp::AddCategory(cat) => {
-            // Mint a fresh CategoryId (draft §Space/set `addCategories`:
-            // "Server assigns ULIDs").
-            let new_id = inner.mint_id();
-            // The draft leaves the default `position` open; an entry without
-            // one is appended after the highest existing category position.
-            let position = cat.position.unwrap_or_else(|| {
-                categories
-                    .iter()
-                    .filter_map(|c| c.get("position").and_then(serde_json::Value::as_u64))
-                    .max()
-                    .map_or(0, |max| max.saturating_add(1))
-            });
-
-            // Validate every channel id in the entry's channel_ids refers
-            // to an existing Chat with kind=channel and space_id matching
-            // this Space. The spec says "channelIds (String[])" without
-            // strict validation language, but accepting nonexistent ids
-            // would create dangling references on the Space side.
-            for ch_id in &cat.channel_ids {
-                if !channel_belongs_to_space(inner, account_id, ch_id, space_id) {
-                    return Err(Box::new(
-                        SetError::new(SetErrorType::InvalidProperties)
-                            .with_properties(vec!["channelIds".to_owned()])
-                            .with_description(format!(
-                                "channelId {} is not a channel of this Space",
-                                ch_id.as_ref()
-                            )),
-                    ));
-                }
-            }
-
-            // Re-fetch space_val + categories after the validation borrows
-            // (channel_belongs_to_space took an immutable inner borrow).
-            let mut space_val = inner
-                .objects_ref("Space", account_id)
-                .and_then(|m| m.get(space_id))
-                .cloned()
-                .ok_or_else(|| SetError::new(SetErrorType::NotFound))?;
-
-            // Set each named channel's category_id and pull it out of
-            // uncategorized_channel_ids if present. Every channel whose
-            // categoryId changes is recorded so Chat/changes sees the
-            // cascade (bd:JMAP-g7wu.2.4.9).
-            let owned_channel_ids: Vec<Id> = cat.channel_ids.clone();
-            for ch_id in &owned_channel_ids {
-                set_channel_category(inner, account_id, ch_id, Some(&new_id));
-                chats_updated.insert(ch_id.clone());
-            }
-            if let Some(unc) = space_val
-                .get_mut("uncategorizedChannelIds")
-                .and_then(|v| v.as_array_mut())
-            {
-                unc.retain(|v| {
-                    v.as_str()
-                        .is_none_or(|s| !owned_channel_ids.iter().any(|id| id.as_ref() == s))
-                });
-            }
-            let cats = space_val
-                .get_mut("categories")
-                .and_then(|v| v.as_array_mut())
-                .ok_or_else(|| {
-                    SetError::new(SetErrorType::Forbidden)
-                        .with_description("internal: Space.categories not an array")
-                })?;
-            remove_from_categories(cats, &owned_channel_ids);
-            let channel_ids = owned_channel_ids
-                .iter()
-                .map(|id| serde_json::Value::from(id.as_ref()))
-                .collect();
-            let mut stored = cat.extra;
-            stored.insert("id".to_owned(), serde_json::Value::from(new_id.as_ref()));
-            stored.insert("name".to_owned(), serde_json::Value::String(cat.name));
-            stored.insert("position".to_owned(), serde_json::Value::from(position));
-            stored.insert(
-                "channelIds".to_owned(),
-                serde_json::Value::Array(channel_ids),
-            );
-            cats.push(serde_json::Value::Object(stored));
-
-            inner
-                .objects_mut("Space", account_id)
-                .insert(space_id.clone(), space_val);
-            *space_mutated = true;
-            Some(new_id)
-        }
-
+        SpacePatchOp::AddCategory(cat) => Some(add_category(
+            inner,
+            account_id,
+            space_id,
+            cat,
+            categories,
+            chats_updated,
+        )?),
         SpacePatchOp::RemoveCategory(target_id) => {
-            // Find the category. Cascade: every channel currently in this
-            // category gets its category_id cleared and is appended to
-            // uncategorized. Per draft §Space/set L1292.
-            let pos = categories
-                .iter()
-                .position(|v| v.get("id").and_then(|s| s.as_str()) == Some(target_id.as_ref()));
-            let Some(pos) = pos else {
-                return Err(Box::new(
-                    SetError::new(SetErrorType::NotFound)
-                        .with_description(format!("category {} not found", target_id.as_ref())),
-                ));
-            };
-            // The stored channel_ids on the category mirror the Chats'
-            // category_id; scan Chats to be safe (Space-side could drift).
-            let scanned: Vec<Id> = scan_channels_in_category(inner, account_id, &target_id);
-
-            // Drop the category and append channels to uncategorized.
-            let mut space_val = inner
-                .objects_ref("Space", account_id)
-                .and_then(|m| m.get(space_id))
-                .cloned()
-                .ok_or_else(|| SetError::new(SetErrorType::NotFound))?;
-            let cats = space_val
-                .get_mut("categories")
-                .and_then(|v| v.as_array_mut())
-                .ok_or_else(|| {
-                    SetError::new(SetErrorType::Forbidden)
-                        .with_description("internal: Space.categories not an array")
-                })?;
-            cats.remove(pos);
-
-            let unc = space_val
-                .get_mut("uncategorizedChannelIds")
-                .and_then(|v| v.as_array_mut())
-                .ok_or_else(|| {
-                    SetError::new(SetErrorType::Forbidden)
-                        .with_description("internal: Space.uncategorizedChannelIds not an array")
-                })?;
-            for ch_id in &scanned {
-                unc.push(serde_json::Value::String(ch_id.as_ref().to_owned()));
-            }
-            inner
-                .objects_mut("Space", account_id)
-                .insert(space_id.clone(), space_val);
-
-            // Clear each scanned channel's category_id pointer.
-            // Every cleared channel is recorded so Chat/changes sees
-            // the cascade (bd:JMAP-g7wu.2.4.9).
-            for ch_id in &scanned {
-                set_channel_category(inner, account_id, ch_id, None);
-                chats_updated.insert(ch_id.clone());
-            }
-            *space_mutated = true;
+            remove_category(
+                inner,
+                account_id,
+                space_id,
+                &target_id,
+                categories,
+                chats_updated,
+            )?;
             None
         }
-
         SpacePatchOp::UpdateCategory { id, patch } => {
-            // Find the category.
-            let pos = categories
-                .iter()
-                .position(|v| v.get("id").and_then(|s| s.as_str()) == Some(id.as_ref()));
-            let Some(pos) = pos else {
-                return Err(Box::new(
-                    SetError::new(SetErrorType::NotFound)
-                        .with_description(format!("category {} not found", id.as_ref())),
-                ));
-            };
-
-            // Deserialize, apply the patch, re-serialize.
-            let mut cat: Category =
-                serde_json::from_value(categories[pos].clone()).map_err(|e| {
-                    SetError::new(SetErrorType::Forbidden)
-                        .with_description(format!("internal: deserialize Category: {e}"))
-                })?;
-
-            if let Some(name) = patch.name {
-                cat.name = name;
-            }
-            if let Some(position) = patch.position {
-                cat.position = position;
-            }
-
-            // Wholesale channel_ids replacement requires cross-reference
-            // bookkeeping on the channels.
-            let channel_ids_changed = patch.channel_ids.is_some();
-            let new_channel_ids: Option<Vec<Id>> = patch.channel_ids;
-            if let Some(new_ids) = &new_channel_ids {
-                // Validate every new id is a channel of this Space.
-                for ch_id in new_ids {
-                    if !channel_belongs_to_space(inner, account_id, ch_id, space_id) {
-                        return Err(Box::new(
-                            SetError::new(SetErrorType::InvalidProperties)
-                                .with_properties(vec!["channelIds".to_owned()])
-                                .with_description(format!(
-                                    "channelId {} is not a channel of this Space",
-                                    ch_id.as_ref()
-                                )),
-                        ));
-                    }
-                }
-            }
-
-            if channel_ids_changed {
-                let new_ids = new_channel_ids.expect("checked above");
-                let old_ids = cat.channel_ids.clone();
-
-                // Channels in old but not in new: clear category_id and
-                // append to uncategorized.
-                let removed: Vec<&Id> = old_ids.iter().filter(|o| !new_ids.contains(o)).collect();
-                // Channels in new but not in old: set category_id to this
-                // category and remove from uncategorized.
-                let added: Vec<&Id> = new_ids.iter().filter(|n| !old_ids.contains(n)).collect();
-
-                cat.channel_ids = new_ids.clone();
-
-                // Mutate Space first (uncategorized list).
-                let mut space_val = inner
-                    .objects_ref("Space", account_id)
-                    .and_then(|m| m.get(space_id))
-                    .cloned()
-                    .ok_or_else(|| SetError::new(SetErrorType::NotFound))?;
-                if let Some(unc) = space_val
-                    .get_mut("uncategorizedChannelIds")
-                    .and_then(|v| v.as_array_mut())
-                {
-                    for ch_id in &removed {
-                        unc.push(serde_json::Value::String(ch_id.as_ref().to_owned()));
-                    }
-                    unc.retain(|v| {
-                        v.as_str()
-                            .is_none_or(|s| !added.iter().any(|id| id.as_ref() == s))
-                    });
-                }
-                // Write back the updated category.
-                let cats = space_val
-                    .get_mut("categories")
-                    .and_then(|v| v.as_array_mut())
-                    .ok_or_else(|| {
-                        SetError::new(SetErrorType::Forbidden)
-                            .with_description("internal: Space.categories not an array")
-                    })?;
-                remove_from_categories(cats, &added);
-                cats[pos] = serde_json::to_value(&cat).map_err(|e| {
-                    SetError::new(SetErrorType::Forbidden)
-                        .with_description(format!("internal: serialize Category: {e}"))
-                })?;
-                inner
-                    .objects_mut("Space", account_id)
-                    .insert(space_id.clone(), space_val);
-
-                // Update each channel's category_id. Every channel
-                // whose categoryId changed is recorded so Chat/changes
-                // sees the cascade (bd:JMAP-g7wu.2.4.9).
-                for ch_id in &removed {
-                    set_channel_category(inner, account_id, ch_id, None);
-                    chats_updated.insert((*ch_id).clone());
-                }
-                for ch_id in &added {
-                    set_channel_category(inner, account_id, ch_id, Some(&id));
-                    chats_updated.insert((*ch_id).clone());
-                }
-            } else {
-                // Only metadata changed; write back the category.
-                let mut space_val = inner
-                    .objects_ref("Space", account_id)
-                    .and_then(|m| m.get(space_id))
-                    .cloned()
-                    .ok_or_else(|| SetError::new(SetErrorType::NotFound))?;
-                let cats = space_val
-                    .get_mut("categories")
-                    .and_then(|v| v.as_array_mut())
-                    .ok_or_else(|| {
-                        SetError::new(SetErrorType::Forbidden)
-                            .with_description("internal: Space.categories not an array")
-                    })?;
-                cats[pos] = serde_json::to_value(&cat).map_err(|e| {
-                    SetError::new(SetErrorType::Forbidden)
-                        .with_description(format!("internal: serialize Category: {e}"))
-                })?;
-                inner
-                    .objects_mut("Space", account_id)
-                    .insert(space_id.clone(), space_val);
-            }
-            *space_mutated = true;
+            update_category(
+                inner,
+                (account_id, space_id),
+                &id,
+                patch,
+                categories,
+                chats_updated,
+            )?;
             None
         }
 
         // Caller filters non-category ops out before reaching this helper.
         _ => unreachable!("apply_category_op called with non-category variant"),
     };
+    *space_mutated = true;
 
     Ok(assigned_id)
+}
+
+/// A clone of the stored Space `space_id`, or `notFound`.
+fn stored_space(
+    inner: &Inner,
+    account_id: &str,
+    space_id: &Id,
+) -> Result<serde_json::Value, Box<SetError>> {
+    inner
+        .objects_ref("Space", account_id)
+        .and_then(|m| m.get(space_id))
+        .cloned()
+        .ok_or_else(|| Box::new(SetError::new(SetErrorType::NotFound)))
+}
+
+/// The `forbidden` [`SetError`] for a stored Space whose `categories` is
+/// not an array.
+fn categories_not_array() -> SetError {
+    SetError::new(SetErrorType::Forbidden)
+        .with_description("internal: Space.categories not an array")
+}
+
+/// The `invalidProperties` [`SetError`] for a category `channelIds` entry
+/// `ch_id` that is not a channel of the Space.
+fn not_a_space_channel(ch_id: &Id) -> Box<SetError> {
+    Box::new(
+        SetError::new(SetErrorType::InvalidProperties)
+            .with_properties(vec!["channelIds".to_owned()])
+            .with_description(format!(
+                "channelId {} is not a channel of this Space",
+                ch_id.as_ref()
+            )),
+    )
+}
+
+/// The `notFound` [`SetError`] for a category `id` the Space lacks, or the
+/// position of the category in `categories`.
+fn category_position(categories: &[serde_json::Value], id: &Id) -> Result<usize, Box<SetError>> {
+    categories
+        .iter()
+        .position(|v| v.get("id").and_then(|s| s.as_str()) == Some(id.as_ref()))
+        .ok_or_else(|| {
+            Box::new(
+                SetError::new(SetErrorType::NotFound)
+                    .with_description(format!("category {} not found", id.as_ref())),
+            )
+        })
+}
+
+/// `addCategories` for [`apply_category_op`]: store `cat` under a fresh
+/// id, which is returned, and move its channels into it. `categories` are
+/// the Space's categories before the op.
+fn add_category(
+    inner: &mut Inner,
+    account_id: &str,
+    space_id: &Id,
+    cat: jmap_chat_types::CategoryCreate,
+    categories: &[serde_json::Value],
+    chats_updated: &mut HashSet<Id>,
+) -> Result<Id, Box<SetError>> {
+    // Mint a fresh CategoryId (draft §Space/set `addCategories`:
+    // "Server assigns ULIDs").
+    let new_id = inner.mint_id();
+    // The draft leaves the default `position` open; an entry without
+    // one is appended after the highest existing category position.
+    let position = cat.position.unwrap_or_else(|| {
+        categories
+            .iter()
+            .filter_map(|c| c.get("position").and_then(serde_json::Value::as_u64))
+            .max()
+            .map_or(0, |max| max.saturating_add(1))
+    });
+
+    // Validate every channel id in the entry's channel_ids refers
+    // to an existing Chat with kind=channel and space_id matching
+    // this Space. The spec says "channelIds (String[])" without
+    // strict validation language, but accepting nonexistent ids
+    // would create dangling references on the Space side.
+    if let Some(ch_id) = cat
+        .channel_ids
+        .iter()
+        .find(|ch_id| !channel_belongs_to_space(inner, account_id, ch_id, space_id))
+    {
+        return Err(not_a_space_channel(ch_id));
+    }
+
+    // Re-fetch space_val + categories after the validation borrows
+    // (channel_belongs_to_space took an immutable inner borrow).
+    let mut space_val = stored_space(inner, account_id, space_id)?;
+
+    // Set each named channel's category_id and pull it out of
+    // uncategorized_channel_ids if present. Every channel whose
+    // categoryId changes is recorded so Chat/changes sees the
+    // cascade (bd:JMAP-g7wu.2.4.9).
+    let owned_channel_ids: Vec<Id> = cat.channel_ids.clone();
+    for ch_id in &owned_channel_ids {
+        set_channel_category(inner, account_id, ch_id, Some(&new_id));
+        chats_updated.insert(ch_id.clone());
+    }
+    if let Some(unc) = space_val
+        .get_mut("uncategorizedChannelIds")
+        .and_then(|v| v.as_array_mut())
+    {
+        unc.retain(|v| {
+            v.as_str()
+                .is_none_or(|s| !owned_channel_ids.iter().any(|id| id.as_ref() == s))
+        });
+    }
+    let cats = space_val
+        .get_mut("categories")
+        .and_then(|v| v.as_array_mut())
+        .ok_or_else(categories_not_array)?;
+    remove_from_categories(cats, &owned_channel_ids);
+    let channel_ids = owned_channel_ids
+        .iter()
+        .map(|id| serde_json::Value::from(id.as_ref()))
+        .collect();
+    let mut stored = cat.extra;
+    stored.insert("id".to_owned(), serde_json::Value::from(new_id.as_ref()));
+    stored.insert("name".to_owned(), serde_json::Value::String(cat.name));
+    stored.insert("position".to_owned(), serde_json::Value::from(position));
+    stored.insert(
+        "channelIds".to_owned(),
+        serde_json::Value::Array(channel_ids),
+    );
+    cats.push(serde_json::Value::Object(stored));
+
+    inner
+        .objects_mut("Space", account_id)
+        .insert(space_id.clone(), space_val);
+    Ok(new_id)
+}
+
+/// `removeCategories` for [`apply_category_op`]: drop the category
+/// `target_id` and move its channels to `uncategorizedChannelIds`.
+/// `categories` are the Space's categories before the op.
+fn remove_category(
+    inner: &mut Inner,
+    account_id: &str,
+    space_id: &Id,
+    target_id: &Id,
+    categories: &[serde_json::Value],
+    chats_updated: &mut HashSet<Id>,
+) -> Result<(), Box<SetError>> {
+    // Find the category. Cascade: every channel currently in this
+    // category gets its category_id cleared and is appended to
+    // uncategorized. Per draft §Space/set L1292.
+    let pos = category_position(categories, target_id)?;
+    // The stored channel_ids on the category mirror the Chats'
+    // category_id; scan Chats to be safe (Space-side could drift).
+    let scanned: Vec<Id> = scan_channels_in_category(inner, account_id, target_id);
+
+    // Drop the category and append channels to uncategorized.
+    let mut space_val = stored_space(inner, account_id, space_id)?;
+    let cats = space_val
+        .get_mut("categories")
+        .and_then(|v| v.as_array_mut())
+        .ok_or_else(categories_not_array)?;
+    cats.remove(pos);
+
+    let unc = space_val
+        .get_mut("uncategorizedChannelIds")
+        .and_then(|v| v.as_array_mut())
+        .ok_or_else(|| {
+            SetError::new(SetErrorType::Forbidden)
+                .with_description("internal: Space.uncategorizedChannelIds not an array")
+        })?;
+    for ch_id in &scanned {
+        unc.push(serde_json::Value::String(ch_id.as_ref().to_owned()));
+    }
+    inner
+        .objects_mut("Space", account_id)
+        .insert(space_id.clone(), space_val);
+
+    // Clear each scanned channel's category_id pointer.
+    // Every cleared channel is recorded so Chat/changes sees
+    // the cascade (bd:JMAP-g7wu.2.4.9).
+    for ch_id in &scanned {
+        set_channel_category(inner, account_id, ch_id, None);
+        chats_updated.insert(ch_id.clone());
+    }
+    Ok(())
+}
+
+/// `updateCategories` for [`apply_category_op`]: apply `patch` to the
+/// category `id` of the Space `space.1` in account `space.0`. A
+/// `channelIds` replacement moves the channels that left it to
+/// `uncategorizedChannelIds` and those that joined it out of where they
+/// were. `categories` are the Space's categories before the op.
+fn update_category(
+    inner: &mut Inner,
+    space: (&str, &Id),
+    id: &Id,
+    patch: jmap_chat_types::CategoryPatch,
+    categories: &[serde_json::Value],
+    chats_updated: &mut HashSet<Id>,
+) -> Result<(), Box<SetError>> {
+    use jmap_chat_types::Category;
+    let (account_id, space_id) = space;
+
+    // Find the category.
+    let pos = category_position(categories, id)?;
+
+    // Deserialize, apply the patch, re-serialize.
+    let mut cat: Category = serde_json::from_value(categories[pos].clone()).map_err(|e| {
+        SetError::new(SetErrorType::Forbidden)
+            .with_description(format!("internal: deserialize Category: {e}"))
+    })?;
+
+    if let Some(name) = patch.name {
+        cat.name = name;
+    }
+    if let Some(position) = patch.position {
+        cat.position = position;
+    }
+
+    // Wholesale channel_ids replacement requires cross-reference
+    // bookkeeping on the channels.
+    let Some(new_ids) = patch.channel_ids else {
+        // Only metadata changed; write back the category.
+        return write_category(inner, space, pos, &cat, &[], &[]);
+    };
+    // Validate every new id is a channel of this Space.
+    if let Some(ch_id) = new_ids
+        .iter()
+        .find(|ch_id| !channel_belongs_to_space(inner, account_id, ch_id, space_id))
+    {
+        return Err(not_a_space_channel(ch_id));
+    }
+
+    let old_ids = cat.channel_ids.clone();
+
+    // Channels in old but not in new: clear category_id and
+    // append to uncategorized.
+    let removed: Vec<&Id> = old_ids.iter().filter(|o| !new_ids.contains(o)).collect();
+    // Channels in new but not in old: set category_id to this
+    // category and remove from uncategorized.
+    let added: Vec<&Id> = new_ids.iter().filter(|n| !old_ids.contains(n)).collect();
+
+    cat.channel_ids = new_ids.clone();
+    write_category(inner, space, pos, &cat, &removed, &added)?;
+
+    // Update each channel's category_id. Every channel
+    // whose categoryId changed is recorded so Chat/changes
+    // sees the cascade (bd:JMAP-g7wu.2.4.9).
+    for ch_id in &removed {
+        set_channel_category(inner, account_id, ch_id, None);
+        chats_updated.insert((*ch_id).clone());
+    }
+    for ch_id in &added {
+        set_channel_category(inner, account_id, ch_id, Some(id));
+        chats_updated.insert((*ch_id).clone());
+    }
+    Ok(())
+}
+
+/// Store `cat` as the category at `pos` of the Space `space.1` in account
+/// `space.0`, appending the channels `removed` from it to
+/// `uncategorizedChannelIds` and taking those `added` to it out of there
+/// and out of every other category. With both empty only the category
+/// changes.
+fn write_category(
+    inner: &mut Inner,
+    space: (&str, &Id),
+    pos: usize,
+    cat: &jmap_chat_types::Category,
+    removed: &[&Id],
+    added: &[&Id],
+) -> Result<(), Box<SetError>> {
+    let (account_id, space_id) = space;
+    // Mutate Space first (uncategorized list).
+    let mut space_val = stored_space(inner, account_id, space_id)?;
+    if let Some(unc) = space_val
+        .get_mut("uncategorizedChannelIds")
+        .and_then(|v| v.as_array_mut())
+    {
+        for ch_id in removed {
+            unc.push(serde_json::Value::String(ch_id.as_ref().to_owned()));
+        }
+        unc.retain(|v| {
+            v.as_str()
+                .is_none_or(|s| !added.iter().any(|id| id.as_ref() == s))
+        });
+    }
+    // Write back the updated category.
+    let cats = space_val
+        .get_mut("categories")
+        .and_then(|v| v.as_array_mut())
+        .ok_or_else(categories_not_array)?;
+    remove_from_categories(cats, added);
+    cats[pos] = serde_json::to_value(cat).map_err(|e| {
+        SetError::new(SetErrorType::Forbidden)
+            .with_description(format!("internal: serialize Category: {e}"))
+    })?;
+    inner
+        .objects_mut("Space", account_id)
+        .insert(space_id.clone(), space_val);
+    Ok(())
 }
 
 /// Apply one [`SpacePatchOp::AddChannel`] to the in-memory Space.
@@ -3935,38 +3911,51 @@ fn apply_add_channel(
     // This must happen before any mutation so a bad categoryId is a clean
     // rejection rather than a half-applied side effect.
     if let Some(cat_id) = &create.category_id {
-        let space_val = inner
-            .objects_ref("Space", account_id)
-            .and_then(|m| m.get(space_id))
-            .ok_or_else(|| SetError::new(SetErrorType::NotFound))?;
-        let exists = space_val
-            .get("categories")
-            .and_then(|v| v.as_array())
-            .is_some_and(|cats| {
-                cats.iter()
-                    .any(|c| c.get("id").and_then(|s| s.as_str()) == Some(cat_id.as_ref()))
-            });
-        if !exists {
-            return Err(Box::new(
-                SetError::new(SetErrorType::InvalidProperties)
-                    .with_properties(vec!["categoryId".to_owned()])
-                    .with_description(format!(
-                        "categoryId {} does not refer to a category of this Space",
-                        cat_id.as_ref()
-                    )),
-            ));
-        }
+        check_space_category(inner, account_id, space_id, cat_id)?;
     }
 
     // Mint a fresh channel Chat id.
     let new_id = inner.mint_id();
+    let category_id = create.category_id.clone();
+    let chat_obj = new_channel_object(&new_id, space_id, create);
+    inner
+        .objects_mut("Chat", account_id)
+        .insert(new_id.clone(), serde_json::Value::Object(chat_obj));
 
-    // Build the channel JSON. Required fields per `Chat`:
-    //   id, kind, createdAt, unreadCount, pinnedMessageIds, muted,
-    //   receiveTypingIndicators
-    // Channel-specific: spaceId, name, categoryId?, position?, topic?
-    // Defaults for muted (false) and receiveTypingIndicators (true)
-    // match the values used by Chat/set create at chat.rs:266-273.
+    // Update Space-side cross-references. Re-fetch the Space because
+    // the validation borrow above was released, and the `objects_mut`
+    // on "Chat" above invalidated any earlier borrow regardless.
+    let mut space_val = inner
+        .objects_ref("Space", account_id)
+        .and_then(|m| m.get(space_id))
+        .cloned()
+        .ok_or_else(|| SetError::new(SetErrorType::NotFound))?;
+    // Append the new channel id to its category's channelIds, or to
+    // uncategorizedChannelIds.
+    place_channel(&mut space_val, &new_id, category_id.as_ref())?;
+    inner
+        .objects_mut("Space", account_id)
+        .insert(space_id.clone(), space_val);
+
+    chats_created.push(new_id.clone());
+    *space_mutated = true;
+    Ok(Some(new_id))
+}
+
+/// The stored Chat record for the channel `new_id` of the Space `space_id`
+/// that an `addChannels` entry `create` describes.
+///
+/// Required fields per `Chat`:
+///   id, kind, createdAt, unreadCount, pinnedMessageIds, muted,
+///   receiveTypingIndicators
+/// Channel-specific: spaceId, name, categoryId?, position?, topic?
+/// Defaults for muted (false) and receiveTypingIndicators (true)
+/// match the values used by Chat/set create at chat.rs:266-273.
+fn new_channel_object(
+    new_id: &Id,
+    space_id: &Id,
+    create: jmap_chat_types::ChannelCreate,
+) -> serde_json::Map<String, serde_json::Value> {
     let now = now_utc_string();
     let mut chat_obj = serde_json::Map::new();
     chat_obj.insert(
@@ -4008,60 +3997,7 @@ fn apply_add_channel(
     if let Some(topic) = create.topic {
         chat_obj.insert("topic".to_owned(), serde_json::Value::String(topic));
     }
-
-    inner
-        .objects_mut("Chat", account_id)
-        .insert(new_id.clone(), serde_json::Value::Object(chat_obj));
-
-    // Update Space-side cross-references. Re-fetch the Space because
-    // the validation borrow above was released, and the `objects_mut`
-    // on "Chat" above invalidated any earlier borrow regardless.
-    let mut space_val = inner
-        .objects_ref("Space", account_id)
-        .and_then(|m| m.get(space_id))
-        .cloned()
-        .ok_or_else(|| SetError::new(SetErrorType::NotFound))?;
-
-    if let Some(cat_id) = &create.category_id {
-        // Append the new channel id to that category's channelIds.
-        let cats = space_val
-            .get_mut("categories")
-            .and_then(|v| v.as_array_mut())
-            .ok_or_else(|| {
-                SetError::new(SetErrorType::Forbidden)
-                    .with_description("internal: Space.categories not an array")
-            })?;
-        for cat in cats.iter_mut() {
-            if cat.get("id").and_then(|s| s.as_str()) == Some(cat_id.as_ref()) {
-                let ch_ids = cat
-                    .get_mut("channelIds")
-                    .and_then(|v| v.as_array_mut())
-                    .ok_or_else(|| {
-                        SetError::new(SetErrorType::Forbidden)
-                            .with_description("internal: Category.channelIds not an array")
-                    })?;
-                ch_ids.push(serde_json::Value::String(new_id.as_ref().to_owned()));
-                break;
-            }
-        }
-    } else {
-        // Append to uncategorizedChannelIds.
-        let unc = space_val
-            .get_mut("uncategorizedChannelIds")
-            .and_then(|v| v.as_array_mut())
-            .ok_or_else(|| {
-                SetError::new(SetErrorType::Forbidden)
-                    .with_description("internal: Space.uncategorizedChannelIds not an array")
-            })?;
-        unc.push(serde_json::Value::String(new_id.as_ref().to_owned()));
-    }
-    inner
-        .objects_mut("Space", account_id)
-        .insert(space_id.clone(), space_val);
-
-    chats_created.push(new_id.clone());
-    *space_mutated = true;
-    Ok(Some(new_id))
+    chat_obj
 }
 
 /// Apply one [`SpacePatchOp::RemoveChannel`] to the in-memory Space.
@@ -4198,27 +4134,7 @@ fn apply_update_channel(
     // target category exists on this Space before mutating anything.
     // A null categoryId (Clearable::Clear) does not need this check.
     if let Some(Clearable::Set(new_cat)) = &patch.category_id {
-        let space_val = inner
-            .objects_ref("Space", account_id)
-            .and_then(|m| m.get(space_id))
-            .ok_or_else(|| SetError::new(SetErrorType::NotFound))?;
-        let exists = space_val
-            .get("categories")
-            .and_then(|v| v.as_array())
-            .is_some_and(|cats| {
-                cats.iter()
-                    .any(|c| c.get("id").and_then(|s| s.as_str()) == Some(new_cat.as_ref()))
-            });
-        if !exists {
-            return Err(Box::new(
-                SetError::new(SetErrorType::InvalidProperties)
-                    .with_properties(vec!["categoryId".to_owned()])
-                    .with_description(format!(
-                        "categoryId {} does not refer to a category of this Space",
-                        new_cat.as_ref()
-                    )),
-            ));
-        }
+        check_space_category(inner, account_id, space_id, new_cat)?;
     }
 
     // Apply the patch to the Chat record. We collect categoryId before
@@ -4231,7 +4147,7 @@ fn apply_update_channel(
         .and_then(|c| c.as_str())
         .map(Id::from);
 
-    {
+    let category_id = {
         let chat_map = inner.objects_mut("Chat", account_id);
         let Some(chat_val) = chat_map.get_mut(&id) else {
             // We just confirmed existence via channel_belongs_to_space;
@@ -4244,65 +4160,14 @@ fn apply_update_channel(
                     .with_description("internal: Chat record not a JSON object"),
             ));
         };
-
-        if let Some(name) = patch.name {
-            obj.insert("name".to_owned(), serde_json::Value::String(name));
-        }
-        if let Some(pos) = patch.position {
-            obj.insert("position".to_owned(), serde_json::Value::from(pos));
-        }
-        match patch.topic {
-            Some(Clearable::Set(t)) => {
-                obj.insert("topic".to_owned(), serde_json::Value::String(t));
-            }
-            Some(Clearable::Clear) => {
-                obj.remove("topic");
-            }
-            None => {}
-        }
-        match &patch.category_id {
-            Some(Clearable::Set(c)) => {
-                obj.insert(
-                    "categoryId".to_owned(),
-                    serde_json::Value::String(c.as_ref().to_owned()),
-                );
-            }
-            Some(Clearable::Clear) => {
-                obj.remove("categoryId");
-            }
-            None => {}
-        }
-        match patch.slow_mode_seconds {
-            Some(Clearable::Set(s)) => {
-                obj.insert("slowModeSeconds".to_owned(), serde_json::Value::from(s));
-            }
-            Some(Clearable::Clear) => {
-                obj.remove("slowModeSeconds");
-            }
-            None => {}
-        }
-        match patch.permission_overrides {
-            Some(Clearable::Set(po)) => {
-                let val = serde_json::to_value(&po).map_err(|e| {
-                    SetError::new(SetErrorType::Forbidden)
-                        .with_description(format!("internal: serialize permissionOverrides: {e}"))
-                })?;
-                obj.insert("permissionOverrides".to_owned(), val);
-            }
-            Some(Clearable::Clear) => {
-                obj.remove("permissionOverrides");
-            }
-            None => {}
-        }
-    }
+        patch_channel_record(obj, patch)?
+    };
 
     // Maintain Space-side cross-references for categoryId changes.
-    let category_changed = patch.category_id.is_some();
-    if category_changed {
-        let new_category_id: Option<Id> = match &patch.category_id {
-            Some(Clearable::Set(c)) => Some(c.clone()),
-            Some(Clearable::Clear) => None,
-            None => unreachable!(),
+    if let Some(category_id) = category_id {
+        let new_category_id: Option<Id> = match category_id {
+            Clearable::Set(c) => Some(c),
+            Clearable::Clear => None,
         };
 
         // Only do bookkeeping if the assignment actually changed —
@@ -4315,67 +4180,9 @@ fn apply_update_channel(
                 .ok_or_else(|| SetError::new(SetErrorType::NotFound))?;
 
             // Remove from previous home.
-            match &old_category_id {
-                Some(prev_cat) => {
-                    if let Some(cats) = space_val
-                        .get_mut("categories")
-                        .and_then(|v| v.as_array_mut())
-                    {
-                        for cat in cats.iter_mut() {
-                            if cat.get("id").and_then(|s| s.as_str()) == Some(prev_cat.as_ref()) {
-                                if let Some(ch_ids) =
-                                    cat.get_mut("channelIds").and_then(|v| v.as_array_mut())
-                                {
-                                    ch_ids.retain(|v| v.as_str() != Some(id.as_ref()));
-                                }
-                                break;
-                            }
-                        }
-                    }
-                }
-                None => {
-                    if let Some(unc) = space_val
-                        .get_mut("uncategorizedChannelIds")
-                        .and_then(|v| v.as_array_mut())
-                    {
-                        unc.retain(|v| v.as_str() != Some(id.as_ref()));
-                    }
-                }
-            }
-
+            unplace_channel(&mut space_val, &id, old_category_id.as_ref());
             // Add to new home.
-            if let Some(new_cat) = &new_category_id {
-                let cats = space_val
-                    .get_mut("categories")
-                    .and_then(|v| v.as_array_mut())
-                    .ok_or_else(|| {
-                        SetError::new(SetErrorType::Forbidden)
-                            .with_description("internal: Space.categories not an array")
-                    })?;
-                for cat in cats.iter_mut() {
-                    if cat.get("id").and_then(|s| s.as_str()) == Some(new_cat.as_ref()) {
-                        let ch_ids = cat
-                            .get_mut("channelIds")
-                            .and_then(|v| v.as_array_mut())
-                            .ok_or_else(|| {
-                                SetError::new(SetErrorType::Forbidden)
-                                    .with_description("internal: Category.channelIds not an array")
-                            })?;
-                        ch_ids.push(serde_json::Value::String(id.as_ref().to_owned()));
-                        break;
-                    }
-                }
-            } else {
-                let unc = space_val
-                    .get_mut("uncategorizedChannelIds")
-                    .and_then(|v| v.as_array_mut())
-                    .ok_or_else(|| {
-                        SetError::new(SetErrorType::Forbidden).with_description(
-                            "internal: Space.uncategorizedChannelIds not an array",
-                        )
-                    })?;
-                unc.push(serde_json::Value::String(id.as_ref().to_owned()));
-            }
+            place_channel(&mut space_val, &id, new_category_id.as_ref())?;
 
             inner
                 .objects_mut("Space", account_id)
@@ -4386,6 +4193,174 @@ fn apply_update_channel(
 
     chats_updated.insert(id);
     Ok(None)
+}
+
+/// Apply the channel `patch` of an `updateChannels` entry to the stored
+/// Chat record `obj`, field by field (`name`, `position`, `topic`,
+/// `categoryId`, `slowModeSeconds`, `permissionOverrides`), and return its
+/// `categoryId` change. A field that fails leaves the earlier ones applied.
+fn patch_channel_record(
+    obj: &mut serde_json::Map<String, serde_json::Value>,
+    patch: jmap_chat_types::ChannelPatch,
+) -> Result<Option<jmap_chat_types::Clearable<Id>>, Box<SetError>> {
+    use jmap_chat_types::Clearable;
+
+    if let Some(name) = patch.name {
+        obj.insert("name".to_owned(), serde_json::Value::String(name));
+    }
+    if let Some(pos) = patch.position {
+        obj.insert("position".to_owned(), serde_json::Value::from(pos));
+    }
+    match patch.topic {
+        Some(Clearable::Set(t)) => {
+            obj.insert("topic".to_owned(), serde_json::Value::String(t));
+        }
+        Some(Clearable::Clear) => {
+            obj.remove("topic");
+        }
+        None => {}
+    }
+    match &patch.category_id {
+        Some(Clearable::Set(c)) => {
+            obj.insert(
+                "categoryId".to_owned(),
+                serde_json::Value::String(c.as_ref().to_owned()),
+            );
+        }
+        Some(Clearable::Clear) => {
+            obj.remove("categoryId");
+        }
+        None => {}
+    }
+    match patch.slow_mode_seconds {
+        Some(Clearable::Set(s)) => {
+            obj.insert("slowModeSeconds".to_owned(), serde_json::Value::from(s));
+        }
+        Some(Clearable::Clear) => {
+            obj.remove("slowModeSeconds");
+        }
+        None => {}
+    }
+    match patch.permission_overrides {
+        Some(Clearable::Set(po)) => {
+            let val = serde_json::to_value(&po).map_err(|e| {
+                SetError::new(SetErrorType::Forbidden)
+                    .with_description(format!("internal: serialize permissionOverrides: {e}"))
+            })?;
+            obj.insert("permissionOverrides".to_owned(), val);
+        }
+        Some(Clearable::Clear) => {
+            obj.remove("permissionOverrides");
+        }
+        None => {}
+    }
+    Ok(patch.category_id)
+}
+
+/// Check that `cat_id` names a category of the Space `space_id`, before a
+/// channel is put in it: `notFound` without the Space, `invalidProperties`
+/// on `categoryId` without the category.
+fn check_space_category(
+    inner: &Inner,
+    account_id: &str,
+    space_id: &Id,
+    cat_id: &Id,
+) -> Result<(), Box<SetError>> {
+    let space_val = inner
+        .objects_ref("Space", account_id)
+        .and_then(|m| m.get(space_id))
+        .ok_or_else(|| SetError::new(SetErrorType::NotFound))?;
+    let exists = space_val
+        .get("categories")
+        .and_then(|v| v.as_array())
+        .is_some_and(|cats| {
+            cats.iter()
+                .any(|c| c.get("id").and_then(|s| s.as_str()) == Some(cat_id.as_ref()))
+        });
+    if !exists {
+        return Err(Box::new(
+            SetError::new(SetErrorType::InvalidProperties)
+                .with_properties(vec!["categoryId".to_owned()])
+                .with_description(format!(
+                    "categoryId {} does not refer to a category of this Space",
+                    cat_id.as_ref()
+                )),
+        ));
+    }
+    Ok(())
+}
+
+/// Take the channel `id` out of its home in the stored Space `space_val`:
+/// the `channelIds` of its category `category`, or
+/// `uncategorizedChannelIds`. A missing array is left alone.
+fn unplace_channel(space_val: &mut serde_json::Value, id: &Id, category: Option<&Id>) {
+    match category {
+        Some(prev_cat) => {
+            if let Some(cats) = space_val
+                .get_mut("categories")
+                .and_then(|v| v.as_array_mut())
+            {
+                for cat in cats.iter_mut() {
+                    if cat.get("id").and_then(|s| s.as_str()) == Some(prev_cat.as_ref()) {
+                        if let Some(ch_ids) =
+                            cat.get_mut("channelIds").and_then(|v| v.as_array_mut())
+                        {
+                            ch_ids.retain(|v| v.as_str() != Some(id.as_ref()));
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+        None => {
+            if let Some(unc) = space_val
+                .get_mut("uncategorizedChannelIds")
+                .and_then(|v| v.as_array_mut())
+            {
+                unc.retain(|v| v.as_str() != Some(id.as_ref()));
+            }
+        }
+    }
+}
+
+/// Append the channel `id` to its new home in the stored Space
+/// `space_val`: the `channelIds` of its category `category`, or
+/// `uncategorizedChannelIds`. A missing array is a `forbidden` internal
+/// error.
+fn place_channel(
+    space_val: &mut serde_json::Value,
+    id: &Id,
+    category: Option<&Id>,
+) -> Result<(), Box<SetError>> {
+    if let Some(new_cat) = category {
+        let cats = space_val
+            .get_mut("categories")
+            .and_then(|v| v.as_array_mut())
+            .ok_or_else(categories_not_array)?;
+        for cat in cats.iter_mut() {
+            if cat.get("id").and_then(|s| s.as_str()) == Some(new_cat.as_ref()) {
+                let ch_ids = cat
+                    .get_mut("channelIds")
+                    .and_then(|v| v.as_array_mut())
+                    .ok_or_else(|| {
+                        SetError::new(SetErrorType::Forbidden)
+                            .with_description("internal: Category.channelIds not an array")
+                    })?;
+                ch_ids.push(serde_json::Value::String(id.as_ref().to_owned()));
+                break;
+            }
+        }
+    } else {
+        let unc = space_val
+            .get_mut("uncategorizedChannelIds")
+            .and_then(|v| v.as_array_mut())
+            .ok_or_else(|| {
+                SetError::new(SetErrorType::Forbidden)
+                    .with_description("internal: Space.uncategorizedChannelIds not an array")
+            })?;
+        unc.push(serde_json::Value::String(id.as_ref().to_owned()));
+    }
+    Ok(())
 }
 
 // ===========================================================================
@@ -4625,54 +4600,7 @@ fn apply_add_member(
         .and_then(|m| m.get(space_id))
         .cloned()
         .ok_or_else(|| SetError::new(SetErrorType::NotFound))?;
-
-    // Reject if already a member: duplicate-add is an
-    // invalidProperties error against the wire-level userId field.
-    if space_val
-        .get("members")
-        .and_then(|v| v.as_array())
-        .is_some_and(|members| {
-            members
-                .iter()
-                .any(|m| m.get("id").and_then(|v| v.as_str()) == Some(user_id.as_ref()))
-        })
-    {
-        return Err(Box::new(
-            SetError::new(SetErrorType::InvalidProperties)
-                .with_properties(vec!["userId".to_owned()])
-                .with_description(format!(
-                    "member {} is already a member of this Space",
-                    user_id.as_ref()
-                )),
-        ));
-    }
-
-    // Validate every role_id refers to an existing SpaceRole on this
-    // Space. A nonexistent role_id would create a dangling
-    // reference; reject as InvalidProperties on `roleIds`.
-    if !role_ids.is_empty() {
-        let existing: HashSet<String> = space_val
-            .get("roles")
-            .and_then(|v| v.as_array())
-            .map(|arr| {
-                arr.iter()
-                    .filter_map(|r| r.get("id").and_then(|v| v.as_str()).map(str::to_owned))
-                    .collect()
-            })
-            .unwrap_or_default();
-        for rid in &role_ids {
-            if !existing.contains(rid.as_ref()) {
-                return Err(Box::new(
-                    SetError::new(SetErrorType::InvalidProperties)
-                        .with_properties(vec!["roleIds".to_owned()])
-                        .with_description(format!(
-                            "role {} does not exist in this Space",
-                            rid.as_ref()
-                        )),
-                ));
-            }
-        }
-    }
+    check_new_member(&space_val, &user_id, &role_ids)?;
 
     // Build the wire-shape member object directly. `SpaceMember` is
     // `#[non_exhaustive]`, so the struct-expression construction is
@@ -4718,6 +4646,64 @@ fn apply_add_member(
         .insert(space_id.clone(), space_val);
     *space_mutated = true;
     Ok(None)
+}
+
+/// Check an `addMembers` entry against the stored Space `space_val`: the
+/// user `user_id` is not a member yet and every id in `role_ids` names a
+/// role of the Space. Each failure is `invalidProperties`.
+fn check_new_member(
+    space_val: &serde_json::Value,
+    user_id: &Id,
+    role_ids: &[Id],
+) -> Result<(), Box<SetError>> {
+    // Reject if already a member: duplicate-add is an
+    // invalidProperties error against the wire-level userId field.
+    if space_val
+        .get("members")
+        .and_then(|v| v.as_array())
+        .is_some_and(|members| {
+            members
+                .iter()
+                .any(|m| m.get("id").and_then(|v| v.as_str()) == Some(user_id.as_ref()))
+        })
+    {
+        return Err(Box::new(
+            SetError::new(SetErrorType::InvalidProperties)
+                .with_properties(vec!["userId".to_owned()])
+                .with_description(format!(
+                    "member {} is already a member of this Space",
+                    user_id.as_ref()
+                )),
+        ));
+    }
+
+    // Validate every role_id refers to an existing SpaceRole on this
+    // Space. A nonexistent role_id would create a dangling
+    // reference; reject as InvalidProperties on `roleIds`.
+    if !role_ids.is_empty() {
+        let existing: HashSet<String> = space_val
+            .get("roles")
+            .and_then(|v| v.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|r| r.get("id").and_then(|v| v.as_str()).map(str::to_owned))
+                    .collect()
+            })
+            .unwrap_or_default();
+        for rid in role_ids {
+            if !existing.contains(rid.as_ref()) {
+                return Err(Box::new(
+                    SetError::new(SetErrorType::InvalidProperties)
+                        .with_properties(vec!["roleIds".to_owned()])
+                        .with_description(format!(
+                            "role {} does not exist in this Space",
+                            rid.as_ref()
+                        )),
+                ));
+            }
+        }
+    }
+    Ok(())
 }
 
 /// Apply `SpacePatchOp::RemoveMember`: remove the named member and
@@ -5062,8 +5048,6 @@ fn validate_space_patch_ops(
     protect_last_admin: bool,
     everyone: &HashSet<ChatPermission>,
 ) -> Result<(), Box<SetError>> {
-    use crate::permissions::{RequiredPermissions, required_permissions_for_op};
-
     // Draft §Space/set `removeMembers`: a patch whose `removeMembers`
     // holds only the accountId is self-removal, which "the server
     // MUST permit ... regardless of the caller's permission set" and to
@@ -5099,137 +5083,10 @@ fn validate_space_patch_ops(
     let caller_highest = caller_highest_position(space_val, account_id).unwrap_or(0);
 
     for op in ops {
-        // Permission gate (criterion 1). Applies to ALL op
-        // families. `required_permissions_for_op` returns the
-        // per-variant permission set from draft-atwood-jmap-chat-00
-        // §Space/set; a caller missing any required permission
-        // triggers a whole-patch reject (criterion 6). An unknown
-        // op variant fails closed via `RequiredPermissions::UnknownOp`
-        // — the kit cannot enumerate permissions for a variant it
-        // does not recognize, so the safe answer is "no, you cannot
-        // apply it".
-        // `RequiredPermissions` is `#[non_exhaustive]` at the public
-        // crate boundary, but the compiler sees all variants from
-        // within this crate. Match exhaustively on the in-crate
-        // variant set so a future Conditional / Layered / etc. arm
-        // forces a deliberate fail-closed decision at compile time
-        // rather than silently routing through a wildcard.
-        let required = match required_permissions_for_op(op) {
-            RequiredPermissions::Known(slice) => slice,
-            RequiredPermissions::UnknownOp => {
-                return Err(Box::new(
-                    SetError::new(SetErrorType::Forbidden).with_description(format!(
-                        "unknown SpacePatchOp variant `{}`; this version of \
-                             the kit cannot determine its permission requirement, \
-                             rejecting fail-closed",
-                        variant_name(op)
-                    )),
-                ));
-            }
-        };
-        let required = if (self_removal && matches!(op, SpacePatchOp::RemoveMember(_)))
-            || (self_nick && matches!(op, SpacePatchOp::UpdateMember { .. }))
-        {
-            &[]
-        } else {
-            required
-        };
-        for req in required {
-            if !caller_perms.contains(req) {
-                return Err(Box::new(
-                    SetError::new(SetErrorType::Forbidden).with_description(format!(
-                        "caller lacks required permission `{}` for {}",
-                        req,
-                        variant_name(op)
-                    )),
-                ));
-            }
-        }
-
-        // Hierarchy gate (criterion 2). Only applies to ops that
-        // grant or modify role placements:
-        //   - AddRole: the new role's position must be < caller's
-        //     highest.
-        //   - UpdateRole: both the existing role's position AND
-        //     the new position (if patch.position is set) must
-        //     be < caller's highest.
-        //   - AddMember (when role_ids is non-empty): every
-        //     role_id's position must be < caller's highest.
-        //   - UpdateMember (when patch.role_ids is set): every
-        //     role granted or removed (the symmetric difference of
-        //     the member's current and new roleIds; roleIds is a
-        //     full replacement) must be < caller's highest.
-        //   - RemoveMember: no hierarchy check (removing a
-        //     member doesn't reshape roles).
-        //   - RemoveRole: the existing role's position must be <
-        //     caller's highest.
-        match op {
-            SpacePatchOp::AddRole(role) if role.position >= caller_highest => {
-                return Err(Box::new(hierarchy_error(
-                    role.position,
-                    caller_highest,
-                    "AddRole",
-                )));
-            }
-            SpacePatchOp::RemoveRole(target_id) => {
-                if let Some(pos) = role_position(space_val, target_id.as_ref())
-                    && pos >= caller_highest
-                {
-                    return Err(Box::new(hierarchy_error(pos, caller_highest, "RemoveRole")));
-                }
-                // Nonexistent role id is a per-op NotFound, not
-                // a permission failure — leave for the apply
-                // pass.
-            }
-            SpacePatchOp::UpdateRole { id, patch } => {
-                if let Some(pos) = role_position(space_val, id.as_ref())
-                    && pos >= caller_highest
-                {
-                    return Err(Box::new(hierarchy_error(pos, caller_highest, "UpdateRole")));
-                }
-                if let Some(new_pos) = patch.position
-                    && new_pos >= caller_highest
-                {
-                    return Err(Box::new(hierarchy_error(
-                        new_pos,
-                        caller_highest,
-                        "UpdateRole (new position)",
-                    )));
-                }
-            }
-            SpacePatchOp::AddMember(create) => {
-                for rid in &create.role_ids {
-                    if let Some(pos) = role_position(space_val, rid.as_ref())
-                        && pos >= caller_highest
-                    {
-                        return Err(Box::new(hierarchy_error(pos, caller_highest, "AddMember")));
-                    }
-                    // Nonexistent role id surfaces in apply pass
-                    // as InvalidProperties.
-                }
-            }
-            SpacePatchOp::UpdateMember { user_id, patch } => {
-                if let Some(role_ids) = &patch.role_ids {
-                    let current = member_role_ids(space_val, user_id.as_ref());
-                    let new: HashSet<&str> = role_ids.iter().map(|r| r.as_ref()).collect();
-                    for rid in current.symmetric_difference(&new) {
-                        if let Some(pos) = role_position(space_val, rid)
-                            && pos >= caller_highest
-                        {
-                            return Err(Box::new(hierarchy_error(
-                                pos,
-                                caller_highest,
-                                "UpdateMember",
-                            )));
-                        }
-                    }
-                }
-            }
-            SpacePatchOp::RemoveMember(_) => {
-                // No hierarchy check on member removal.
-            }
-            _ => {}
-        }
+        let exempt = (self_removal && matches!(op, SpacePatchOp::RemoveMember(_)))
+            || (self_nick && matches!(op, SpacePatchOp::UpdateMember { .. }));
+        check_op_permissions(op, &caller_perms, exempt)?;
+        check_op_hierarchy(space_val, op, caller_highest)?;
     }
 
     // Last-admin protection. Draft §Space/set `removeMembers`: "The
@@ -5250,6 +5107,154 @@ fn validate_space_patch_ops(
     Ok(())
 }
 
+/// The permission gate of [`validate_space_patch_ops`] for one op: the
+/// caller, holding `caller_perms`, must hold every permission the op
+/// requires, none when `exempt` (a self-removal or self-`nick` update).
+fn check_op_permissions(
+    op: &SpacePatchOp,
+    caller_perms: &HashSet<ChatPermission>,
+    exempt: bool,
+) -> Result<(), Box<SetError>> {
+    use crate::permissions::{RequiredPermissions, required_permissions_for_op};
+
+    // Permission gate (criterion 1). Applies to ALL op
+    // families. `required_permissions_for_op` returns the
+    // per-variant permission set from draft-atwood-jmap-chat-00
+    // §Space/set; a caller missing any required permission
+    // triggers a whole-patch reject (criterion 6). An unknown
+    // op variant fails closed via `RequiredPermissions::UnknownOp`
+    // — the kit cannot enumerate permissions for a variant it
+    // does not recognize, so the safe answer is "no, you cannot
+    // apply it".
+    // `RequiredPermissions` is `#[non_exhaustive]` at the public
+    // crate boundary, but the compiler sees all variants from
+    // within this crate. Match exhaustively on the in-crate
+    // variant set so a future Conditional / Layered / etc. arm
+    // forces a deliberate fail-closed decision at compile time
+    // rather than silently routing through a wildcard.
+    let required = match required_permissions_for_op(op) {
+        RequiredPermissions::Known(slice) => slice,
+        RequiredPermissions::UnknownOp => {
+            return Err(Box::new(
+                SetError::new(SetErrorType::Forbidden).with_description(format!(
+                    "unknown SpacePatchOp variant `{}`; this version of \
+                         the kit cannot determine its permission requirement, \
+                         rejecting fail-closed",
+                    variant_name(op)
+                )),
+            ));
+        }
+    };
+    let required = if exempt { &[] } else { required };
+    for req in required {
+        if !caller_perms.contains(req) {
+            return Err(Box::new(
+                SetError::new(SetErrorType::Forbidden).with_description(format!(
+                    "caller lacks required permission `{}` for {}",
+                    req,
+                    variant_name(op)
+                )),
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// The role-position hierarchy gate of [`validate_space_patch_ops`] for
+/// one op, against the caller's highest role position `caller_highest` in
+/// the stored Space `space_val`.
+fn check_op_hierarchy(
+    space_val: &serde_json::Value,
+    op: &SpacePatchOp,
+    caller_highest: u64,
+) -> Result<(), Box<SetError>> {
+    // Hierarchy gate (criterion 2). Only applies to ops that
+    // grant or modify role placements:
+    //   - AddRole: the new role's position must be < caller's
+    //     highest.
+    //   - UpdateRole: both the existing role's position AND
+    //     the new position (if patch.position is set) must
+    //     be < caller's highest.
+    //   - AddMember (when role_ids is non-empty): every
+    //     role_id's position must be < caller's highest.
+    //   - UpdateMember (when patch.role_ids is set): every
+    //     role granted or removed (the symmetric difference of
+    //     the member's current and new roleIds; roleIds is a
+    //     full replacement) must be < caller's highest.
+    //   - RemoveMember: no hierarchy check (removing a
+    //     member doesn't reshape roles).
+    //   - RemoveRole: the existing role's position must be <
+    //     caller's highest.
+    match op {
+        SpacePatchOp::AddRole(role) if role.position >= caller_highest => {
+            return Err(Box::new(hierarchy_error(
+                role.position,
+                caller_highest,
+                "AddRole",
+            )));
+        }
+        SpacePatchOp::RemoveRole(target_id) => {
+            if let Some(pos) = role_position(space_val, target_id.as_ref())
+                && pos >= caller_highest
+            {
+                return Err(Box::new(hierarchy_error(pos, caller_highest, "RemoveRole")));
+            }
+            // Nonexistent role id is a per-op NotFound, not
+            // a permission failure — leave for the apply
+            // pass.
+        }
+        SpacePatchOp::UpdateRole { id, patch } => {
+            if let Some(pos) = role_position(space_val, id.as_ref())
+                && pos >= caller_highest
+            {
+                return Err(Box::new(hierarchy_error(pos, caller_highest, "UpdateRole")));
+            }
+            if let Some(new_pos) = patch.position
+                && new_pos >= caller_highest
+            {
+                return Err(Box::new(hierarchy_error(
+                    new_pos,
+                    caller_highest,
+                    "UpdateRole (new position)",
+                )));
+            }
+        }
+        SpacePatchOp::AddMember(create) => {
+            for rid in &create.role_ids {
+                if let Some(pos) = role_position(space_val, rid.as_ref())
+                    && pos >= caller_highest
+                {
+                    return Err(Box::new(hierarchy_error(pos, caller_highest, "AddMember")));
+                }
+                // Nonexistent role id surfaces in apply pass
+                // as InvalidProperties.
+            }
+        }
+        SpacePatchOp::UpdateMember { user_id, patch } => {
+            if let Some(role_ids) = &patch.role_ids {
+                let current = member_role_ids(space_val, user_id.as_ref());
+                let new: HashSet<&str> = role_ids.iter().map(|r| r.as_ref()).collect();
+                for rid in current.symmetric_difference(&new) {
+                    if let Some(pos) = role_position(space_val, rid)
+                        && pos >= caller_highest
+                    {
+                        return Err(Box::new(hierarchy_error(
+                            pos,
+                            caller_highest,
+                            "UpdateMember",
+                        )));
+                    }
+                }
+            }
+        }
+        SpacePatchOp::RemoveMember(_) => {
+            // No hierarchy check on member removal.
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
 /// The patch keys to name when `ops` would take the Space from at
 /// least one member holding `manage_members` or `manage_space` to none;
 /// `None` when an admin remains or the Space had none to begin with.
@@ -5267,28 +5272,8 @@ fn last_admin_patch_keys(
     ops: &[SpacePatchOp],
     self_removal: bool,
 ) -> Option<Vec<&'static str>> {
-    let grants_admin = |p: &str| {
-        p == ChatPermission::ManageMembers.as_str() || p == ChatPermission::ManageSpace.as_str()
-    };
-
     // Role id -> whether the role grants an admin permission.
-    let pre_roles: HashMap<&str, bool> = space_val
-        .get("roles")
-        .and_then(|v| v.as_array())
-        .into_iter()
-        .flatten()
-        .filter_map(|r| {
-            let id = r.get("id")?.as_str()?;
-            let admin = r
-                .get("permissions")
-                .and_then(|v| v.as_array())
-                .into_iter()
-                .flatten()
-                .filter_map(|p| p.as_str())
-                .any(grants_admin);
-            Some((id, admin))
-        })
-        .collect();
+    let pre_roles = admin_roles(space_val);
     // Member id -> roleIds.
     let pre_members: HashMap<&str, HashSet<&str>> = space_val
         .get("members")
@@ -5368,6 +5353,34 @@ fn last_admin_patch_keys(
             .filter_map(|(k, f)| f.then_some(*k))
             .collect(),
     )
+}
+
+/// Whether the permission `p` is an admin one for last-admin protection:
+/// `manage_members` or `manage_space`.
+fn grants_admin(p: &str) -> bool {
+    p == ChatPermission::ManageMembers.as_str() || p == ChatPermission::ManageSpace.as_str()
+}
+
+/// Each role id of the stored Space `space_val`, with whether the role
+/// grants an admin permission ([`grants_admin`]).
+fn admin_roles(space_val: &serde_json::Value) -> HashMap<&str, bool> {
+    space_val
+        .get("roles")
+        .and_then(|v| v.as_array())
+        .into_iter()
+        .flatten()
+        .filter_map(|r| {
+            let id = r.get("id")?.as_str()?;
+            let admin = r
+                .get("permissions")
+                .and_then(|v| v.as_array())
+                .into_iter()
+                .flatten()
+                .filter_map(|p| p.as_str())
+                .any(grants_admin);
+            Some((id, admin))
+        })
+        .collect()
 }
 
 /// Construct the standard "role position not strictly less than
@@ -5471,6 +5484,161 @@ fn owner_channel_permissions(
         &role_ids,
         &overrides,
     ))
+}
+
+/// The `created`, `updated` and `destroyed` ids of a `/changes` window,
+/// the change-log entries `relevant` of type `type_name`, and the
+/// properties each id's updates changed (draft-ietf-jmap-metadata-05
+/// §3.3).
+fn window_changes(
+    relevant: &[&ChangeEntry],
+    type_name: &str,
+    mode: MetadataOnlyChanges,
+) -> (Vec<Id>, Vec<Id>, Vec<Id>, ChangedProperties) {
+    let (mut fates, mut order, mut window_props) = window_fates(relevant, type_name);
+    fold_window_restores(relevant, &mut fates, &mut order, &mut window_props);
+
+    let mut created: Vec<Id> = Vec::new();
+    let mut updated: Vec<Id> = Vec::new();
+    let mut destroyed: Vec<Id> = Vec::new();
+    // `fates.remove` emits each id once and skips ids omitted above.
+    for id in order {
+        match fates.remove(&id) {
+            Some(IdFate::Created) => created.push(id),
+            // -05 §3.3: under Ignore, "exclude from the updated array
+            // any id whose only changes since sinceState ... are
+            // confined to metadata and/or privateMetadata".
+            Some(IdFate::Updated)
+                if mode == MetadataOnlyChanges::Ignore
+                    && window_props.is_metadata_only(id.as_ref()) => {}
+            Some(IdFate::Updated) => updated.push(id),
+            Some(IdFate::Destroyed) => destroyed.push(id),
+            None => {}
+        }
+    }
+    (created, updated, destroyed, window_props)
+}
+
+/// The fate of each id created, updated or destroyed in the change-log
+/// entries `relevant` of type `type_name`, the ids in first-seen order, and
+/// the properties their updates changed.
+///
+/// RFC 8620 §5.2 ID deduplication across the window, using the
+/// canonical jmap-mail-server `IdFate` rules. `order` keeps first-seen
+/// order so the response lists are deterministic.
+fn window_fates(
+    relevant: &[&ChangeEntry],
+    type_name: &str,
+) -> (HashMap<Id, IdFate>, Vec<Id>, ChangedProperties) {
+    let mut fates: HashMap<Id, IdFate> = HashMap::new();
+    let mut order: Vec<Id> = Vec::new();
+    let mut window_props = ChangedProperties::new();
+    for entry in relevant {
+        for id in &entry.created {
+            if fates.insert(id.clone(), IdFate::Created).is_none() {
+                order.push(id.clone());
+            }
+        }
+        for id in &entry.updated {
+            window_props.record(id.as_ref(), entry.updated_props.as_ref());
+            let fate = match fates.get(id) {
+                Some(IdFate::Created) => IdFate::Created,
+                Some(IdFate::Destroyed) => IdFate::Destroyed,
+                _ => IdFate::Updated,
+            };
+            if fates.insert(id.clone(), fate).is_none() {
+                order.push(id.clone());
+            }
+        }
+        for id in &entry.destroyed {
+            // "If a record has been created AND destroyed since the old
+            // state, the server SHOULD remove the id from the response
+            // entirely." (RFC 8620 §5.2). Message is the exception:
+            // "Servers SHOULD list it in `destroyed`: a client may have
+            // learned of the Message through a push notification, and
+            // needs the id to purge its copy." (draft-atwood-jmap-chat-00
+            // §Message/changes)
+            if type_name != "Message" && matches!(fates.get(id), Some(IdFate::Created)) {
+                fates.remove(id);
+            } else if fates.insert(id.clone(), IdFate::Destroyed).is_none() {
+                order.push(id.clone());
+            }
+        }
+    }
+    (fates, order, window_props)
+}
+
+/// Settle the fate of each id restored in the change-log entries
+/// `relevant`.
+///
+/// Object history -04 §5.1: an id restored in the window is
+/// classified by whether it existed at sinceState and exists now,
+/// "exactly as if the object had never been destroyed between them".
+fn fold_window_restores(
+    relevant: &[&ChangeEntry],
+    fates: &mut HashMap<Id, IdFate>,
+    order: &mut Vec<Id>,
+    window_props: &mut ChangedProperties,
+) {
+    let mut events: HashMap<Id, Vec<ChangeEvent>> = HashMap::new();
+    for entry in relevant {
+        for (ids, event) in [
+            (&entry.created, ChangeEvent::Created),
+            (&entry.updated, ChangeEvent::Updated),
+            (&entry.destroyed, ChangeEvent::Destroyed),
+            (&entry.restored, ChangeEvent::Restored),
+        ] {
+            for id in ids {
+                events.entry(id.clone()).or_default().push(event);
+            }
+        }
+    }
+    for (id, list) in &events {
+        if !list.contains(&ChangeEvent::Restored) {
+            continue;
+        }
+        let fate = match fold_restore(list) {
+            Some(ChangeKind::Created) => IdFate::Created,
+            Some(ChangeKind::Destroyed) => IdFate::Destroyed,
+            Some(_) => {
+                // A restore is never metadata-only.
+                window_props.record(id.as_ref(), None);
+                IdFate::Updated
+            }
+            None => {
+                fates.remove(id);
+                continue;
+            }
+        };
+        if fates.insert(id.clone(), fate).is_none() {
+            order.push(id.clone());
+        }
+    }
+}
+
+/// Whether the stored Message `msg` stays in a `Message/query` result for
+/// `account_id`: the owner may view its Chat ([`owner_may_view_chat`]). A
+/// Message without a `chatId` stays.
+fn message_listed(inner: &Inner, msg: Option<&serde_json::Value>, account_id: &Id) -> bool {
+    msg.and_then(|obj| obj.get("chatId"))
+        .and_then(|v| v.as_str())
+        .is_none_or(|cid| owner_may_view_chat(inner, account_id, &Id::from(cid)))
+}
+
+/// Whether the stored Space `space` stays in a `Space/query` result for
+/// `account_id`: the owner is a member, or `want_public` (the filter holds
+/// `isPublic: true`) and the Space is public and publicly previewable
+/// (draft-atwood-jmap-chat-00 §Space/query).
+fn space_listed(space: &serde_json::Value, account_id: &Id, want_public: bool) -> bool {
+    let flag = |k: &str| space.get(k).and_then(serde_json::Value::as_bool) == Some(true);
+    let is_member = space
+        .get("members")
+        .and_then(|v| v.as_array())
+        .is_some_and(|ms| {
+            ms.iter()
+                .any(|mm| mm.get("id").and_then(|v| v.as_str()) == Some(account_id.as_ref()))
+        });
+    is_member || (want_public && flag("isPublic") && flag("isPubliclyPreviewable"))
 }
 
 /// Whether the owner may see the messages of Chat `chat_id`

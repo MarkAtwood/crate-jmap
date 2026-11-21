@@ -369,32 +369,15 @@ async fn create_one<B: ChatBackend>(
     obj_val: &Value,
     acc: &mut SetAccumulators,
 ) -> Result<bool, JmapError> {
-    let resolved = match resolved_create(obj_val, &["spaceId", "defaultChannelId"], ctx.created_ids)
-    {
-        Ok(v) => v,
-        Err(err) => {
-            acc.not_created
-                .insert(create_id.to_owned(), serde_json::Value::from(&*err));
-            return Ok(false);
-        }
-    };
-    let space_id = match create_space_id(&resolved) {
-        Ok(id) => id,
-        Err(err) => {
-            acc.not_created.insert(create_id.to_owned(), err);
-            return Ok(false);
-        }
-    };
-    if let Some(err) = space_closed_error(ctx, &space_id).await {
-        acc.not_created.insert(create_id.to_owned(), err);
-        return Ok(false);
-    }
-    let CreateOptions {
-        default_channel_id,
-        expires_at,
-        max_uses,
-    } = match create_options(&resolved) {
-        Ok(options) => options,
+    let (
+        space_id,
+        CreateOptions {
+            default_channel_id,
+            expires_at,
+            max_uses,
+        },
+    ) = match create_request(ctx, obj_val).await {
+        Ok(request) => request,
         Err(err) => {
             acc.not_created.insert(create_id.to_owned(), err);
             return Ok(false);
@@ -466,6 +449,25 @@ async fn create_one<B: ChatBackend>(
             Ok(false)
         }
     }
+}
+
+/// Resolve the `#creationId` references of one `SpaceInvite/set` create
+/// object and check it: its `spaceId` ([`create_space_id`]), that the Space
+/// is open ([`space_closed_error`]) and its options ([`create_options`]).
+/// Returns the `spaceId` and the options, or the [`SetError`] value for
+/// `notCreated`.
+async fn create_request<B: ChatBackend>(
+    ctx: &SetCtx<'_, B>,
+    obj_val: &Value,
+) -> Result<(Id, CreateOptions), Value> {
+    let resolved = resolved_create(obj_val, &["spaceId", "defaultChannelId"], ctx.created_ids)
+        .map_err(|err| serde_json::Value::from(&*err))?;
+    let space_id = create_space_id(&resolved)?;
+    if let Some(err) = space_closed_error(ctx, &space_id).await {
+        return Err(err);
+    }
+    let options = create_options(&resolved)?;
+    Ok((space_id, options))
 }
 
 /// Check the server-set, wrongly-typed and `spaceId` properties of one

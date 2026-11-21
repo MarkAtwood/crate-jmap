@@ -273,5 +273,9 @@ writes returns `Result<bool, JmapError>`. Where the chat handlers differ from §
 - An update whose writes are split over several backend calls returns `true` when an earlier
   one succeeded, even if the target ends in `notUpdated` (Space/set `apply_update`).
 
-Three sub-functions are a few lines over 100: SpaceInvite `create_one` (104), CustomEmoji
-`update_one` (103) and Space `update_one` (102).
+Three sub-functions were a few lines over 100 and are now split further (bd:JMAP-82cv):
+SpaceInvite `create_one` (104 → 87, with `create_request`), CustomEmoji `update_one`
+(103 → 90, with `update_blob_error`) and Space `update_one` (102 → 77, with
+`resolve_update_refs` and `space_is_closed`). The same pass split every other function in the
+crate over 100 lines, among them `handle_space_join` (320 → 70) and the memory backend's
+Space and Chat patch functions.

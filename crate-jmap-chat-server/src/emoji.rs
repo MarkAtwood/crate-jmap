@@ -753,20 +753,7 @@ async fn update_one<B: ChatBackend>(
         }
     };
 
-    // A malformed `blobId` is left to the backend's patch validation.
-    if let Some(blob_id) = clean_patch
-        .get("blobId")
-        .and_then(Value::as_str)
-        .and_then(|s| Id::new_validated(s).ok())
-        && let Some(err) = emoji_blob_too_large(
-            ctx.backend,
-            ctx.caller,
-            ctx.account_id,
-            ctx.limits,
-            &blob_id,
-        )
-        .await
-    {
+    if let Some(err) = update_blob_error(ctx, &clean_patch).await {
         acc.not_updated.insert(id_str, err);
         return Ok(false);
     }
@@ -795,6 +782,27 @@ async fn update_one<B: ChatBackend>(
             Ok(false)
         }
     }
+}
+
+/// The [`emoji_blob_too_large`] `SetError` value for the `blobId` that the
+/// cleaned update patch `clean_patch` sets, or `None`. A malformed `blobId`
+/// is left to the backend's patch validation.
+async fn update_blob_error<B: ChatBackend>(
+    ctx: &SetCtx<'_, B>,
+    clean_patch: &serde_json::Map<String, Value>,
+) -> Option<Value> {
+    let blob_id = clean_patch
+        .get("blobId")
+        .and_then(Value::as_str)
+        .and_then(|s| Id::new_validated(s).ok())?;
+    emoji_blob_too_large(
+        ctx.backend,
+        ctx.caller,
+        ctx.account_id,
+        ctx.limits,
+        &blob_id,
+    )
+    .await
 }
 
 /// Project one `CustomEmoji/set` update patch onto the client-updatable

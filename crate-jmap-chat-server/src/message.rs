@@ -145,32 +145,10 @@ pub async fn handle_message_get<B: ChatBackend>(
         .get_objects::<Message>(caller, &account_id, ids_slice, properties.as_deref())
         .await
         .map_err(|e| server_fail_from_backend(&e))?;
-
-    // draft-atwood-jmap-chat-00 §Message/query (jmap-chat-spec 77c3474
-    // L1301): "messages in channels the caller cannot view SHOULD be
-    // omitted" from `Message/get`; done by choice. A hidden
-    // message is reported like a missing one: a requested id goes to
-    // notFound, and a full fetch drops it (RFC 8620 §5.1 notFound lists
-    // only requested ids).
-    let mut viewable: HashMap<Id, bool> = HashMap::new();
-    let mut list = Vec::with_capacity(fetched.len());
-    for msg in fetched {
-        let visible = match viewable.get(&msg.chat_id) {
-            Some(&v) => v,
-            None => {
-                let v = backend
-                    .may_view_chat(caller, &account_id, &msg.chat_id)
-                    .await
-                    .map_err(|e| server_fail_from_backend(&e))?;
-                viewable.insert(msg.chat_id.clone(), v);
-                v
-            }
-        };
-        if visible {
-            list.push(msg);
-        } else if ids_slice.is_some() {
-            not_found.push(msg.id);
-        }
+    let (mut list, hidden) = viewable_messages(backend, caller, &account_id, fetched).await?;
+    // RFC 8620 §5.1 notFound lists only requested ids.
+    if ids_slice.is_some() {
+        not_found.extend(hidden);
     }
 
     // Edit-history retention gate (draft-atwood-jmap-chat-00 commit
@@ -202,13 +180,78 @@ pub async fn handle_message_get<B: ChatBackend>(
         .await
         .map_err(|e| server_fail_from_backend(&e))?;
 
-    let prop_set: Option<HashSet<&str>> = properties.as_ref().map(|props| {
+    let list_json = project_messages(&list, properties.as_deref(), &projection)?;
+
+    Ok(HandlerOutput::new(json!({
+        "accountId": account_id.as_ref(),
+        "state": state.as_ref(),
+        "list": list_json,
+        "notFound": not_found_json(&not_found),
+    })))
+}
+
+/// Split the Messages `fetched` for a `Message/get` into those the caller
+/// may view and the ids of the others.
+///
+/// draft-atwood-jmap-chat-00 §Message/query (jmap-chat-spec 77c3474
+/// L1301): "messages in channels the caller cannot view SHOULD be
+/// omitted" from `Message/get`; done by choice. A hidden
+/// message is reported like a missing one: a requested id goes to
+/// notFound, and a full fetch drops it (RFC 8620 §5.1 notFound lists
+/// only requested ids). Each Chat is asked about once.
+///
+/// # Errors
+///
+/// `serverFail` when [`may_view_chat`](crate::ChatAccessPolicy::may_view_chat)
+/// fails.
+async fn viewable_messages<B: ChatBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    fetched: Vec<Message>,
+) -> Result<(Vec<Message>, Vec<Id>), JmapError> {
+    let mut viewable: HashMap<Id, bool> = HashMap::new();
+    let mut list = Vec::with_capacity(fetched.len());
+    let mut hidden = Vec::new();
+    for msg in fetched {
+        let visible = match viewable.get(&msg.chat_id) {
+            Some(&v) => v,
+            None => {
+                let v = backend
+                    .may_view_chat(caller, account_id, &msg.chat_id)
+                    .await
+                    .map_err(|e| server_fail_from_backend(&e))?;
+                viewable.insert(msg.chat_id.clone(), v);
+                v
+            }
+        };
+        if visible {
+            list.push(msg);
+        } else {
+            hidden.push(msg.id);
+        }
+    }
+    Ok((list, hidden))
+}
+
+/// Serialize the Messages of a `Message/get` `list`, keeping only
+/// `properties` (and `id`) when given (RFC 8620 §5.1), with the
+/// draft-ietf-jmap-metadata-05 `projection` applied.
+///
+/// # Errors
+///
+/// `serverFail` when a Message cannot be serialized.
+fn project_messages(
+    list: &[Message],
+    properties: Option<&[String]>,
+    projection: &MetadataProjection,
+) -> Result<Vec<Value>, JmapError> {
+    let prop_set: Option<HashSet<&str>> = properties.map(|props| {
         let mut set: HashSet<&str> = props.iter().map(|s| s.as_str()).collect();
         set.insert("id");
         set
     });
-    let list_json: Vec<Value> = list
-        .iter()
+    list.iter()
         .map(|obj| {
             let val = serialize_value(obj)?;
             let mut out = match &prop_set {
@@ -218,14 +261,7 @@ pub async fn handle_message_get<B: ChatBackend>(
             projection.apply(&val, &mut out);
             Ok(out)
         })
-        .collect::<Result<Vec<_>, JmapError>>()?;
-
-    Ok(HandlerOutput::new(json!({
-        "accountId": account_id.as_ref(),
-        "state": state.as_ref(),
-        "list": list_json,
-        "notFound": not_found_json(&not_found),
-    })))
+        .collect::<Result<Vec<_>, JmapError>>()
 }
 
 /// Set the server-computed thread counts on each Message in `list`
@@ -401,28 +437,7 @@ pub async fn handle_message_query<B: ChatBackend>(
 
     let calculate_total: bool = bool_arg(&args, "calculateTotal", false);
 
-    let limit: Option<u64> = match args.remove("limit") {
-        None | Some(Value::Null) => None,
-        Some(v) => match v.as_u64() {
-            Some(n) => Some(n),
-            None => {
-                return Err(JmapError::invalid_arguments(format!(
-                    "limit: expected a non-negative integer, got {}",
-                    jmap_server::json_type_name(&v)
-                )));
-            }
-        },
-    };
-
-    let position: i64 = match args.remove("position") {
-        None | Some(Value::Null) => 0,
-        Some(v) => v.as_i64().ok_or_else(|| {
-            JmapError::invalid_arguments(format!(
-                "position: expected an integer, got {}",
-                jmap_server::json_type_name(&v)
-            ))
-        })?,
-    };
+    let (limit, position) = take_limit_position(&mut args)?;
 
     let (anchor, anchor_offset) = query_anchor_args(&args)?;
 
@@ -488,6 +503,41 @@ pub async fn handle_message_query<B: ChatBackend>(
     }
 
     Ok(HandlerOutput::new(resp))
+}
+
+/// Take the RFC 8620 §5.5 `limit` (absent or null: none) and `position`
+/// (absent or null: 0) out of the `Message/query` `args`.
+///
+/// # Errors
+///
+/// `invalidArguments` when `limit` is not a non-negative integer or
+/// `position` is not an integer.
+fn take_limit_position(
+    args: &mut serde_json::Map<String, Value>,
+) -> Result<(Option<u64>, i64), JmapError> {
+    let limit: Option<u64> = match args.remove("limit") {
+        None | Some(Value::Null) => None,
+        Some(v) => match v.as_u64() {
+            Some(n) => Some(n),
+            None => {
+                return Err(JmapError::invalid_arguments(format!(
+                    "limit: expected a non-negative integer, got {}",
+                    jmap_server::json_type_name(&v)
+                )));
+            }
+        },
+    };
+
+    let position: i64 = match args.remove("position") {
+        None | Some(Value::Null) => 0,
+        Some(v) => v.as_i64().ok_or_else(|| {
+            JmapError::invalid_arguments(format!(
+                "position: expected an integer, got {}",
+                jmap_server::json_type_name(&v)
+            ))
+        })?,
+    };
+    Ok((limit, position))
 }
 
 /// Check the JMAP Search `where` of the undecoded Message `filter`

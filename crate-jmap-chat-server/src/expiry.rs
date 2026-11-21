@@ -77,16 +77,74 @@ pub async fn sweep_expired<B: ChatBackend>(
     let now = now
         .duration_since(UNIX_EPOCH)
         .map_or(0, |d| i64::try_from(d.as_secs()).unwrap_or(i64::MAX));
-    let passed = |t: &UTCDate, offset: u64| {
-        t.to_epoch_seconds().is_ok_and(|t| {
-            i64::try_from(offset).is_ok_and(|o| t.checked_add(o).is_some_and(|d| now >= d))
-        })
-    };
 
     let (chats, _) = backend
         .get_objects::<Chat>(caller, account_id, None, None)
         .await
         .map_err(BackendSetError::Other)?;
+    expire_messages(backend, caller, account_id, now, &chats).await?;
+
+    for chat in &chats {
+        if chat.mute_until.as_ref().is_some_and(|t| passed(now, t, 0)) {
+            let patch = patch([("muted", json!(false)), ("muteUntil", Value::Null)]);
+            backend
+                .update_object::<Chat>(caller, account_id, &chat.id, patch)
+                .await?;
+        }
+    }
+
+    let (presences, _) = backend
+        .get_objects::<PresenceStatus>(caller, account_id, None, None)
+        .await
+        .map_err(BackendSetError::Other)?;
+    for status in &presences {
+        if status
+            .expires_at
+            .as_ref()
+            .is_some_and(|t| passed(now, t, 0))
+        {
+            // `expiresAt` is cleared too, so a later status set without a
+            // new `expiresAt` is not wiped by the stale deadline.
+            let patch = patch([
+                ("statusText", Value::Null),
+                ("statusEmoji", Value::Null),
+                ("presence", json!("online")),
+                ("expiresAt", Value::Null),
+            ]);
+            backend
+                .update_object::<PresenceStatus>(caller, account_id, &status.id, patch)
+                .await?;
+        }
+    }
+
+    lift_expired_bans(backend, caller, account_id, now).await
+}
+
+/// Whether `offset` seconds after `t` has passed at `now` (Unix seconds).
+/// A date that does not parse, or a sum that overflows, never has.
+fn passed(now: i64, t: &UTCDate, offset: u64) -> bool {
+    t.to_epoch_seconds().is_ok_and(|t| {
+        i64::try_from(offset).is_ok_and(|o| t.checked_add(o).is_some_and(|d| now >= d))
+    })
+}
+
+/// The Message steps of [`sweep_expired`]: hard-delete every Message of
+/// `account_id` whose `senderExpiresAt`, Chat `messageExpirySeconds`,
+/// `expiresAfterReadSeconds` or `burnOnRead` deadline has passed at `now`,
+/// then record the affected Chats' `unreadCount` as changed. `chats` are
+/// the account's Chats.
+///
+/// # Errors
+///
+/// The first backend error; the Chats of the Messages deleted before it
+/// are still recorded.
+async fn expire_messages<B: ChatBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    now: i64,
+    chats: &[Chat],
+) -> Result<(), BackendSetError<B::Error>> {
     let (messages, _) = backend
         .get_objects::<Message>(caller, account_id, None, None)
         .await
@@ -105,11 +163,14 @@ pub async fn sweep_expired<B: ChatBackend>(
                 msg.burn_on_read == Some(true)
                     || msg
                         .expires_after_read_seconds
-                        .is_some_and(|s| passed(read, s))
+                        .is_some_and(|s| passed(now, read, s))
             });
         // "older than this many seconds": strictly more than `s` elapsed.
-        let expired = msg.sender_expires_at.as_ref().is_some_and(|t| passed(t, 0))
-            || policy.is_some_and(|s| s < u64::MAX && passed(&msg.received_at, s + 1))
+        let expired = msg
+            .sender_expires_at
+            .as_ref()
+            .is_some_and(|t| passed(now, t, 0))
+            || policy.is_some_and(|s| s < u64::MAX && passed(now, &msg.received_at, s + 1))
             || read_deadline;
         if expired {
             if let Err(e) = backend.expire_message(caller, account_id, &msg.id).await {
@@ -123,43 +184,27 @@ pub async fn sweep_expired<B: ChatBackend>(
     // the Chat state to advance. Recorded before any error returns: a
     // later run no longer sees the deleted Messages.
     record_unread_count_changes(backend, caller, account_id, expired_chat_ids).await;
-    expire_result?;
+    expire_result
+}
 
-    for chat in &chats {
-        if chat.mute_until.as_ref().is_some_and(|t| passed(t, 0)) {
-            let patch = patch([("muted", json!(false)), ("muteUntil", Value::Null)]);
-            backend
-                .update_object::<Chat>(caller, account_id, &chat.id, patch)
-                .await?;
-        }
-    }
-
-    let (presences, _) = backend
-        .get_objects::<PresenceStatus>(caller, account_id, None, None)
-        .await
-        .map_err(BackendSetError::Other)?;
-    for status in &presences {
-        if status.expires_at.as_ref().is_some_and(|t| passed(t, 0)) {
-            // `expiresAt` is cleared too, so a later status set without a
-            // new `expiresAt` is not wiped by the stale deadline.
-            let patch = patch([
-                ("statusText", Value::Null),
-                ("statusEmoji", Value::Null),
-                ("presence", json!("online")),
-                ("expiresAt", Value::Null),
-            ]);
-            backend
-                .update_object::<PresenceStatus>(caller, account_id, &status.id, patch)
-                .await?;
-        }
-    }
-
+/// The ban steps of [`sweep_expired`]: lift every [`ChatBan`], then every
+/// [`SpaceBan`], of `account_id` whose `expiresAt` has passed at `now`.
+///
+/// # Errors
+///
+/// The first backend error.
+async fn lift_expired_bans<B: ChatBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    now: i64,
+) -> Result<(), BackendSetError<B::Error>> {
     let (bans, _) = backend
         .get_objects::<ChatBan>(caller, account_id, None, None)
         .await
         .map_err(BackendSetError::Other)?;
     for ban in &bans {
-        if ban.expires_at.as_ref().is_some_and(|t| passed(t, 0)) {
+        if ban.expires_at.as_ref().is_some_and(|t| passed(now, t, 0)) {
             backend
                 .destroy_chat_ban(caller, account_id, &ban.id)
                 .await?;
@@ -171,7 +216,7 @@ pub async fn sweep_expired<B: ChatBackend>(
         .await
         .map_err(BackendSetError::Other)?;
     for ban in &space_bans {
-        if ban.expires_at.as_ref().is_some_and(|t| passed(t, 0)) {
+        if ban.expires_at.as_ref().is_some_and(|t| passed(now, t, 0)) {
             backend
                 .destroy_object::<SpaceBan>(caller, account_id, &ban.id)
                 .await?;
