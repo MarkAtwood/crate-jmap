@@ -1,1 +1,2 @@
 {"id":"01a1fbf9-d843-774d-858f-84540cf77028","issue_id":"JMAP-x3s1","event_type":"created","actor":"Mark Atwood","old_value":"","new_value":"","created_at":"2026-11-21T02:40:17.47547935Z"}
+{"id":"01a1fc1d-f574-7bb1-9761-360e7de5e2bc","issue_id":"JMAP-x3s1","event_type":"closed","actor":"Mark Atwood","old_value":"","new_value":"chat-filenode/chat-tasks builders build before the backend call (invalid spaceId -\u003e invalidProperties SetError); graph-projection templates no longer deserialize caller ids; panics removed","created_at":"2026-11-21T03:19:44.244768107Z"}

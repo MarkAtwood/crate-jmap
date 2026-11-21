@@ -2,11 +2,13 @@
   "id": "JMAP-wr3k",
   "title": "Calendar/FileNode /copy accept fromAccountId == accountId (RFC 8620 §5.4)",
   "description": "Found in the ibyi doc sweep: calendar_event_copy (crate-jmap-calendars-server/src/event.rs) and the FileNode /copy do not reject fromAccountId equal to accountId; RFC 8620 §5.4 says they MUST be different, and Email/copy rejects it with invalidArguments. Check every /copy handler (tasks, contacts, filenode, calendars, object-history) against mail-server and align; add tests.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-21T02:40:17.116717924Z",
   "created_by": "Mark Atwood",
-  "updated_at": "2026-11-21T02:40:17.116717924Z"
+  "updated_at": "2026-11-21T03:19:40.142193518Z",
+  "closed_at": "2026-11-21T03:19:40.142193518Z",
+  "close_reason": "CalendarEvent/copy and ContactCard/copy now reject fromAccountId == accountId in Email/copy's position; FileNode/copy exempt per filenode-20 §3.2.4 (comment added); Task/Blob already matched"
 }

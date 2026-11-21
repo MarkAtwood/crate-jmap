@@ -2,11 +2,13 @@
   "id": "JMAP-qyrh",
   "title": "calendars-server getAvailability turns a serialization failure into an empty list",
   "description": "ibyi sweep: handle_principal_get_availability (crate-jmap-calendars-server/src/principal.rs) uses unwrap_or(Value::Array(vec![])) on serialization, hiding a failure as 'no busy periods'. Return serverFail instead.",
-  "status": "open",
+  "status": "closed",
   "priority": 4,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-21T02:40:17.629920846Z",
   "created_by": "Mark Atwood",
-  "updated_at": "2026-11-21T02:40:17.629920846Z"
+  "updated_at": "2026-11-21T03:19:45.973831619Z",
+  "closed_at": "2026-11-21T03:19:45.973831619Z",
+  "close_reason": "getAvailability returns serverFail on serialization failure instead of an empty list"
 }

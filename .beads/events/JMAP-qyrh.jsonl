@@ -1,1 +1,2 @@
 {"id":"01a1fbf9-d8e1-76d2-adad-a2f743c2d26d","issue_id":"JMAP-qyrh","event_type":"created","actor":"Mark Atwood","old_value":"","new_value":"","created_at":"2026-11-21T02:40:17.633447752Z"}
+{"id":"01a1fc1d-fc4b-7162-964a-c8777086edeb","issue_id":"JMAP-qyrh","event_type":"closed","actor":"Mark Atwood","old_value":"","new_value":"getAvailability returns serverFail on serialization failure instead of an empty list","created_at":"2026-11-21T03:19:45.995092796Z"}
