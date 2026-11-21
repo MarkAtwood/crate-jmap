@@ -1151,18 +1151,47 @@ async fn create_livestream<B: VtcBackend>(
     create_id: &str,
     obj: Value,
 ) -> Result<Value, Value> {
-    let Value::Object(m) = obj else {
+    let Value::Object(mut m) = obj else {
         return Err(invalid(&[], "a VTCLivestream create must be a JSON object"));
     };
     let (_, cap) = check_create::<VtcLivestream, B>(backend, caller, account_id, &m, |c| {
         c.supports_livestream
     })
     .await?;
+    let mode = create_livestream_mode(&m, &cap)?;
+    // `layout` "Default: `null`".
+    let layout = m.get("layout").cloned().unwrap_or(Value::Null);
+    let platform = if mode == LivestreamMode::Hosted {
+        reject_hosted_stream_config(&m)?;
+        m.insert("streamUri".to_owned(), Value::Null);
+        m.insert("streamKey".to_owned(), Value::Null);
+        Value::Null
+    } else {
+        push_stream_platform(&m, &cap)?
+    };
 
-    // §Starting a Livestream: "`mode` (String, optional): `"push"`
-    // (default) or `"hosted"`"; "The server MUST return `invalidProperties`
-    // naming `mode` when the requested mode is not listed in the
-    // account-level `livestreamModes`."
+    let (_, livestream) = store::<VtcLivestream, B>(
+        backend,
+        caller,
+        account_id,
+        create_id,
+        m,
+        livestream_defaults(layout, &mode, platform),
+    )
+    .await?;
+    start_livestream(backend, caller, account_id, livestream).await
+}
+
+/// The create's `mode`, checked against the account's `livestreamModes`.
+///
+/// §Starting a Livestream: "`mode` (String, optional): `"push"`
+/// (default) or `"hosted"`"; "The server MUST return `invalidProperties`
+/// naming `mode` when the requested mode is not listed in the
+/// account-level `livestreamModes`."
+fn create_livestream_mode(
+    m: &Map<String, Value>,
+    cap: &VtcCapability,
+) -> Result<LivestreamMode, Value> {
     let mode = match m.get("mode") {
         None => LivestreamMode::Push,
         Some(Value::String(s)) => LivestreamMode::from(s.as_str()),
@@ -1174,56 +1203,38 @@ async fn create_livestream<B: VtcBackend>(
             "this mode is not in the account's livestreamModes",
         ));
     }
-    // `layout` "Default: `null`".
-    let layout = m.get("layout").cloned().unwrap_or(Value::Null);
-    let defaults = |platform: Value| {
-        vec![
-            ("layout", layout),
-            ("id", json!(jmap_server::CREATE_ID_PLACEHOLDER)),
-            ("mode", json!(mode)),
-            ("state", json!(LivestreamState::Starting)),
-            ("failureReason", Value::Null),
-            ("platform", platform),
-            ("playbackEndpoints", json!([])),
-            ("startedAt", Value::Null),
-            ("stoppedAt", Value::Null),
-        ]
-    };
-    if mode == LivestreamMode::Hosted {
-        // "In hosted mode the client supplies only `callId` and `mode`. The
-        // server MUST return `invalidProperties` naming each of `streamUri`,
-        // `streamKey`, and `platform` that a hosted-mode create sets to a
-        // non-null value." The server then sets `playbackEndpoints` "as the
-        // endpoints become available".
-        let set: Vec<&str> = STREAM_CONFIG
-            .iter()
-            .copied()
-            .filter(|k| m.get(*k).is_some_and(|v| !v.is_null()))
-            .collect();
-        if !set.is_empty() {
-            return Err(invalid(
-                &set,
-                "a hosted livestream has no streamUri, streamKey or platform",
-            ));
-        }
-        let mut m = m;
-        m.insert("streamUri".to_owned(), Value::Null);
-        m.insert("streamKey".to_owned(), Value::Null);
-        let (_, livestream) = store::<VtcLivestream, B>(
-            backend,
-            caller,
-            account_id,
-            create_id,
-            m,
-            defaults(Value::Null),
-        )
-        .await?;
-        return start_livestream(backend, caller, account_id, livestream).await;
-    }
+    Ok(mode)
+}
 
-    // "`streamUri` (String, required in push mode)", "`streamKey` (String,
-    // required in push mode)"; "Optional in push mode: `platform`
-    // (String)".
+/// Reject a hosted-mode create that sets a push-mode property.
+///
+/// "In hosted mode the client supplies only `callId` and `mode`. The
+/// server MUST return `invalidProperties` naming each of `streamUri`,
+/// `streamKey`, and `platform` that a hosted-mode create sets to a
+/// non-null value." The server then sets `playbackEndpoints` "as the
+/// endpoints become available".
+fn reject_hosted_stream_config(m: &Map<String, Value>) -> Result<(), Value> {
+    let set: Vec<&str> = STREAM_CONFIG
+        .iter()
+        .copied()
+        .filter(|k| m.get(*k).is_some_and(|v| !v.is_null()))
+        .collect();
+    if !set.is_empty() {
+        return Err(invalid(
+            &set,
+            "a hosted livestream has no streamUri, streamKey or platform",
+        ));
+    }
+    Ok(())
+}
+
+/// Check a push-mode create's `streamUri`, `streamKey` and `platform`,
+/// and return its `platform` (`null` when absent).
+///
+/// "`streamUri` (String, required in push mode)", "`streamKey` (String,
+/// required in push mode)"; "Optional in push mode: `platform`
+/// (String)".
+fn push_stream_platform(m: &Map<String, Value>, cap: &VtcCapability) -> Result<Value, Value> {
     let mut bad: Vec<&str> = ["streamUri", "streamKey"]
         .into_iter()
         .filter(|k| !m.get(*k).is_some_and(Value::is_string))
@@ -1235,7 +1246,7 @@ async fn create_livestream<B: VtcBackend>(
         && !m
             .get("streamUri")
             .and_then(Value::as_str)
-            .is_some_and(|uri| push_uri_ok(uri, &cap))
+            .is_some_and(|uri| push_uri_ok(uri, cap))
     {
         bad.push("streamUri");
     }
@@ -1252,22 +1263,31 @@ async fn create_livestream<B: VtcBackend>(
              platform a string or null",
         ));
     }
-    let platform = m.get("platform").cloned().unwrap_or(Value::Null);
+    Ok(m.get("platform").cloned().unwrap_or(Value::Null))
+}
 
-    // "The server sets `id` and `state` (to `"starting"`)"; `startedAt` is
-    // "`null` before the stream is live"; `failureReason` "`null` unless
-    // `state` is `"failed"`"; `playbackEndpoints` "Always empty in push
-    // mode".
-    let (_, livestream) = store::<VtcLivestream, B>(
-        backend,
-        caller,
-        account_id,
-        create_id,
-        m,
-        defaults(platform),
-    )
-    .await?;
-    start_livestream(backend, caller, account_id, livestream).await
+/// The properties the server sets on a new livestream.
+///
+/// "The server sets `id` and `state` (to `"starting"`)"; `startedAt` is
+/// "`null` before the stream is live"; `failureReason` "`null` unless
+/// `state` is `"failed"`"; `playbackEndpoints` "Always empty in push
+/// mode".
+fn livestream_defaults(
+    layout: Value,
+    mode: &LivestreamMode,
+    platform: Value,
+) -> Vec<(&'static str, Value)> {
+    vec![
+        ("layout", layout),
+        ("id", json!(jmap_server::CREATE_ID_PLACEHOLDER)),
+        ("mode", json!(mode)),
+        ("state", json!(LivestreamState::Starting)),
+        ("failureReason", Value::Null),
+        ("platform", platform),
+        ("playbackEndpoints", json!([])),
+        ("startedAt", Value::Null),
+        ("stoppedAt", Value::Null),
+    ]
 }
 
 /// The `created` entry for a stored `livestream`, after requesting
@@ -1440,14 +1460,7 @@ async fn update_recording<B: VtcBackend>(
     }
 
     // "`update` supports patching `state`"; it "may also set `layout`".
-    let fixed: Vec<&str> = keys
-        .iter()
-        .map(String::as_str)
-        .filter(|k| !matches!(*k, "state" | "layout"))
-        .collect();
-    if !fixed.is_empty() {
-        return Err(invalid(&fixed, "only state and layout can be updated"));
-    }
+    only_state_and_layout(&keys)?;
     use RecordingState::{Paused, Recording, Stopped};
     let requested = requested_state::<RecordingState>(&patch);
     let wants_layout = keys.iter().any(|k| k == "layout");
@@ -1465,52 +1478,20 @@ async fn update_recording<B: VtcBackend>(
         _ => None,
     };
 
-    // "The server MUST return `invalidProperties` naming `state` for any
-    // state transition not listed above". `from` is the states the
-    // transition to `to` is listed from; the backend checks it atomically
-    // with the write, so a concurrent change cannot slip an unlisted
-    // transition such as `"stopped"` -> `"paused"` through. A layout-only
-    // change is allowed from `"recording"` and `"paused"`.
     let state_change = requested.is_some();
-    let (to, from, blame): (_, &[RecordingState], _) = match requested {
-        None if new_layout.is_some() => (recording.state.clone(), &[Recording, Paused], "layout"),
-        None => {
-            return apply::<VtcRecording, B>(
-                backend,
-                caller,
-                account_id,
-                id,
-                None,
-                patch,
-                Map::new(),
-            )
+    let Some((to, from, blame)) =
+        recording_transition(&recording, requested, new_layout.is_some(), cap.as_ref())?
+    else {
+        return apply::<VtcRecording, B>(backend, caller, account_id, id, None, patch, Map::new())
             .await;
-        }
-        Some(Ok(Paused)) => {
-            if cap.as_ref().is_some_and(|c| !c.supports_recording_pause) {
-                return Err(invalid(
-                    &["state"],
-                    "this server cannot pause a recording (supportsRecordingPause is false)",
-                ));
-            }
-            (Paused, &[Recording], "state")
-        }
-        Some(Ok(Recording)) => (Recording, &[Paused], "state"),
-        Some(Ok(Stopped)) => (Stopped, &[Recording, Paused], "state"),
-        _ => {
-            return Err(invalid(
-                &["state"],
-                "this recording state transition is not permitted",
-            ));
-        }
     };
     let mut echo = Map::new();
     let mut after = recording.clone();
-    after.state = to.clone();
+    after.state = to;
     if let Some(layout) = &new_layout {
         after.layout = layout.clone();
     }
-    if state_change && to == Stopped {
+    if state_change && after.state == Stopped {
         // "The server sets `stoppedAt`".
         let stopped_at = now_utc_string();
         echo.insert("stoppedAt".to_owned(), json!(stopped_at));
@@ -1528,26 +1509,7 @@ async fn update_recording<B: VtcBackend>(
     .await?;
 
     if state_change {
-        let initiator = backend
-            .caller_user_id(caller, account_id)
-            .await
-            .map_err(|e| server_fail_value_from_backend(&e))?;
-        deliver(
-            backend,
-            caller,
-            account_id,
-            recording.call_id.clone(),
-            recording.id.clone(),
-            to.clone(),
-            initiator,
-        )
-        .await;
-        let effect = match to {
-            Paused => MediaEffect::PauseRecording(after.clone()),
-            Recording => MediaEffect::ResumeRecording(after.clone()),
-            _ => MediaEffect::StopRecording(after.clone()),
-        };
-        backend.run_media_effect(caller, account_id, effect).await;
+        recording_state_effects(backend, caller, account_id, &after).await?;
     }
     // "the new layout applies from then on"; a stopped recording has no
     // "then on".
@@ -1561,6 +1523,99 @@ async fn update_recording<B: VtcBackend>(
             .await;
     }
     Ok(updated)
+}
+
+/// Refuse an update whose patch touches anything but `state` and
+/// `layout`, naming the other properties.
+fn only_state_and_layout(keys: &[String]) -> Result<(), Value> {
+    let fixed: Vec<&str> = keys
+        .iter()
+        .map(String::as_str)
+        .filter(|k| !matches!(*k, "state" | "layout"))
+        .collect();
+    if !fixed.is_empty() {
+        return Err(invalid(&fixed, "only state and layout can be updated"));
+    }
+    Ok(())
+}
+
+/// A recording update's state change: the state it moves to, the stored
+/// states it may move from, and the property to blame when the stored
+/// state is not one of them.
+type RecordingTransition = (RecordingState, &'static [RecordingState], &'static str);
+
+/// The recording state an update moves `recording` to, the stored states
+/// it may move from, and the property to blame when the stored state is
+/// not one of them. `Ok(None)` is an update with neither a state change
+/// (`requested`) nor a layout change (`layout_change`), applied
+/// unconditionally.
+///
+/// "The server MUST return `invalidProperties` naming `state` for any
+/// state transition not listed above". `from` is the states the
+/// transition to `to` is listed from; the backend checks it atomically
+/// with the write, so a concurrent change cannot slip an unlisted
+/// transition such as `"stopped"` -> `"paused"` through. A layout-only
+/// change is allowed from `"recording"` and `"paused"`.
+fn recording_transition(
+    recording: &VtcRecording,
+    requested: Option<Result<RecordingState, ()>>,
+    layout_change: bool,
+    cap: Option<&VtcCapability>,
+) -> Result<Option<RecordingTransition>, Value> {
+    use RecordingState::{Paused, Recording, Stopped};
+    Ok(Some(match requested {
+        None if layout_change => (recording.state.clone(), &[Recording, Paused], "layout"),
+        None => return Ok(None),
+        Some(Ok(Paused)) => {
+            if cap.is_some_and(|c| !c.supports_recording_pause) {
+                return Err(invalid(
+                    &["state"],
+                    "this server cannot pause a recording (supportsRecordingPause is false)",
+                ));
+            }
+            (Paused, &[Recording], "state")
+        }
+        Some(Ok(Recording)) => (Recording, &[Paused], "state"),
+        Some(Ok(Stopped)) => (Stopped, &[Recording, Paused], "state"),
+        _ => {
+            return Err(invalid(
+                &["state"],
+                "this recording state transition is not permitted",
+            ));
+        }
+    }))
+}
+
+/// After a recording state change has committed, deliver its
+/// `VTCRecordingStateEvent` and run the pause, resume or stop
+/// [`MediaEffect`] for `after`, the recording as stored.
+async fn recording_state_effects<B: VtcBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    after: &VtcRecording,
+) -> Result<(), Value> {
+    let initiator = backend
+        .caller_user_id(caller, account_id)
+        .await
+        .map_err(|e| server_fail_value_from_backend(&e))?;
+    deliver(
+        backend,
+        caller,
+        account_id,
+        after.call_id.clone(),
+        after.id.clone(),
+        after.state.clone(),
+        initiator,
+    )
+    .await;
+    let effect = match after.state {
+        RecordingState::Paused => MediaEffect::PauseRecording(after.clone()),
+        RecordingState::Recording => MediaEffect::ResumeRecording(after.clone()),
+        _ => MediaEffect::StopRecording(after.clone()),
+    };
+    backend.run_media_effect(caller, account_id, effect).await;
+    Ok(())
 }
 
 /// §Stopping a Livestream. `Ok` is the `updated` echo.
@@ -1588,14 +1643,7 @@ async fn update_livestream<B: VtcBackend>(
         return Ok(Value::Null);
     }
 
-    let fixed: Vec<&str> = keys
-        .iter()
-        .map(String::as_str)
-        .filter(|k| !matches!(*k, "state" | "layout"))
-        .collect();
-    if !fixed.is_empty() {
-        return Err(invalid(&fixed, "only state and layout can be updated"));
-    }
+    only_state_and_layout(&keys)?;
 
     // "`update` with `state: "stopped"` ends the stream"; "The server MUST
     // return `invalidProperties` naming `state` if the livestream is not in

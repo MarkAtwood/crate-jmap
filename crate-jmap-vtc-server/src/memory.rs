@@ -433,6 +433,271 @@ impl Inner {
             .flat_map(HashMap::values)
             .filter_map(|v| O::deserialize(v).ok())
     }
+
+    /// The log entries of `type_name` in `account_id` after state `since`,
+    /// oldest first.
+    fn log_window(
+        &self,
+        type_name: &'static str,
+        account_id: &Id,
+        since: u64,
+    ) -> impl Iterator<Item = &(u64, Id, Change)> + '_ + use<'_> {
+        self.log
+            .get(type_name)
+            .and_then(|m| m.get(account_id.as_ref()))
+            .into_iter()
+            .flatten()
+            .filter(move |(s, _, _)| *s > since)
+    }
+
+    /// The state a `/changes` from `since` with `maxChanges` `max` goes up
+    /// to: the current state, or an intermediate one.
+    ///
+    /// RFC 8620 §5.2: over maxChanges "the server SHOULD generate an
+    /// update to take the client to an intermediate state", and only
+    /// when "unable to calculate an intermediate state" return
+    /// cannotCalculateChanges. One commit logs all its ids under one
+    /// state, so the intermediate state is the last whose whole commit
+    /// fits, oldest first. Each distinct id is one entry of
+    /// [`Inner::net_changes`].
+    fn changes_upto(
+        &self,
+        type_name: &'static str,
+        account_id: &Id,
+        since: u64,
+        max: u64,
+    ) -> Result<u64, BackendChangesError<MemoryError>> {
+        let mut seen: HashSet<&Id> = HashSet::new();
+        let (mut fits, mut commit) = (since, since);
+        for (s, id, _) in self.log_window(type_name, account_id, since) {
+            if *s != commit {
+                (fits, commit) = (commit, *s);
+            }
+            if seen.insert(id) && seen.len() as u64 > max {
+                if fits == since {
+                    return Err(BackendChangesError::TooManyChanges { limit: max });
+                }
+                return Ok(fits);
+            }
+        }
+        Ok(self.state(type_name, account_id))
+    }
+
+    /// Each id changed after state `since` up to `upto`, once, with its
+    /// net change.
+    ///
+    /// RFC 8620 §5.2: each id appears once, in the bucket of its net
+    /// change since `since_state`. A create followed by an update stays
+    /// created; a later destroy or re-create overrides.
+    fn net_changes(
+        &self,
+        type_name: &'static str,
+        account_id: &Id,
+        since: u64,
+        upto: u64,
+    ) -> Vec<(Id, Change)> {
+        let window = || {
+            self.log_window(type_name, account_id, since)
+                .filter(move |(s, _, _)| *s <= upto)
+        };
+        let mut net: Vec<(Id, Change)> = Vec::new();
+        for (_, id, change) in window() {
+            match net.iter_mut().find(|(seen, _)| seen == id) {
+                Some((_, prev)) if *prev == Change::Created && *change == Change::Updated => {}
+                Some((_, prev)) => *prev = *change,
+                None => net.push((id.clone(), *change)),
+            }
+        }
+        // Object history -04 §5.1: an id restored in the window is
+        // classified by whether it existed at sinceState and exists now,
+        // "exactly as if the object had never been destroyed between them".
+        let mut events: HashMap<Id, Vec<ChangeEvent>> = HashMap::new();
+        for (_, id, change) in window() {
+            events.entry(id.clone()).or_default().push(match change {
+                Change::Created => ChangeEvent::Created,
+                Change::Updated => ChangeEvent::Updated,
+                Change::Destroyed => ChangeEvent::Destroyed,
+                Change::Restored => ChangeEvent::Restored,
+            });
+        }
+        net.retain_mut(|(id, change)| {
+            let Some(list) = events
+                .get(id)
+                .filter(|l| l.contains(&ChangeEvent::Restored))
+            else {
+                return true;
+            };
+            match fold_restore(list) {
+                Some(ChangeKind::Created) => *change = Change::Created,
+                Some(ChangeKind::Destroyed) => *change = Change::Destroyed,
+                Some(_) => *change = Change::Updated,
+                None => return false,
+            }
+            true
+        });
+        net
+    }
+
+    /// The ids of the `type_name` objects in `account_id` that match
+    /// `filter`, in `sort` order, before the visibility check. `filter`
+    /// and `sort` are the query's, as JSON, and re-decode as the queried
+    /// type's.
+    fn query_ids(
+        &self,
+        type_name: &str,
+        account_id: &Id,
+        filter: Option<&Value>,
+        sort: &Value,
+    ) -> Result<Vec<Id>, BackendQueryError<MemoryError>> {
+        Ok(match type_name {
+            VtcCall::TYPE_NAME => {
+                let filter: Option<VtcCallFilter> = filter.map(recode_as).transpose()?;
+                let sort: Vec<VtcCallComparator> = recode_as(sort)?;
+                let attended: HashSet<(Id, String)> = self
+                    .participants(account_id)
+                    .filter_map(|p| p.user_id.map(|u| (p.call_id, u)))
+                    .collect();
+                let mut calls: Vec<VtcCall> = self
+                    .calls(account_id)
+                    .filter(|c| {
+                        filter.as_ref().is_none_or(|f| {
+                            call_matches(f, c, &|u: &str| {
+                                attended.contains(&(c.id.clone(), u.to_owned()))
+                            })
+                        })
+                    })
+                    .collect();
+                calls.sort_by(|a, b| compare_calls(a, b, &sort));
+                calls.into_iter().map(|c| c.id).collect()
+            }
+            VtcRecording::TYPE_NAME => {
+                let filter: Option<VtcRecordingFilter> = filter.map(recode_as).transpose()?;
+                let sort: Vec<VtcMediaComparator> = recode_as(sort)?;
+                let mut list: Vec<VtcRecording> = self
+                    .all(account_id)
+                    .filter(|r| filter.as_ref().is_none_or(|f| recording_matches(f, r)))
+                    .collect();
+                list.sort_by(|a, b| compare_recordings(a, b, &sort));
+                list.into_iter().map(|r| r.id).collect()
+            }
+            VtcParticipant::TYPE_NAME => {
+                let filter: Option<VtcParticipantFilter> = filter.map(recode_as).transpose()?;
+                let sort: Vec<VtcParticipantComparator> = recode_as(sort)?;
+                let mut list: Vec<VtcParticipant> = self
+                    .participants(account_id)
+                    .filter(|p| filter.as_ref().is_none_or(|f| participant_matches(f, p)))
+                    .collect();
+                list.sort_by(|a, b| compare_participants(a, b, &sort));
+                list.into_iter().map(|p| p.id).collect()
+            }
+            VtcLivestream::TYPE_NAME => {
+                let filter: Option<VtcLivestreamFilter> = filter.map(recode_as).transpose()?;
+                let sort: Vec<VtcMediaComparator> = recode_as(sort)?;
+                let mut list: Vec<VtcLivestream> = self
+                    .all(account_id)
+                    .filter(|l| filter.as_ref().is_none_or(|f| livestream_matches(f, l)))
+                    .collect();
+                list.sort_by(|a, b| compare_livestreams(a, b, &sort));
+                list.into_iter().map(|l| l.id).collect()
+            }
+            other => {
+                return Err(BackendQueryError::Other(MemoryError::new(format!(
+                    "query of {other} is not implemented"
+                ))));
+            }
+        })
+    }
+
+    /// The breakout parent of the new `call` (`call_id`), with `call_id`
+    /// added to its `breakoutRoomIds`, or `None` for a call that is not a
+    /// breakout room. `defer` is whether an atomic scope checks
+    /// `max_rooms` at commit instead.
+    fn breakout_parent(
+        &self,
+        account_id: &Id,
+        call_id: &Id,
+        call: &VtcCall,
+        max_rooms: Option<u64>,
+        defer: bool,
+    ) -> Result<Option<VtcCall>, BackendSetError<MemoryError>> {
+        let Some(pid) = call.parent_call_id.as_ref() else {
+            return Ok(None);
+        };
+        let stored = self
+            .objects(VtcCall::TYPE_NAME, account_id)
+            .and_then(|m| m.get(pid))
+            .ok_or_else(|| {
+                BackendSetError::SetError(Box::new(
+                    SetError::new(SetErrorType::InvalidProperties)
+                        .with_properties(["parentCallId"]),
+                ))
+            })?;
+        let mut parent: VtcCall = decode(stored).map_err(BackendSetError::Other)?;
+        // §VTCCall/set `maxBreakoutRooms`, rechecked under the
+        // lock; under an atomic scope, at commit.
+        if let Some(max) = max_rooms
+            && !defer
+            && parent.breakout_room_ids.len() as u64 >= max
+        {
+            return Err(BackendSetError::SetError(Box::new(
+                breakout_rooms_over_quota(),
+            )));
+        }
+        parent.breakout_room_ids.push(call_id.clone());
+        Ok(Some(parent))
+    }
+
+    /// Store the new `call` (`id`), its updated breakout `parent` and its
+    /// ring `participants`, and commit them. Every value is encoded or
+    /// decoded before the first write.
+    fn insert_call(
+        &mut self,
+        account_id: &Id,
+        id: Id,
+        call: &VtcCall,
+        parent: Option<VtcCall>,
+        participants: Vec<Value>,
+    ) -> Result<(), BackendSetError<MemoryError>> {
+        let encode = |v: &VtcCall| {
+            serde_json::to_value(v).map_err(|e| MemoryError::serde("serialize VtcCall", &e))
+        };
+        let stored = encode(call).map_err(BackendSetError::Other)?;
+        let parent_stored = parent
+            .as_ref()
+            .map(encode)
+            .transpose()
+            .map_err(BackendSetError::Other)?;
+        let participant_ids: Vec<Id> = participants
+            .iter()
+            .map(|p| decode::<VtcParticipant>(p).map(|p| p.id))
+            .collect::<Result<_, _>>()
+            .map_err(BackendSetError::Other)?;
+
+        let calls = self.objects_mut(VtcCall::TYPE_NAME, account_id);
+        calls.insert(id.clone(), stored);
+        let mut changes = vec![(id, Change::Created)];
+        if let (Some(parent), Some(value)) = (parent, parent_stored) {
+            calls.insert(parent.id.clone(), value);
+            changes.push((parent.id, Change::Updated));
+        }
+        self.commit(VtcCall::TYPE_NAME, account_id, changes);
+
+        if !participants.is_empty() {
+            let store = self.objects_mut(VtcParticipant::TYPE_NAME, account_id);
+            for (pid, p) in participant_ids.iter().zip(participants) {
+                store.insert(pid.clone(), p);
+            }
+            self.commit(
+                VtcParticipant::TYPE_NAME,
+                account_id,
+                participant_ids
+                    .into_iter()
+                    .map(|pid| (pid, Change::Created))
+                    .collect(),
+            );
+        }
+        Ok(())
+    }
 }
 
 /// A fully in-memory implementation of [`VtcBackend`].
@@ -818,78 +1083,11 @@ impl<C: MemoryCaller> JmapReads for MemoryBackend<C> {
             return Err(BackendChangesError::CannotCalculate);
         }
 
-        let window = || {
-            inner
-                .log
-                .get(O::TYPE_NAME)
-                .and_then(|m| m.get(account_id.as_ref()))
-                .into_iter()
-                .flatten()
-                .filter(move |(s, _, _)| *s > since)
+        let upto = match max_changes {
+            Some(max) => inner.changes_upto(O::TYPE_NAME, account_id, since, max)?,
+            None => current,
         };
-
-        // RFC 8620 §5.2: over maxChanges "the server SHOULD generate an
-        // update to take the client to an intermediate state", and only
-        // when "unable to calculate an intermediate state" return
-        // cannotCalculateChanges. One commit logs all its ids under one
-        // state, so the intermediate state is the last whose whole commit
-        // fits, oldest first. Each distinct id is one entry of `net` below.
-        let mut upto = current;
-        if let Some(max) = max_changes {
-            let mut seen: HashSet<&Id> = HashSet::new();
-            let (mut fits, mut commit) = (since, since);
-            for (s, id, _) in window() {
-                if *s != commit {
-                    (fits, commit) = (commit, *s);
-                }
-                if seen.insert(id) && seen.len() as u64 > max {
-                    if fits == since {
-                        return Err(BackendChangesError::TooManyChanges { limit: max });
-                    }
-                    upto = fits;
-                    break;
-                }
-            }
-        }
-
-        // RFC 8620 §5.2: each id appears once, in the bucket of its net
-        // change since `since_state`. A create followed by an update stays
-        // created; a later destroy or re-create overrides.
-        let mut net: Vec<(Id, Change)> = Vec::new();
-        for (_, id, change) in window().filter(|(s, _, _)| *s <= upto) {
-            match net.iter_mut().find(|(seen, _)| seen == id) {
-                Some((_, prev)) if *prev == Change::Created && *change == Change::Updated => {}
-                Some((_, prev)) => *prev = *change,
-                None => net.push((id.clone(), *change)),
-            }
-        }
-        // Object history -04 §5.1: an id restored in the window is
-        // classified by whether it existed at sinceState and exists now,
-        // "exactly as if the object had never been destroyed between them".
-        let mut events: HashMap<Id, Vec<ChangeEvent>> = HashMap::new();
-        for (_, id, change) in window().filter(|(s, _, _)| *s <= upto) {
-            events.entry(id.clone()).or_default().push(match change {
-                Change::Created => ChangeEvent::Created,
-                Change::Updated => ChangeEvent::Updated,
-                Change::Destroyed => ChangeEvent::Destroyed,
-                Change::Restored => ChangeEvent::Restored,
-            });
-        }
-        net.retain_mut(|(id, change)| {
-            let Some(list) = events
-                .get(id)
-                .filter(|l| l.contains(&ChangeEvent::Restored))
-            else {
-                return true;
-            };
-            match fold_restore(list) {
-                Some(ChangeKind::Created) => *change = Change::Created,
-                Some(ChangeKind::Destroyed) => *change = Change::Destroyed,
-                Some(_) => *change = Change::Updated,
-                None => return false,
-            }
-            true
-        });
+        let net = inner.net_changes(O::TYPE_NAME, account_id, since, upto);
         let bucket = |want: Change| -> Vec<Id> {
             net.iter()
                 .filter(|(_, c)| *c == want)
@@ -935,66 +1133,7 @@ impl<C: MemoryCaller> JmapReads for MemoryBackend<C> {
         };
 
         let inner = self.locked().await;
-        let mut ids: Vec<Id> = match O::TYPE_NAME {
-            VtcCall::TYPE_NAME => {
-                let filter: Option<VtcCallFilter> = filter.as_ref().map(recode_as).transpose()?;
-                let sort: Vec<VtcCallComparator> = recode_as(&sort)?;
-                let attended: HashSet<(Id, String)> = inner
-                    .participants(account_id)
-                    .filter_map(|p| p.user_id.map(|u| (p.call_id, u)))
-                    .collect();
-                let mut calls: Vec<VtcCall> = inner
-                    .calls(account_id)
-                    .filter(|c| {
-                        filter.as_ref().is_none_or(|f| {
-                            call_matches(f, c, &|u: &str| {
-                                attended.contains(&(c.id.clone(), u.to_owned()))
-                            })
-                        })
-                    })
-                    .collect();
-                calls.sort_by(|a, b| compare_calls(a, b, &sort));
-                calls.into_iter().map(|c| c.id).collect()
-            }
-            VtcRecording::TYPE_NAME => {
-                let filter: Option<VtcRecordingFilter> =
-                    filter.as_ref().map(recode_as).transpose()?;
-                let sort: Vec<VtcMediaComparator> = recode_as(&sort)?;
-                let mut list: Vec<VtcRecording> = inner
-                    .all(account_id)
-                    .filter(|r| filter.as_ref().is_none_or(|f| recording_matches(f, r)))
-                    .collect();
-                list.sort_by(|a, b| compare_recordings(a, b, &sort));
-                list.into_iter().map(|r| r.id).collect()
-            }
-            VtcParticipant::TYPE_NAME => {
-                let filter: Option<VtcParticipantFilter> =
-                    filter.as_ref().map(recode_as).transpose()?;
-                let sort: Vec<VtcParticipantComparator> = recode_as(&sort)?;
-                let mut list: Vec<VtcParticipant> = inner
-                    .participants(account_id)
-                    .filter(|p| filter.as_ref().is_none_or(|f| participant_matches(f, p)))
-                    .collect();
-                list.sort_by(|a, b| compare_participants(a, b, &sort));
-                list.into_iter().map(|p| p.id).collect()
-            }
-            VtcLivestream::TYPE_NAME => {
-                let filter: Option<VtcLivestreamFilter> =
-                    filter.as_ref().map(recode_as).transpose()?;
-                let sort: Vec<VtcMediaComparator> = recode_as(&sort)?;
-                let mut list: Vec<VtcLivestream> = inner
-                    .all(account_id)
-                    .filter(|l| filter.as_ref().is_none_or(|f| livestream_matches(f, l)))
-                    .collect();
-                list.sort_by(|a, b| compare_livestreams(a, b, &sort));
-                list.into_iter().map(|l| l.id).collect()
-            }
-            other => {
-                return Err(BackendQueryError::Other(MemoryError::new(format!(
-                    "query of {other} is not implemented"
-                ))));
-            }
-        };
+        let mut ids = inner.query_ids(O::TYPE_NAME, account_id, filter.as_ref(), &sort)?;
         let store = inner.objects(O::TYPE_NAME, account_id);
         ids.retain(|id| {
             store
@@ -1121,72 +1260,8 @@ impl<C: MemoryCaller> VtcBackend for MemoryBackend<C> {
             call.active_participant_count = 1;
         }
 
-        let parent = match call.parent_call_id.as_ref() {
-            Some(pid) => {
-                let stored = inner
-                    .objects(VtcCall::TYPE_NAME, account_id)
-                    .and_then(|m| m.get(pid))
-                    .ok_or_else(|| {
-                        BackendSetError::SetError(Box::new(
-                            SetError::new(SetErrorType::InvalidProperties)
-                                .with_properties(["parentCallId"]),
-                        ))
-                    })?;
-                let mut parent: VtcCall = decode(stored).map_err(BackendSetError::Other)?;
-                // §VTCCall/set `maxBreakoutRooms`, rechecked under the
-                // lock; under an atomic scope, at commit.
-                if let Some(max) = max_rooms
-                    && !defer
-                    && parent.breakout_room_ids.len() as u64 >= max
-                {
-                    return Err(BackendSetError::SetError(Box::new(
-                        breakout_rooms_over_quota(),
-                    )));
-                }
-                parent.breakout_room_ids.push(id.clone());
-                Some(parent)
-            }
-            None => None,
-        };
-
-        let encode = |v: &VtcCall| {
-            serde_json::to_value(v).map_err(|e| MemoryError::serde("serialize VtcCall", &e))
-        };
-        let stored = encode(&call).map_err(BackendSetError::Other)?;
-        let parent_stored = parent
-            .as_ref()
-            .map(encode)
-            .transpose()
-            .map_err(BackendSetError::Other)?;
-        let participant_ids: Vec<Id> = participants
-            .iter()
-            .map(|p| decode::<VtcParticipant>(p).map(|p| p.id))
-            .collect::<Result<_, _>>()
-            .map_err(BackendSetError::Other)?;
-
-        let calls = inner.objects_mut(VtcCall::TYPE_NAME, account_id);
-        calls.insert(id.clone(), stored);
-        let mut changes = vec![(id, Change::Created)];
-        if let (Some(parent), Some(value)) = (parent, parent_stored) {
-            calls.insert(parent.id.clone(), value);
-            changes.push((parent.id, Change::Updated));
-        }
-        inner.commit(VtcCall::TYPE_NAME, account_id, changes);
-
-        if !participants.is_empty() {
-            let store = inner.objects_mut(VtcParticipant::TYPE_NAME, account_id);
-            for (pid, p) in participant_ids.iter().zip(participants) {
-                store.insert(pid.clone(), p);
-            }
-            inner.commit(
-                VtcParticipant::TYPE_NAME,
-                account_id,
-                participant_ids
-                    .into_iter()
-                    .map(|pid| (pid, Change::Created))
-                    .collect(),
-            );
-        }
+        let parent = inner.breakout_parent(account_id, &id, &call, max_rooms, defer)?;
+        inner.insert_call(account_id, id, &call, parent, participants)?;
         Ok(call)
     }
 
@@ -1454,103 +1529,140 @@ fn final_state_failures(before: &Inner, after: &Inner) -> Vec<DeferredFailure> {
     let mut failures: Vec<DeferredFailure> = Vec::new();
     for (account, capability) in &after.accounts {
         let account_id = Id::from(account.as_str());
-        // More livestreams in "starting" or "live" than the limit:
-        // `overQuota` on each one the scope created.
-        if let Some(max) = after.max_active_livestreams
-            && after.active_livestreams(&account_id) > max
+        livestream_failures(before, after, &account_id, &mut failures);
+        call_failures(before, after, &account_id, capability, &mut failures);
+        participant_failures(before, after, &account_id, capability, &mut failures);
+    }
+    failures
+}
+
+/// The livestream rule of [`final_state_failures`] for `account_id`: more
+/// livestreams in `"starting"` or `"live"` than the limit is `overQuota`
+/// on each one the scope created.
+fn livestream_failures(
+    before: &Inner,
+    after: &Inner,
+    account_id: &Id,
+    failures: &mut Vec<DeferredFailure>,
+) {
+    let Some(max) = after.max_active_livestreams else {
+        return;
+    };
+    if after.active_livestreams(account_id) <= max {
+        return;
+    }
+    let old = before.objects(VtcLivestream::TYPE_NAME, account_id);
+    for (id, _) in after
+        .objects(VtcLivestream::TYPE_NAME, account_id)
+        .into_iter()
+        .flat_map(HashMap::iter)
+        .filter(|(id, v)| {
+            !old.is_some_and(|m| m.contains_key(*id))
+                && matches!(
+                    v.get("state").and_then(Value::as_str),
+                    Some("starting" | "live")
+                )
+        })
+    {
+        failures.push(DeferredFailure::new(
+            SetOp::Create(id.clone()),
+            crate::media::livestream_over_quota(),
+        ));
+    }
+}
+
+/// The call rules of [`final_state_failures`] for `account_id`: more
+/// calls in a live state than `maxConcurrentCalls` is `overQuota` on each
+/// live call the scope created, and a parent with more breakout rooms
+/// than `maxBreakoutRooms` is `overQuota` on each room the scope created
+/// under it.
+fn call_failures(
+    before: &Inner,
+    after: &Inner,
+    account_id: &Id,
+    capability: &VtcCapability,
+    failures: &mut Vec<DeferredFailure>,
+) {
+    let old_calls = before.objects(VtcCall::TYPE_NAME, account_id);
+    let created_here = |id: &Id| !old_calls.is_some_and(|m| m.contains_key(id));
+    if let Some(max) = capability.max_concurrent_calls
+        && after.live_calls(account_id) > max
+    {
+        for c in after
+            .calls(account_id)
+            .filter(|c| is_live_call(c) && created_here(&c.id))
         {
-            let old = before.objects(VtcLivestream::TYPE_NAME, &account_id);
-            for (id, _) in after
-                .objects(VtcLivestream::TYPE_NAME, &account_id)
-                .into_iter()
-                .flat_map(HashMap::iter)
-                .filter(|(id, v)| {
-                    !old.is_some_and(|m| m.contains_key(*id))
-                        && matches!(
-                            v.get("state").and_then(Value::as_str),
-                            Some("starting" | "live")
-                        )
-                })
-            {
-                failures.push(DeferredFailure::new(
-                    SetOp::Create(id.clone()),
-                    crate::media::livestream_over_quota(),
-                ));
-            }
+            failures.push(DeferredFailure::new(
+                SetOp::Create(c.id),
+                concurrent_calls_over_quota(),
+            ));
         }
-        // More calls in a live state than `maxConcurrentCalls`:
-        // `overQuota` on each live call the scope created.
-        let old_calls = before.objects(VtcCall::TYPE_NAME, &account_id);
-        let created_here = |id: &Id| !old_calls.is_some_and(|m| m.contains_key(id));
-        if let Some(max) = capability.max_concurrent_calls
-            && after.live_calls(&account_id) > max
+    }
+    if let Some(max) = capability.max_breakout_rooms.flatten() {
+        for parent in after
+            .calls(account_id)
+            .filter(|p| p.breakout_room_ids.len() as u64 > max)
         {
-            for c in after
-                .calls(&account_id)
-                .filter(|c| is_live_call(c) && created_here(&c.id))
-            {
-                failures.push(DeferredFailure::new(
-                    SetOp::Create(c.id),
-                    concurrent_calls_over_quota(),
-                ));
-            }
-        }
-        // A parent with more breakout rooms than `maxBreakoutRooms`:
-        // `overQuota` on each room the scope created under it.
-        if let Some(max) = capability.max_breakout_rooms.flatten() {
-            for parent in after
-                .calls(&account_id)
-                .filter(|p| p.breakout_room_ids.len() as u64 > max)
-            {
-                for room in parent.breakout_room_ids.iter().filter(|r| created_here(r)) {
-                    let op = SetOp::Create(room.clone());
-                    if !failures.iter().any(|f| f.op == op) {
-                        failures.push(DeferredFailure::new(op, breakout_rooms_over_quota()));
-                    }
+            for room in parent.breakout_room_ids.iter().filter(|r| created_here(r)) {
+                let op = SetOp::Create(room.clone());
+                if !failures.iter().any(|f| f.op == op) {
+                    failures.push(DeferredFailure::new(op, breakout_rooms_over_quota()));
                 }
             }
         }
-        let old: HashMap<Id, VtcParticipant> = before
-            .participants(&account_id)
-            .map(|p| (p.id.clone(), p))
-            .collect();
-        let now: Vec<VtcParticipant> = after.participants(&account_id).collect();
-        let changed = |p: &VtcParticipant| match old.get(&p.id) {
-            None => Some(SetOp::Create(p.id.clone())),
-            Some(prev) if prev != p => Some(SetOp::Update(p.id.clone())),
-            Some(_) => None,
+    }
+}
+
+/// The participant rules of [`final_state_failures`] for `account_id`:
+/// two records for one user in one call is `alreadyExists` on the
+/// create, and more active participants in a call than
+/// `maxParticipantsPerCall` is `overQuota` on each active participant the
+/// scope created or changed in that call.
+fn participant_failures(
+    before: &Inner,
+    after: &Inner,
+    account_id: &Id,
+    capability: &VtcCapability,
+    failures: &mut Vec<DeferredFailure>,
+) {
+    let old: HashMap<Id, VtcParticipant> = before
+        .participants(account_id)
+        .map(|p| (p.id.clone(), p))
+        .collect();
+    let now: Vec<VtcParticipant> = after.participants(account_id).collect();
+    let changed = |p: &VtcParticipant| match old.get(&p.id) {
+        None => Some(SetOp::Create(p.id.clone())),
+        Some(prev) if prev != p => Some(SetOp::Update(p.id.clone())),
+        Some(_) => None,
+    };
+    for p in &now {
+        let Some(op) = changed(p) else { continue };
+        if let (SetOp::Create(_), Some(user)) = (&op, &p.user_id)
+            && let Some(existing) = now.iter().find(|q| {
+                q.id != p.id && q.call_id == p.call_id && q.user_id.as_ref() == Some(user)
+            })
+        {
+            failures.push(DeferredFailure::new(
+                op,
+                SetError::new(SetErrorType::AlreadyExists).with_existing_id(existing.id.clone()),
+            ));
+            continue;
+        }
+        let Some(max) = capability.max_participants_per_call else {
+            continue;
         };
-        for p in &now {
-            let Some(op) = changed(p) else { continue };
-            if let (SetOp::Create(_), Some(user)) = (&op, &p.user_id)
-                && let Some(existing) = now.iter().find(|q| {
-                    q.id != p.id && q.call_id == p.call_id && q.user_id.as_ref() == Some(user)
-                })
-            {
-                failures.push(DeferredFailure::new(
-                    op,
-                    SetError::new(SetErrorType::AlreadyExists)
-                        .with_existing_id(existing.id.clone()),
-                ));
-                continue;
-            }
-            let Some(max) = capability.max_participants_per_call else {
-                continue;
-            };
-            let active = now
-                .iter()
-                .filter(|q| q.call_id == p.call_id && is_active(q))
-                .count() as u64;
-            if is_active(p) && active > max {
-                failures.push(DeferredFailure::new(
-                    op,
-                    SetError::new(SetErrorType::OverQuota)
-                        .with_description("the call has reached maxParticipantsPerCall"),
-                ));
-            }
+        let active = now
+            .iter()
+            .filter(|q| q.call_id == p.call_id && is_active(q))
+            .count() as u64;
+        if is_active(p) && active > max {
+            failures.push(DeferredFailure::new(
+                op,
+                SetError::new(SetErrorType::OverQuota)
+                    .with_description("the call has reached maxParticipantsPerCall"),
+            ));
         }
     }
-    failures
 }
 
 #[cfg(test)]

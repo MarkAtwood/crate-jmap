@@ -460,22 +460,7 @@ async fn create_participant<B: VtcBackend>(
             "a VTCParticipant create must be a JSON object",
         ));
     };
-    if let Some(e) = reject_server_set::<VtcParticipant>(&m) {
-        return Err(serde_json::Value::from(
-            &e.with_description("these properties are set by the server"),
-        ));
-    }
-    let server_set: Vec<&str> = SET_BY_SERVER_ON_CREATE
-        .iter()
-        .copied()
-        .filter(|k| m.contains_key(*k))
-        .collect();
-    if !server_set.is_empty() {
-        return Err(invalid(
-            &server_set,
-            "these properties are set by the server",
-        ));
-    }
+    reject_create_server_set(&m)?;
 
     // "`callId` (String, required)", "`joinMethod` (String, required)".
     let call_id = m
@@ -532,29 +517,63 @@ async fn create_participant<B: VtcBackend>(
         .await
         .map_err(backend_set_error_value)?;
 
-    // "When a participant joins a `"pending"` scheduled call, the server
-    // transitions the call to `"active"`." The join is already committed, so
-    // as in `run_effects` the transition is best-effort and its failure is
-    // not the create's SetError (RFC 8620 §5.3: `newState` must reflect the
-    // committed join).
-    // ponytail: the failure is dropped, as the crate has no logging.
-    // Upgrade path: a `VtcBackend` hook that reports it.
-    // The backend applies it only while the call is still `"pending"`, so a
-    // moderator's end since `call` was read stands (§State Machine: "The
-    // server MUST NOT transition a call out of `"ended"`").
     if !dial_out && call.state == CallState::Pending {
-        let from = [CallState::Pending];
-        let _ = set_call_state(
-            backend,
-            caller,
-            account_id,
-            &call.id,
-            &from,
-            CallState::Active,
-        )
-        .await;
+        activate_on_join(backend, caller, account_id, &call.id).await;
     }
     to_value(&stored)
+}
+
+/// Reject a create that carries a property the server sets:
+/// [`VtcParticipant::SERVER_SET`] or one of [`SET_BY_SERVER_ON_CREATE`].
+fn reject_create_server_set(m: &Map<String, Value>) -> Result<(), Value> {
+    if let Some(e) = reject_server_set::<VtcParticipant>(m) {
+        return Err(serde_json::Value::from(
+            &e.with_description("these properties are set by the server"),
+        ));
+    }
+    let server_set: Vec<&str> = SET_BY_SERVER_ON_CREATE
+        .iter()
+        .copied()
+        .filter(|k| m.contains_key(*k))
+        .collect();
+    if !server_set.is_empty() {
+        return Err(invalid(
+            &server_set,
+            "these properties are set by the server",
+        ));
+    }
+    Ok(())
+}
+
+/// Move the `"pending"` call `call_id` to `"active"` after a join has
+/// committed.
+///
+/// "When a participant joins a `"pending"` scheduled call, the server
+/// transitions the call to `"active"`." The join is already committed, so
+/// as in `run_effects` the transition is best-effort and its failure is
+/// not the create's `SetError` (RFC 8620 §5.3: `newState` must reflect the
+/// committed join).
+/// ponytail: the failure is dropped, as the crate has no logging.
+/// Upgrade path: a `VtcBackend` hook that reports it.
+/// The backend applies it only while the call is still `"pending"`, so a
+/// moderator's end since the call was read stands (§State Machine: "The
+/// server MUST NOT transition a call out of `"ended"`").
+async fn activate_on_join<B: VtcBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    call_id: &Id,
+) {
+    let from = [CallState::Pending];
+    let _ = set_call_state(
+        backend,
+        caller,
+        account_id,
+        call_id,
+        &from,
+        CallState::Active,
+    )
+    .await;
 }
 
 /// The call states in which a participant may join `call`: §Joining
@@ -799,6 +818,51 @@ struct Effects {
     signal: Option<VtcGatewaySignal>,
 }
 
+/// The participant an update targets, its call, and who is asking.
+struct UpdateTarget {
+    /// The participant before the update.
+    old: VtcParticipant,
+    /// The call `old` belongs to.
+    call: VtcCall,
+    /// The caller's user id.
+    me: String,
+    /// Whether `old` is the caller's own record.
+    own: bool,
+    /// Whether the caller moderates `call`.
+    moderator: bool,
+}
+
+/// What the per-property checks of one `VTCParticipant` update read: the
+/// [`UpdateTarget`], the record as the patch would leave it, and the
+/// top-level properties the patch touches.
+struct UpdateView<'a> {
+    /// The participant, its call and the caller.
+    target: &'a UpdateTarget,
+    /// `target.old` with the patch applied.
+    new: &'a VtcParticipant,
+    /// The patch's top-level property names, sorted and deduplicated.
+    keys: Vec<String>,
+    /// The server time an update stamps (`joinedAt`, `leftAt`).
+    now: Value,
+}
+
+impl UpdateView<'_> {
+    /// Whether the patch touches the top-level property `k`.
+    fn has(&self, k: &str) -> bool {
+        self.keys.iter().any(|key| key == k)
+    }
+
+    /// `forbidden` unless the caller moderates the call; `what` completes
+    /// "only a moderator may".
+    fn moderator_only(&self, what: &str) -> Result<(), Value> {
+        if self.target.moderator {
+            Ok(())
+        } else {
+            Err(forbidden(&format!("only a moderator may {what}")))
+        }
+    }
+}
+
 /// Validate one `update` entry, add the properties the server sets, hand
 /// it to the backend and run its [`Effects`]. `Ok` is the `updated` echo:
 /// the properties the server changed beyond the patch.
@@ -816,7 +880,71 @@ async fn update_participant<B: VtcBackend>(
     })?;
     let signal = patch.as_map_mut().remove(PENDING_SIGNAL);
 
-    // "An unknown VTCParticipant id yields `notFound`".
+    let target = update_target(backend, caller, account_id, id).await?;
+    let shape_err = strip_update_read_only(&mut patch, &target.old)?;
+    // Nothing left to apply: a no-op success, with no write.
+    if shape_err.is_none() && patch.as_map().is_empty() && signal.is_none() {
+        return Ok(Value::Null);
+    }
+
+    let keys = patch_keys(&patch);
+    let new = preview(&target.old, &patch)?;
+    let view = UpdateView {
+        target: &target,
+        new: &new,
+        keys,
+        now: json!(now_utc_string()),
+    };
+    let mut echo = Map::new();
+    let mut effects = Effects::default();
+
+    check_answer(backend, &view, &mut echo, &mut effects)?;
+    check_decline(backend, &view, &mut echo, &mut effects)?;
+    check_leave(&view, &mut echo, &mut effects)?;
+    check_kick_and_lobby(&view, &mut echo)?;
+    check_role(backend, caller, account_id, &view).await?;
+    check_breakout_and_unmute(&view, &mut effects)?;
+    check_media_state(&view, &mut echo)?;
+
+    if let Some(pending) = signal {
+        view.moderator_only("send a gateway signal")?;
+        effects.signal = Some(gateway_signal(account_id, &target.old, pending)?);
+        // The server "removes the key": report the stored value.
+        echo.insert(
+            "gatewayData".to_owned(),
+            to_value(&target.old.gateway_data)?,
+        );
+    }
+
+    if let Some(err) = shape_err {
+        return Err(err);
+    }
+
+    let echo = write_update(backend, caller, account_id, id, patch, echo).await?;
+    run_effects(
+        backend,
+        caller,
+        account_id,
+        &target.old,
+        &target.me,
+        effects,
+    )
+    .await;
+    Ok(echo)
+}
+
+/// Load the participant `id` and its call, and check that the caller may
+/// update it.
+///
+/// "An unknown `VTCParticipant` id yields `notFound`"; §Participant-Level
+/// Moderator Actions: "Non-moderators SHOULD receive `forbidden` for
+/// updates targeting other participants."
+async fn update_target<B: VtcBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    id: &Id,
+) -> Result<UpdateTarget, Value> {
     let old = fetch_one::<VtcParticipant, _>(backend, caller, account_id, id)
         .await?
         .ok_or_else(not_found)?;
@@ -832,26 +960,39 @@ async fn update_participant<B: VtcBackend>(
         .is_moderator(caller, account_id, &call)
         .await
         .map_err(|e| server_fail_value_from_backend(&e))?;
-    // §Participant-Level Moderator Actions: "Non-moderators SHOULD receive
-    // `forbidden` for updates targeting other participants."
     if !own && !moderator {
         return Err(forbidden(
             "only a moderator may update another participant's record",
         ));
     }
-    // After the moderator gate, so a non-moderator's patch of another
-    // participant, `{}` included, is `forbidden`.
-    let current = serde_json::to_value(&old).map_err(|e| server_fail_value_from_backend(&e))?;
-    // §VTCParticipant: the immutable and server-set properties. A client
-    // reaches `gatewayData` only through [`PENDING_SIGNAL`], removed above.
-    // A changed value is rejected, an identical one dropped (RFC 8620
-    // §5.3).
-    //
-    // Permission and state before shape (DECISIONS.md 44): a changed value
-    // is held in `shape_err` and reported after the per-property
-    // `forbidden` checks below, just before the write. Those checks then
-    // see the patch without its read-only keys.
-    let shape_err =
+    Ok(UpdateTarget {
+        old,
+        call,
+        me,
+        own,
+        moderator,
+    })
+}
+
+/// Drop the immutable and server-set properties of §`VTCParticipant` from
+/// `patch`. `Ok(Some)` is the `SetError` value of a changed one, to report
+/// after the permission checks; `Err` is a `serverFail` value.
+///
+/// Called after the moderator gate, so a non-moderator's patch of another
+/// participant, `{}` included, is `forbidden`. A client reaches
+/// `gatewayData` only through [`PENDING_SIGNAL`]. A changed value is
+/// rejected, an identical one dropped (RFC 8620 §5.3).
+///
+/// Permission and state before shape (DECISIONS.md 44): a changed value is
+/// held back and reported after the per-property `forbidden` checks, just
+/// before the write. Those checks then see the patch without its
+/// read-only keys.
+fn strip_update_read_only(
+    patch: &mut PatchObject,
+    old: &VtcParticipant,
+) -> Result<Option<Value>, Value> {
+    let current = serde_json::to_value(old).map_err(|e| server_fail_value_from_backend(&e))?;
+    Ok(
         match strip_read_only_patch::<VtcParticipant>(patch.as_map_mut(), current.as_object()) {
             Ok(()) => None,
             Err(e) => {
@@ -864,12 +1005,12 @@ async fn update_participant<B: VtcBackend>(
                     &e.with_description("these properties cannot be updated"),
                 ))
             }
-        };
-    // Nothing left to apply: a no-op success, with no write.
-    if shape_err.is_none() && patch.as_map().is_empty() && signal.is_none() {
-        return Ok(Value::Null);
-    }
+        },
+    )
+}
 
+/// The top-level property names `patch` touches, sorted and deduplicated.
+fn patch_keys(patch: &PatchObject) -> Vec<String> {
     let mut keys: Vec<String> = patch
         .as_map()
         .keys()
@@ -877,128 +1018,155 @@ async fn update_participant<B: VtcBackend>(
         .collect();
     keys.sort_unstable();
     keys.dedup();
-    let has = |k: &str| keys.iter().any(|key| key == k);
-    let moderator_only = |what: &str| {
-        if moderator {
-            Ok(())
-        } else {
-            Err(forbidden(&format!("only a moderator may {what}")))
-        }
-    };
+    keys
+}
 
-    let new = preview(&old, &patch)?;
-    // §Multi-Device Forking: a target "may still answer (and join) or
-    // decline until the ring timeout expires".
-    let ring_expired = || -> Result<bool, Value> {
-        if call.call_type != CallType::Ring {
-            return Ok(false);
-        }
-        let deadline = ring_deadline(&call.created_at, backend.ring_timeout())
-            .map_err(|e| serde_json::Value::from(&*e))?;
-        Ok(SystemTime::now() >= deadline)
-    };
-    let now = json!(now_utc_string());
-    let mut echo = Map::new();
-    let mut effects = Effects::default();
+/// Whether the ring of `call` has timed out. §Multi-Device Forking: a
+/// target "may still answer (and join) or decline until the ring timeout
+/// expires". Always `false` for a call that is not a ring.
+fn ring_expired<B: VtcBackend>(backend: &B, call: &VtcCall) -> Result<bool, Value> {
+    if call.call_type != CallType::Ring {
+        return Ok(false);
+    }
+    let deadline = ring_deadline(&call.created_at, backend.ring_timeout())
+        .map_err(|e| serde_json::Value::from(&*e))?;
+    Ok(SystemTime::now() >= deadline)
+}
 
-    if has("joinMethod") {
-        // §Answering a Ring Call.
+/// A `joinMethod` patch: §Answering a Ring Call.
+fn check_answer<B: VtcBackend>(
+    backend: &B,
+    view: &UpdateView<'_>,
+    echo: &mut Map<String, Value>,
+    effects: &mut Effects,
+) -> Result<(), Value> {
+    if !view.has("joinMethod") {
+        return Ok(());
+    }
+    let UpdateTarget { old, call, own, .. } = view.target;
+    if !own {
+        return Err(forbidden("only the target may answer"));
+    }
+    if !matches!(call.state, CallState::Ringing | CallState::Active)
+        || old.call_response != Some(CallResponse::Pending)
+    {
+        return Err(invalid(
+            &["joinMethod"],
+            "the call is not ringing or active, or this ring was already answered",
+        ));
+    }
+    if ring_expired(backend, call)? {
+        return Err(invalid(&["joinMethod"], "the ring timeout has expired"));
+    }
+    echo.insert("joinedAt".to_owned(), view.now.clone());
+    echo.insert("callResponse".to_owned(), json!(CallResponse::Accepted));
+    effects.activate = call.state == CallState::Ringing;
+    effects.answered = true;
+    Ok(())
+}
+
+/// A `callResponse` patch: §Declining a Ring Call.
+fn check_decline<B: VtcBackend>(
+    backend: &B,
+    view: &UpdateView<'_>,
+    echo: &mut Map<String, Value>,
+    effects: &mut Effects,
+) -> Result<(), Value> {
+    if !view.has("callResponse") {
+        return Ok(());
+    }
+    let UpdateTarget { old, call, own, .. } = view.target;
+    if !own {
+        return Err(forbidden("only the target may decline"));
+    }
+    if view.new.call_response != Some(CallResponse::Declined)
+        || !matches!(call.state, CallState::Ringing | CallState::Active)
+        || old.call_response != Some(CallResponse::Pending)
+    {
+        return Err(invalid(
+            &["callResponse"],
+            "only a pending ring of a ringing or active call can be declined",
+        ));
+    }
+    if ring_expired(backend, call)? {
+        return Err(invalid(&["callResponse"], "the ring timeout has expired"));
+    }
+    echo.insert("leftAt".to_owned(), view.now.clone());
+    effects.declined = true;
+    Ok(())
+}
+
+/// A `leftAt` patch: §Leaving a Call (on another's record, a kick) when
+/// set, §Reconnecting when cleared.
+fn check_leave(
+    view: &UpdateView<'_>,
+    echo: &mut Map<String, Value>,
+    effects: &mut Effects,
+) -> Result<(), Value> {
+    if !view.has("leftAt") {
+        return Ok(());
+    }
+    let UpdateTarget {
+        old,
+        call,
+        me,
+        own,
+        moderator,
+    } = view.target;
+    if view.new.left_at.is_some() {
+        if old.left_at.is_some() {
+            return Err(invalid(&["leftAt"], "the participant has already left"));
+        }
+        echo.insert("leftAt".to_owned(), view.now.clone());
         if !own {
-            return Err(forbidden("only the target may answer"));
+            echo.insert("kickedBy".to_owned(), json!(me));
         }
-        if !matches!(call.state, CallState::Ringing | CallState::Active)
-            || old.call_response != Some(CallResponse::Pending)
-        {
-            return Err(invalid(
-                &["joinMethod"],
-                "the call is not ringing or active, or this ring was already answered",
-            ));
-        }
-        if ring_expired()? {
-            return Err(invalid(&["joinMethod"], "the ring timeout has expired"));
-        }
-        echo.insert("joinedAt".to_owned(), now.clone());
-        echo.insert("callResponse".to_owned(), json!(CallResponse::Accepted));
-        effects.activate = call.state == CallState::Ringing;
-        effects.answered = true;
+        effects.left = true;
+        return Ok(());
     }
-
-    if has("callResponse") {
-        // §Declining a Ring Call.
-        if !own {
-            return Err(forbidden("only the target may decline"));
-        }
-        if new.call_response != Some(CallResponse::Declined)
-            || !matches!(call.state, CallState::Ringing | CallState::Active)
-            || old.call_response != Some(CallResponse::Pending)
-        {
-            return Err(invalid(
-                &["callResponse"],
-                "only a pending ring of a ringing or active call can be declined",
-            ));
-        }
-        if ring_expired()? {
-            return Err(invalid(&["callResponse"], "the ring timeout has expired"));
-        }
-        echo.insert("leftAt".to_owned(), now.clone());
-        effects.declined = true;
+    if !own {
+        return Err(forbidden("only the participant may rejoin"));
     }
-
-    if has("leftAt") {
-        if new.left_at.is_some() {
-            // §Leaving a Call; on another's record, a kick.
-            if old.left_at.is_some() {
-                return Err(invalid(&["leftAt"], "the participant has already left"));
-            }
-            echo.insert("leftAt".to_owned(), now.clone());
-            if !own {
-                echo.insert("kickedBy".to_owned(), json!(me));
-            }
-            effects.left = true;
-        } else {
-            // §Reconnecting.
-            if !own {
-                return Err(forbidden("only the participant may rejoin"));
-            }
-            if old.left_at.is_none() {
-                return Err(invalid(&["leftAt"], "the participant has not left"));
-            }
-            if old.kicked_by.is_some() {
-                return Err(forbidden(
-                    "a kicked participant cannot rejoin until a moderator clears kickedBy",
-                ));
-            }
-            if !joinable(&call) {
-                return Err(invalid(
-                    &["callId"],
-                    "the call cannot be joined in its current state",
-                ));
-            }
-            if call.lobby_enabled && !moderator {
-                echo.insert("joinedAt".to_owned(), Value::Null);
-                echo.insert("lobbyState".to_owned(), json!(LobbyState::Waiting));
-            } else {
-                echo.insert("joinedAt".to_owned(), now.clone());
-            }
-            effects.activate = call.state == CallState::Pending;
-        }
+    if old.left_at.is_none() {
+        return Err(invalid(&["leftAt"], "the participant has not left"));
     }
+    if old.kicked_by.is_some() {
+        return Err(forbidden(
+            "a kicked participant cannot rejoin until a moderator clears kickedBy",
+        ));
+    }
+    if !joinable(call) {
+        return Err(invalid(
+            &["callId"],
+            "the call cannot be joined in its current state",
+        ));
+    }
+    if call.lobby_enabled && !moderator {
+        echo.insert("joinedAt".to_owned(), Value::Null);
+        echo.insert("lobbyState".to_owned(), json!(LobbyState::Waiting));
+    } else {
+        echo.insert("joinedAt".to_owned(), view.now.clone());
+    }
+    effects.activate = call.state == CallState::Pending;
+    Ok(())
+}
 
-    if has("kickedBy") {
-        if new.kicked_by.is_some() {
+/// A `kickedBy` patch (a moderator clearing a kick) and a `lobbyState`
+/// patch (§Lobby Bypass: admission "SHOULD require a moderator-initiated
+/// `VTCParticipant/set` update").
+fn check_kick_and_lobby(view: &UpdateView<'_>, echo: &mut Map<String, Value>) -> Result<(), Value> {
+    if view.has("kickedBy") {
+        if view.new.kicked_by.is_some() {
             return Err(invalid(
                 &["kickedBy"],
                 "clients can set kickedBy only to null",
             ));
         }
-        moderator_only("clear a kick")?;
+        view.moderator_only("clear a kick")?;
     }
-
-    if has("lobbyState") {
-        // §Lobby Bypass: admission "SHOULD require a moderator-initiated
-        // `VTCParticipant/set` update".
-        moderator_only("admit or reject a lobby participant")?;
-        let stamp = match (&old.lobby_state, &new.lobby_state) {
+    if view.has("lobbyState") {
+        view.moderator_only("admit or reject a lobby participant")?;
+        let stamp = match (&view.target.old.lobby_state, &view.new.lobby_state) {
             (Some(LobbyState::Waiting), Some(LobbyState::Admitted)) => "joinedAt",
             (Some(LobbyState::Waiting), Some(LobbyState::Rejected)) => "leftAt",
             _ => {
@@ -1008,36 +1176,56 @@ async fn update_participant<B: VtcBackend>(
                 ));
             }
         };
-        echo.insert(stamp.to_owned(), now.clone());
+        echo.insert(stamp.to_owned(), view.now.clone());
     }
+    Ok(())
+}
 
-    if has("role") {
-        moderator_only("grant or revoke the moderator role")?;
-        if !matches!(new.role, CallRole::Moderator | CallRole::Participant) {
-            return Err(invalid(
-                &["role"],
-                "role must be \"moderator\" or \"participant\"",
+/// A `role` patch: a moderator grants or revokes the moderator role, and
+/// the last moderator may not revoke their own.
+async fn check_role<B: VtcBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    view: &UpdateView<'_>,
+) -> Result<(), Value> {
+    if !view.has("role") {
+        return Ok(());
+    }
+    let UpdateTarget { old, call, own, .. } = view.target;
+    view.moderator_only("grant or revoke the moderator role")?;
+    let new = view.new;
+    if !matches!(new.role, CallRole::Moderator | CallRole::Participant) {
+        return Err(invalid(
+            &["role"],
+            "role must be \"moderator\" or \"participant\"",
+        ));
+    }
+    if *own && old.role == CallRole::Moderator && new.role == CallRole::Participant {
+        let others = call_participants(backend, caller, account_id, &call.id).await?;
+        let heir = others
+            .iter()
+            .any(|p| p.id != old.id && p.role == CallRole::Moderator && p.left_at.is_none());
+        if !heir {
+            return Err(forbidden(
+                "the last moderator may not revoke their own moderator role",
             ));
         }
-        if own && old.role == CallRole::Moderator && new.role == CallRole::Participant {
-            let others = call_participants(backend, caller, account_id, &call.id).await?;
-            let heir = others
-                .iter()
-                .any(|p| p.id != old.id && p.role == CallRole::Moderator && p.left_at.is_none());
-            if !heir {
-                return Err(forbidden(
-                    "the last moderator may not revoke their own moderator role",
-                ));
-            }
-        }
     }
+    Ok(())
+}
 
-    if has("breakoutCallId") {
-        moderator_only("assign a breakout room")?;
+/// A `breakoutCallId` patch (a moderator assigns one of the call's
+/// breakout rooms) and an `unmuteRequested` patch to `true` (a moderator
+/// asks the participant to unmute).
+fn check_breakout_and_unmute(view: &UpdateView<'_>, effects: &mut Effects) -> Result<(), Value> {
+    let new = view.new;
+    if view.has("breakoutCallId") {
+        view.moderator_only("assign a breakout room")?;
         if new
             .breakout_call_id
             .as_ref()
-            .is_some_and(|b| !call.breakout_room_ids.contains(b))
+            .is_some_and(|b| !view.target.call.breakout_room_ids.contains(b))
         {
             return Err(invalid(
                 &["breakoutCallId"],
@@ -1045,42 +1233,57 @@ async fn update_participant<B: VtcBackend>(
             ));
         }
     }
-
-    if has("unmuteRequested") && new.unmute_requested {
-        moderator_only("ask a participant to unmute")?;
-        effects.unmute_request = !old.unmute_requested;
+    if view.has("unmuteRequested") && new.unmute_requested {
+        view.moderator_only("ask a participant to unmute")?;
+        effects.unmute_request = !view.target.old.unmute_requested;
     }
+    Ok(())
+}
 
-    if has("mediaState") && own {
-        // §VTCCallPolicy limits what a non-moderator turns on.
-        let (was, is) = (&old.media_state, &new.media_state);
-        let policy = &call.policy;
-        let audio_on = is.audio && !was.audio;
-        if !moderator
-            && ((audio_on && !policy.participants_can_unmute && !old.unmute_requested)
-                || (is.video && !was.video && !policy.participants_can_start_video)
-                || (is.screen && !was.screen && !policy.participants_can_share_screen))
-        {
-            return Err(forbidden("the call policy keeps this media off"));
-        }
-        // `unmuteRequested`: "Cleared to `false` when the participant
-        // unmutes".
-        if audio_on && old.unmute_requested && !has("unmuteRequested") {
-            echo.insert("unmuteRequested".to_owned(), json!(false));
-        }
+/// A `mediaState` patch of the caller's own record: §`VTCCallPolicy`
+/// limits what a non-moderator turns on, and unmuting clears
+/// `unmuteRequested`.
+fn check_media_state(view: &UpdateView<'_>, echo: &mut Map<String, Value>) -> Result<(), Value> {
+    let UpdateTarget {
+        old,
+        call,
+        own,
+        moderator,
+        ..
+    } = view.target;
+    if !(view.has("mediaState") && *own) {
+        return Ok(());
     }
-
-    if let Some(pending) = signal {
-        moderator_only("send a gateway signal")?;
-        effects.signal = Some(gateway_signal(account_id, &old, pending)?);
-        // The server "removes the key": report the stored value.
-        echo.insert("gatewayData".to_owned(), to_value(&old.gateway_data)?);
+    let (was, is) = (&old.media_state, &view.new.media_state);
+    let policy = &call.policy;
+    let audio_on = is.audio && !was.audio;
+    if !moderator
+        && ((audio_on && !policy.participants_can_unmute && !old.unmute_requested)
+            || (is.video && !was.video && !policy.participants_can_start_video)
+            || (is.screen && !was.screen && !policy.participants_can_share_screen))
+    {
+        return Err(forbidden("the call policy keeps this media off"));
     }
-
-    if let Some(err) = shape_err {
-        return Err(err);
+    // `unmuteRequested`: "Cleared to `false` when the participant
+    // unmutes".
+    if audio_on && old.unmute_requested && !view.has("unmuteRequested") {
+        echo.insert("unmuteRequested".to_owned(), json!(false));
     }
+    Ok(())
+}
 
+/// Add the server-set `echo` properties (all but `gatewayData`) to
+/// `patch`, hand a non-empty patch to the backend, and return the
+/// `updated` echo: the stored record when the backend returns one, else
+/// `echo`, and `null` for an empty echo.
+async fn write_update<B: VtcBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    id: &Id,
+    mut patch: PatchObject,
+    echo: Map<String, Value>,
+) -> Result<Value, Value> {
     patch.as_map_mut().extend(
         echo.iter()
             .filter(|(k, _)| *k != "gatewayData")
@@ -1095,8 +1298,6 @@ async fn update_participant<B: VtcBackend>(
     {
         echo = to_value(&obj)?;
     }
-
-    run_effects(backend, caller, account_id, &old, &me, effects).await;
     Ok(match echo {
         Value::Object(m) if m.is_empty() => Value::Null,
         other => other,
