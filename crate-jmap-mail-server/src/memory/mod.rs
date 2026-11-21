@@ -2201,6 +2201,13 @@ impl<C: MemoryCaller> MailBackend for MemoryBackend<C> {
         if O::TYPE_NAME == Email::TYPE_NAME || O::TYPE_NAME == Mailbox::TYPE_NAME {
             check_metadata_create(&inner, O::TYPE_NAME, account_id.as_ref(), &val, &val)?;
         }
+        // The Email/set handler creates Emails through `create_email`; an
+        // Email created here obeys the same `mailboxIds` rule.
+        if O::TYPE_NAME == Email::TYPE_NAME
+            && let Some(email) = val.as_object()
+        {
+            check_mailboxes_exist(&inner, account, mailbox_id_keys(email))?;
+        }
         let objects = inner.objects_mut(O::TYPE_NAME, account_id.as_ref());
         // Singleton types (backend.rs "# Singleton types"): an existing object
         // under the key is returned unchanged, so a racing create cannot
@@ -2283,6 +2290,11 @@ impl<C: MemoryCaller> MailBackend for MemoryBackend<C> {
         let mut inner = self.inner.lock().await;
         inner.require_account(account_id.as_ref())?;
         check_metadata_create(&inner, Email::TYPE_NAME, account_id.as_ref(), &val, &val)?;
+        check_mailboxes_exist(
+            &inner,
+            account_id.as_ref(),
+            email.mailbox_ids.keys().map(Id::as_ref),
+        )?;
         if self.blob_store.0.is_none() {
             inner.blobs.insert(blob_id, message);
         }
@@ -2443,6 +2455,17 @@ impl<C: MemoryCaller> MailBackend for MemoryBackend<C> {
                 // -05 §3.2 rule 4 runs on the value as it would be stored.
                 check_metadata_depth(&patch_map, &patched, info)
                     .map_err(|e| invalid_metadata_property(e.property(), e.description()))?;
+            }
+            if O::TYPE_NAME == Email::TYPE_NAME {
+                // Whether the patch sets `mailboxIds` whole or adds a
+                // `mailboxIds/<id>`, each Mailbox it adds must exist;
+                // removing one the account no longer has is allowed.
+                let stored: std::collections::HashSet<&str> = mailbox_id_keys(base).collect();
+                check_mailboxes_exist(
+                    &inner,
+                    account,
+                    mailbox_id_keys(&patched).filter(|id| !stored.contains(id)),
+                )?;
             }
             if O::TYPE_NAME == Mailbox::TYPE_NAME {
                 inner.check_share_with(account, &mut patched)?;
@@ -2714,6 +2737,11 @@ impl<C: MemoryCaller> MailBackend for MemoryBackend<C> {
             let email = Email::deserialize(&val).map_err(|e| {
                 BackendSetError::Other(MemoryError::serde("deserialize copied Email", &e))
             })?;
+            check_mailboxes_exist(
+                &inner,
+                to_account_id.as_ref(),
+                email.mailbox_ids.keys().map(Id::as_ref),
+            )?;
             inner.insert_email(to_account_id, &email, val);
             return Ok((new_id, stored));
         }
@@ -2906,6 +2934,13 @@ impl<C: MemoryCaller> MemoryBackend<C> {
         let (email, email_id) = {
             let mut inner = self.inner.lock().await;
             inner.require_account(account_id.as_ref())?;
+            // MailBackend::import_email: the backend checks that each id
+            // names a Mailbox of the account.
+            check_mailboxes_exist(
+                &inner,
+                account_id.as_ref(),
+                mailbox_ids.iter().map(Id::as_ref),
+            )?;
 
             // Check for duplicate Message-ID (RFC 8621 §4.8).
             if let Some(msg_ids) = &parsed.message_id
@@ -4069,6 +4104,41 @@ fn str_prop<'a>(obj: &'a serde_json::Value, name: &str) -> Option<&'a str> {
 
 fn invalid_properties(property: &str) -> SetError {
     SetError::new(SetErrorType::InvalidProperties).with_properties([property])
+}
+
+/// Reject an Email write whose `mailboxIds` adds a Mailbox that `account`
+/// does not have.
+///
+/// RFC 8621 §4.1.1 defines `mailboxIds` as "The set of Mailbox ids this
+/// Email belongs to", so each id must name one of the account's
+/// Mailboxes; RFC 8620 §5.3 reports such a value as `invalidProperties`
+/// naming `mailboxIds`. `ids` are the ids the write adds: every id of a
+/// create, import or copy, and on an update only the ids the Email was
+/// not already in.
+fn check_mailboxes_exist<'a>(
+    inner: &Inner,
+    account: &str,
+    mut ids: impl Iterator<Item = &'a str>,
+) -> Result<(), BackendSetError<MemoryError>> {
+    let mailboxes = inner.objects_ref(Mailbox::TYPE_NAME, account);
+    if ids.all(|id| mailboxes.is_some_and(|m| m.contains_key(id))) {
+        Ok(())
+    } else {
+        Err(BackendSetError::SetError(Box::new(invalid_properties(
+            "mailboxIds",
+        ))))
+    }
+}
+
+/// The `mailboxIds` keys of a stored or patched Email object.
+fn mailbox_id_keys(
+    email: &serde_json::Map<String, serde_json::Value>,
+) -> impl Iterator<Item = &str> {
+    email
+        .get("mailboxIds")
+        .and_then(serde_json::Value::as_object)
+        .into_iter()
+        .flat_map(|m| m.keys().map(String::as_str))
 }
 
 fn mailbox_failures(before: Option<&Objects>, after: &Objects) -> Vec<DeferredFailure> {

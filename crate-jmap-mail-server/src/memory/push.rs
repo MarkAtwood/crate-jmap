@@ -82,7 +82,8 @@ impl<C: MemoryCaller> MemoryBackend<C> {
     ///
     /// # Errors
     ///
-    /// As `Email/import`: an unknown account, or a duplicate Message-ID.
+    /// As `Email/import`: an unknown account, a Mailbox id the account does
+    /// not have (`invalidProperties`), or a duplicate Message-ID.
     pub async fn deliver_email(
         &self,
         account_id: &Id,

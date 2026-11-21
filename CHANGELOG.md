@@ -25,6 +25,20 @@ wire behaviour that a conforming peer can observe.
   `method`, `account_id`, `missing`). No public API change;
   `jmap-base-client` now depends on `tracing`.
 
+### Fixed
+
+- **jmap-mail-server**: the `memory` `MemoryBackend` rejects an Email
+  write whose `mailboxIds` names a Mailbox the account does not have,
+  with `invalidProperties` naming `mailboxIds` (RFC 8621 §4.1.1, §4.8;
+  RFC 8620 §5.3), as `MailBackend` documents. This covers `Email/set`
+  create, an update that replaces `mailboxIds` or adds a
+  `mailboxIds/<id>` (removing one still passes), `Email/copy` (the
+  Mailbox must be in the target account), `Email/import` and
+  `MemoryBackend::deliver_email`. A `#creationId` reference to a Mailbox
+  created earlier in the request still works. Found by the differential
+  tests against Stalwart, which answers the same (bd:JMAP-91dd). No
+  public API change.
+
 ## [0.6.1] - 2026-11-21
 
 A compatible release on the 0.6 line: additions and fixes only, no
