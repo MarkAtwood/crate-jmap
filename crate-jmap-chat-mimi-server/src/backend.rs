@@ -191,7 +191,7 @@ pub fn key_package_over_quota() -> SetError {
 pub trait MimiBackend: JmapBackend {
     /// The MLS crypto provider that verifies `KeyPackage` signatures and
     /// computes `KeyPackageRef`s, for example
-    /// [`openmls_rust_crypto::RustCrypto`](crate::openmls_rust_crypto::RustCrypto).
+    /// [`openmls_rust_crypto::RustCrypto`].
     type Crypto: OpenMlsCrypto;
 
     /// The crypto provider. It needs no key material: the handlers only

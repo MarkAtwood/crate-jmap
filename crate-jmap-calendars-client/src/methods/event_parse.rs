@@ -18,7 +18,7 @@ impl SessionClient {
     ///
     /// - [`ClientError::InvalidArgument`]
     ///   if `blob_ids` is empty.
-    /// - [`ClientError::Serialize`](jmap_base_client::ClientError::Serialize)
+    /// - [`ClientError::Serialize`]
     ///   if serializing a caller-supplied value fails.
     /// - [`ClientError::InvalidSession`] if the bound session has no
     ///   primary account for `urn:ietf:params:jmap:calendars`.

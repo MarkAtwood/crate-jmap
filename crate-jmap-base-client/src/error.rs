@@ -724,7 +724,7 @@ pub enum ClientError {
     /// a caller bug — the data structure contains values JSON cannot
     /// represent. Not retriable.
     ///
-    /// Returned by [`to_args`](crate::to_args) (and so by every extension
+    /// Returned by [`to_args`] (and so by every extension
     /// client method that serializes a caller-supplied argument) and by
     /// [`WsSession::send_request`](crate::WsSession::send_request). The
     /// HTTP `call()` path delegates request serialization to reqwest,

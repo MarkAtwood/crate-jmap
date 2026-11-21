@@ -281,7 +281,7 @@ pub(crate) fn is_metadata_key(key: &str) -> bool {
 
 /// RFC 9553 maps whose members are Resource objects or `OnlineService`
 /// objects, whose `uri` "MUST be a URI as defined in Section 3 of
-/// [RFC3986]" (§1.4.4, §2.3.2).
+/// \[RFC3986\]" (§1.4.4, §2.3.2).
 const JSCONTACT_URI_MAPS: &[&str] = &[
     "calendars",
     "cryptoKeys",

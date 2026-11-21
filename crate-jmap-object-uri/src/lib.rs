@@ -17,7 +17,7 @@
 //!   (§JMAP Object URI Types Registry) as filled by the drafts that use the
 //!   scheme; [`uri_type`] and [`uri_type_for_data_type`] look rows up.
 //! - Resolution: [`resolve_type`] maps a URI to the data type, `/get`
-//!   method and capability that dereference it; [`resolve`] also checks the
+//!   method and capability that dereference it; [`resolve`](fn@resolve) also checks the
 //!   account and capability against a [`SessionView`], such as the RFC 8620
 //!   §2 Session object as JSON (§Interpretation). [`ResolveError`] says why
 //!   a URI cannot be resolved.

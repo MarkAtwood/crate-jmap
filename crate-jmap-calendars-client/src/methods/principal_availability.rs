@@ -25,7 +25,7 @@ impl SessionClient {
     ///
     /// - [`ClientError::InvalidSession`] if the bound session has no
     ///   primary account for `urn:ietf:params:jmap:calendars`.
-    /// - [`ClientError::Serialize`](jmap_base_client::ClientError::Serialize)
+    /// - [`ClientError::Serialize`]
     ///   if serializing a caller-supplied value fails.
     /// - Any transport / protocol variant returned by
     ///   [`JmapClient::call`](jmap_base_client::JmapClient::call):

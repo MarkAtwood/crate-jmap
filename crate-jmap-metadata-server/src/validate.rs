@@ -71,7 +71,7 @@ pub(crate) fn is_binary(value: &Value) -> bool {
 /// Returns `true` if `binary` is a well-formed Binary value
 /// (draft-ietf-jmap-metadata-05 §2.1.1): exactly the members `@type` and
 /// `base64`, the latter "encoded in base64 with padding (Section 4 of
-/// [RFC4648])".
+/// \[RFC4648\])".
 ///
 /// ponytail: pad bits are not checked (`"AB=="` is accepted although its
 /// unused bits are not zero); -05 does not say, and the question is open

@@ -280,7 +280,7 @@ impl IvsLivestreams {
     }
 
     /// The `playbackEndpoints` a viewer receives
-    /// ([`VtcBackend::playback_endpoints_for`](jmap_vtc_server::VtcBackend::playback_endpoints_for)),
+    /// ([`VtcBackend::playback_endpoints_for`]),
     /// given `stored`, the stored list.
     ///
     /// For a public channel, `stored` unchanged. For a private one, each

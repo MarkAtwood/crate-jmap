@@ -209,7 +209,7 @@ pub(crate) fn parse_header_property(prop: &str) -> Result<HeaderPropertyRequest,
 ///
 /// RFC 8621 §4.1.2: each parsed form "may only be fetched or set for" the
 /// fields its subsection lists and "Any header field not defined in
-/// [RFC5322] or [RFC2369]"; Raw is allowed for every field. So a field
+/// \[RFC5322\] or \[RFC2369\]"; Raw is allowed for every field. So a field
 /// RFC 5322 or RFC 2369 defines gets only its own forms (Subject, Comments
 /// and Keywords: Text; From and the other address fields: Addresses and
 /// `GroupedAddresses`; Received and Return-Path: Raw only), and any other

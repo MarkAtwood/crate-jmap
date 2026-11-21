@@ -25,7 +25,7 @@ use super::{
 ///
 /// Shared by both `ReactionChange::Add` and `ReactionChange::Remove`
 /// arms of `message_update`; see the rustdoc on
-/// [`ReactionChange`](super::ReactionChange) for the underlying
+/// [`ReactionChange`] for the underlying
 /// JSON-Pointer construction rule.
 fn validate_sender_reaction_id(id: &str) -> Result<(), jmap_base_client::ClientError> {
     if id.is_empty() {

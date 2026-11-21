@@ -448,7 +448,7 @@ pub trait TasksBackend: JmapBackend {
     ///
     /// # Errors
     ///
-    /// [`BackendQueryError::Method`](jmap_server::BackendQueryError::Method)
+    /// [`BackendQueryError::Method`]
     /// is returned to the client unchanged:
     ///
     /// - `expandDurationTooLarge` (`JmapError::custom`) when expansion is
@@ -463,7 +463,7 @@ pub trait TasksBackend: JmapBackend {
     ///   `anchorNotFound`, ...), as for
     ///   [`query_objects`](jmap_server::JmapReads::query_objects).
     ///
-    /// [`BackendQueryError::Other`](jmap_server::BackendQueryError::Other)
+    /// [`BackendQueryError::Other`]
     /// becomes a redacted `serverFail`.
     fn query_tasks(
         &self,

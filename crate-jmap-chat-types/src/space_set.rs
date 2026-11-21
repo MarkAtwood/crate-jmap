@@ -213,7 +213,7 @@ pub struct RolePatch {
     ///
     /// Same forward-compat contract as
     /// [`SpaceRole::permissions`](crate::SpaceRole::permissions):
-    /// unrecognized names deserialize to [`ChatPermission::Other`](crate::ChatPermission::Other)
+    /// unrecognized names deserialize to [`ChatPermission::Other`]
     /// and servers MUST ignore them.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub permissions: Option<Vec<crate::ChatPermission>>,

@@ -1,6 +1,6 @@
 //! Shared macro for string-backed enums with a catch-all `Other(String)` variant.
 //!
-//! This module is the single canonical home for the [`impl_string_enum!`] macro
+//! This module is the single canonical home for the [`impl_string_enum!`](crate::impl_string_enum) macro
 //! used across the `jmap-*-types` crate family. JMAP wire-protocol enums often
 //! allow vendor-specific extensions (per RFC 8620 §1.6 and the various JMAP
 //! extension specs), so each enum carries an `Other(String)` variant that

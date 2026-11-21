@@ -1075,7 +1075,7 @@ pub trait JmapAccounts: Send + Sync + 'static {
     /// the deployment then stores `locale` and `localizations` on every
     /// type with [`JmapObject::LOCALIZABLE`] properties in this account
     /// and honours the `language` argument of
-    /// [`QueryParams`](crate::QueryParams). `None` makes the handlers
+    /// [`QueryParams`]. `None` makes the handlers
     /// reject `language` with `invalidArguments` and never return the two
     /// properties (§3). Keep it in step with the Session object.
     ///

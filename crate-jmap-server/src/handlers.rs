@@ -170,7 +170,7 @@ pub fn server_fail_value_from_backend<E: std::fmt::Display + ?Sized>(_err: &E) -
 /// It does not see the request's `using`, so it treats
 /// `urn:ietf:params:jmap:i18n` as absent: a non-null `language` argument
 /// is `invalidArguments`, and `locale`/`localizations` are not returned
-/// for a type with [`JmapObject::LOCALIZABLE`](crate::JmapObject::LOCALIZABLE)
+/// for a type with [`JmapObject::LOCALIZABLE`]
 /// properties. Such types use [`handle_get_with_metadata`].
 ///
 /// # Errors
@@ -296,7 +296,7 @@ async fn get_impl<O: GetObject, B: JmapBackend>(
 /// this is the metadata-free path, so an unrelated property that happens to
 /// be named `metadata` is left alone.
 ///
-/// For a type with [`JmapObject::LOCALIZABLE`](crate::JmapObject::LOCALIZABLE)
+/// For a type with [`JmapObject::LOCALIZABLE`]
 /// properties it also handles draft-atwood-jmap-updates-00 through
 /// [`I18nProjection`]: with `urn:ietf:params:jmap:i18n` in `using` and
 /// [`JmapAccounts::i18n_info`](crate::JmapAccounts::i18n_info) `Some` for the account, `locale` and
@@ -392,7 +392,7 @@ pub async fn handle_get_with_metadata<O: GetObject, B: JmapBackend>(
 /// - `cannotCalculateChanges` if the backend cannot compute changes from
 ///   `sinceState`, including when it has more than `maxChanges` and no
 ///   intermediate state; other backend failures map as
-///   [`BackendChangesError`](crate::backend::BackendChangesError)'s `From`
+///   [`BackendChangesError`]'s `From`
 ///   impl does.
 pub async fn handle_changes<O: JmapObject, B: JmapBackend>(
     backend: &B,
@@ -476,7 +476,7 @@ pub async fn handle_changes<O: JmapObject, B: JmapBackend>(
 ///
 /// Like [`handle_get`] it does not see `using`, so a non-null `language`
 /// (draft-atwood-jmap-updates-00 §4.2) is `invalidArguments`. A type with
-/// [`JmapObject::LOCALIZABLE`](crate::JmapObject::LOCALIZABLE) properties
+/// [`JmapObject::LOCALIZABLE`] properties
 /// uses [`handle_query_with_i18n`] or its own handler.
 ///
 /// # Errors
@@ -505,7 +505,7 @@ pub async fn handle_query<O: QueryObject, B: JmapBackend>(
 }
 
 /// [`handle_query`] for a type with
-/// [`JmapObject::LOCALIZABLE`](crate::JmapObject::LOCALIZABLE) properties
+/// [`JmapObject::LOCALIZABLE`] properties
 /// (draft-atwood-jmap-updates-00 §4.2.2).
 ///
 /// `using` is the request's capability list ([`crate::CallContext::using`]).
@@ -633,7 +633,7 @@ async fn query_impl<O: QueryObject, B: JmapBackend>(
 ///
 /// Like [`handle_get`] it does not see `using`, so a non-null `language`
 /// (draft-atwood-jmap-updates-00 §4.2) is `invalidArguments`. A type with
-/// [`JmapObject::LOCALIZABLE`](crate::JmapObject::LOCALIZABLE) properties
+/// [`JmapObject::LOCALIZABLE`] properties
 /// uses [`handle_query_changes_with_i18n`] or its own handler.
 ///
 /// # Errors
@@ -662,7 +662,7 @@ pub async fn handle_query_changes<O: QueryObject, B: JmapBackend>(
 }
 
 /// [`handle_query_changes`] for a type with
-/// [`JmapObject::LOCALIZABLE`](crate::JmapObject::LOCALIZABLE) properties
+/// [`JmapObject::LOCALIZABLE`] properties
 /// (draft-atwood-jmap-updates-00 §4.2.3).
 ///
 /// As [`handle_query_with_i18n`] for `language`. `sinceQueryState` is

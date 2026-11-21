@@ -1275,7 +1275,7 @@ pub struct CalendarsLimits {
     /// the difference between the filter's `before` and `after` values.
     /// When exceeded, the backend returns the method-level
     /// `expandDurationTooLarge` error per §10.8.3 as
-    /// [`BackendQueryError::Method`](jmap_server::BackendQueryError::Method).
+    /// [`BackendQueryError::Method`].
     pub max_expanded_query_duration_seconds: u64,
     /// Most Calendars one `CalendarEvent` may be in (`maxCalendarsPerEvent`,
     /// draft-ietf-jmap-calendars-34 §1.5.1), or `None` for no limit.

@@ -359,7 +359,7 @@ fn utc_date_from_epoch_millis(secs: i64, millis: u32) -> Option<UTCDate> {
     )))
 }
 
-/// Convert a [`SystemTime`] into `(signed_seconds_since_epoch, millis)`,
+/// Convert a [`SystemTime`](std::time::SystemTime) into `(signed_seconds_since_epoch, millis)`,
 /// returning `None` when the system clock cannot be expressed as an
 /// `i64` second count.
 ///
@@ -487,8 +487,8 @@ pub enum MergePatchError {
     /// DoS-guard cap.
     ///
     /// Callers SHOULD map this to
-    /// [`SetError`](crate::SetError) with
-    /// [`SetErrorType::InvalidPatch`](crate::SetErrorType::InvalidPatch)
+    /// [`SetError`] with
+    /// [`SetErrorType::InvalidPatch`]
     /// and MUST discard any partially-mutated `target` rather than
     /// persisting it — see the contract on [`json_merge_patch`].
     ///
@@ -600,8 +600,8 @@ fn json_merge_patch_inner(
 ///
 /// Every variant is an RFC 8620 §5.3 violation for which "the update
 /// MUST be rejected with an "invalidPatch" error". Callers SHOULD map
-/// any variant to [`SetError`](crate::SetError) with
-/// [`SetErrorType::InvalidPatch`](crate::SetErrorType::InvalidPatch);
+/// any variant to [`SetError`] with
+/// [`SetErrorType::InvalidPatch`];
 /// the `Display` form is suitable as its description.
 ///
 /// Marked `#[non_exhaustive]` so further §5.3 checks can be added

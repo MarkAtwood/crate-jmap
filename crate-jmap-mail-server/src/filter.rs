@@ -407,7 +407,7 @@ fn header_values<'a>(email: &'a Email, name: &'a str) -> impl Iterator<Item = &'
         .map(|h| h.value.as_str())
 }
 
-/// `from`, `to`, `cc`, `bcc`: "Looks for the text in the <name> header
+/// `from`, `to`, `cc`, `bcc`: "Looks for the text in the \<name\> header
 /// field of the message" (RFC 8621 §4.4.1). Searches the raw header value
 /// when the Email carries its headers, and each parsed address's name and
 /// email.

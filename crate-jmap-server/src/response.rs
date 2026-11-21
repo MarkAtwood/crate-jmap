@@ -75,9 +75,10 @@ pub fn problem_response(
 /// `jmap_error_all_constructors_serialize` covers every constructor. A panic
 /// here would mean a change to [`JmapError`] broke that invariant.
 pub fn error_invocation(call_id: &str, err: JmapError) -> Invocation {
-    // JmapError uses #[derive(Serialize)] with only String, Option<String>,
-    // and Option<Id> fields — all JSON-serializable primitives with string
-    // keys. serde_json::to_value only fails when a Serialize impl produces a
+    // JmapError uses #[derive(Serialize)] over a type string
+    // (MethodErrorType), Option<String> and Option<u64> fields and a
+    // string-keyed `extra` map: all JSON-serializable with string keys.
+    // serde_json::to_value only fails when a Serialize impl produces a
     // non-string map key; the derived impl for JmapError cannot do this. The
     // exhaustive contract test `jmap_error_all_constructors_serialize` in
     // this module exercises every public JmapError constructor and proves

@@ -297,7 +297,7 @@ pub trait JmapHandler<CallerCtx>: Send + Sync {
 /// pre-populated `createdIds` map — `BTreeMap::insert` silently
 /// overwrites: last write wins. The pre-populated collision case is
 /// exercised by
-/// [`tests::created_ids_pre_populated_collision_last_write_wins`].
+/// `tests::created_ids_pre_populated_collision_last_write_wins`.
 /// See the dispatcher call site for the full rationale.
 fn extract_created_ids_into(primary: &Value, sink: &mut BTreeMap<Id, Id>) {
     let Some(map) = primary.get("created").and_then(|v| v.as_object()) else {
