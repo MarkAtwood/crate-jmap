@@ -42,6 +42,17 @@ if should_deliver_scene(
 }
 ```
 
+With the `websocket` feature, `link_scene_stream` does the same over the
+`jmap-websocket` extension handlers: `"scene"` in `dataTypes` is
+recognized and switches the `SceneStreamHandler`'s alias, which decides
+each event once over both paths.
+
+```rust,ignore
+let scene = SceneStreamHandler::new(scene_backend, caller.clone(), account.clone(), &scene_hub);
+let chat = link_scene_stream(ChatStreamHandler::new(chat_backend, caller, [account], &chat_hub), &scene);
+let connection = connection.with_extension(chat).with_extension(scene);
+```
+
 ## How it works
 
 The `"scene"` path covers every Scene event type in every region where

@@ -11,14 +11,28 @@ keywords = ["jmap", "scene", "chat", "server"]
 categories = ["network-programming", "web-programming::http-server"]
 exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
 
+[features]
+# `link_scene_stream`: the ChatStreamEnable "scene" alias between the
+# jmap-chat-server and jmap-scene-server WebSocket extension handlers.
+websocket = ["dep:jmap-chat-server", "jmap-chat-server/websocket", "jmap-scene-server/websocket"]
+
 [dependencies]
 jmap-types = { workspace = true }
 jmap-scene-types = { workspace = true }
 jmap-scene-server = { workspace = true }
+# The `websocket` feature's ChatStreamHandler.
+jmap-chat-server = { workspace = true, optional = true }
 
 [dev-dependencies]
-tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
-jmap-scene-server = { workspace = true, features = ["memory", "test-helpers"] }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "net", "time"] }
+jmap-scene-server = { workspace = true, features = ["memory", "test-helpers", "websocket"] }
+# tests/stream_union_ws.rs: the union over a real loopback WebSocket.
+jmap-chat-scene-server = { path = ".", features = ["websocket"] }
+jmap-chat-server = { workspace = true, features = ["memory", "websocket"] }
+jmap-server = { workspace = true }
+jmap-websocket = { workspace = true, features = ["server", "tungstenite"] }
+tokio-tungstenite = { workspace = true }
+futures = { workspace = true }
 serde_json = { workspace = true }
 
 [package.metadata.docs.rs]

@@ -9,6 +9,7 @@
 //! | Call site | Call |
 //! |---|---|
 //! | WebSocket transport, before sending a Scene event | [`should_deliver_scene`] |
+//! | `websocket` feature: per connection, after building both stream handlers | `link_scene_stream` |
 
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
@@ -88,4 +89,61 @@ pub async fn should_deliver_scene<B: SceneBackend>(
         event,
     )
     .await
+}
+
+/// Connect a connection's `ChatStreamEnable` handler to its
+/// `SceneStreamEnable` handler, so that `"scene"` in `dataTypes` turns on
+/// the Scene events through `scene` (draft-atwood-jmap-scene-wss-00
+/// §Interoperability with JMAP Chat WebSocket).
+///
+/// Returns `chat` with `"scene"` recognized (its
+/// [`CompanionStreams`](jmap_chat_server::CompanionStreams) `scene` set:
+/// a server that registers `scene` advertises
+/// `urn:ietf:params:jmap:scene:websocket`) and an observer that sets
+/// `scene`'s
+/// [`SceneChatAlias`](jmap_scene_server::websocket::SceneChatAlias) from
+/// every new Chat subscription. Register both handlers on the connection.
+///
+/// `scene` then decides each Scene event once over both paths, as
+/// [`should_deliver_scene`] does: the union is delivered and "if an event
+/// matches both subscriptions, it is delivered exactly once"
+/// (§Subscription Union). `SceneStreamDisable` leaves the `"scene"` path
+/// on, and `ChatStreamDisable` turns it off and leaves the
+/// `SceneStreamEnable` subscription in place (§Subscription
+/// Independence). A failed `SceneStreamEnable` leaves the `"scene"` path
+/// alone, and a failed `ChatStreamEnable` the `SceneStreamEnable`
+/// subscription ("An error in one mechanism ... MUST NOT affect the
+/// other's active subscription", §Coexistence Rules).
+///
+/// ```
+/// use std::sync::Arc;
+/// use jmap_chat_server::ChatBackend;
+/// use jmap_chat_server::websocket::{ChatEventHub, ChatStreamHandler};
+/// use jmap_chat_scene_server::link_scene_stream;
+/// use jmap_scene_server::SceneBackend;
+/// use jmap_scene_server::websocket::{SceneEventHub, SceneStreamHandler};
+/// use jmap_types::Id;
+/// use jmap_websocket::server::{Connection, DispatcherHandler};
+///
+/// fn wire<C: ChatBackend<CallerCtx = ()>, S: SceneBackend<CallerCtx = ()>>(
+///     (chat, chat_hub): (Arc<C>, &ChatEventHub),
+///     (scene, scene_hub): (Arc<S>, &SceneEventHub),
+///     connection: Connection<DispatcherHandler<()>>,
+/// ) -> Connection<DispatcherHandler<()>> {
+///     let account = Id::from("acct-alice");
+///     let scene = SceneStreamHandler::new(scene, (), account.clone(), scene_hub);
+///     let chat = link_scene_stream(ChatStreamHandler::new(chat, (), [account], chat_hub), &scene);
+///     connection.with_extension(chat).with_extension(scene)
+/// }
+/// ```
+#[cfg(feature = "websocket")]
+pub fn link_scene_stream<C: jmap_chat_server::ChatBackend, B: SceneBackend>(
+    chat: jmap_chat_server::websocket::ChatStreamHandler<C>,
+    scene: &jmap_scene_server::websocket::SceneStreamHandler<B>,
+) -> jmap_chat_server::websocket::ChatStreamHandler<C> {
+    let mut companions = chat.companions();
+    companions.scene = true;
+    let alias = scene.chat_alias();
+    chat.with_companions(companions)
+        .on_subscription_change(move |subscription| alias.set(subscription.scene()))
 }

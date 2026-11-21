@@ -1,2 +1,3 @@
 pub mod jmap_chat_scene_server
+pub fn jmap_chat_scene_server::link_scene_stream<C: jmap_chat_server::backend::ChatBackend, B: jmap_scene_server::backend::SceneBackend>(jmap_chat_server::websocket::ChatStreamHandler<C>, &jmap_scene_server::websocket::SceneStreamHandler<B>) -> jmap_chat_server::websocket::ChatStreamHandler<C>
 pub async fn jmap_chat_scene_server::should_deliver_scene<B: jmap_scene_server::backend::SceneBackend>(&B, &<B as jmap_server::backend::JmapAccounts>::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id, bool, &jmap_scene_server::ephemeral::SceneEphemeralSubscription, &jmap_scene_types::event::SceneEvent) -> core::result::Result<bool, <B as jmap_server::backend::JmapAccounts>::Error>
