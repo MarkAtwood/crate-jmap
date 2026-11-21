@@ -408,3 +408,47 @@ async fn closing_the_region_to_observers_resets_the_count() {
     );
     assert_eq!(observer_count(&backend, R1).await, 1);
 }
+
+/// "The server recomputes the count when ... the region is updated, for
+/// example its `allowObservers` or access policy. While the region does
+/// not admit observers, the count is `0`" (jmap-chat-spec 42aed85). A
+/// decline by policy and an access change made outside the region record
+/// change whom delivery reaches just as much, so the MemoryBackend
+/// recounts on them too, advancing the SceneRegion state (bd:JMAP-1mep).
+#[tokio::test]
+async fn policy_and_access_changes_outside_the_region_recount() {
+    let backend = scene();
+    let account = Id::from(ACCOUNT);
+    let carol = Id::from(CAROL);
+    for region in [R1, VAULT] {
+        backend
+            .set_observing(&carol, &account, &Id::from(region), true)
+            .await
+            .unwrap();
+    }
+    assert_eq!(observer_count(&backend, R1).await, 1);
+    assert_eq!(observer_count(&backend, VAULT).await, 0);
+
+    // The observer policy.
+    let s0 = call!(handle_scene_region_get, &backend, ALICE, json!({"ids": []}))["state"].clone();
+    backend.decline_observers(R1);
+    assert_eq!(observer_count(&backend, R1).await, 0);
+    let changes = call!(
+        handle_scene_region_changes,
+        &backend,
+        ALICE,
+        json!({"sinceState": s0})
+    );
+    assert_eq!(changes["updated"], json!([R1]));
+    backend.admit_observers(R1);
+    assert_eq!(observer_count(&backend, R1).await, 1);
+
+    // Access to the invite region, granted and withdrawn.
+    backend.grant_region_access(VAULT, CAROL);
+    assert_eq!(observer_count(&backend, VAULT).await, 1);
+    backend.revoke_region_access(VAULT, CAROL);
+    assert_eq!(observer_count(&backend, VAULT).await, 0);
+    // Admin privileges give access to every region.
+    backend.add_admin(CAROL);
+    assert_eq!(observer_count(&backend, VAULT).await, 1);
+}

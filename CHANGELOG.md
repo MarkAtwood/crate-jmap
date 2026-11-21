@@ -193,6 +193,24 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-scene-server**: `observerCount` follows observer delivery
+  (draft-atwood-jmap-scene-wss-00 at jmap-chat-spec 42aed85). The
+  `websocket` `SceneStreamHandler` reported to `set_observing` only the
+  regions that were accessible and admitted observers in the
+  `observer_accounts` at `SceneStreamEnable` time, while delivery covers
+  every account and re-checks access per event. It now reports every
+  listed region in every observer account, accessible or not, so a region
+  the user gains access to later counts, and a listed region of any other
+  account from the first event for it, since "delivery is not limited to
+  those accounts"; it keeps those pairs while a new subscription still
+  lists the region and releases them on `SceneStreamDisable` and close.
+  The `set_observing` contract now says the handler reports covered
+  regions and the backend counts only the users delivery reaches. The
+  `memory` backend recounts when access or the observer policy changes
+  outside the region record (`grant_region_access`, `add_admin`,
+  `decline_observers`, and the new `revoke_region_access` and
+  `admit_observers` knobs), not only on the next observer or avatar
+  change or region update (bd:JMAP-1mep).
 - **jmap-chat-vtc-server**: `eject_banned_user` no longer panics when the
   account id or a stored call or participant id was built unchecked with
   `Id::from`; the `"left"` events carry those ids as given (JMAP-ifb2).

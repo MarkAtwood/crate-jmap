@@ -79,15 +79,21 @@
 //! # Observers
 //!
 //! `set_supports_observe` turns on [`SceneBackend::supports_observe`].
-//! [`SceneBackend::observer_accounts`] is every registered account,
+//! [`SceneBackend::observer_accounts`] is every registered account (or
+//! the list given to `restrict_observer_accounts`),
 //! [`SceneBackend::may_observe_region`] declines the regions registered
-//! with `decline_observers`, and [`SceneBackend::set_observing`] counts
-//! each user's observing connections per region. A region's
-//! `observerCount` is recomputed, advancing the SceneRegion state when it
-//! changes, whenever an observer starts or stops, an avatar enters or
-//! leaves, or the region is updated: the users observing it who have
-//! access and no active avatar there, or `0` while `allowObservers` is
-//! `false` or the region declines observers.
+//! with `decline_observers` (until `admit_observers`), and
+//! [`SceneBackend::set_observing`] counts each user's observing
+//! connections per region. A region's `observerCount` is the users
+//! observing it who have access and no active avatar there, or `0` while
+//! `allowObservers` is `false` or the region declines observers. It is
+//! recomputed, advancing the SceneRegion state when it changes, whenever
+//! any of those inputs changes: an observer starts or stops, an avatar
+//! enters or leaves, the region is updated, and the knobs that change
+//! access or the observer policy from outside the region
+//! (`grant_region_access`, `revoke_region_access`, `add_admin`,
+//! `decline_observers`, `admit_observers`). There are no Spaces here, so
+//! no other access change exists.
 //!
 //! # Companion capabilities and bindings
 //!
@@ -263,6 +269,9 @@ struct Inner {
     /// Region ids whose observers [`SceneBackend::may_observe_region`]
     /// declines by policy.
     declined_observers: HashSet<Id>,
+    /// What [`SceneBackend::observer_accounts`] answers instead of every
+    /// registered account, once set.
+    observer_accounts: Option<Vec<Id>>,
     /// Object history, once `MemoryBackend::with_object_history` turns it
     /// on.
     history: Option<jmap_object_history_server::HistoryStore>,
@@ -507,6 +516,26 @@ impl Inner {
         }
         if !changed.is_empty() {
             self.commit(SceneRegion::TYPE_NAME, account_id, changed);
+        }
+    }
+
+    /// [`Self::recount`] every region some user observes
+    /// ([`SceneBackend::set_observing`]), or only those with id `region_id`
+    /// when given, in every account: after a change outside the region
+    /// record that may change who counts as its observer (access or the
+    /// observer policy).
+    fn recount_observed(&mut self, region_id: Option<&Id>) {
+        let mut by_account: HashMap<Id, Vec<Id>> = HashMap::new();
+        for (account, region) in self.observers.keys() {
+            if region_id.is_none_or(|r| r == region) {
+                by_account
+                    .entry(Id::from(account.as_str()))
+                    .or_default()
+                    .push(region.clone());
+            }
+        }
+        for (account, regions) in by_account {
+            self.recount(&account, &regions);
         }
     }
 
@@ -1007,10 +1036,13 @@ impl<C: MemoryCaller> MemoryBackend<C> {
             .insert(account_id.as_ref().to_owned(), bytes);
     }
 
-    /// Give `user` admin privileges.
+    /// Give `user` admin privileges, recounting the `observerCount` of the
+    /// observed regions, since an admin has access to every region.
     #[doc(hidden)]
     pub fn add_admin(&self, user: &str) {
-        self.lock().admins.insert(user.to_owned());
+        let mut inner = self.lock();
+        inner.admins.insert(user.to_owned());
+        inner.recount_observed(None);
     }
 
     /// Advertise the companion capability `uri` (e.g.
@@ -1041,12 +1073,24 @@ impl<C: MemoryCaller> MemoryBackend<C> {
             .insert((channel_id.to_owned(), space_id.to_owned()));
     }
 
-    /// Give `user` access to the `"invite"` region `region_id`.
+    /// Give `user` access to the `"invite"` region `region_id`, recounting
+    /// its `observerCount`.
     #[doc(hidden)]
     pub fn grant_region_access(&self, region_id: &str, user: &str) {
-        self.lock()
+        let mut inner = self.lock();
+        inner.grants.insert((region_id.to_owned(), user.to_owned()));
+        inner.recount_observed(Some(&Id::from(region_id)));
+    }
+
+    /// Withdraw the access [`Self::grant_region_access`] gave `user` to
+    /// region `region_id`, recounting its `observerCount`.
+    #[doc(hidden)]
+    pub fn revoke_region_access(&self, region_id: &str, user: &str) {
+        let mut inner = self.lock();
+        inner
             .grants
-            .insert((region_id.to_owned(), user.to_owned()));
+            .remove(&(region_id.to_owned(), user.to_owned()));
+        inner.recount_observed(Some(&Id::from(region_id)));
     }
 
     /// Bar `user` from entering region `region_id`, for
@@ -1093,10 +1137,30 @@ impl<C: MemoryCaller> MemoryBackend<C> {
     }
 
     /// Decline observers of region `region_id` by policy, for
-    /// [`SceneBackend::may_observe_region`].
+    /// [`SceneBackend::may_observe_region`], recounting its
+    /// `observerCount` (to `0`).
     #[doc(hidden)]
     pub fn decline_observers(&self, region_id: &str) {
-        self.lock().declined_observers.insert(Id::from(region_id));
+        let mut inner = self.lock();
+        inner.declined_observers.insert(Id::from(region_id));
+        inner.recount_observed(Some(&Id::from(region_id)));
+    }
+
+    /// Undo [`Self::decline_observers`] for region `region_id`,
+    /// recounting its `observerCount`.
+    #[doc(hidden)]
+    pub fn admit_observers(&self, region_id: &str) {
+        let mut inner = self.lock();
+        inner.declined_observers.remove(&Id::from(region_id));
+        inner.recount_observed(Some(&Id::from(region_id)));
+    }
+
+    /// Make [`SceneBackend::observer_accounts`] answer `accounts` instead
+    /// of every registered account, as a deployment that checks only
+    /// some of the accounts a user can access would.
+    #[doc(hidden)]
+    pub fn restrict_observer_accounts(&self, accounts: &[&str]) {
+        self.lock().observer_accounts = Some(accounts.iter().map(|a| Id::from(*a)).collect());
     }
 
     /// Hide avatar `avatar_id` of `account_id` from `viewer`, for
@@ -1876,9 +1940,11 @@ impl<C: MemoryCaller> SceneBackend for MemoryBackend<C> {
     /// Every registered account, in id order: access to each region is
     /// checked separately.
     async fn observer_accounts(&self, _caller: &C, _own: &Id) -> Result<Vec<Id>, MemoryError> {
-        let mut accounts: Vec<Id> = self
-            .locked()
-            .await
+        let inner = self.locked().await;
+        if let Some(accounts) = &inner.observer_accounts {
+            return Ok(accounts.clone());
+        }
+        let mut accounts: Vec<Id> = inner
             .accounts
             .keys()
             .map(|a| Id::from(a.as_str()))

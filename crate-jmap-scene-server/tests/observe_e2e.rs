@@ -166,9 +166,13 @@ async fn enable(ws: &mut Client, body: Value) {
 }
 
 fn round_start(region: &str) -> (SceneEvent, Value) {
+    round_start_in(ACCOUNT, region)
+}
+
+fn round_start_in(account: &str, region: &str) -> (SceneEvent, Value) {
     let raw = json!({
         "@type": "SceneRegionEvent",
-        "accountId": ACCOUNT,
+        "accountId": account,
         "regionId": region,
         "event": "com.example.game.round-start",
         "data": {"round": 1}
@@ -177,10 +181,14 @@ fn round_start(region: &str) -> (SceneEvent, Value) {
 }
 
 async fn observer_count(backend: &MemoryBackend, region: &str) -> Option<u64> {
+    observer_count_in(backend, ACCOUNT, region).await
+}
+
+async fn observer_count_in(backend: &MemoryBackend, account: &str, region: &str) -> Option<u64> {
     let (list, _) = backend
         .get_objects::<SceneRegion>(
             &Id::from(ALICE),
-            &Id::from(ACCOUNT),
+            &Id::from(account),
             Some(&[Id::from(region)]),
             None,
         )
@@ -192,15 +200,19 @@ async fn observer_count(backend: &MemoryBackend, region: &str) -> Option<u64> {
 /// Waits until `region`'s `observerCount` is `want`, for changes made
 /// when a connection closes, which the client cannot sync with.
 async fn count_becomes(backend: &MemoryBackend, region: &str, want: u64) {
+    count_becomes_in(backend, ACCOUNT, region, want).await;
+}
+
+async fn count_becomes_in(backend: &MemoryBackend, account: &str, region: &str, want: u64) {
     for _ in 0..100 {
-        if observer_count(backend, region).await == Some(want) {
+        if observer_count_in(backend, account, region).await == Some(want) {
             return;
         }
         tokio::time::sleep(Duration::from_millis(20)).await;
     }
     panic!(
         "observerCount stayed {:?}, want {want}",
-        observer_count(backend, region).await
+        observer_count_in(backend, account, region).await
     );
 }
 
@@ -358,4 +370,106 @@ async fn observe_is_ignored_without_supports_observe() {
     hub.publish(round_start(CLOSED).0);
     nothing(&mut carol, "ignored").await;
     assert_eq!(observer_count(&backend, CLOSED).await, Some(0));
+}
+
+/// A second account, outside the observer accounts in
+/// [`a_region_outside_the_observer_accounts_counts`].
+const OTHER: &str = "acct-002";
+
+/// "When an observer subscription is enabled, the server makes the checks
+/// below in the accounts it chooses from those the user can access ...;
+/// delivery is not limited to those accounts", and "While an observer
+/// subscription delivers events for a region to a user without an active
+/// avatar there, the user counts toward the region's `observerCount`"
+/// (jmap-chat-spec 42aed85). "A user with several observing connections
+/// counts once" (bd:JMAP-1mep (a)).
+#[tokio::test]
+async fn a_region_outside_the_observer_accounts_counts() {
+    let backend = scene();
+    let cap = serde_json::from_value(capability()).unwrap();
+    backend.register_account(&Id::from(OTHER), cap);
+    backend.restrict_observer_accounts(&[ACCOUNT]);
+    let mut shared = region(R1, "public", true);
+    shared["accountId"] = json!(OTHER);
+    backend.insert_object_for_test("SceneRegion", &Id::from(OTHER), R1, shared);
+    let hub = SceneEventHub::new(64);
+    let (addr, users) = server(Arc::clone(&backend), hub.clone()).await;
+    let mut carol = connect(addr, &users, CAROL).await;
+    let mut carol2 = connect(addr, &users, CAROL).await;
+    enable(&mut carol, json!({"regionIds": [R1], "observe": true})).await;
+    enable(&mut carol2, json!({"regionIds": [R1], "observe": true})).await;
+    assert_eq!(observer_count_in(&backend, OTHER, R1).await, Some(0));
+
+    let (event, raw) = round_start_in(OTHER, R1);
+    hub.publish(event);
+    assert_eq!(recv(&mut carol).await, raw);
+    assert_eq!(recv(&mut carol2).await, raw);
+    assert_eq!(observer_count_in(&backend, OTHER, R1).await, Some(1));
+    assert_eq!(observer_count(&backend, R1).await, Some(1));
+
+    carol2.close(None).await.unwrap();
+    nothing(&mut carol, "one-closed").await;
+    assert_eq!(observer_count_in(&backend, OTHER, R1).await, Some(1));
+    // A new subscription that no longer lists the region releases it.
+    enable(&mut carol, json!({"regionIds": [CLOSED]})).await;
+    count_becomes_in(&backend, OTHER, R1, 0).await;
+    count_becomes(&backend, R1, 0).await;
+}
+
+/// "If ... the user loses access, events for that region stop, but the
+/// entry stays in the subscription: events resume without a new
+/// `SceneStreamEnable` once the region admits the observer again". A
+/// region listed before the user had access counts once events flow
+/// (bd:JMAP-1mep (b)).
+#[tokio::test]
+async fn a_region_the_user_gains_access_to_later_counts() {
+    let backend = scene();
+    let hub = SceneEventHub::new(64);
+    let (addr, users) = server(Arc::clone(&backend), hub.clone()).await;
+    let mut carol = connect(addr, &users, CAROL).await;
+    enable(&mut carol, json!({"regionIds": [VAULT], "observe": true})).await;
+    let (event, raw) = round_start(VAULT);
+    hub.publish(event.clone());
+    nothing(&mut carol, "no-access").await;
+    assert_eq!(observer_count(&backend, VAULT).await, Some(0));
+
+    backend.grant_region_access(VAULT, CAROL);
+    assert_eq!(observer_count(&backend, VAULT).await, Some(1));
+    hub.publish(event.clone());
+    assert_eq!(recv(&mut carol).await, raw);
+
+    backend.revoke_region_access(VAULT, CAROL);
+    assert_eq!(observer_count(&backend, VAULT).await, Some(0));
+    hub.publish(event);
+    nothing(&mut carol, "revoked").await;
+
+    backend.grant_region_access(VAULT, CAROL);
+    carol.close(None).await.unwrap();
+    count_becomes(&backend, VAULT, 0).await;
+}
+
+/// "A server MAY also decline observers of a region for
+/// deployment-defined policy reasons ... a decline applies both when the
+/// subscription is enabled and when each event is delivered", and "While
+/// the region does not admit observers, the count is `0`": a policy
+/// change outside the region record recounts it (bd:JMAP-1mep (c)).
+#[tokio::test]
+async fn a_policy_decline_after_enable_resets_the_count() {
+    let backend = scene();
+    let hub = SceneEventHub::new(64);
+    let (addr, users) = server(Arc::clone(&backend), hub.clone()).await;
+    let mut carol = connect(addr, &users, CAROL).await;
+    enable(&mut carol, json!({"regionIds": [R1], "observe": true})).await;
+    assert_eq!(observer_count(&backend, R1).await, Some(1));
+
+    backend.decline_observers(R1);
+    assert_eq!(observer_count(&backend, R1).await, Some(0));
+    let (event, raw) = round_start(R1);
+    hub.publish(event.clone());
+    nothing(&mut carol, "declined").await;
+
+    backend.admit_observers(R1);
+    assert_eq!(observer_count(&backend, R1).await, Some(1));
+    hub.publish(event);
+    assert_eq!(recv(&mut carol).await, raw);
 }

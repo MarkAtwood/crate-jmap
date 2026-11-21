@@ -433,26 +433,25 @@ async fn observable<B: SceneBackend>(
             .await?)
 }
 
-/// The regions an observer subscription listing `region_ids` observes, as
-/// `(account, region)` pairs over `account_ids`, and the listed regions it
-/// is refused (jmap-chat-spec 93f2258 §`SceneStreamEnable`).
+/// The regions of `region_ids` an observer subscription is refused, looked
+/// up in each of `account_ids` (jmap-chat-spec 42aed85 §`SceneStreamEnable`:
+/// "the server makes the checks below in the accounts it chooses").
 ///
 /// A region that does not exist in an account or that the caller has no
-/// access to there is neither: "A listed region that the user has no
+/// access to there is not refused: "A listed region that the user has no
 /// access to, or that does not exist, is not refused: the entry is
 /// retained and produces no events, so the response does not reveal
 /// whether the region exists." An accessible region whose
 /// `allowObservers` is `false`, or that [`SceneBackend::may_observe_region`]
-/// declines, is refused; any other accessible region is observed. The
-/// refused ids are in request order, without duplicates.
+/// declines, is refused. The refused ids are in request order, without
+/// duplicates.
 #[cfg(feature = "websocket")]
 pub(crate) async fn observer_regions<B: SceneBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     account_ids: &[Id],
     region_ids: &[Id],
-) -> Result<(Vec<(Id, Id)>, Vec<Id>), B::Error> {
-    let mut observed = Vec::new();
+) -> Result<Vec<Id>, B::Error> {
     let mut refused: Vec<Id> = Vec::new();
     for region_id in region_ids {
         for account_id in account_ids {
@@ -465,20 +464,16 @@ pub(crate) async fn observer_regions<B: SceneBackend>(
             {
                 continue;
             }
-            if region.allow_observers == Some(false)
-                || !backend
+            let admits = region.allow_observers != Some(false)
+                && backend
                     .may_observe_region(caller, account_id, &region)
-                    .await?
-            {
-                if !refused.contains(region_id) {
-                    refused.push(region_id.clone());
-                }
-            } else if !observed.contains(&(account_id.clone(), region_id.clone())) {
-                observed.push((account_id.clone(), region_id.clone()));
+                    .await?;
+            if !admits && !refused.contains(region_id) {
+                refused.push(region_id.clone());
             }
         }
     }
-    Ok((observed, refused))
+    Ok(refused)
 }
 
 async fn fetch_region<B: SceneBackend>(

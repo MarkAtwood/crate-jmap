@@ -872,9 +872,14 @@ pub trait SceneBackend: JmapBackend {
     /// §`SceneStreamEnable`).
     ///
     /// The `websocket` handler looks each listed region up in each of
-    /// these accounts to decide which regions are observed and which are
-    /// refused. Access to each region is still checked with
-    /// [`Self::may_access_region`].
+    /// these accounts to decide which regions are refused, and reports
+    /// each listed region of each of them to [`Self::set_observing`].
+    /// Access to each region is still checked with
+    /// [`Self::may_access_region`]. These are the accounts "the server
+    /// chooses" for the enable-time checks; "delivery is not limited to
+    /// those accounts" (draft-atwood-jmap-scene-wss-00 at jmap-chat-spec
+    /// 42aed85), and the handler reports a listed region of another
+    /// account from the first event for it that reaches the connection.
     ///
     /// # Default implementation
     ///
@@ -895,22 +900,35 @@ pub trait SceneBackend: JmapBackend {
     /// `account_id` (jmap-chat-spec 93f2258, `observerCount`).
     ///
     /// The `websocket` handler calls it with `true` for each region a
-    /// `SceneStreamEnable` with `observe: true` observes, and with `false`
-    /// when the connection's subscription stops covering it: a new
-    /// `SceneStreamEnable`, `SceneStreamDisable` or the connection
-    /// closing. Calls are balanced per connection, so a caller with
-    /// several observing connections calls `true` several times.
+    /// connection's observer subscription covers, and with `false` when
+    /// the subscription stops covering it: a new `SceneStreamEnable`,
+    /// `SceneStreamDisable` or the connection closing. A region is
+    /// covered when `SceneStreamEnable` with `observe: true` lists it, in
+    /// each of [`Self::observer_accounts`], and in any other account from
+    /// the first event for it that reaches the connection, since
+    /// "delivery is not limited to those accounts". The handler reports a
+    /// covered region whether or not the caller has access to it, it
+    /// admits observers, or the caller has an avatar there at the time,
+    /// because delivery checks all three again for each event. Calls are
+    /// balanced per connection, so a caller with several observing
+    /// connections calls `true` several times.
     ///
-    /// The backend keeps `observerCount`: "The number of users currently
-    /// observing the region through an observer subscription ... who do
-    /// not have an active avatar in it. A user with several observing
-    /// connections counts once." Recount it, atomically with the change,
-    /// here and whenever one of those users enters or leaves the region
-    /// with an avatar, loses access, or `allowObservers` changes (`false`
-    /// stops delivery, so it counts no one). "Like `activeAvatarCount`, a
-    /// change to it is a change to the SceneRegion": record the region as
-    /// updated and advance the `SceneRegion` state, so push sends a
-    /// `StateChange`.
+    /// The backend keeps `observerCount`, counting only the reported
+    /// users that delivery reaches: "While an observer subscription
+    /// delivers events for a region to a user without an active avatar
+    /// there, the user counts toward the region's `observerCount`", and
+    /// "A user with several observing connections counts once" (jmap-chat-spec
+    /// 42aed85). That is a reported user with access to the region
+    /// ([`Self::may_access_region`]) and no active avatar in it, while its
+    /// `allowObservers` is not `false` and [`Self::may_observe_region`]
+    /// admits observers. Recount it, atomically with the change, here and
+    /// whenever any of those inputs changes: one of those users enters or
+    /// leaves the region with an avatar, gains or loses access (including
+    /// through a change outside the region, such as a Space membership),
+    /// `allowObservers` changes, or the observer policy changes. "Like
+    /// `activeAvatarCount`, a change to it is a change to the SceneRegion":
+    /// record the region as updated and advance the `SceneRegion` state,
+    /// so push sends a `StateChange`.
     ///
     /// # Default implementation
     ///

@@ -43,10 +43,19 @@
 //! `RequestError` whose `regionIds` member lists the accessible regions
 //! that refuse observers (`allowObservers` `false`, or
 //! [`SceneBackend::may_observe_region`]), leaving the subscription as it
-//! was. The observed regions are reported to
-//! [`SceneBackend::set_observing`], and released again when a later
-//! `SceneStreamEnable`, `SceneStreamDisable` or the connection's close
-//! stops covering them, so the backend can keep `observerCount`.
+//! was.
+//!
+//! For `observerCount` the handler reports to
+//! [`SceneBackend::set_observing`] every `(account, region)` pair its
+//! observer subscription covers: each listed region in each of the
+//! [`SceneBackend::observer_accounts`] when the subscription is enabled,
+//! whether or not the user has access to it then, and, from the first
+//! event for it that reaches the handler, each listed region of any
+//! other account ("delivery is not limited to those accounts"). It
+//! releases a pair when a later `SceneStreamEnable`, `SceneStreamDisable`
+//! or the connection's close stops covering it. Which of the reported
+//! users count (access, `allowObservers`, policy, an active avatar) the
+//! backend decides, as delivery does, so the count follows delivery.
 //!
 //! Credential expiry is the deployment's (§Credential Expiry): the
 //! handler does not know when credentials expire; close the connection
@@ -262,7 +271,8 @@ struct Shared<B: SceneBackend> {
     /// The subscription of the `"scene"` path: everything.
     every: SceneEphemeralSubscription,
     /// The `(account, region)` pairs this connection reported observing
-    /// with [`SceneBackend::set_observing`].
+    /// with [`SceneBackend::set_observing`]: the pairs its observer
+    /// subscription covers ([`Shared::observe`], [`Shared::observe_event`]).
     observing: tokio::sync::Mutex<Vec<(Id, Id)>>,
 }
 
@@ -307,13 +317,35 @@ impl<B: SceneBackend> Shared<B> {
         deliver(&own).await.unwrap_or(false)
     }
 
-    /// Replace the regions this connection observes with `next`, telling
-    /// the backend of each region it starts and stops observing. Starts
-    /// are reported first, so a region kept across two subscriptions
-    /// never dips. A backend error is ignored: the count is advisory and
-    /// the subscription stands.
-    async fn observe(&self, next: Vec<(Id, Id)>) {
+    /// Whether the connection's current observer subscription covers
+    /// region `region_id`, in any account.
+    fn observer_covers(&self, region_id: &Id) -> bool {
+        self.subscription()
+            .filter()
+            .is_some_and(|f| f.observes() && f.region_ids().covers(region_id))
+    }
+
+    /// After the subscription changed: observe `listed`, the pairs a new
+    /// observer subscription names in the observer accounts, keep the
+    /// pairs learned from events ([`Self::observe_event`]) that the current
+    /// subscription still covers, and release the rest, telling the
+    /// backend of each pair started and stopped. Starts are reported
+    /// first, so a region kept across two subscriptions never dips. A
+    /// backend error is ignored: the count is advisory and the
+    /// subscription stands.
+    ///
+    /// Call it after storing the new subscription: the coverage check
+    /// reads it under the `observing` lock, as [`Self::observe_event`]
+    /// does, so a pair that call adds concurrently is kept or released
+    /// with the rest.
+    async fn observe(&self, listed: Vec<(Id, Id)>) {
         let mut observing = self.observing.lock().await;
+        let mut next = listed;
+        for pair in observing.iter() {
+            if !next.contains(pair) && self.observer_covers(&pair.1) {
+                next.push(pair.clone());
+            }
+        }
         let previous = std::mem::replace(&mut *observing, next);
         for (account, region) in observing.iter().filter(|p| !previous.contains(p)) {
             let _ = self
@@ -328,6 +360,49 @@ impl<B: SceneBackend> Shared<B> {
                 .await;
         }
     }
+
+    /// Before deciding on `event`: if the observer subscription covers its
+    /// region and this connection has not yet reported its
+    /// `(accountId, regionId)` pair, report it with
+    /// [`SceneBackend::set_observing`]. That reaches the regions of
+    /// accounts outside [`SceneBackend::observer_accounts`], whose events
+    /// the subscription delivers too: "delivery is not limited to those
+    /// accounts". The pair is reported whether or not `event` itself is
+    /// delivered, since its `eventTypes` or the user's current access may
+    /// refuse this one event; the backend counts only the users delivery
+    /// reaches.
+    ///
+    /// The pair is recorded only once the backend call returns, so a
+    /// forwarding task aborted during the call leaves no pair to release.
+    async fn observe_event(&self, event: &SceneEvent) {
+        let (Some(account), Some(region)) = (hosting_account(event), event_region(event)) else {
+            return;
+        };
+        if !self.observer_covers(region) {
+            return;
+        }
+        let mut observing = self.observing.lock().await;
+        let pair = (account.clone(), region.clone());
+        if observing.contains(&pair) || !self.observer_covers(region) {
+            return;
+        }
+        let _ = self
+            .backend
+            .set_observing(&self.caller, account, region, true)
+            .await;
+        observing.push(pair);
+    }
+}
+
+/// The event's `regionId`; `None` for an unrecognized `@type`.
+fn event_region(event: &SceneEvent) -> Option<&Id> {
+    Some(match event {
+        SceneEvent::Avatar(e) => &e.region_id,
+        SceneEvent::Object(e) => &e.region_id,
+        SceneEvent::Interaction(e) => &e.region_id,
+        SceneEvent::Region(e) => &e.region_id,
+        _ => return None,
+    })
 }
 
 /// The event's `accountId`, its region's hosting account; `None` for an
@@ -459,7 +534,7 @@ impl<B: SceneBackend> SceneStreamHandler<B> {
         } else {
             next.replace_with(&enable)?;
         }
-        let mut observed = Vec::new();
+        let mut listed = Vec::new();
         if observing
             && enable.observe == Some(true)
             && let Some(region_ids) = &enable.region_ids
@@ -469,8 +544,7 @@ impl<B: SceneBackend> SceneStreamHandler<B> {
                 .observer_accounts(&shared.caller, &shared.recipient_account_id)
                 .await
                 .map_err(fail)?;
-            let refused;
-            (observed, refused) = observer_regions(backend, &shared.caller, &accounts, region_ids)
+            let refused = observer_regions(backend, &shared.caller, &accounts, region_ids)
                 .await
                 .map_err(fail)?;
             if !refused.is_empty() {
@@ -484,9 +558,21 @@ impl<B: SceneBackend> SceneStreamHandler<B> {
                     .insert("regionIds".to_owned(), serde_json::json!(refused));
                 return Err(err);
             }
+            // Every listed region in every observer account, whether the
+            // user has access to it now or not: delivery re-checks access
+            // per event, so a region the user gains access to later must
+            // count from then on. The backend decides who counts.
+            for account in &accounts {
+                for region in region_ids {
+                    let pair = (account.clone(), region.clone());
+                    if !listed.contains(&pair) {
+                        listed.push(pair);
+                    }
+                }
+            }
         }
         self.set(next);
-        shared.observe(observed).await;
+        shared.observe(listed).await;
         Ok(())
     }
 
@@ -594,6 +680,7 @@ async fn forward<B: SceneBackend>(
             }
             received = rx.recv() => match received {
                 Ok(event) => {
+                    shared.observe_event(&event).await;
                     if !shared.admits(&event).await {
                         continue;
                     }
@@ -727,6 +814,220 @@ mod tests {
         .await
         .unwrap();
         assert!(rx.try_recv().is_err());
+    }
+
+    /// Which `(account, region)` pairs the handler reports to
+    /// `set_observing`, against draft-atwood-jmap-scene-wss-00 at
+    /// jmap-chat-spec 42aed85 §Semantics: "While an observer subscription
+    /// delivers events for a region to a user without an active avatar
+    /// there, the user counts toward the region's `observerCount`", and
+    /// "delivery is not limited to those accounts" the server checks at
+    /// enable time (bd:JMAP-1mep).
+    #[cfg(feature = "test-helpers")]
+    mod observing {
+        use super::*;
+        use jmap_scene_types::{SceneCapability, SceneRegion};
+        use jmap_server::JmapReads as _;
+
+        const OWN: &str = "a1";
+        const OTHER: &str = "a2";
+        const R1: &str = "r1";
+        const R2: &str = "r2";
+        const ALICE: &str = "user:alice@example.com";
+        const CAROL: &str = "user:carol@example.com";
+
+        /// Accounts [`OWN`] and [`OTHER`], `supportsObserve` on.
+        fn backend() -> Arc<MemoryBackend> {
+            let backend = MemoryBackend::new();
+            let cap: SceneCapability = serde_json::from_value(json!({
+                "mayCreateRegion": true,
+                "mayCreateObject": true,
+                "supportedVisualTypes": ["model/gltf-binary"],
+                "maxRegionsPerAccount": null,
+                "maxObjectsPerRegion": null,
+                "maxAvatarsPerRegion": null,
+                "maxAssetSizeBytes": null
+            }))
+            .unwrap();
+            backend.register_account(&Id::from(OWN), cap.clone());
+            backend.register_account(&Id::from(OTHER), cap);
+            backend.set_supports_observe(true);
+            Arc::new(backend)
+        }
+
+        /// Seed region `id` of `account`, owned by [`ALICE`], open to
+        /// observers.
+        fn region(backend: &MemoryBackend, account: &str, id: &str, policy: &str) {
+            backend.insert_object_for_test(
+                "SceneRegion",
+                &Id::from(account),
+                id,
+                json!({
+                    "id": id,
+                    "accountId": account,
+                    "ownerId": ALICE,
+                    "name": id,
+                    "description": null,
+                    "bounds": {"min": [-20, 0, -20], "max": [20, 8, 20]},
+                    "environment": null,
+                    "simulationUri": null,
+                    "spawnPosition": [0, 0, 5],
+                    "spawnOrientation": [0, 0, 0, 1],
+                    "activeAvatarCount": 0,
+                    "viewHint": "3d",
+                    "accessPolicy": policy,
+                    "createdAt": "2026-06-01T10:00:00Z",
+                    "updatedAt": "2026-06-01T10:00:00Z",
+                    "allowObservers": true,
+                    "observerCount": 0
+                }),
+            );
+        }
+
+        async fn count(backend: &MemoryBackend, account: &str, region: &str) -> u64 {
+            let (list, _) = backend
+                .get_objects::<SceneRegion>(
+                    &Id::from(ALICE),
+                    &Id::from(account),
+                    Some(&[Id::from(region)]),
+                    None,
+                )
+                .await
+                .unwrap();
+            list[0].observer_count.unwrap()
+        }
+
+        fn carol(backend: &Arc<MemoryBackend>) -> SceneStreamHandler<MemoryBackend> {
+            SceneStreamHandler::new(
+                Arc::clone(backend),
+                Id::from(CAROL),
+                Id::from(OWN),
+                &SceneEventHub::new(8),
+            )
+        }
+
+        async fn observe(h: &mut SceneStreamHandler<MemoryBackend>, regions: &[&str]) {
+            h.handle(message(
+                ENABLE,
+                json!({"regionIds": regions, "observe": true}),
+            ))
+            .await
+            .unwrap();
+        }
+
+        fn round_start(account: &str, region: &str) -> SceneEvent {
+            serde_json::from_value(json!({
+                "@type": "SceneRegionEvent",
+                "accountId": account,
+                "regionId": region,
+                "event": "com.example.round-start",
+                "data": null
+            }))
+            .unwrap()
+        }
+
+        async fn reported(h: &SceneStreamHandler<MemoryBackend>) -> Vec<(Id, Id)> {
+            h.shared.observing.lock().await.clone()
+        }
+
+        /// (b) A listed region the user has no access to when the
+        /// subscription is enabled is reported anyway: once access is
+        /// granted, events flow ("events resume without a new
+        /// `SceneStreamEnable` once the region admits the observer
+        /// again") and the user counts.
+        #[tokio::test]
+        async fn a_region_the_user_gains_access_to_later_counts() {
+            let backend = backend();
+            region(&backend, OWN, R1, "invite");
+            let mut h = carol(&backend);
+            observe(&mut h, &[R1]).await;
+            assert_eq!(count(&backend, OWN, R1).await, 0);
+            assert!(reported(&h).await.contains(&(Id::from(OWN), Id::from(R1))));
+            backend.grant_region_access(R1, CAROL);
+            assert_eq!(count(&backend, OWN, R1).await, 1);
+            backend.revoke_region_access(R1, CAROL);
+            assert_eq!(count(&backend, OWN, R1).await, 0);
+            backend.grant_region_access(R1, CAROL);
+            h.close().await;
+            assert_eq!(count(&backend, OWN, R1).await, 0);
+        }
+
+        /// (a) A listed region of an account outside `observer_accounts`
+        /// still gets events, so its first event reports it; it is kept
+        /// while a new subscription still lists it, and released when
+        /// one does not. Events of unlisted regions report nothing.
+        #[tokio::test]
+        async fn a_region_outside_the_observer_accounts_counts_from_its_first_event() {
+            let backend = backend();
+            backend.restrict_observer_accounts(&[OWN]);
+            region(&backend, OTHER, R1, "public");
+            region(&backend, OTHER, R2, "public");
+            let mut h = carol(&backend);
+            observe(&mut h, &[R1]).await;
+            assert_eq!(count(&backend, OTHER, R1).await, 0);
+
+            h.shared.observe_event(&round_start(OTHER, R2)).await;
+            assert_eq!(count(&backend, OTHER, R2).await, 0);
+            h.shared.observe_event(&round_start(OTHER, R1)).await;
+            assert!(h.shared.admits(&round_start(OTHER, R1)).await);
+            assert_eq!(count(&backend, OTHER, R1).await, 1);
+            // A second event is not a second report.
+            h.shared.observe_event(&round_start(OTHER, R1)).await;
+            let pair = (Id::from(OTHER), Id::from(R1));
+            assert_eq!(reported(&h).await.iter().filter(|p| **p == pair).count(), 1);
+
+            observe(&mut h, &[R1, R2]).await;
+            assert_eq!(count(&backend, OTHER, R1).await, 1);
+            observe(&mut h, &[R2]).await;
+            assert_eq!(count(&backend, OTHER, R1).await, 0);
+            assert!(!reported(&h).await.contains(&pair));
+
+            h.shared.observe_event(&round_start(OTHER, R2)).await;
+            assert_eq!(count(&backend, OTHER, R2).await, 1);
+            h.handle(message(DISABLE, json!({}))).await.unwrap();
+            assert_eq!(count(&backend, OTHER, R2).await, 0);
+            assert!(reported(&h).await.is_empty());
+        }
+
+        /// A subscription without `observe` reports nothing, from enable
+        /// or from events.
+        #[tokio::test]
+        async fn a_plain_subscription_reports_nothing() {
+            let backend = backend();
+            region(&backend, OWN, R1, "public");
+            let mut h = carol(&backend);
+            h.handle(message(ENABLE, json!({"regionIds": [R1]})))
+                .await
+                .unwrap();
+            h.shared.observe_event(&round_start(OWN, R1)).await;
+            assert!(reported(&h).await.is_empty());
+            assert_eq!(count(&backend, OWN, R1).await, 0);
+        }
+
+        /// "A user with several observing connections counts once",
+        /// however each connection came to report the region.
+        #[tokio::test]
+        async fn several_connections_count_once() {
+            let backend = backend();
+            backend.restrict_observer_accounts(&[OWN]);
+            region(&backend, OWN, R1, "public");
+            region(&backend, OTHER, R1, "public");
+            let mut first = carol(&backend);
+            let mut second = carol(&backend);
+            observe(&mut first, &[R1]).await;
+            observe(&mut second, &[R1]).await;
+            for h in [&first, &second] {
+                h.shared.observe_event(&round_start(OTHER, R1)).await;
+            }
+            assert_eq!(count(&backend, OWN, R1).await, 1);
+            assert_eq!(count(&backend, OTHER, R1).await, 1);
+            first.close().await;
+            assert_eq!(count(&backend, OWN, R1).await, 1);
+            assert_eq!(count(&backend, OTHER, R1).await, 1);
+            second.close().await;
+            assert_eq!(count(&backend, OWN, R1).await, 0);
+            assert_eq!(count(&backend, OTHER, R1).await, 0);
+        }
     }
 
     #[test]
