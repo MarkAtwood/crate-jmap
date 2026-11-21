@@ -88,7 +88,7 @@ impl FfmpegError {
         }
     }
 
-    /// The RFC 8620 §5.3 SetError for a deployment that checks a
+    /// The RFC 8620 §5.3 [`SetError`] for a deployment that checks a
     /// livestream create with this crate while answering the `/set` (for
     /// example [`PushTarget::new`](crate::args::PushTarget::new) on the
     /// `streamUri`), or `None` for a server failure the method answers

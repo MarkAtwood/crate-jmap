@@ -495,7 +495,7 @@ pub struct StartEgressRequest {
     /// `template`, the `source` oneof member.
     pub template: TemplateSource,
     /// `preset`, the `encoding` oneof member ("Optional — default
-    /// H264_720P_30").
+    /// `H264_720P_30`").
     #[serde(skip_serializing_if = "Option::is_none")]
     pub preset: Option<EncodingPreset>,
     /// `outputs`: "At least one required".
@@ -829,7 +829,7 @@ impl EgressClient {
     }
 
     /// `UpdateLayout`: "Used to change the web layout on an active
-    /// RoomCompositeEgress."
+    /// `RoomCompositeEgress`."
     ///
     /// # Errors
     ///

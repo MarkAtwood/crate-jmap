@@ -181,7 +181,7 @@ impl LiveKitError {
         }
     }
 
-    /// The RFC 8620 §5.3 SetError for a deployment that checks a create
+    /// The RFC 8620 §5.3 [`SetError`] for a deployment that checks a create
     /// with this crate while answering the `/set` (for example
     /// [`LiveKitMedia::push_url`](crate::LiveKitMedia::push_url) on the
     /// `streamUri`), or `None` for a server failure the method answers

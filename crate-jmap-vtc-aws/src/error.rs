@@ -134,7 +134,7 @@ impl AwsError {
         }
     }
 
-    /// The RFC 8620 §5.3 SetError for a deployment that calls AWS while
+    /// The RFC 8620 §5.3 [`SetError`] for a deployment that calls AWS while
     /// answering a `/set` (for example a capacity check before accepting a
     /// livestream create), or `None` when the error is a server failure
     /// the method answers with `serverFail`:

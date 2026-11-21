@@ -3,7 +3,7 @@
 //! facade crate re-exporting the `emailpush` feature of the mail crates
 //! under the extension's name.
 //!
-//! EmailPush has no crate family of its own: it is the `emailpush` feature
+//! `EmailPush` has no crate family of its own: it is the `emailpush` feature
 //! of [`jmap-mail-types`](https://crates.io/crates/jmap-mail-types),
 //! [`jmap-mail-client`](https://crates.io/crates/jmap-mail-client) and
 //! [`jmap-mail-server`](https://crates.io/crates/jmap-mail-server)
@@ -35,8 +35,8 @@
 #![forbid(unsafe_code)]
 
 pub mod types {
-    //! The EmailPush wire types of `jmap-mail-types`: the capability, the
-    //! pushed [`EmailPush`] object, the PushSubscription `emailPush` map's
+    //! The [`EmailPush`] wire types of `jmap-mail-types`: the capability, the
+    //! pushed [`EmailPush`] object, the `PushSubscription` `emailPush` map's
     //! [`EmailPushConfig`] and its accessors.
 
     pub use jmap_mail_types::{
@@ -47,7 +47,7 @@ pub mod types {
 
 #[cfg(feature = "client")]
 pub mod client {
-    //! The EmailPush items of `jmap-mail-client`.
+    //! The `EmailPush` items of `jmap-mail-client`.
     //!
     //! The two calls that go with them,
     //! `SessionClient::email_push_subscription_create` and
@@ -60,7 +60,7 @@ pub mod client {
 #[cfg(feature = "server")]
 pub use jmap_mail_server::emailpush as server;
 
-/// The EmailPush capability URI, `urn:ietf:params:jmap:emailpush`.
+/// The `EmailPush` capability URI, `urn:ietf:params:jmap:emailpush`.
 ///
 /// Kept from the 0.0.1 release under its name there; new code names
 /// [`types::JMAP_EMAILPUSH_URI`].

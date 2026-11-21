@@ -4,7 +4,7 @@
 //! crate-jmap repository.
 //!
 //! A server lists the data types it supports in the account's
-//! [`SearchCapability`], and the FilterCondition of each listed type gains
+//! [`SearchCapability`], and the `FilterCondition` of each listed type gains
 //! a `where` property: a JSON expression of field tests (JSON Pointers into
 //! the object's `/get` representation), comparison operators, logical
 //! operators, `$collation` and `$text`. The language is the type-neutral

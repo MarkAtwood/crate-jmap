@@ -31,7 +31,7 @@ pub enum IdentityBinding {
 /// for every identity it hosts", and an identity bound this way is a peer
 /// identity of the request (§Identity Binding). The peer's `ownerUserId`
 /// plays no part in that binding. It is advisory owner metadata (§Session
-/// Object Extensions for Federation): a peer applies it to the ChatContact
+/// Object Extensions for Federation): a peer applies it to the `ChatContact`
 /// whose `identity` equals it only when it binds, through this function,
 /// to the peer domain the Session was fetched from.
 ///

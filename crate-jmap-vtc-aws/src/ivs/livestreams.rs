@@ -139,8 +139,8 @@ pub enum StopOutcome {
     Deleted,
     /// The stream was stopped but IVS still counts the channel as live
     /// (`DeleteChannel` answered `ConflictException`): "To delete a channel
-    /// that is live, call StopStream, wait for the Amazon EventBridge
-    /// "Stream End" event ..., then call DeleteChannel." Call
+    /// that is live, call `StopStream`, wait for the Amazon EventBridge
+    /// "Stream End" event ..., then call `DeleteChannel`." Call
     /// [`IvsLivestreams::stop`] again once that event arrives.
     DeletePending,
 }
@@ -392,7 +392,7 @@ impl IvsLivestreams {
     }
 }
 
-/// `jmap-vtc-{id}`, cut to the CreateChannel `name` rules: "Pattern:
+/// `jmap-vtc-{id}`, cut to the `CreateChannel` `name` rules: "Pattern:
 /// `[a-zA-Z0-9-_]*`", "Maximum length of 128".
 fn channel_name(id: &Id) -> String {
     format!("jmap-vtc-{id}")

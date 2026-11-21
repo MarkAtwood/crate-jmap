@@ -138,7 +138,7 @@ pub enum Bound {
 
 impl Expression {
     /// Parse and check a `where` value (docs/specs/jmap-search.md
-    /// §The where FilterCondition Property, well-formedness).
+    /// §The where `FilterCondition` Property, well-formedness).
     ///
     /// # Errors
     ///

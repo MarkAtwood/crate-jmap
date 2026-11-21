@@ -7,7 +7,7 @@
 //!   "Sending Downlink Messages": §Prototype, §Request Parameters, §Response
 //!   Parameters, §Result Codes.
 //! - <https://developer.huawei.com/consumer/en/doc/HMS-References/push-sendapi>
-//!   (AndroidConfig `urgency`, `HIGH` or `NORMAL`).
+//!   (`AndroidConfig` `urgency`, `HIGH` or `NORMAL`).
 //! - <https://developer.huawei.com/consumer/en/doc/HMSCore-Guides/open-platform-oauth-0000001053629189>
 //!   "OAuth 2.0-based Authentication", client credentials mode.
 

@@ -298,6 +298,11 @@ impl Vapid {
     ///
     /// [`VapidError::OpaqueOrigin`] when `push_url` has no tuple origin
     /// (its scheme is not one of `http`, `https`, `ws`, `wss`, `ftp`).
+    ///
+    /// # Panics
+    ///
+    /// Does not panic: the `expect` guards serializing the JWT claims (two
+    /// strings and an integer) to JSON, which cannot fail.
     pub fn authorization(&self, push_url: &Url, exp: u64) -> Result<String, VapidError> {
         #[derive(Serialize)]
         struct Claims<'a> {

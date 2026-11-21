@@ -162,7 +162,7 @@ fn canonical_query(url: &Url) -> String {
         .join("&")
 }
 
-/// §UriEncode: every byte but `A-Z a-z 0-9 - . _ ~` as `%XX` with upper-case
+/// §`UriEncode`: every byte but `A-Z a-z 0-9 - . _ ~` as `%XX` with upper-case
 /// hex; a space is `%20`.
 fn uri_encode(s: &str) -> String {
     let mut out = String::with_capacity(s.len());

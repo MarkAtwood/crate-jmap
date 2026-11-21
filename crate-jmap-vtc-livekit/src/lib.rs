@@ -42,7 +42,7 @@
 //! transition (pure), and [`LiveKitMedia::report_egress`] applies it.
 //!
 //! Not covered: joining calls to rooms (the deployment names the room),
-//! the LiveKit RoomService, participant and track egress, WHIP output
+//! the LiveKit `RoomService`, participant and track egress, WHIP output
 //! (LiveKit has none), recording pause, per-viewer playback tokens,
 //! `timeReference`, and Ed25519-signed (`livekit-v2+jwt`) tokens. See the
 //! README's Gotchas.

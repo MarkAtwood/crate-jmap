@@ -113,7 +113,7 @@ pub struct Authenticated {
     /// (§Identity Binding: "The binding does not use the peer's
     /// `ownerUserId`"). Bind each caller identity of a Peer/* call with
     /// [`bind_identity`](jmap_peer_auth::bind_identity), and apply this
-    /// value to a ChatContact only if it binds to `peer_domain`.
+    /// value to a `ChatContact` only if it binds to `peer_domain`.
     pub owner_user_id: Option<String>,
 }
 

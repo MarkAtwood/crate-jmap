@@ -3,7 +3,7 @@
 //! Oracles:
 //! - jmap-push-platform-guide.md §Google FCM.
 //! - <https://firebase.google.com/docs/reference/fcm/rest/v1/projects.messages>
-//!   (Message, AndroidConfig, ApnsConfig).
+//!   (Message, `AndroidConfig`, `ApnsConfig`).
 //! - <https://firebase.google.com/docs/reference/fcm/rest/v1/ErrorCode> and
 //!   <https://firebase.google.com/docs/cloud-messaging/error-codes>
 //!   §REST error codes for the HTTP v1 API.

@@ -72,7 +72,7 @@ impl SearchCapability {
 
 /// The search support of one data type: a value of
 /// [`SearchCapability::data_types`] (docs/specs/jmap-search.md
-/// §Account-Level Capability Object, DataTypeSearchInfo).
+/// §Account-Level Capability Object, [`DataTypeSearchInfo`]).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

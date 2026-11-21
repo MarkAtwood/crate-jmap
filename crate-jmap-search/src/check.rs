@@ -24,7 +24,7 @@ pub fn is_supported_collation(collation: &str) -> bool {
     COLLATIONS.contains(&collation)
 }
 
-/// Parse `where_`, a `where` of a `data_type`/query FilterCondition, and
+/// Parse `where_`, a `where` of a `data_type`/query `FilterCondition`, and
 /// check it against the account's capability `cap`.
 ///
 /// # Errors
@@ -118,11 +118,11 @@ pub fn check_where_filter(
     Ok(true)
 }
 
-/// Every non-`null` `where` in `filter`, a FilterCondition or a
-/// FilterOperator tree (RFC 8620 §5.5), in document order.
+/// Every non-`null` `where` in `filter`, a `FilterCondition` or a
+/// `FilterOperator` tree (RFC 8620 §5.5), in document order.
 ///
 /// An object with an `operator` member and a `conditions` array is a
-/// FilterOperator; any other object is a FilterCondition.
+/// `FilterOperator`; any other object is a `FilterCondition`.
 pub fn where_values(filter: &Value) -> Vec<&Value> {
     fn walk<'a>(f: &'a Value, out: &mut Vec<&'a Value>) {
         if let (Some(_), Some(Value::Array(cs))) = (f.get("operator"), f.get("conditions")) {

@@ -19,7 +19,7 @@ use crate::{AwsError, AwsErrorCode, Credentials};
 const SERVICE: &str = "ivs";
 
 /// The IVS channel `type`, "which determines the allowable resolution and
-/// bitrate" (CreateChannel `type`; default `STANDARD`).
+/// bitrate" (`CreateChannel` `type`; default `STANDARD`).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ChannelType {
@@ -416,7 +416,7 @@ impl IvsClient {
     /// # Errors
     ///
     /// The [`AwsError`]; "If you try to delete a live channel, you will
-    /// get an error (409 ConflictException)".
+    /// get an error (409 `ConflictException`)".
     pub async fn delete_channel(&self, arn: &str) -> Result<(), AwsError> {
         self.inner
             .post("DeleteChannel", &json!({ "arn": arn }))

@@ -4,7 +4,7 @@
 //! under the extension's name.
 //!
 //! Mail sharing adds the RFC 9670 `shareWith` property and a `mayShare`
-//! right to the RFC 8621 Mailbox. The Principals and ShareNotifications it
+//! right to the RFC 8621 Mailbox. The Principals and `ShareNotification`s it
 //! relies on are implemented by the `jmap-sharing-*` crates, which this
 //! crate re-exports whole:
 //!

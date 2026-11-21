@@ -1,4 +1,4 @@
-//! JMAP FileNode
+//! JMAP `FileNode`
 //! ([draft-ietf-jmap-filenode-20](https://datatracker.ietf.org/doc/draft-ietf-jmap-filenode/)):
 //! umbrella crate re-exporting the component crates, so one dependency
 //! covers them.

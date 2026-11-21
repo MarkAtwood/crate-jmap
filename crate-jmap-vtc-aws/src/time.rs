@@ -50,7 +50,7 @@ impl Utc {
         format!("{:04}{:02}{:02}", self.year, self.month, self.day)
     }
 
-    /// RFC 3339 `YYYY-MM-DDTHH:MM:SSZ` (RFC 8620 §1.4 UTCDate).
+    /// RFC 3339 `YYYY-MM-DDTHH:MM:SSZ` (RFC 8620 §1.4 `UTCDate`).
     pub(crate) fn rfc3339(&self) -> String {
         format!(
             "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z",

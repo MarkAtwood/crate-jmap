@@ -1,6 +1,6 @@
 //! A SigV4-signed JSON request path shared by the service modules.
 //!
-//! IVS is a REST-JSON service ("POST /CreateChannel HTTP/1.1 /
+//! IVS is a REST-JSON service ("POST /`CreateChannel` HTTP/1.1 /
 //! Content-type: application/json", e.g.
 //! <https://docs.aws.amazon.com/ivs/latest/LowLatencyAPIReference/API_CreateChannel.html#API_CreateChannel_RequestSyntax>);
 //! MediaLive and MediaPackage are REST-JSON too, with other methods and

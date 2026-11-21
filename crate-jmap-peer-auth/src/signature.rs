@@ -181,6 +181,13 @@ pub enum Rejection {
 /// [`SignError::TargetUri`] when `target_uri` is not absolute,
 /// [`SignError::Clock`] when `created` is out of range, and
 /// [`SignError::Random`] when the random number generator fails.
+///
+/// # Panics
+///
+/// Does not panic: each `expect` guards a step that cannot fail for the
+/// values built here (ASCII component names, nonce and `keyid`, one-member
+/// lists and dictionaries, and covered components derivable from a
+/// validated `target_uri`).
 pub fn sign(
     key: &SigningKey,
     peer_domain: &PeerDomain,
