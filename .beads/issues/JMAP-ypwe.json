@@ -1,0 +1,12 @@
+{
+  "id": "JMAP-ypwe",
+  "title": "jmap-websocket: let a server close a running Connection with a code (1008 on credential expiry)",
+  "description": "From the h05q spec patch: the WSS drafts say a server SHOULD close with 1008 when credentials expire, but jmap_websocket::tungstenite::serve's run loop only ends on a client Close, the end of incoming, or a binary frame (1003). Add a close handle (e.g. a CloseHandle from Connection) that sends a Close frame with a given code and reason and ends run; test it in the e2e suite.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "feature",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-21T06:20:32.224656204Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-21T06:20:32.224656204Z"
+}

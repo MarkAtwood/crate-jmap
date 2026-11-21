@@ -247,7 +247,8 @@ async fn scope_account_and_block_filter_typing() {
 
 /// §ChatTypingEvent: "no more than one `ChatTypingEvent` per sender per
 /// chat per 3 seconds SHOULD be delivered; events above this rate MAY be
-/// silently dropped." Run with a shorter window.
+/// silently dropped." A `typing: false` is exempt: always delivered and
+/// not counted (decision 66). Run with a shorter window.
 #[tokio::test]
 async fn typing_rate_limit_drops_per_sender_per_chat() {
     let window = Duration::from_millis(400);
@@ -261,18 +262,32 @@ async fn typing_rate_limit_drops_per_sender_per_chat() {
     sync(&mut ws, "s1").await;
 
     hub.publish_typing(typing(OWNER, CHAT, BOB, true));
-    hub.publish_typing(typing(OWNER, CHAT, BOB, false)); // over the limit: dropped
+    hub.publish_typing(typing(OWNER, CHAT, BOB, true)); // over the limit: dropped
+    hub.publish_typing(typing(OWNER, CHAT, BOB, false)); // a stop: always delivered
     hub.publish_typing(typing(OWNER, CHAT2, BOB, true)); // another chat: its own window
-    assert_eq!(recv(&mut ws).await["chatId"], CHAT);
-    let second = recv(&mut ws).await;
-    assert_eq!(second["chatId"], CHAT2, "the dropped event must not arrive");
-
-    tokio::time::sleep(window).await;
-    hub.publish_typing(typing(OWNER, CHAT, BOB, false));
-    let third = recv(&mut ws).await;
+    let first = recv(&mut ws).await;
     assert_eq!(
-        (third["chatId"].clone(), third["typing"].clone()),
-        (json!(CHAT), json!(false))
+        (first["chatId"].clone(), first["typing"].clone()),
+        (json!(CHAT), json!(true))
+    );
+    let stop = recv(&mut ws).await;
+    assert_eq!(
+        (stop["chatId"].clone(), stop["typing"].clone()),
+        (json!(CHAT), json!(false)),
+        "the second start must be dropped and the stop delivered"
+    );
+    assert_eq!(recv(&mut ws).await["chatId"], CHAT2);
+
+    // The stop did not count: a start right after it is still over the
+    // limit, and one after the window is delivered.
+    hub.publish_typing(typing(OWNER, CHAT, BOB, true));
+    nothing(&mut ws, "s2").await;
+    tokio::time::sleep(window).await;
+    hub.publish_typing(typing(OWNER, CHAT, BOB, true));
+    let again = recv(&mut ws).await;
+    assert_eq!(
+        (again["chatId"].clone(), again["typing"].clone()),
+        (json!(CHAT), json!(true))
     );
 }
 

@@ -160,6 +160,10 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-chat-server** (`websocket` feature): a `typing: false`
+  `ChatTypingEvent` is always delivered and does not count against the
+  typing rate limit, so a client never misses a stop (decision 66).
+
 - **jmap-scene-server**: on a server without `supportsObserve`, a
   `SceneRegion/set` that sets `allowObservers`, and on an account without
   `supportsAvatarRegionState` a `SceneAvatar/set` that sets

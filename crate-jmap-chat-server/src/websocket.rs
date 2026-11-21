@@ -133,7 +133,9 @@ impl ChatEventHub {
 /// - typing: "no more than one `ChatTypingEvent` per sender per chat per
 ///   3 seconds SHOULD be delivered; events above this rate MAY be
 ///   silently dropped" (draft-atwood-jmap-chat-wss-00 §`ChatTypingEvent`).
-///   Dropped, including a `typing: false` inside the window.
+///   Events over the limit are dropped, except `typing: false`, which is
+///   always delivered and does not count against the window, so a client
+///   never misses a stop (decision 66).
 /// - presence: "no more than one `ChatPresenceEvent` per contact per 30
 ///   seconds SHOULD be delivered; events above this rate MAY be silently
 ///   dropped, but the most recent presence state SHOULD be delivered when
@@ -435,7 +437,9 @@ async fn forward<B: ChatBackend>(
                             event.chat_id.clone(),
                             event.sender_id.clone(),
                         );
-                        if typing.offer(key, (), Instant::now()).is_some() {
+                        // decision 66: a `typing: false` is always delivered
+                        // and does not count against the window.
+                        if !event.typing || typing.offer(key, (), Instant::now()).is_some() {
                             send(&events, EphemeralMessage::Typing(event));
                         }
                     }
