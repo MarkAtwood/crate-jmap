@@ -28,6 +28,17 @@ impl core::fmt::Debug for jmap_websocket::server::ConnectionError
 pub fn jmap_websocket::server::ConnectionError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::fmt::Display for jmap_websocket::server::ConnectionError
 pub fn jmap_websocket::server::ConnectionError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+#[non_exhaustive] pub enum jmap_websocket::server::ExtensionSendError
+pub jmap_websocket::server::ExtensionSendError::Closed
+pub jmap_websocket::server::ExtensionSendError::Full
+pub jmap_websocket::server::ExtensionSendError::NotAnExtensionMessage
+pub jmap_websocket::server::ExtensionSendError::Serialize(serde_json::error::Error)
+impl core::error::Error for jmap_websocket::server::ExtensionSendError
+pub fn jmap_websocket::server::ExtensionSendError::source(&self) -> core::option::Option<&(dyn core::error::Error + 'static)>
+impl core::fmt::Debug for jmap_websocket::server::ExtensionSendError
+pub fn jmap_websocket::server::ExtensionSendError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_websocket::server::ExtensionSendError
+pub fn jmap_websocket::server::ExtensionSendError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 #[non_exhaustive] pub enum jmap_websocket::server::Inbound
 pub jmap_websocket::server::Inbound::Binary
 pub jmap_websocket::server::Inbound::Close
@@ -57,6 +68,7 @@ pub struct jmap_websocket::server::Connection<H, P>
 impl<H: jmap_websocket::server::RequestHandler, P: jmap_websocket::server::PushSource> jmap_websocket::server::Connection<H, P>
 pub async fn jmap_websocket::server::Connection<H, P>::run<S, K, E>(self, S, K) -> core::result::Result<(), jmap_websocket::server::ConnectionError> where S: futures_core::stream::Stream<Item = core::result::Result<jmap_websocket::server::Inbound, E>> + core::marker::Unpin, E: core::error::Error + core::marker::Send + core::marker::Sync + 'static, K: futures_sink::Sink<jmap_websocket::server::Outbound> + core::marker::Unpin, <K as futures_sink::Sink>::Error: core::error::Error + core::marker::Send + core::marker::Sync + 'static
 pub fn jmap_websocket::server::Connection<H, P>::with_config(self, jmap_websocket::server::ConnectionConfig) -> Self
+pub fn jmap_websocket::server::Connection<H, P>::with_extension<X: jmap_websocket::server::ExtensionHandler>(self, X) -> Self
 pub fn jmap_websocket::server::Connection<H, P>::with_push<Q: jmap_websocket::server::PushSource>(self, Q) -> jmap_websocket::server::Connection<H, Q>
 pub fn jmap_websocket::server::Connection<H, P>::with_shared_limit(self, alloc::sync::Arc<tokio::sync::semaphore::Semaphore>) -> Self
 impl<H: jmap_websocket::server::RequestHandler> jmap_websocket::server::Connection<H, jmap_websocket::server::NoPush>
@@ -67,6 +79,8 @@ pub fn jmap_websocket::server::Connection<H, P>::fmt(&self, &mut core::fmt::Form
 impl jmap_websocket::server::ConnectionConfig
 pub fn jmap_websocket::server::ConnectionConfig::binary_frames(self, jmap_websocket::server::BinaryFrames) -> Self
 pub fn jmap_websocket::server::ConnectionConfig::binary_frames_value(&self) -> jmap_websocket::server::BinaryFrames
+pub fn jmap_websocket::server::ConnectionConfig::extension_queue_capacity(self, usize) -> Self
+pub fn jmap_websocket::server::ConnectionConfig::extension_queue_capacity_value(&self) -> usize
 pub fn jmap_websocket::server::ConnectionConfig::max_calls_in_request(self, usize) -> Self
 pub fn jmap_websocket::server::ConnectionConfig::max_calls_in_request_value(&self) -> usize
 pub fn jmap_websocket::server::ConnectionConfig::max_concurrent_requests(self, usize) -> Self
@@ -92,6 +106,30 @@ pub async fn jmap_websocket::server::DispatcherHandler<C>::handle(&self, jmap_ty
 pub fn jmap_websocket::server::DispatcherHandler<C>::prepare_problem(&self, &mut jmap_types::problem::ProblemDetails)
 impl<C> core::fmt::Debug for jmap_websocket::server::DispatcherHandler<C>
 pub fn jmap_websocket::server::DispatcherHandler<C>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+#[non_exhaustive] pub struct jmap_websocket::server::ExtensionMessage
+pub jmap_websocket::server::ExtensionMessage::body: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_websocket::server::ExtensionMessage::id: core::option::Option<alloc::string::String>
+pub jmap_websocket::server::ExtensionMessage::message_type: alloc::string::String
+impl jmap_websocket::server::ExtensionMessage
+pub fn jmap_websocket::server::ExtensionMessage::deserialize<T: serde_core::de::DeserializeOwned>(&self) -> core::result::Result<T, jmap_types::error::JmapError>
+pub fn jmap_websocket::server::ExtensionMessage::new(impl core::convert::Into<alloc::string::String>, serde_json::map::Map<alloc::string::String, serde_json::value::Value>) -> Self
+impl core::clone::Clone for jmap_websocket::server::ExtensionMessage
+pub fn jmap_websocket::server::ExtensionMessage::clone(&self) -> jmap_websocket::server::ExtensionMessage
+impl core::cmp::PartialEq for jmap_websocket::server::ExtensionMessage
+pub fn jmap_websocket::server::ExtensionMessage::eq(&self, &jmap_websocket::server::ExtensionMessage) -> bool
+impl core::fmt::Debug for jmap_websocket::server::ExtensionMessage
+pub fn jmap_websocket::server::ExtensionMessage::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_websocket::server::ExtensionMessage
+pub struct jmap_websocket::server::ExtensionSender
+impl jmap_websocket::server::ExtensionSender
+pub async fn jmap_websocket::server::ExtensionSender::closed(&self)
+pub fn jmap_websocket::server::ExtensionSender::is_closed(&self) -> bool
+pub async fn jmap_websocket::server::ExtensionSender::send<T: serde_core::ser::Serialize + ?core::marker::Sized>(&self, &T) -> core::result::Result<(), jmap_websocket::server::ExtensionSendError>
+pub fn jmap_websocket::server::ExtensionSender::try_send<T: serde_core::ser::Serialize + ?core::marker::Sized>(&self, &T) -> core::result::Result<(), jmap_websocket::server::ExtensionSendError>
+impl core::clone::Clone for jmap_websocket::server::ExtensionSender
+pub fn jmap_websocket::server::ExtensionSender::clone(&self) -> jmap_websocket::server::ExtensionSender
+impl core::fmt::Debug for jmap_websocket::server::ExtensionSender
+pub fn jmap_websocket::server::ExtensionSender::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 #[non_exhaustive] pub struct jmap_websocket::server::NoPush
 impl core::clone::Clone for jmap_websocket::server::NoPush
 pub fn jmap_websocket::server::NoPush::clone(&self) -> jmap_websocket::server::NoPush
@@ -122,6 +160,11 @@ pub fn jmap_websocket::server::PushHub::fmt(&self, &mut core::fmt::Formatter<'_>
 impl jmap_websocket::server::PushSource for jmap_websocket::server::PushHub
 pub fn jmap_websocket::server::PushHub::subscribe(&mut self, &jmap_websocket::WebSocketPushEnable) -> futures_core::stream::BoxStream<'static, jmap_websocket::WsStateChange>
 pub const jmap_websocket::server::CLOSE_UNSUPPORTED_DATA: u16
+pub trait jmap_websocket::server::ExtensionHandler: core::marker::Send + 'static
+pub fn jmap_websocket::server::ExtensionHandler::close(&mut self) -> impl core::future::future::Future<Output = ()> + core::marker::Send
+pub fn jmap_websocket::server::ExtensionHandler::handle(&mut self, jmap_websocket::server::ExtensionMessage) -> impl core::future::future::Future<Output = core::result::Result<(), jmap_types::error::JmapError>> + core::marker::Send
+pub fn jmap_websocket::server::ExtensionHandler::message_types(&self) -> &[&str]
+pub fn jmap_websocket::server::ExtensionHandler::start(&mut self, jmap_websocket::server::ExtensionSender)
 pub trait jmap_websocket::server::PushSource: core::marker::Send + 'static
 pub fn jmap_websocket::server::PushSource::subscribe(&mut self, &jmap_websocket::WebSocketPushEnable) -> futures_core::stream::BoxStream<'static, jmap_websocket::WsStateChange>
 impl jmap_websocket::server::PushSource for jmap_websocket::server::NoPush

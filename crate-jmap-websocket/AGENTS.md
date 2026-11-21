@@ -16,6 +16,10 @@ Scope:
   `Outbound`); library adapters go behind their own feature, like
   `tungstenite`.
 - The opening handshake, authentication and TLS stay the deployment's.
+- Extension `@type` messages (the chat/vtc/scene WSS drafts) go through
+  the protocol-neutral `server::ExtensionHandler` hook. Keep it free of
+  any extension crate: the `*-server` crates or the deployment implement
+  the trait, not this crate.
 - `jmap-testjig`'s `/ws` runs on this driver: change the driver, run
   `cargo test -p jmap-testjig` too.
 

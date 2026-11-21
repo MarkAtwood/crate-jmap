@@ -29,9 +29,18 @@
 //!   source.
 //! - A binary message closes the connection with status 1003, or is
 //!   ignored ([`BinaryFrames`], §4.3.1).
+//! - A message whose `@type` an [`ExtensionHandler`] registered
+//!   ([`Connection::with_extension`]) goes to that handler, for the
+//!   extension message types the JMAP Chat, VTC and Scene WebSocket
+//!   drafts define (`ChatStreamEnable`, `VTCStreamEnable`,
+//!   `SceneStreamEnable`, ...). The handler sends its server-to-client
+//!   messages through an [`ExtensionSender`]. Any other `@type` is
+//!   answered with `notRequest`.
 
+mod extension;
 mod hub;
 
+pub use extension::{ExtensionHandler, ExtensionMessage, ExtensionSendError, ExtensionSender};
 pub use hub::PushHub;
 
 use std::fmt;
@@ -44,7 +53,9 @@ use jmap_server::Dispatcher;
 use jmap_types::problem::ProblemDetails;
 use jmap_types::{JmapError, JmapRequest, JmapResponse, State};
 use serde_json::Value;
-use tokio::sync::{OwnedSemaphorePermit, Semaphore};
+use tokio::sync::{OwnedSemaphorePermit, Semaphore, mpsc};
+
+use extension::Extensions;
 
 use crate::{
     ClientMessage, WebSocketPushDisable, WebSocketPushEnable, WsRequest, WsRequestError,
@@ -128,18 +139,20 @@ pub struct ConnectionConfig {
     max_size_request: Option<usize>,
     max_concurrent_requests: usize,
     binary_frames: BinaryFrames,
+    extension_queue_capacity: usize,
 }
 
 impl Default for ConnectionConfig {
     /// 16 calls per request, 10 000 000 octets per request, 4 concurrent
     /// requests (the RFC 8620 §2 suggested minimums), binary messages
-    /// close the connection.
+    /// close the connection, 64 queued extension messages.
     fn default() -> Self {
         Self {
             max_calls_in_request: 16,
             max_size_request: Some(10_000_000),
             max_concurrent_requests: 4,
             binary_frames: BinaryFrames::Close,
+            extension_queue_capacity: 64,
         }
     }
 }
@@ -178,6 +191,17 @@ impl ConnectionConfig {
         self
     }
 
+    /// How many server-to-client messages the connection's
+    /// [`ExtensionHandler`]s may queue ([`ExtensionSender`]) before
+    /// [`ExtensionSender::try_send`] fails with
+    /// [`ExtensionSendError::Full`] and [`ExtensionSender::send`] waits.
+    /// Values below 1 are treated as 1.
+    #[must_use]
+    pub fn extension_queue_capacity(mut self, capacity: usize) -> Self {
+        self.extension_queue_capacity = capacity.max(1);
+        self
+    }
+
     /// The `maxCallsInRequest` limit.
     pub fn max_calls_in_request_value(&self) -> usize {
         self.max_calls_in_request
@@ -196,6 +220,11 @@ impl ConnectionConfig {
     /// The binary-message policy.
     pub fn binary_frames_value(&self) -> BinaryFrames {
         self.binary_frames
+    }
+
+    /// The extension message queue capacity.
+    pub fn extension_queue_capacity_value(&self) -> usize {
+        self.extension_queue_capacity
     }
 }
 
@@ -254,6 +283,26 @@ pub fn parse_client_message(
     text: &str,
     config: &ConnectionConfig,
 ) -> Result<ClientMessage, WsRequestError> {
+    match parse_message(text, config, |_| false)? {
+        Parsed::Core(message) => Ok(message),
+        Parsed::Extension(_) => unreachable!("no extension types were given"),
+    }
+}
+
+/// A client message: an RFC 8887 one, or one for an [`ExtensionHandler`].
+enum Parsed {
+    Core(ClientMessage),
+    Extension(ExtensionMessage),
+}
+
+/// [`parse_client_message`], also accepting the `@type`s for which
+/// `is_extension` is true.
+#[allow(clippy::result_large_err)] // as parse_client_message
+fn parse_message(
+    text: &str,
+    config: &ConnectionConfig,
+    is_extension: impl Fn(&str) -> bool,
+) -> Result<Parsed, WsRequestError> {
     if let Some(max) = config.max_size_request
         && text.len() > max
     {
@@ -284,18 +333,21 @@ pub fn parse_client_message(
                 Some(_) => return Err(not_request("The request id is not a String.", None)),
             };
             match jmap_server::parse_request(Value::Object(obj), config.max_calls_in_request) {
-                Ok(request) => Ok(ClientMessage::Request(WsRequest::new(request, id))),
+                Ok(request) => Ok(Parsed::Core(ClientMessage::Request(WsRequest::new(
+                    request, id,
+                )))),
                 Err(err) => Err(request_error(&err, id)),
             }
         }
         "WebSocketPushEnable" => serde_json::from_value::<WebSocketPushEnable>(Value::Object(obj))
-            .map(ClientMessage::PushEnable)
+            .map(|m| Parsed::Core(ClientMessage::PushEnable(m)))
             .map_err(|_| not_request("Malformed WebSocketPushEnable.", request_id)),
         "WebSocketPushDisable" => {
             serde_json::from_value::<WebSocketPushDisable>(Value::Object(obj))
-                .map(ClientMessage::PushDisable)
+                .map(|m| Parsed::Core(ClientMessage::PushDisable(m)))
                 .map_err(|_| not_request("Malformed WebSocketPushDisable.", request_id))
         }
+        ty if is_extension(ty) => Ok(Parsed::Extension(ExtensionMessage::new(ty, obj))),
         _ => Err(not_request(
             "The @type is not one a client may send.",
             request_id,
@@ -574,6 +626,7 @@ pub struct Connection<H, P = NoPush> {
     push: P,
     config: ConnectionConfig,
     shared_limit: Option<Arc<Semaphore>>,
+    extensions: Extensions,
 }
 
 impl<H, P> fmt::Debug for Connection<H, P> {
@@ -581,6 +634,7 @@ impl<H, P> fmt::Debug for Connection<H, P> {
         f.debug_struct("Connection")
             .field("config", &self.config)
             .field("shared_limit", &self.shared_limit.is_some())
+            .field("extensions", &self.extensions)
             .finish_non_exhaustive()
     }
 }
@@ -594,6 +648,7 @@ impl<H: RequestHandler> Connection<H, NoPush> {
             push: NoPush,
             config: ConnectionConfig::default(),
             shared_limit: None,
+            extensions: Extensions::default(),
         }
     }
 }
@@ -618,6 +673,7 @@ impl<H: RequestHandler, P: PushSource> Connection<H, P> {
             push,
             config: self.config,
             shared_limit: self.shared_limit,
+            extensions: self.extensions,
         }
     }
 
@@ -638,6 +694,24 @@ impl<H: RequestHandler, P: PushSource> Connection<H, P> {
         self
     }
 
+    /// Route client messages of `handler`'s
+    /// [`message_types`](ExtensionHandler::message_types) to `handler`
+    /// instead of answering them with `notRequest`. Call it once per
+    /// extension capability the Session advertises; see
+    /// [`ExtensionHandler`] for the order of calls.
+    ///
+    /// # Panics
+    ///
+    /// If one of the types is an RFC 8887 type (`Request`,
+    /// `WebSocketPushEnable`, `WebSocketPushDisable`, `Response`,
+    /// `RequestError`, `StateChange`) or was registered by an earlier
+    /// handler: both are programming errors.
+    #[must_use]
+    pub fn with_extension<X: ExtensionHandler>(mut self, handler: X) -> Self {
+        self.extensions.register(handler);
+        self
+    }
+
     /// Serve the connection until the client closes it or the incoming
     /// stream ends.
     ///
@@ -645,7 +719,10 @@ impl<H: RequestHandler, P: PushSource> Connection<H, P> {
     /// message under [`BinaryFrames::Close`] (after sending the Close).
     /// Requests still running then are dropped; method calls the
     /// [`Dispatcher`] already started still finish (see
-    /// [`Dispatcher::dispatch`], Cancellation).
+    /// [`Dispatcher::dispatch`], Cancellation). Before returning, by any
+    /// path, it closes the extension message queue, waits for an
+    /// [`ExtensionHandler::handle`] that is running, and calls every
+    /// [`ExtensionHandler::close`].
     ///
     /// # Errors
     ///
@@ -663,83 +740,125 @@ impl<H: RequestHandler, P: PushSource> Connection<H, P> {
             mut push,
             config,
             shared_limit,
+            mut extensions,
         } = self;
         let mut in_flight: FuturesUnordered<InFlight> = FuturesUnordered::new();
         let mut subscription: Option<(BoxStream<'static, WsStateChange>, Option<Vec<String>>)> =
             None;
+        let mut extension_queue = extensions.start(config.extension_queue_capacity);
 
-        loop {
-            tokio::select! {
-                done = in_flight.next(), if !in_flight.is_empty() => {
-                    let Some((request_id, result, permit)) = done else { continue };
-                    drop(permit);
-                    let text = match result {
-                        Ok(response) => to_text(&WsResponse::new(response, request_id))?,
-                        Err(err) => error_text(&*handler, request_error(&err, request_id))?,
-                    };
-                    send(&mut outgoing, Outbound::Text(text)).await?;
-                }
-                change = next_change(&mut subscription) => {
-                    match change {
-                        Some(change) => {
-                            let types = subscription.as_ref().and_then(|(_, t)| t.as_deref());
-                            if let Some(change) = filter_state_change(change, types) {
-                                send(&mut outgoing, Outbound::Text(to_text(&change)?)).await?;
-                            }
-                        }
-                        None => subscription = None,
+        let result: Result<(), ConnectionError> = async {
+            loop {
+                tokio::select! {
+                    done = in_flight.next(), if !in_flight.is_empty() => {
+                        let Some((request_id, result, permit)) = done else { continue };
+                        drop(permit);
+                        let text = match result {
+                            Ok(response) => to_text(&WsResponse::new(response, request_id))?,
+                            Err(err) => error_text(&*handler, request_error(&err, request_id))?,
+                        };
+                        send(&mut outgoing, Outbound::Text(text)).await?;
                     }
-                }
-                message = incoming.next() => {
-                    let message = match message {
-                        None | Some(Ok(Inbound::Close)) => return Ok(()),
-                        Some(Err(e)) => return Err(ConnectionError::Receive(Box::new(e))),
-                        Some(Ok(m)) => m,
-                    };
-                    let text = match message {
-                        Inbound::Text(text) => text,
-                        Inbound::Binary => match config.binary_frames {
-                            BinaryFrames::Ignore => continue,
-                            BinaryFrames::Close => {
-                                let close = Outbound::Close {
-                                    code: CLOSE_UNSUPPORTED_DATA,
-                                    reason: "binary messages are not supported".to_owned(),
-                                };
-                                send(&mut outgoing, close).await?;
-                                return Ok(());
-                            }
-                        },
-                        Inbound::Close => return Ok(()),
-                    };
-                    match parse_client_message(&text, &config) {
-                        Err(e) => {
-                            send(&mut outgoing, Outbound::Text(error_text(&*handler, e)?)).await?;
-                        }
-                        Ok(ClientMessage::Request(WsRequest { id, request })) => {
-                            match admit(&in_flight, &config, shared_limit.as_ref()) {
-                                Ok(permit) => {
-                                    let h = Arc::clone(&handler);
-                                    in_flight.push(Box::pin(async move {
-                                        let result = h.handle(request).await;
-                                        (id, result, permit)
-                                    }));
-                                }
-                                Err(()) => {
-                                    let err = JmapError::limit("maxConcurrentRequests");
-                                    let text = error_text(&*handler, request_error(&err, id))?;
-                                    send(&mut outgoing, Outbound::Text(text)).await?;
+                    change = next_change(&mut subscription) => {
+                        match change {
+                            Some(change) => {
+                                let types = subscription.as_ref().and_then(|(_, t)| t.as_deref());
+                                if let Some(change) = filter_state_change(change, types) {
+                                    send(&mut outgoing, Outbound::Text(to_text(&change)?)).await?;
                                 }
                             }
+                            None => subscription = None,
                         }
-                        Ok(ClientMessage::PushEnable(enable)) => {
-                            let stream = push.subscribe(&enable);
-                            subscription = Some((stream, enable.data_types));
+                    }
+                    (id, result) = extensions.next_done() => {
+                        if let Err(err) = result {
+                            let text = error_text(&*handler, extension::extension_error(&err, id))?;
+                            send(&mut outgoing, Outbound::Text(text)).await?;
                         }
-                        Ok(ClientMessage::PushDisable(_)) => subscription = None,
+                    }
+                    queued = next_queued(&mut extension_queue) => {
+                        match queued {
+                            Some(text) => send(&mut outgoing, Outbound::Text(text)).await?,
+                            // Every handler dropped its sender.
+                            None => extension_queue = None,
+                        }
+                    }
+                    // While an extension message is handled, later messages
+                    // wait, so they see its effect.
+                    message = incoming.next(), if !extensions.is_busy() => {
+                        let message = match message {
+                            None | Some(Ok(Inbound::Close)) => return Ok(()),
+                            Some(Err(e)) => return Err(ConnectionError::Receive(Box::new(e))),
+                            Some(Ok(m)) => m,
+                        };
+                        let text = match message {
+                            Inbound::Text(text) => text,
+                            Inbound::Binary => match config.binary_frames {
+                                BinaryFrames::Ignore => continue,
+                                BinaryFrames::Close => {
+                                    let close = Outbound::Close {
+                                        code: CLOSE_UNSUPPORTED_DATA,
+                                        reason: "binary messages are not supported".to_owned(),
+                                    };
+                                    send(&mut outgoing, close).await?;
+                                    return Ok(());
+                                }
+                            },
+                            Inbound::Close => return Ok(()),
+                        };
+                        let parsed = parse_message(&text, &config, |ty| extensions.handles(ty));
+                        let message = match parsed {
+                            Ok(Parsed::Extension(message)) => {
+                                extensions.dispatch(message);
+                                continue;
+                            }
+                            Ok(Parsed::Core(message)) => Ok(message),
+                            Err(e) => Err(e),
+                        };
+                        match message {
+                            Err(e) => {
+                                send(&mut outgoing, Outbound::Text(error_text(&*handler, e)?)).await?;
+                            }
+                            Ok(ClientMessage::Request(WsRequest { id, request })) => {
+                                match admit(&in_flight, &config, shared_limit.as_ref()) {
+                                    Ok(permit) => {
+                                        let h = Arc::clone(&handler);
+                                        in_flight.push(Box::pin(async move {
+                                            let result = h.handle(request).await;
+                                            (id, result, permit)
+                                        }));
+                                    }
+                                    Err(()) => {
+                                        let err = JmapError::limit("maxConcurrentRequests");
+                                        let text = error_text(&*handler, request_error(&err, id))?;
+                                        send(&mut outgoing, Outbound::Text(text)).await?;
+                                    }
+                                }
+                            }
+                            Ok(ClientMessage::PushEnable(enable)) => {
+                                let stream = push.subscribe(&enable);
+                                subscription = Some((stream, enable.data_types));
+                            }
+                            Ok(ClientMessage::PushDisable(_)) => subscription = None,
+                        }
                     }
                 }
             }
         }
+        .await;
+
+        // Close the queue first, so a handler waiting to send returns.
+        drop(extension_queue);
+        extensions.close().await;
+        result
+    }
+}
+
+/// The next queued extension message; pending forever without a queue.
+async fn next_queued(queue: &mut Option<mpsc::Receiver<String>>) -> Option<String> {
+    match queue {
+        Some(rx) => rx.recv().await,
+        None => std::future::pending().await,
     }
 }
 

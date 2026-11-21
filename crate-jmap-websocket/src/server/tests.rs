@@ -241,6 +241,16 @@ struct Harness {
 }
 
 fn start(config: ConnectionConfig, hub: Option<PushHub>) -> Harness {
+    start_with(config, hub, |c| c)
+}
+
+/// [`start`], with `extend` applied to the connection (to register
+/// extension handlers).
+fn start_with(
+    config: ConnectionConfig,
+    hub: Option<PushHub>,
+    extend: impl FnOnce(Connection<TestHandler>) -> Connection<TestHandler>,
+) -> Harness {
     let handler = Arc::new(TestHandler {
         gate: Notify::new(),
     });
@@ -254,7 +264,7 @@ fn start(config: ConnectionConfig, hub: Option<PushHub>) -> Harness {
             .map(|()| tx)
             .map_err(|_| std::io::Error::other("closed"))
     });
-    let conn = Connection::new(Arc::clone(&handler)).with_config(config);
+    let conn = extend(Connection::new(Arc::clone(&handler)).with_config(config));
     let task = match hub {
         Some(hub) => tokio::spawn(conn.with_push(hub).run(incoming, Box::pin(outgoing))),
         None => tokio::spawn(conn.run(incoming, Box::pin(outgoing))),
@@ -379,4 +389,331 @@ async fn push_enable_filter_and_disable() {
     );
     h.to_server.send(Ok(Inbound::Close)).unwrap();
     h.task.await.unwrap().unwrap();
+}
+
+// ---------------------------------------------------------------------------
+// Extension message types
+// ---------------------------------------------------------------------------
+//
+// Oracle: the rule the JMAP Chat, VTC and Scene WebSocket drafts add to
+// RFC 8887 (draft-atwood-jmap-chat-wss-00 §Update to RFC 8887, §Handling
+// Unknown Message Types; the Stream Enable "success is silent and failure
+// produces a `RequestError`" text; the Scene draft's `regionIds` member on
+// a `forbidden` RequestError). The toy types below stand in for them.
+
+/// What the toy extension saw, shared with the test.
+#[derive(Default)]
+struct ToyLog {
+    seen: std::sync::Mutex<Vec<String>>,
+    enabled: std::sync::atomic::AtomicBool,
+    sender: std::sync::Mutex<Option<ExtensionSender>>,
+    gate: Notify,
+}
+
+impl ToyLog {
+    fn seen(&self) -> Vec<String> {
+        self.seen.lock().unwrap().clone()
+    }
+
+    fn note(&self, entry: impl Into<String>) {
+        self.seen.lock().unwrap().push(entry.into());
+    }
+
+    fn enabled(&self) -> bool {
+        self.enabled.load(std::sync::atomic::Ordering::SeqCst)
+    }
+
+    /// A server-initiated event: sent only while the stream is enabled,
+    /// as the drafts require.
+    fn publish(&self, n: u64) {
+        if self.enabled()
+            && let Some(sender) = &*self.sender.lock().unwrap()
+        {
+            sender
+                .try_send(&json!({"@type": "ToyEvent", "n": n}))
+                .unwrap();
+        }
+    }
+}
+
+struct Toy {
+    log: Arc<ToyLog>,
+    events: Option<ExtensionSender>,
+}
+
+#[derive(serde::Deserialize)]
+struct ToyEnable {
+    topics: Vec<String>,
+}
+
+impl ExtensionHandler for Toy {
+    fn message_types(&self) -> &[&str] {
+        &["ToyStreamEnable", "ToyStreamDisable", "ToySlow", "ToyBurst"]
+    }
+
+    fn start(&mut self, events: ExtensionSender) {
+        *self.log.sender.lock().unwrap() = Some(events.clone());
+        self.events = Some(events);
+    }
+
+    async fn handle(&mut self, message: ExtensionMessage) -> Result<(), JmapError> {
+        self.log.note(message.message_type.clone());
+        let enabled = &self.log.enabled;
+        match message.message_type.as_str() {
+            "ToyStreamEnable" => {
+                let enable: ToyEnable = message.deserialize()?;
+                if enable.topics.is_empty() {
+                    let mut err = JmapError::invalid_arguments("no topics");
+                    err.extra.insert("regionIds".to_owned(), json!(["r1"]));
+                    err.extra.insert("type".to_owned(), json!("spoofed"));
+                    return Err(err);
+                }
+                enabled.store(true, std::sync::atomic::Ordering::SeqCst);
+            }
+            "ToyStreamDisable" => enabled.store(false, std::sync::atomic::Ordering::SeqCst),
+            "ToySlow" => self.log.gate.notified().await,
+            "ToyBurst" => {
+                let events = self.events.as_ref().unwrap();
+                let results: Vec<bool> = (0..3)
+                    .map(|n| {
+                        events
+                            .try_send(&json!({"@type": "ToyEvent", "n": n}))
+                            .is_ok()
+                    })
+                    .collect();
+                self.log.note(format!("{results:?}"));
+            }
+            other => unreachable!("{other}"),
+        }
+        Ok(())
+    }
+
+    async fn close(&mut self) {
+        self.log.note("close");
+    }
+}
+
+fn start_toy(config: ConnectionConfig) -> (Harness, Arc<ToyLog>) {
+    let log = Arc::new(ToyLog::default());
+    let toy = Toy {
+        log: Arc::clone(&log),
+        events: None,
+    };
+    (start_with(config, None, |c| c.with_extension(toy)), log)
+}
+
+/// Sends a request and waits for its Response, so everything the client
+/// sent before has been read.
+async fn sync(h: &mut Harness, id: &str) {
+    h.send(req(id, "Core/echo"));
+    assert_eq!(h.recv().await["requestId"], id);
+}
+
+/// Waits until the toy has seen `n` messages.
+async fn seen_at_least(log: &ToyLog, n: usize) {
+    while log.seen().len() < n {
+        tokio::task::yield_now().await;
+    }
+}
+
+/// A registered `@type` parses to an [`ExtensionMessage`] without `@type`
+/// and with its `id`; RFC 8887 types still parse as before.
+#[test]
+fn extension_types_parse_to_extension_messages() {
+    let text = r#"{"@type":"ToyStreamEnable","id":"e1","topics":["a"]}"#;
+    let Parsed::Extension(m) = parse_message(text, &cfg(), |t| t == "ToyStreamEnable").unwrap()
+    else {
+        panic!("not an extension message")
+    };
+    assert_eq!(m.message_type, "ToyStreamEnable");
+    assert_eq!(m.id.as_deref(), Some("e1"));
+    assert_eq!(Value::Object(m.body), json!({"id": "e1", "topics": ["a"]}));
+    let text = r#"{"@type":"WebSocketPushDisable"}"#;
+    assert!(matches!(
+        parse_message(text, &cfg(), |_| true).unwrap(),
+        Parsed::Core(ClientMessage::PushDisable(_))
+    ));
+}
+
+/// The extension control flow: enable is silent, events flow only while
+/// enabled, disable stops them, and the connection's Close runs `close`
+/// and closes the queue.
+#[tokio::test]
+async fn extension_enable_events_disable_close() {
+    let (mut h, log) = start_toy(cfg());
+    h.send(json!({"@type": "ToyStreamEnable", "topics": ["a"]}));
+    sync(&mut h, "s1").await;
+    log.publish(1);
+    assert_eq!(h.recv().await, json!({"@type": "ToyEvent", "n": 1}));
+
+    h.send(json!({"@type": "ToyStreamDisable"}));
+    sync(&mut h, "s2").await;
+    log.publish(2);
+    sync(&mut h, "s3").await;
+    assert_eq!(log.seen(), ["ToyStreamEnable", "ToyStreamDisable"]);
+
+    h.to_server.send(Ok(Inbound::Close)).unwrap();
+    h.task.await.unwrap().unwrap();
+    assert_eq!(log.seen().last().map(String::as_str), Some("close"));
+    let sender = log.sender.lock().unwrap().clone().unwrap();
+    assert!(sender.is_closed());
+    assert!(matches!(
+        sender.try_send(&json!({"@type": "ToyEvent"})),
+        Err(ExtensionSendError::Closed)
+    ));
+}
+
+/// "A client-to-server message with an unrecognized `@type` value is a
+/// request-level error ... `notRequest`", also with extensions
+/// registered; the connection stays open.
+#[tokio::test]
+async fn unregistered_type_is_still_not_request() {
+    let (mut h, _log) = start_toy(cfg());
+    h.send(json!({"@type": "ChatStreamEnable", "id": "c1", "dataTypes": ["typing"]}));
+    let e = h.recv().await;
+    assert_eq!(e["@type"], "RequestError");
+    assert_eq!(e["type"], "urn:ietf:params:jmap:error:notRequest");
+    assert_eq!(e["requestId"], "c1");
+    sync(&mut h, "after").await;
+}
+
+/// "failure produces a `RequestError`" carrying the message's `id`; the
+/// error's extra members (the Scene draft's `regionIds`) are kept, except
+/// ones the driver writes itself; `prepare_problem` runs.
+#[tokio::test]
+async fn extension_error_is_a_request_error() {
+    let (mut h, log) = start_toy(cfg());
+    h.send(json!({"@type": "ToyStreamEnable", "id": "e1", "topics": []}));
+    assert_eq!(
+        h.recv().await,
+        json!({
+            "@type": "RequestError",
+            "requestId": "e1",
+            "type": "urn:ietf:params:jmap:error:invalidArguments",
+            "status": 400,
+            "title": "T",
+            "detail": "no topics",
+            "regionIds": ["r1"]
+        })
+    );
+    assert!(!log.enabled());
+
+    // A malformed body, through ExtensionMessage::deserialize.
+    h.send(json!({"@type": "ToyStreamEnable", "id": "e2", "topics": "a"}));
+    let e = h.recv().await;
+    assert_eq!(e["type"], "urn:ietf:params:jmap:error:notRequest");
+    assert_eq!(e["requestId"], "e2");
+}
+
+/// While an extension message is handled, later client messages wait,
+/// but Responses of earlier Requests are still sent.
+#[tokio::test]
+async fn extension_messages_hold_back_later_messages_only() {
+    let (mut h, log) = start_toy(cfg());
+    h.send(req("before", "wait"));
+    h.send(json!({"@type": "ToySlow"}));
+    h.send(req("after", "Core/echo"));
+    seen_at_least(&log, 1).await;
+    h.handler.gate.notify_one();
+    assert_eq!(h.recv().await["requestId"], "before");
+    let early =
+        tokio::time::timeout(std::time::Duration::from_millis(100), h.from_server.recv()).await;
+    assert!(early.is_err(), "nothing until ToySlow returns: {early:?}");
+    log.gate.notify_one();
+    assert_eq!(h.recv().await["requestId"], "after");
+}
+
+/// The queue is bounded: `try_send` past the capacity fails with `Full`.
+#[tokio::test]
+async fn extension_queue_is_bounded() {
+    let (mut h, log) = start_toy(cfg().extension_queue_capacity(1));
+    h.send(json!({"@type": "ToyBurst"}));
+    assert_eq!(h.recv().await, json!({"@type": "ToyEvent", "n": 0}));
+    sync(&mut h, "s").await;
+    assert_eq!(log.seen(), ["ToyBurst", "[true, false, false]"]);
+}
+
+/// `close` runs when `run` ends with an error too, after the running
+/// `handle` finished.
+#[tokio::test]
+async fn close_runs_after_errors_and_running_handles() {
+    let (h, log) = start_toy(cfg());
+    h.send(json!({"@type": "ToySlow"}));
+    h.send(req("r", "Core/echo"));
+    seen_at_least(&log, 1).await;
+    // The client stops reading: the Response to `r` cannot be written.
+    let Harness {
+        to_server,
+        from_server,
+        task,
+        ..
+    } = h;
+    drop(from_server);
+    log.gate.notify_one();
+    let result = task.await.unwrap();
+    assert!(
+        matches!(result, Err(ConnectionError::Send(_))),
+        "{result:?}"
+    );
+    assert_eq!(log.seen(), ["ToySlow", "close"]);
+    drop(to_server);
+}
+
+/// An extension message must be an object with a string `@type`, and not
+/// pose as an RFC 8887 server message.
+#[test]
+fn extension_sender_checks_the_message() {
+    let (tx, mut rx) = mpsc::channel(4);
+    let sender = ExtensionSender::new(tx);
+    for bad in [
+        json!({"@type": "Response"}),
+        json!({"@type": "StateChange"}),
+        json!({"@type": "RequestError"}),
+        json!({"@type": 1}),
+        json!({"n": 1}),
+        json!([1]),
+    ] {
+        assert!(
+            matches!(
+                sender.try_send(&bad),
+                Err(ExtensionSendError::NotAnExtensionMessage)
+            ),
+            "{bad}"
+        );
+    }
+    sender.try_send(&json!({"@type": "ToyEvent"})).unwrap();
+    assert_eq!(rx.try_recv().unwrap(), r#"{"@type":"ToyEvent"}"#);
+}
+
+fn test_connection() -> Connection<TestHandler> {
+    Connection::new(Arc::new(TestHandler {
+        gate: Notify::new(),
+    }))
+}
+
+#[test]
+#[should_panic(expected = "is an RFC 8887 type")]
+fn registering_a_core_type_panics() {
+    struct Bad;
+    impl ExtensionHandler for Bad {
+        fn message_types(&self) -> &[&str] {
+            &["WebSocketPushEnable"]
+        }
+        async fn handle(&mut self, _: ExtensionMessage) -> Result<(), JmapError> {
+            Ok(())
+        }
+    }
+    let _ = test_connection().with_extension(Bad);
+}
+
+#[test]
+#[should_panic(expected = "registered twice")]
+fn registering_a_type_twice_panics() {
+    let toy = || Toy {
+        log: Arc::default(),
+        events: None,
+    };
+    let _ = test_connection()
+        .with_extension(toy())
+        .with_extension(toy());
 }

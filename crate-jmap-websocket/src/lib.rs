@@ -19,7 +19,8 @@
 //! the answers and push notifications back, over any `Stream` and `Sink`
 //! of messages, so it fits axum, tokio-tungstenite or another stack. Also
 //! [`server::PushHub`], an in-memory state-change source with `pushState`
-//! replay.
+//! replay, and [`server::ExtensionHandler`], the hook for the extension
+//! message types of the JMAP Chat, VTC and Scene WebSocket drafts.
 //!
 //! Feature `tungstenite`: `tungstenite::serve` runs a connection over a
 //! tokio-tungstenite `WebSocketStream`.

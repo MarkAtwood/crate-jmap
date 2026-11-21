@@ -32,8 +32,12 @@ Feature `server` (module `server`):
 - `PushSource`: where push notifications come from; `PushHub` is an
   in-memory fan-out with `pushState` tokens and replay; `NoPush` sends
   nothing. `filter_state_change` applies `dataTypes`.
+- `ExtensionHandler`: takes the client messages of extension `@type`s
+  (`ChatStreamEnable`, `VTCStreamEnable`, `SceneStreamEnable`, ...) and
+  sends the extension's events through an `ExtensionSender`; register
+  it with `Connection::with_extension`.
 - `ConnectionConfig`: `maxCallsInRequest`, `maxSizeRequest`,
-  `maxConcurrentRequests`, binary-message policy.
+  `maxConcurrentRequests`, binary-message policy, extension queue size.
 
 Feature `tungstenite`: `tungstenite::serve` runs a `Connection` over a
 tokio-tungstenite `WebSocketStream`.
@@ -73,6 +77,62 @@ jmap_websocket::tungstenite::serve(connection, ws).await?;
 After each write, publish the changed states to the principal's
 `PushHub` (`hub.publish(state_change)`); every connection of that
 principal with push enabled gets them.
+
+### Extension message types
+
+The JMAP Chat, VTC and Scene WebSocket drafts update RFC 8887: a
+capability in the Session "MAY define additional WebSocket message
+types, each identified by its `@type` value", and the server sends them
+only after the client enabled them with that capability's control
+message (`ChatStreamEnable`, `VTCStreamEnable`, `SceneStreamEnable`).
+Implement `ExtensionHandler` for those types and register one value per
+connection, next to advertising the capability:
+
+```rust,no_run
+use jmap_websocket::jmap_types::JmapError;
+use jmap_websocket::server::{ExtensionHandler, ExtensionMessage, ExtensionSender};
+
+struct ToyStream {
+    caller: String,
+    events: Option<ExtensionSender>,
+}
+
+impl ExtensionHandler for ToyStream {
+    fn message_types(&self) -> &[&str] {
+        &["ToyStreamEnable", "ToyStreamDisable"]
+    }
+
+    fn start(&mut self, events: ExtensionSender) {
+        // Keep it, or hand a clone to a task that forwards events.
+        self.events = Some(events);
+    }
+
+    async fn handle(&mut self, message: ExtensionMessage) -> Result<(), JmapError> {
+        // Update the subscription; Err becomes a RequestError whose
+        // requestId is message.id.
+        Ok(())
+    }
+
+    async fn close(&mut self) {
+        // The connection ended: drop the subscription.
+    }
+}
+
+# fn wire(connection: jmap_websocket::server::Connection<jmap_websocket::server::DispatcherHandler<()>>) {
+let connection = connection.with_extension(ToyStream { caller: "u1".into(), events: None });
+# let _ = connection; }
+```
+
+- `handle` runs one message at a time, in order; the driver reads the
+  next client message only after it returns, while Responses,
+  StateChanges and queued events keep going out.
+- Events go through a bounded queue
+  (`ConnectionConfig::extension_queue_capacity`, default 64):
+  `try_send` drops on `Full`, `send` waits. An event must be a JSON
+  object with an `@type` that is not an RFC 8887 one.
+- `close` runs once when `run` ends, however it ends, after the queue
+  closed and a running `handle` finished.
+- A `@type` no handler registered is still answered with `notRequest`.
 
 ## How it works
 
@@ -118,8 +178,15 @@ principal with push enabled gets them.
   `sessionState` RFC 8620 §3.4 requires, and the second StateChange
   misses a comma. The tests say so.
 - `Dispatcher::dispatch` needs a Tokio runtime, so `run` does too.
-- Requests from client-side extensions (e.g. the chat-wss `@type`s) are
-  answered with `notRequest`; there is no hook for them yet.
+- Extension `@type`s are answered with `notRequest` unless an
+  `ExtensionHandler` is registered for them. The driver does not check
+  `using` for them: the drafts tie them to the Session capability, so
+  register a handler only where the capability is advertised.
+- A handler error's `extra` members become problem-details members,
+  except names the driver writes itself (`type`, `status`, `title`,
+  `detail`, `instance`, `limit`, `requestId`, `@type`).
+- `ExtensionHandler::close` does not run if the `run` future is dropped
+  (a cancelled task); put cleanup that must happen then in `Drop`.
 
 ## References
 
@@ -129,6 +196,9 @@ principal with push enabled gets them.
   request-level errors, StateChange
 - [RFC 6455] — The WebSocket Protocol
 - [RFC 9457] — Problem Details for HTTP APIs
+- draft-atwood-jmap-chat-wss-00, draft-atwood-jmap-vtc-wss-00,
+  draft-atwood-jmap-scene-wss-00 — the extension message types
+  (jmap-chat-spec)
 
 [RFC 8887]: https://www.rfc-editor.org/rfc/rfc8887
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620

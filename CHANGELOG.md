@@ -33,6 +33,20 @@ wire behaviour that a conforming peer can observe.
   tests are behind the `real-ffmpeg` feature and `#[ignore]`. Re-exports
   `url`. Not published yet.
 
+- **jmap-websocket**: a hook for extension `@type` messages on the
+  RFC 8887 connection (bd:JMAP-95rh item 2, decision 63), for the
+  stream messages of draft-atwood-jmap-chat-wss-00, -vtc-wss-00 and
+  -scene-wss-00. `server::ExtensionHandler` (registered with
+  `Connection::with_extension`, one value per connection) receives the
+  client messages of the `@type`s it names as `ExtensionMessage`s, one
+  at a time and in order, and sends server-to-client messages through
+  an `ExtensionSender` on a bounded queue
+  (`ConnectionConfig::extension_queue_capacity`, default 64;
+  `ExtensionSendError`). A handler error is sent as a RequestError with
+  the message's `id` and the error's `extra` members; `close` runs once
+  when the connection ends. Unregistered types are still answered with
+  `notRequest`.
+
 ### Changed
 
 - jmap-types, jmap-object-uri: a `jmap:` URI whose type name is longer
