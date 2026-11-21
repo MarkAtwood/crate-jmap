@@ -1,1 +1,2 @@
 {"id":"01a1f71b-319b-7a5a-972f-ecbd45b23d8b","issue_id":"JMAP-po6q.6","event_type":"created","actor":"Mark Atwood","old_value":"","new_value":"","created_at":"2026-11-20T03:58:36.955679865Z"}
+{"id":"01a1fb93-8808-7cdd-911d-69ff39034559","issue_id":"JMAP-po6q.6","event_type":"closed","actor":"Mark Atwood","old_value":"","new_value":"jmap-vtc-livekit landed (444f2fed): room-composite egress for push/hosted livestreams and MP4 recordings, layouts, webhook verifier; 30 tests (wiremock), recording pause reported unsupported","created_at":"2026-11-21T00:48:32.264844286Z"}

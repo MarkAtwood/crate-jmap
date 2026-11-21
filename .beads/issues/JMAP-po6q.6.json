@@ -2,13 +2,15 @@
   "id": "JMAP-po6q.6",
   "title": "jmap-vtc-livekit: LiveKit SFU + Egress media backend adapter",
   "description": "Second backend kind (SFU + egress) so the VtcBackend media hooks stay vendor-neutral (docs/design/vtc-broadcast-research.md §po6q.5a). LiveKit Egress for VTCRecording (room composite/track to MP4/HLS, S3 upload), push livestreams to RTMP/SRT, room composite layouts; hosted-mode sub-second playback via MediaMTX WHEP with per-viewer JWT minted in playback_endpoints_for. Implements the post-write media hooks and reports state with the media_report helpers from po6q.2. Tests against wiremock (LiveKit Twirp API). Open question for Mark (research note): is LiveKit the reference SFU? If yes this becomes the default adapter.",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "task",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-20T03:58:36.949588565Z",
   "created_by": "Mark Atwood",
-  "updated_at": "2026-11-20T03:58:36.949588565Z",
+  "updated_at": "2026-11-21T00:48:32.259984602Z",
+  "closed_at": "2026-11-21T00:48:32.259984602Z",
+  "close_reason": "jmap-vtc-livekit landed (444f2fed): room-composite egress for push/hosted livestreams and MP4 recordings, layouts, webhook verifier; 30 tests (wiremock), recording pause reported unsupported",
   "dependencies": [
     {
       "issue_id": "JMAP-po6q.6",
