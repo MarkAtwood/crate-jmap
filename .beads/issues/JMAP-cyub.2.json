@@ -2,13 +2,15 @@
   "id": "JMAP-cyub.2",
   "title": "crate-jmap-interop test crate (publish = false)",
   "description": "New workspace member, publish = false. All tests skip unless JMAP_INTEROP_URL (+ credentials) is set, so default CI and published crates are unchanged. Shared helpers: session client against the external server, normalization for diffing (ids, state strings, timestamps).",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "task",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-18T20:10:18.550024824Z",
   "created_by": "agent",
-  "updated_at": "2026-10-18T20:10:18.550024824Z",
+  "updated_at": "2026-11-21T19:43:31.610106001Z",
+  "closed_at": "2026-11-21T19:43:31.610106001Z",
+  "close_reason": "crate-jmap-interop (publish = false): InteropEnv, known_divergence, exclusive(); server tests #[ignore], gated on JMAP_INTEROP_URL",
   "dependencies": [
     {
       "issue_id": "JMAP-cyub.2",

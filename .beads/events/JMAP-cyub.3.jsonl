@@ -1,1 +1,2 @@
 {"id":"01a150a2-f33b-7e04-bdbe-2491f78e228f","issue_id":"JMAP-cyub.3","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-18T20:10:18.811919271Z"}
+{"id":"01a1ffa2-a73f-7c98-a781-779bebd3f32b","issue_id":"JMAP-cyub.3","event_type":"closed","actor":"Mark Atwood","old_value":"","new_value":"18 client tests (core 9, mail 8, smoke 1) pass against live Stalwart; no crate-jmap client bugs found","created_at":"2026-11-21T19:43:32.159826177Z"}

@@ -1,1 +1,2 @@
 {"id":"01a150a2-f23c-7c11-9e38-c06185c913f5","issue_id":"JMAP-cyub.2","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-18T20:10:18.556792553Z"}
+{"id":"01a1ffa2-a51e-7dfd-891d-dbd1e38d4fa4","issue_id":"JMAP-cyub.2","event_type":"closed","actor":"Mark Atwood","old_value":"","new_value":"crate-jmap-interop (publish = false): InteropEnv, known_divergence, exclusive(); server tests #[ignore], gated on JMAP_INTEROP_URL","created_at":"2026-11-21T19:43:31.614918119Z"}
