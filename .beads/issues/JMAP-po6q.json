@@ -2,11 +2,12 @@
   "id": "JMAP-po6q",
   "title": "VTC broadcast: crates and media-plane adapter",
   "description": "Crate side of jmap-chat-spec epic xpzz (VTC broadcast livestreams, protocol-neutral). Protocol parts are blocked on those spec decisions. The VtcBackend media hooks must fit at least three very different backends (AWS packager pipeline, WHEP/SFU-egress service, free-tools reference); the AWS adapter is one adapter, not the design target.",
+  "notes": "CHECKPOINT 2026-11-21: main 7a54fa3b pushed. Done since last: ew00 (spec 55246b1 + type-name cap), 5rmi (Logging safety in 15 crates), 84zs, 8loa (spec 93f2258; impl JMAP-24aw), eedw (all /set handlers split; follow-ups JMAP-82cv, JMAP-eltq), po6q.7 (jmap-vtc-ffmpeg; media.yml CI job, first run 44841410747), 76tz filed as jmapio/jmap#485. Running agents (worktrees): 95rh #2 websocket extension hook, po6q.6 jmap-vtc-livekit. Pending for Mark: none blocking; ops7 decision 61 queued for 0.7.",
   "status": "open",
   "priority": 3,
   "issue_type": "epic",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-21T21:34:17.00484805Z",
   "created_by": "agent",
-  "updated_at": "2026-10-21T21:46:52.488038013Z"
+  "updated_at": "2026-11-21T00:05:58.990573786Z"
 }
