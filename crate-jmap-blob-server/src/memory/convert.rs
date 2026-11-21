@@ -93,33 +93,7 @@ fn plan_entry(
         }
     };
 
-    // §8.3: blobId "MUST be non-null for file entries. MUST be null or
-    // absent for" every other type.
-    let content = match (&entry_type, &e.blob_id) {
-        (EntryType::File, Some(BlobRef::Id(id))) => {
-            let size = size_of(id).ok_or_else(|| {
-                Box::new(
-                    SetError::new(SetErrorType::NotFound)
-                        .with_not_found(vec![id.clone()])
-                        .with_description(format!("entry blob {} not found", id.as_ref())),
-                )
-            })?;
-            if size > MAX_OCTAL_11 {
-                return Err(invalid(path("blobId"), "entry too large for ustar"));
-            }
-            Some(id.clone())
-        }
-        (EntryType::File, Some(BlobRef::Creation(_))) => {
-            return Err(invalid(path("blobId"), "unresolved creation reference"));
-        }
-        (EntryType::File, None) => {
-            return Err(invalid(path("blobId"), "a file entry needs a blobId"));
-        }
-        (_, Some(_)) => {
-            return Err(invalid(path("blobId"), "only file entries have a blobId"));
-        }
-        (_, None) => None,
-    };
+    let content = entry_content(i, e, &entry_type, size_of)?;
 
     let (prefix, name) = split_name(&e.name).ok_or_else(|| {
         invalid(
@@ -134,23 +108,7 @@ fn plan_entry(
         ));
     }
 
-    // §8.3: linkTarget "MUST be non-null when entryType is "symlink" or
-    // "hardlink". MUST be null for all other entry types."
-    let is_link = matches!(entry_type, EntryType::Symlink | EntryType::Hardlink);
-    let linkname = match (&e.link_target, is_link) {
-        (Some(t), true) if !t.is_empty() && t.len() <= NAME_LEN && !t.contains('\0') => t.clone(),
-        (Some(_), true) => {
-            return Err(invalid(
-                path("linkTarget"),
-                "link target does not fit ustar",
-            ));
-        }
-        (None, true) => return Err(invalid(path("linkTarget"), "links need a linkTarget")),
-        (Some(_), false) => {
-            return Err(invalid(path("linkTarget"), "only links have a linkTarget"));
-        }
-        (None, false) => String::new(),
-    };
+    let linkname = entry_linkname(i, e, &entry_type)?;
 
     let mode = match &e.mode {
         Some(m) => {
@@ -200,6 +158,67 @@ fn plan_entry(
         devminor: numeric(e.dev_minor, "devMinor")?,
         content,
     })
+}
+
+/// The content blob of entry `i`, `e`, of type `entry_type`, checked with
+/// `size_of` to exist and fit ustar.
+///
+/// §8.3: blobId "MUST be non-null for file entries. MUST be null or
+/// absent for" every other type.
+fn entry_content(
+    i: usize,
+    e: &ArchiveEntry,
+    entry_type: &EntryType,
+    size_of: &mut impl FnMut(&Id) -> Option<u64>,
+) -> Result<Option<Id>, Box<SetError>> {
+    let path = |p: &str| format!("archive/entries/{i}/{p}");
+    match (entry_type, &e.blob_id) {
+        (EntryType::File, Some(BlobRef::Id(id))) => {
+            let size = size_of(id).ok_or_else(|| {
+                Box::new(
+                    SetError::new(SetErrorType::NotFound)
+                        .with_not_found(vec![id.clone()])
+                        .with_description(format!("entry blob {} not found", id.as_ref())),
+                )
+            })?;
+            if size > MAX_OCTAL_11 {
+                return Err(invalid(path("blobId"), "entry too large for ustar"));
+            }
+            Ok(Some(id.clone()))
+        }
+        (EntryType::File, Some(BlobRef::Creation(_))) => {
+            Err(invalid(path("blobId"), "unresolved creation reference"))
+        }
+        (EntryType::File, None) => Err(invalid(path("blobId"), "a file entry needs a blobId")),
+        (_, Some(_)) => Err(invalid(path("blobId"), "only file entries have a blobId")),
+        (_, None) => Ok(None),
+    }
+}
+
+/// The ustar `linkname` of entry `i`, `e`, of type `entry_type`: its
+/// `linkTarget`, empty for an entry that is not a link.
+///
+/// §8.3: linkTarget "MUST be non-null when entryType is "symlink" or
+/// "hardlink". MUST be null for all other entry types."
+fn entry_linkname(
+    i: usize,
+    e: &ArchiveEntry,
+    entry_type: &EntryType,
+) -> Result<String, Box<SetError>> {
+    let path = |p: &str| format!("archive/entries/{i}/{p}");
+    let is_link = matches!(entry_type, EntryType::Symlink | EntryType::Hardlink);
+    match (&e.link_target, is_link) {
+        (Some(t), true) if !t.is_empty() && t.len() <= NAME_LEN && !t.contains('\0') => {
+            Ok(t.clone())
+        }
+        (Some(_), true) => Err(invalid(
+            path("linkTarget"),
+            "link target does not fit ustar",
+        )),
+        (None, true) => Err(invalid(path("linkTarget"), "links need a linkTarget")),
+        (Some(_), false) => Err(invalid(path("linkTarget"), "only links have a linkTarget")),
+        (None, false) => Ok(String::new()),
+    }
 }
 
 /// Parse an octal permission string such as `"0644"` (at most 0o7777).

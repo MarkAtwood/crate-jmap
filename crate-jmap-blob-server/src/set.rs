@@ -403,92 +403,19 @@ pub(crate) async fn create_one<B: BlobBackend>(
     ctx: &mut Ctx<'_, B>,
     obj: BlobCreateObject,
 ) -> Result<Result<CreatedBlob, Box<SetError>>, JmapError> {
-    let fail = |e: B::Error| server_fail_from_backend(&e);
-    let advertised = &ctx.capability.supported_digest_algorithms;
-
     // Sources: shape, range, size and position (no octets read yet).
     let mut checked = Vec::with_capacity(obj.data.len());
     let mut total: u64 = 0;
     for (i, dso) in obj.data.into_iter().enumerate() {
-        let bad = |why: &str| Ok(Err(Box::new(bad_source(i, why))));
-        let keys = usize::from(dso.data_as_text.is_some())
-            + usize::from(dso.data_as_base64.is_some())
-            + usize::from(dso.blob_id.is_some());
-        if keys != 1 {
-            return bad("needs exactly one of data:asText, data:asBase64 and blobId");
-        }
-        if let Some(name) = dso.extra.keys().next() {
-            return bad(&format!("unknown property {name}"));
-        }
-        if let Some(alg) = dso.digests.keys().find(|a| !advertised.contains(a)) {
-            return bad(&format!("{} is not supported", alg.property_name()));
-        }
-        let origin = if let Some(text) = dso.data_as_text {
-            Origin::Inline(text.into_bytes())
-        } else if let Some(b64) = dso.data_as_base64 {
-            let Ok(bytes) = STANDARD.decode(b64.as_bytes()) else {
-                return bad("data:asBase64 is not valid base64");
-            };
-            Origin::Inline(bytes)
-        } else if let Some(r) = &dso.blob_id {
-            let Some(blob_id) = ctx.resolve(r) else {
-                return Ok(Err(Box::new(not_found(&format!(
-                    "data/{i}: no blob was created under {r}"
-                )))));
-            };
-            let Some(meta) = ctx
-                .backend
-                .blob_info(ctx.caller, ctx.account_id, &blob_id)
-                .await
-                .map_err(fail)?
-            else {
-                return Ok(Err(Box::new(
-                    not_found(&format!("data/{i}: blob {blob_id} not found"))
-                        .with_not_found(vec![blob_id]),
-                )));
-            };
-            Origin::Blob(blob_id, meta.size)
-        } else {
-            return bad("needs exactly one of data:asText, data:asBase64 and blobId");
+        let c = match create_source(ctx, i, dso, total).await? {
+            Ok(c) => c,
+            Err(err) => return Ok(Err(err)),
         };
-        let full_size = match &origin {
-            Origin::Inline(bytes) => len_u64(bytes),
-            Origin::Blob(_, size) => *size,
-        };
-        let offset = dso.offset.unwrap_or(0);
-        if offset > full_size {
-            return bad("offset is past the end of the source");
-        }
-        let end = match dso.length {
-            None => full_size,
-            Some(length) => match offset.checked_add(length) {
-                Some(end) if end <= full_size => end,
-                _ => return bad("offset + length is past the end of the source"),
-            },
-        };
-        if dso.size.is_some_and(|s| s != full_size) {
-            return bad("size is not the size of the source");
-        }
-        if dso.position.is_some_and(|p| p != total) {
-            return bad("position is not where the source starts in the blob");
-        }
-        let len = end - offset;
-        total = match total.checked_add(len) {
+        total = match total.checked_add(c.len) {
             Some(t) => t,
             None => return Ok(Err(Box::new(too_large("the blob is too large")))),
         };
-        let source = match origin {
-            Origin::Inline(bytes) => BlobSource::Bytes(slice(&bytes, offset..end).to_vec()),
-            Origin::Blob(blob_id, _) => BlobSource::Blob {
-                blob_id,
-                range: offset..end,
-            },
-        };
-        checked.push(Checked {
-            source,
-            len,
-            digests: dso.digests,
-        });
+        checked.push(c);
     }
 
     if let Some(max) = ctx.capability.max_size_blob_set
@@ -504,47 +431,8 @@ pub(crate) async fn create_one<B: BlobBackend>(
         )))));
     }
 
-    // Digests: read source octets only when some digest needs them.
-    let need_octets = !obj.digests.is_empty() || checked.iter().any(|c| !c.digests.is_empty());
-    if need_octets {
-        let mut parts: Vec<Vec<u8>> = Vec::with_capacity(checked.len());
-        for (i, c) in checked.iter().enumerate() {
-            let octets = match &c.source {
-                BlobSource::Bytes(b) => b.clone(),
-                BlobSource::Blob { blob_id, range } => match ctx
-                    .backend
-                    .read_blob_range(ctx.caller, ctx.account_id, blob_id, range.clone())
-                    .await
-                    .map_err(fail)?
-                {
-                    Some(o) if len_u64(&o) == c.len => o,
-                    _ => {
-                        return Ok(Err(Box::new(
-                            not_found(&format!("data/{i}: blob {blob_id} not found"))
-                                .with_not_found(vec![blob_id.clone()]),
-                        )));
-                    }
-                },
-            };
-            for (alg, want) in &c.digests {
-                if compute_digest(ctx.backend, alg, &[&octets])? != *want {
-                    return Ok(Err(Box::new(bad_source(
-                        i,
-                        &format!("{} does not match the source", alg.property_name()),
-                    ))));
-                }
-            }
-            parts.push(octets);
-        }
-        let refs: Vec<&[u8]> = parts.iter().map(Vec::as_slice).collect();
-        for (alg, want) in &obj.digests {
-            if compute_digest(ctx.backend, alg, &refs)? != *want {
-                return Ok(Err(Box::new(
-                    invalid([alg.property_name()])
-                        .with_description("the digest does not match the blob"),
-                )));
-            }
-        }
+    if let Err(err) = create_digest_error(ctx, &checked, &obj.digests).await? {
+        return Ok(Err(err));
     }
 
     let mut create = BlobCreate::new(checked.into_iter().map(|c| c.source).collect(), total);
@@ -555,6 +443,175 @@ pub(crate) async fn create_one<B: BlobBackend>(
         .create_blob(ctx.caller, ctx.account_id, create)
         .await
         .map_err(|e| Box::new(backend_set_error(e))))
+}
+
+/// Check data source `i` of a create (docs/design/blobext.md §5 steps 4-6):
+/// its shape, its digest algorithms, its range, `size`, and `position`
+/// against `total`, the octets the earlier sources contribute. No octets of
+/// a source blob are read.
+///
+/// The outer `Err` is method-level; the inner one is the entry's
+/// `notCreated` value.
+async fn create_source<B: BlobBackend>(
+    ctx: &Ctx<'_, B>,
+    i: usize,
+    mut dso: DataSourceObject,
+    total: u64,
+) -> Result<Result<Checked, Box<SetError>>, JmapError> {
+    let bad = |why: &str| Ok(Err(Box::new(bad_source(i, why))));
+    let advertised = &ctx.capability.supported_digest_algorithms;
+    let keys = usize::from(dso.data_as_text.is_some())
+        + usize::from(dso.data_as_base64.is_some())
+        + usize::from(dso.blob_id.is_some());
+    if keys != 1 {
+        return bad("needs exactly one of data:asText, data:asBase64 and blobId");
+    }
+    if let Some(name) = dso.extra.keys().next() {
+        return bad(&format!("unknown property {name}"));
+    }
+    if let Some(alg) = dso.digests.keys().find(|a| !advertised.contains(a)) {
+        return bad(&format!("{} is not supported", alg.property_name()));
+    }
+    let origin = match source_origin(ctx, i, &mut dso).await? {
+        Ok(origin) => origin,
+        Err(err) => return Ok(Err(err)),
+    };
+    let full_size = match &origin {
+        Origin::Inline(bytes) => len_u64(bytes),
+        Origin::Blob(_, size) => *size,
+    };
+    let offset = dso.offset.unwrap_or(0);
+    if offset > full_size {
+        return bad("offset is past the end of the source");
+    }
+    let end = match dso.length {
+        None => full_size,
+        Some(length) => match offset.checked_add(length) {
+            Some(end) if end <= full_size => end,
+            _ => return bad("offset + length is past the end of the source"),
+        },
+    };
+    if dso.size.is_some_and(|s| s != full_size) {
+        return bad("size is not the size of the source");
+    }
+    if dso.position.is_some_and(|p| p != total) {
+        return bad("position is not where the source starts in the blob");
+    }
+    let source = match origin {
+        Origin::Inline(bytes) => BlobSource::Bytes(slice(&bytes, offset..end).to_vec()),
+        Origin::Blob(blob_id, _) => BlobSource::Blob {
+            blob_id,
+            range: offset..end,
+        },
+    };
+    Ok(Ok(Checked {
+        source,
+        len: end - offset,
+        digests: dso.digests,
+    }))
+}
+
+/// Where data source `i`, `dso`, takes its octets from: its inline
+/// `data:asText` or `data:asBase64` (taken out of `dso`), or the blob its
+/// `blobId` names, which must exist.
+///
+/// The outer `Err` is method-level; the inner one is the entry's
+/// `notCreated` value.
+async fn source_origin<B: BlobBackend>(
+    ctx: &Ctx<'_, B>,
+    i: usize,
+    dso: &mut DataSourceObject,
+) -> Result<Result<Origin, Box<SetError>>, JmapError> {
+    if let Some(text) = dso.data_as_text.take() {
+        return Ok(Ok(Origin::Inline(text.into_bytes())));
+    }
+    if let Some(b64) = dso.data_as_base64.take() {
+        let Ok(bytes) = STANDARD.decode(b64.as_bytes()) else {
+            return Ok(Err(Box::new(bad_source(
+                i,
+                "data:asBase64 is not valid base64",
+            ))));
+        };
+        return Ok(Ok(Origin::Inline(bytes)));
+    }
+    let Some(r) = &dso.blob_id else {
+        return Ok(Err(Box::new(bad_source(
+            i,
+            "needs exactly one of data:asText, data:asBase64 and blobId",
+        ))));
+    };
+    let Some(blob_id) = ctx.resolve(r) else {
+        return Ok(Err(Box::new(not_found(&format!(
+            "data/{i}: no blob was created under {r}"
+        )))));
+    };
+    let Some(meta) = ctx
+        .backend
+        .blob_info(ctx.caller, ctx.account_id, &blob_id)
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?
+    else {
+        return Ok(Err(Box::new(
+            not_found(&format!("data/{i}: blob {blob_id} not found")).with_not_found(vec![blob_id]),
+        )));
+    };
+    Ok(Ok(Origin::Blob(blob_id, meta.size)))
+}
+
+/// Check the digests of a create (docs/design/blobext.md §5 step 8): each
+/// source's own, then `digests`, the whole blob's. Source octets are read
+/// only when some digest needs them.
+///
+/// The outer `Err` is method-level; the inner one is the entry's
+/// `notCreated` value.
+async fn create_digest_error<B: BlobBackend>(
+    ctx: &Ctx<'_, B>,
+    checked: &[Checked],
+    digests: &BTreeMap<DigestAlgorithm, String>,
+) -> Result<Result<(), Box<SetError>>, JmapError> {
+    let need_octets = !digests.is_empty() || checked.iter().any(|c| !c.digests.is_empty());
+    if !need_octets {
+        return Ok(Ok(()));
+    }
+    let mut parts: Vec<Vec<u8>> = Vec::with_capacity(checked.len());
+    for (i, c) in checked.iter().enumerate() {
+        let octets = match &c.source {
+            BlobSource::Bytes(b) => b.clone(),
+            BlobSource::Blob { blob_id, range } => match ctx
+                .backend
+                .read_blob_range(ctx.caller, ctx.account_id, blob_id, range.clone())
+                .await
+                .map_err(|e| server_fail_from_backend(&e))?
+            {
+                Some(o) if len_u64(&o) == c.len => o,
+                _ => {
+                    return Ok(Err(Box::new(
+                        not_found(&format!("data/{i}: blob {blob_id} not found"))
+                            .with_not_found(vec![blob_id.clone()]),
+                    )));
+                }
+            },
+        };
+        for (alg, want) in &c.digests {
+            if compute_digest(ctx.backend, alg, &[&octets])? != *want {
+                return Ok(Err(Box::new(bad_source(
+                    i,
+                    &format!("{} does not match the source", alg.property_name()),
+                ))));
+            }
+        }
+        parts.push(octets);
+    }
+    let refs: Vec<&[u8]> = parts.iter().map(Vec::as_slice).collect();
+    for (alg, want) in digests {
+        if compute_digest(ctx.backend, alg, &refs)? != *want {
+            return Ok(Err(Box::new(
+                invalid([alg.property_name()])
+                    .with_description("the digest does not match the blob"),
+            )));
+        }
+    }
+    Ok(Ok(()))
 }
 
 /// Where a data source's octets come from.

@@ -92,6 +92,14 @@ enum Repr {
     Deferred(Deferred),
 }
 
+/// One source of a created blob, its `blobId` sources re-checked.
+enum Piece {
+    /// Inline octets.
+    Bytes(Vec<u8>),
+    /// The leaf chunks of a range of a stored blob.
+    Chunks(Vec<ChunkRef>),
+}
+
 #[derive(Debug, Clone)]
 struct Deferred {
     entries: Vec<TarEntry>,
@@ -708,10 +716,6 @@ impl<C> MemoryBackend<C> {
         };
 
         // Re-check every blobId source and collect the pieces.
-        enum Piece {
-            Bytes(Vec<u8>),
-            Chunks(Vec<ChunkRef>),
-        }
         let mut pieces = Vec::new();
         let mut all_inline = true;
         for source in create.sources {
@@ -745,48 +749,7 @@ impl<C> MemoryBackend<C> {
                 .collect();
             (Repr::Bytes(bytes.clone()), bytes)
         } else {
-            // Inline pieces become leaf blobs of their own.
-            let mut chunks = Vec::new();
-            let mut new_leaves = Vec::new();
-            for p in pieces {
-                match p {
-                    Piece::Chunks(c) => chunks.extend(c),
-                    Piece::Bytes(b) if b.is_empty() => {}
-                    Piece::Bytes(b) => {
-                        let len = b.len() as u64;
-                        let id = inner.mint();
-                        chunks.push(ChunkRef::new(id.clone(), 0, len, len));
-                        new_leaves.push((id, b));
-                    }
-                }
-            }
-            let Some(acc) = inner.accounts.get_mut(account_id) else {
-                return Err(BackendSetError::Other(unknown_account(account_id)));
-            };
-            for (id, b) in new_leaves {
-                acc.blobs.insert(
-                    id,
-                    StoredBlob {
-                        size: b.len() as u64,
-                        sha256: sha256(&b),
-                        repr: Repr::Bytes(b),
-                        media_type: None,
-                        expires: Some(expires),
-                    },
-                );
-            }
-            let mut bytes = Vec::new();
-            for c in &chunks {
-                let Some(Repr::Bytes(b)) = acc.blobs.get(&c.blob_id).map(|b| &b.repr) else {
-                    return Err(not_found(&c.blob_id));
-                };
-                let range = to_usize(c.offset).zip(to_usize(c.offset + c.length));
-                let Some(slice) = range.and_then(|(a, z)| b.get(a..z)) else {
-                    return Err(not_found(&c.blob_id));
-                };
-                bytes.extend_from_slice(slice);
-            }
-            (Repr::Chunks(chunks), bytes)
+            Self::chunked(inner, account_id, pieces, expires)?
         };
 
         let size = bytes.len() as u64;
@@ -808,6 +771,60 @@ impl<C> MemoryBackend<C> {
         created.expires = utc_date_from_epoch_seconds(expires);
         created.omit_from_response = omit;
         Ok(created)
+    }
+
+    /// The chunked representation of a created blob made of `pieces`, at
+    /// least one of them read from a stored blob, and its octets. Each
+    /// non-empty inline piece becomes a leaf blob of its own in
+    /// `account_id`, expiring at `expires`.
+    fn chunked(
+        inner: &mut Inner,
+        account_id: &Id,
+        pieces: Vec<Piece>,
+        expires: i64,
+    ) -> Result<(Repr, Vec<u8>), BackendSetError<MemoryError>> {
+        // Inline pieces become leaf blobs of their own.
+        let mut chunks = Vec::new();
+        let mut new_leaves = Vec::new();
+        for p in pieces {
+            match p {
+                Piece::Chunks(c) => chunks.extend(c),
+                Piece::Bytes(b) if b.is_empty() => {}
+                Piece::Bytes(b) => {
+                    let len = b.len() as u64;
+                    let id = inner.mint();
+                    chunks.push(ChunkRef::new(id.clone(), 0, len, len));
+                    new_leaves.push((id, b));
+                }
+            }
+        }
+        let Some(acc) = inner.accounts.get_mut(account_id) else {
+            return Err(BackendSetError::Other(unknown_account(account_id)));
+        };
+        for (id, b) in new_leaves {
+            acc.blobs.insert(
+                id,
+                StoredBlob {
+                    size: b.len() as u64,
+                    sha256: sha256(&b),
+                    repr: Repr::Bytes(b),
+                    media_type: None,
+                    expires: Some(expires),
+                },
+            );
+        }
+        let mut bytes = Vec::new();
+        for c in &chunks {
+            let Some(Repr::Bytes(b)) = acc.blobs.get(&c.blob_id).map(|b| &b.repr) else {
+                return Err(not_found(&c.blob_id));
+            };
+            let range = to_usize(c.offset).zip(to_usize(c.offset + c.length));
+            let Some(slice) = range.and_then(|(a, z)| b.get(a..z)) else {
+                return Err(not_found(&c.blob_id));
+            };
+            bytes.extend_from_slice(slice);
+        }
+        Ok((Repr::Chunks(chunks), bytes))
     }
 
     fn touch(
@@ -1016,68 +1033,7 @@ impl<C: MemoryCaller> MemoryBackend<C> {
                 out.omit_from_response = omit;
                 Ok(out)
             }
-            Recipe::Extract(r) => {
-                let archive = literal(&r.blob_id)?;
-                if !acc.materialize(archive) {
-                    return Err(not_found(archive));
-                }
-                let Some(blob) = acc.blobs.get(archive) else {
-                    return Err(not_found(archive));
-                };
-                let (size, media_type) = (blob.size, blob.media_type.clone());
-                let blob_expires = if acc.is_referenced(archive) {
-                    None
-                } else {
-                    blob.expires
-                };
-                let bytes = acc
-                    .read(archive, 0..size)
-                    .ok_or_else(|| not_found(archive))?;
-                let unknown = || {
-                    set_error(
-                        SetErrorType::from(errors::UNKNOWN_FORMAT),
-                        "the memory backend extracts only application/x-tar",
-                    )
-                };
-                match &r.media_type {
-                    Some(t) if !t.eq_ignore_ascii_case(TAR) => return Err(unknown()),
-                    None if !looks_like_tar(&bytes) => return Err(unknown()),
-                    _ => {}
-                }
-                let parsed = parse_tar(&bytes).ok_or_else(|| {
-                    set_error(
-                        SetErrorType::from(errors::CONVERSION_FAILED),
-                        "not a valid tar archive",
-                    )
-                })?;
-                let mut entries = Vec::with_capacity(parsed.entries.len());
-                for p in parsed.entries {
-                    let mut entry = p.entry;
-                    if let Some(content) = p.content {
-                        let id = mint(next_id);
-                        acc.blobs.insert(
-                            id.clone(),
-                            StoredBlob {
-                                size: content.len() as u64,
-                                sha256: sha256(&content),
-                                repr: Repr::Bytes(content),
-                                media_type: None,
-                                expires: Some(now + EXPIRES_SECS),
-                            },
-                        );
-                        entry.blob_id = Some(BlobRef::Id(id));
-                    }
-                    entries.push(entry);
-                }
-                // blobext-03 §8.4: the result's id, type and size are the
-                // archive's; noPersist has no effect.
-                let mut out = ConvertOutcome::new(archive.clone(), media_type, Some(size));
-                out.expires = blob_expires.and_then(utc_date_from_epoch_seconds);
-                out.is_incomplete = parsed.problem.is_some();
-                out.description = parsed.problem;
-                out.entries = Some(entries);
-                Ok(out)
-            }
+            Recipe::Extract(r) => convert_extract(acc, next_id, r, now),
             recipe => {
                 let Some(StubConverter(convert)) = stub else {
                     return Err(BackendSetError::Other(MemoryError::new(format!(
@@ -1112,6 +1068,78 @@ impl<C: MemoryCaller> MemoryBackend<C> {
             }
         }
     }
+}
+
+/// The `extract` conversion of [`MemoryBackend`] (draft-ietf-jmap-blobext-03
+/// §8.4), which reads only `application/x-tar`: store each entry's content
+/// in `acc` as a blob of its own, minted from `next_id`, and describe the
+/// archive and its entries.
+fn convert_extract(
+    acc: &mut Account,
+    next_id: &mut u64,
+    r: &jmap_blob_types::ExtractRecipe,
+    now: i64,
+) -> Result<ConvertOutcome, BackendSetError<MemoryError>> {
+    let archive = literal(&r.blob_id)?;
+    if !acc.materialize(archive) {
+        return Err(not_found(archive));
+    }
+    let Some(blob) = acc.blobs.get(archive) else {
+        return Err(not_found(archive));
+    };
+    let (size, media_type) = (blob.size, blob.media_type.clone());
+    let blob_expires = if acc.is_referenced(archive) {
+        None
+    } else {
+        blob.expires
+    };
+    let bytes = acc
+        .read(archive, 0..size)
+        .ok_or_else(|| not_found(archive))?;
+    let unknown = || {
+        set_error(
+            SetErrorType::from(errors::UNKNOWN_FORMAT),
+            "the memory backend extracts only application/x-tar",
+        )
+    };
+    match &r.media_type {
+        Some(t) if !t.eq_ignore_ascii_case(TAR) => return Err(unknown()),
+        None if !looks_like_tar(&bytes) => return Err(unknown()),
+        _ => {}
+    }
+    let parsed = parse_tar(&bytes).ok_or_else(|| {
+        set_error(
+            SetErrorType::from(errors::CONVERSION_FAILED),
+            "not a valid tar archive",
+        )
+    })?;
+    let mut entries = Vec::with_capacity(parsed.entries.len());
+    for p in parsed.entries {
+        let mut entry = p.entry;
+        if let Some(content) = p.content {
+            let id = mint(next_id);
+            acc.blobs.insert(
+                id.clone(),
+                StoredBlob {
+                    size: content.len() as u64,
+                    sha256: sha256(&content),
+                    repr: Repr::Bytes(content),
+                    media_type: None,
+                    expires: Some(now + EXPIRES_SECS),
+                },
+            );
+            entry.blob_id = Some(BlobRef::Id(id));
+        }
+        entries.push(entry);
+    }
+    // blobext-03 §8.4: the result's id, type and size are the
+    // archive's; noPersist has no effect.
+    let mut out = ConvertOutcome::new(archive.clone(), media_type, Some(size));
+    out.expires = blob_expires.and_then(utc_date_from_epoch_seconds);
+    out.is_incomplete = parsed.problem.is_some();
+    out.description = parsed.problem;
+    out.entries = Some(entries);
+    Ok(out)
 }
 
 fn not_an_object_store<T>(type_name: &str) -> Result<T, MemoryError> {
