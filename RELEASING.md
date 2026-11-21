@@ -5,8 +5,8 @@ in **topological order**: each crate must find its dependencies on the
 registry. `cargo publish` with several `-p` flags orders them itself, and
 `scripts/publish.sh` wraps it (see "Publish procedure").
 
-(`jmap-testjig` is also a workspace member but carries `publish = false`
-and is never published.)
+(`jmap-testjig` and the test-only `jmap-interop` are also workspace
+members but carry `publish = false` and are never published.)
 
 This file documents the dependency graph and the publish procedure.
 

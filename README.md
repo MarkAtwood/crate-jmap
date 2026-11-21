@@ -160,6 +160,7 @@ Use it to carry per-request auth identity, tenant ID, or rate-limit tokens.
 | Crate | Role |
 |---|---|
 | `jmap-testjig` | Workspace integration test jig. Wires the dispatcher + all extension handlers + reference `MemoryBackend`s into a runnable HTTP/SSE/WS process. `publish = false`. Single-user, hardcoded bearer auth, in-memory only — explicitly NOT FOR PRODUCTION. |
+| `jmap-interop` | Opt-in interop tests of the client crates against an external JMAP server (Stalwart in a container, started by `scripts/stalwart-up.sh`). `publish = false`; every test is `#[ignore]`d. See [docs/interop/README.md](docs/interop/README.md). |
 
 ---
 

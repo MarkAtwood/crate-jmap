@@ -2395,6 +2395,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "jmap-interop"
+version = "0.0.0"
+dependencies = [
+ "jmap-base-client",
+ "tokio",
+]
+
+[[package]]
 name = "jmap-jscalendar-types"
 version = "0.6.1"
 dependencies = [
