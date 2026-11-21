@@ -2,7 +2,7 @@
 //!
 //! This module hosts pure (no I/O, no state) mappings from server-side
 //! mutation values onto the [`ChatPermission`] vocabulary defined by
-//! draft-atwood-jmap-chat-00 §SpaceRole `permissions` and gated per
+//! draft-atwood-jmap-chat-00 §`SpaceRole` `permissions` and gated per
 //! §Space/set. Backend implementations of
 //! [`ChatSpaces::apply_space_patch`](crate::ChatSpaces::apply_space_patch) consume these helpers to gate
 //! per-op authorization after resolving the caller's effective
@@ -10,8 +10,6 @@
 //!
 //! Per workspace AGENTS.md "backend canonical" policy, handlers MUST NOT
 //! call these helpers for permission gating — only backends do.
-//!
-//! [`ChatSpaces::apply_space_patch`](crate::ChatSpaces::apply_space_patch): crate::ChatSpaces::apply_space_patch
 
 use std::collections::HashSet;
 
@@ -22,9 +20,9 @@ use jmap_chat_types::{ChannelPermission, ChatPermission};
 /// draft-atwood-jmap-chat-00 §Space Permission Resolution.
 ///
 /// `space_permissions` is step 1, the union of `permissions` across every
-/// SpaceRole the member holds, including the implicit `@everyone` role.
+/// `SpaceRole` the member holds, including the implicit `@everyone` role.
 /// `space_id` is the id of the Space holding the channel, `role_ids` are
-/// the SpaceRole ids the member holds, `member_id` is its SpaceMember
+/// the `SpaceRole` ids the member holds, `member_id` is its `SpaceMember`
 /// `id`, and `overrides` is the channel's `permissionOverrides`. Steps 2
 /// to 5 then apply, in order: `deny` of role-targeted records matching
 /// `role_ids` or `space_id`, their `allow`, `deny` of the record
@@ -36,8 +34,8 @@ use jmap_chat_types::{ChannelPermission, ChatPermission};
 ///
 /// Records whose `targetType` is neither `"role"` nor `"member"` match
 /// nothing. Every member holds the implicit `@everyone` role, which has
-/// no SpaceRole id; a role-targeted record whose `targetId` is
-/// `space_id` addresses it (§ChannelPermission `targetId`: "A record
+/// no `SpaceRole` id; a role-targeted record whose `targetId` is
+/// `space_id` addresses it (§`ChannelPermission` `targetId`: "A record
 /// with `targetType: "role"` whose `targetId` is the id of the Space
 /// itself addresses the implicit `@everyone` role"), so it matches every
 /// member.
@@ -145,7 +143,6 @@ pub enum RequiredPermissions {
 /// workspace AGENTS.md.
 ///
 /// [`PatchObject`]: jmap_types::PatchObject
-/// [`ChatSpaces::apply_space_patch`](crate::ChatSpaces::apply_space_patch): crate::ChatSpaces::apply_space_patch
 pub fn required_permissions_for_op(op: &SpacePatchOp) -> RequiredPermissions {
     match op {
         // Role family — draft §Space/set L1260, L1263, L1266.

@@ -1,4 +1,4 @@
-//! ChatContact/* method handlers (draft-atwood-jmap-chat-00 §ChatContact).
+//! `ChatContact`/* method handlers (draft-atwood-jmap-chat-00 §`ChatContact`).
 //!
 //! # Wire-shape contract
 //!
@@ -7,7 +7,7 @@
 //! Object whose fields match the corresponding RFC 8620 §5 method shape
 //! (`/get` → §5.1, `/changes` → §5.2, `/set` → §5.3,
 //! `/query` → §5.5, `/queryChanges` → §5.6), with the type-specific
-//! arguments defined by draft-atwood-jmap-chat-00 §ChatContact. The
+//! arguments defined by draft-atwood-jmap-chat-00 §`ChatContact`. The
 //! returned `Value` is the corresponding method-response object per the
 //! same section refs.
 //!
@@ -52,13 +52,23 @@ use jmap_server::{SetError, SetErrorType};
 // ChatContact/get
 // ---------------------------------------------------------------------------
 
-/// Handle a `ChatContact/get` method call (draft-atwood-jmap-chat-00 §ChatContact).
+/// Handle a `ChatContact/get` method call (draft-atwood-jmap-chat-00 §`ChatContact`).
 ///
 /// `args` is the RFC 8620 §5.1 `/get` request shape (`accountId`, optional
 /// `ids`, optional `properties`); the returned `Value` is the §5.1
 /// `/get` response shape (`accountId`, `state`, `list`, `notFound`).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   `ids` is not an Id array;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `ids` holds more than `maxObjectsInGet` ids;
+/// - `serverFail` when the backend fails.
 pub async fn handle_contact_get<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -112,7 +122,7 @@ pub async fn handle_contact_get<B: ChatBackend>(
 // ChatContact/changes
 // ---------------------------------------------------------------------------
 
-/// Handle a `ChatContact/changes` method call (draft-atwood-jmap-chat-00 §ChatContact).
+/// Handle a `ChatContact/changes` method call (draft-atwood-jmap-chat-00 §`ChatContact`).
 ///
 /// `args` is the RFC 8620 §5.2 `/changes` request shape (`accountId`,
 /// `sinceState`, optional `maxChanges`); the returned `Value` is the
@@ -120,6 +130,17 @@ pub async fn handle_contact_get<B: ChatBackend>(
 /// `hasMoreChanges`, `created`, `updated`, `destroyed`).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `sinceState` is missing, or `maxChanges` is not a positive integer;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `cannotCalculateChanges` when the backend cannot compute the changes
+///   since `sinceState`;
+/// - `serverFail` when the backend fails.
 pub async fn handle_contact_changes<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -168,7 +189,7 @@ pub async fn handle_contact_changes<B: ChatBackend>(
 // ChatContact/set
 // ---------------------------------------------------------------------------
 
-/// Handle a `ChatContact/set` method call (draft-atwood-jmap-chat-00 §ChatContact).
+/// Handle a `ChatContact/set` method call (draft-atwood-jmap-chat-00 §`ChatContact`).
 ///
 /// `args` is the RFC 8620 §5.3 `/set` request shape (`accountId`, optional
 /// `ifInState`, optional `create` / `update` / `destroy` maps); the
@@ -187,7 +208,7 @@ pub async fn handle_contact_changes<B: ChatBackend>(
 /// backend that binds one checks it with
 /// [`ChatContact::has_consistent_did`]. A create whose `identity` equals
 /// [`ChatSettings::owner_user_id`](crate::ChatSettings::owner_user_id) is rejected with `invalidProperties`
-/// naming `identity`. A create whose `identity` another ChatContact
+/// naming `identity`. A create whose `identity` another [`ChatContact`]
 /// already holds is rejected by the backend with `alreadyExists` and
 /// `existingId` (see the `ChatContact` uniqueness contract on
 /// [`ChatStore::create_object`](crate::ChatStore::create_object)).
@@ -198,6 +219,21 @@ pub async fn handle_contact_changes<B: ChatBackend>(
 /// empty patch is a no-op success.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   an element of `destroy` is not a string;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `create`, `update` and `destroy` together hold
+///   more than `maxObjectsInSet` objects;
+/// - `stateMismatch` when `ifInState` is not the current state;
+/// - `serverFail` when the backend fails.
+///
+/// A create, update or destroy that fails on its own is a [`SetError`] in
+/// the response, not an `Err`.
 pub async fn handle_contact_set<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -481,7 +517,7 @@ fn set_destroy(
 // ChatContact/query
 // ---------------------------------------------------------------------------
 
-/// Handle a `ChatContact/query` method call (draft-atwood-jmap-chat-00 §ChatContact).
+/// Handle a `ChatContact/query` method call (draft-atwood-jmap-chat-00 §`ChatContact`).
 ///
 /// `args` is the RFC 8620 §5.5 `/query` request shape (`accountId`, optional
 /// `filter`, optional `sort`, optional `position` / `anchor` /
@@ -494,6 +530,21 @@ fn set_destroy(
 /// `unsupportedFilter` / `unsupportedSort` (RFC 8620 §5.5).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `filter`, `sort`, `position`, `anchor`, `anchorOffset` or `limit`
+///   is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `unsupportedFilter` when the filter does not decode as a `ChatContact` filter;
+/// - `unsupportedSort` when `sort` names a property this server does not
+///   define;
+/// - `anchorNotFound` when `anchor` is not in the results;
+/// - `serverFail` when the backend fails, or any other RFC 8620 §5.5 error
+///   the backend returns.
 pub async fn handle_contact_query<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -577,7 +628,7 @@ pub async fn handle_contact_query<B: ChatBackend>(
 // ChatContact/queryChanges
 // ---------------------------------------------------------------------------
 
-/// Handle a `ChatContact/queryChanges` method call (draft-atwood-jmap-chat-00 §ChatContact).
+/// Handle a `ChatContact/queryChanges` method call (draft-atwood-jmap-chat-00 §`ChatContact`).
 ///
 /// `args` is the RFC 8620 §5.6 `/queryChanges` request shape (`accountId`,
 /// optional `filter`, optional `sort`, `sinceQueryState`, optional
@@ -587,6 +638,22 @@ pub async fn handle_contact_query<B: ChatBackend>(
 /// `removed`, `added`).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `sinceQueryState` is missing, or `filter`, `sort`, `maxChanges` or
+///   `upToId` is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `unsupportedFilter` when the filter does not decode as a `ChatContact` filter;
+/// - `unsupportedSort` when `sort` names a property this server does not
+///   define;
+/// - `cannotCalculateChanges` when the backend cannot compute the changes
+///   since `sinceQueryState`;
+/// - `serverFail` when the backend fails, or any other RFC 8620 §5.6 error
+///   the backend returns.
 pub async fn handle_contact_query_changes<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,

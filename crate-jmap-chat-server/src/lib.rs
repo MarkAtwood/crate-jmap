@@ -405,7 +405,7 @@ where
 /// each call in the scope `backend` opens
 /// ([`ConditionalBackend::begin_set`]). Under `atomic` that scope must hold
 /// back outbound federation and lifecycle effects until commit and check
-/// cross-object constraints (CustomEmoji names, the push subscription cap)
+/// cross-object constraints (`CustomEmoji` names, the push subscription cap)
 /// against the final state; the memory backend does. Advertise
 /// `urn:ietf:params:jmap:conditional` only once
 /// [`Dispatcher::conditional_ready`] is true for the whole dispatcher.

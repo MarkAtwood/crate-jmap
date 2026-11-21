@@ -142,7 +142,7 @@ impl StructuralKey {
 /// per-key shape; this helper handles all of them.
 ///
 /// Returns an error string describing why parsing failed, suitable for use
-/// as the `description` field of an `invalidProperties` SetError. The
+/// as the `description` field of an `invalidProperties` `SetError`. The
 /// returned error is fatal for the containing update target — the handler
 /// inserts the failing wire key into `notUpdated[id].properties` and skips
 /// any remaining keys.
@@ -356,6 +356,17 @@ fn parse_add_member_entry(
 /// [`jmap_server::MetadataProjection`].
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `ids` or `properties` is malformed or holds a malformed
+///   `metadata/` subselector;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `ids` holds more than `maxObjectsInGet` ids;
+/// - `serverFail` when the backend fails.
 pub async fn handle_space_get<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -608,6 +619,18 @@ fn filter_object_fields<F: Fn(&str) -> bool>(value: Value, keep: F) -> Value {
 /// without it metadata-only changes are left out (-05 §3).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `sinceState` is missing, `maxChanges` is not a positive integer, or
+///   `ignoreMetadataOnlyChanges` is not a boolean;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `cannotCalculateChanges` when the backend cannot compute the changes
+///   since `sinceState`;
+/// - `serverFail` when the backend fails.
 pub async fn handle_space_changes<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -639,6 +662,23 @@ pub async fn handle_space_changes<B: ChatBackend>(
 /// filter condition is `unsupportedFilter` (-05 §3).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `filter`, `sort`, `position`, `anchor`, `anchorOffset` or `limit`
+///   is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `unsupportedFilter` when the filter does not decode as a Space filter, or
+///   holds a draft-ietf-jmap-metadata-05 §3.6 condition without
+///   `urn:ietf:params:jmap:metadata` in `using`;
+/// - `unsupportedSort` when `sort` names a property this server does not
+///   define;
+/// - `anchorNotFound` when `anchor` is not in the results;
+/// - `serverFail` when the backend fails, or any other RFC 8620 §5.5 error
+///   the backend returns.
 pub async fn handle_space_query<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -745,6 +785,24 @@ pub async fn handle_space_query<B: ChatBackend>(
 /// filter condition is `unsupportedFilter` (-05 §3).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `sinceQueryState` is missing, or `filter`, `sort`, `maxChanges` or
+///   `upToId` is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `unsupportedFilter` when the filter does not decode as a Space filter, or
+///   holds a draft-ietf-jmap-metadata-05 §3.6 condition without
+///   `urn:ietf:params:jmap:metadata` in `using`;
+/// - `unsupportedSort` when `sort` names a property this server does not
+///   define;
+/// - `cannotCalculateChanges` when the backend cannot compute the changes
+///   since `sinceQueryState`;
+/// - `serverFail` when the backend fails, or any other RFC 8620 §5.6 error
+///   the backend returns.
 pub async fn handle_space_query_changes<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -777,7 +835,7 @@ pub async fn handle_space_query_changes<B: ChatBackend>(
 ///
 /// Per draft-atwood-jmap-chat-00 §Space/set (spec commit `80d5e11`,
 /// 2026-05-11), each of the four `add*` ops MUST return an `overQuota`
-/// SetError (RFC 8620 §5.3) when the resulting count would exceed a
+/// [`SetError`] (RFC 8620 §5.3) when the resulting count would exceed a
 /// server-defined limit. The handler queries the backend's
 /// [`ChatSettings::limits`](crate::ChatSettings::limits) for the cap values, fetches the current
 /// Space to count existing roles/members/channels/categories, then
@@ -785,7 +843,7 @@ pub async fn handle_space_query_changes<B: ChatBackend>(
 /// collection.
 ///
 /// Atomicity: if any aggregate would exceed its cap, the whole update
-/// target is rejected with one `overQuota` SetError — matching
+/// target is rejected with one `overQuota` `SetError` — matching
 /// RFC 8620 §5.3 `/set` semantics at the target level. The handler
 /// surfaces the failure in `notUpdated[id]` and skips the
 /// `apply_space_patch` call entirely.
@@ -794,7 +852,7 @@ pub async fn handle_space_query_changes<B: ChatBackend>(
 ///
 /// - `Ok(None)` — no Add* ops in the patch, or all caps satisfied.
 /// - `Ok(Some(SetError))` — one or more caps would be exceeded; the
-///   SetError is `overQuota` with a description naming the offending
+///   `SetError` is `overQuota` with a description naming the offending
 ///   collection.
 /// - `Err(JmapError)` — the backend read failed; the caller propagates
 ///   as a `serverFail` for the whole `Space/set` request.
@@ -802,7 +860,7 @@ pub async fn handle_space_query_changes<B: ChatBackend>(
 /// If `get_objects` returns the Space as missing (e.g. the id was
 /// destroyed since `get_state` was read), this helper returns
 /// `Ok(None)` and lets `apply_space_patch` return the canonical
-/// `notFound` SetError for consistency with the existing not-found
+/// `notFound` `SetError` for consistency with the existing not-found
 /// path.
 async fn check_space_count_limits<B: ChatBackend>(
     backend: &B,
@@ -921,9 +979,9 @@ const BOOTSTRAP_ADMIN_ROLE_POSITION: u64 = 9_007_199_254_740_991;
 /// Resolve `#creationId` references in each `updateChannels[]` entry's
 /// `permissionOverrides[].targetId` (RFC 8620 §5.3).
 ///
-/// draft-atwood-jmap-chat-00 §ChannelPermission: `targetId` is "A
-/// SpaceRole id or a SpaceMember `id`", or the Space id for `@everyone`;
-/// a SpaceMember id is a ChatContact id. SpaceRole ids are server-set and
+/// draft-atwood-jmap-chat-00 §`ChannelPermission`: `targetId` is "A
+/// [`SpaceRole`] id or a [`SpaceMember`] `id`", or the Space id for `@everyone`;
+/// a `SpaceMember` id is a `ChatContact` id. `SpaceRole` ids are server-set and
 /// never start with `#`, so every `targetId` is resolved regardless of
 /// `targetType`. An unknown reference is `invalidProperties` naming
 /// `updateChannels`.
@@ -979,7 +1037,7 @@ fn resolve_override_targets(
 ///   `invalidProperties` without `urn:ietf:params:jmap:metadata` in
 ///   `using` (pass [`jmap_server::CallContext::using`]; -05 §3), as is
 ///   `null` for either in a create (-05 §3.2). An update applies them as
-///   RFC 8620 §5.3 PatchObject paths through
+///   RFC 8620 §5.3 [`PatchObject`] paths through
 ///   [`ChatStore::update_object`](crate::ChatStore::update_object), before the structural keys; the
 ///   backend validates the rest.
 ///
@@ -987,12 +1045,27 @@ fn resolve_override_targets(
 ///
 /// A `removeMembers` element, or the `id` of an `addMembers` or
 /// `updateMembers` entry, that is a `#creationId` reference names a
-/// ChatContact created earlier in the request and resolves against
+/// `ChatContact` created earlier in the request and resolves against
 /// `created_ids` (pass [`jmap_server::CallContext::created_ids`]; RFC 8620
 /// §5.3); an unknown reference is `invalidProperties` naming the patch key.
 /// The channel ids in `removeChannels`, `updateChannels` and category
 /// `channelIds` are not resolved: a channel Chat is created only by
 /// `addChannels`, which has no creation id.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   an element of `destroy` is not a string;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `create`, `update` and `destroy` together hold
+///   more than `maxObjectsInSet` objects;
+/// - `stateMismatch` when `ifInState` is not the current state;
+/// - `serverFail` when the backend fails.
+///
+/// A create, update or destroy that fails on its own is a [`SetError`] in
+/// the response, not an `Err`.
 pub async fn handle_space_set<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -1114,7 +1187,7 @@ struct CreateFields {
 }
 
 /// Check one `Space/set` create object and return its properties, or the
-/// SetError value for `notCreated`.
+/// [`SetError`] value for `notCreated`.
 fn create_fields(
     obj_val: &Value,
     extension_props: &[&str],
@@ -1429,7 +1502,7 @@ struct UpdateParts {
 }
 
 /// Split one `Space/set` update patch (after the read-only check) into
-/// its [`UpdateParts`], or return the SetError value for `notUpdated`.
+/// its [`UpdateParts`], or return the [`SetError`] value for `notUpdated`.
 fn split_update_patch(
     patch_val: Value,
     extension_props: &[&str],
@@ -1510,7 +1583,7 @@ fn split_update_patch(
     })
 }
 
-/// The SetError value that refuses a split `Space/set` update before any
+/// The [`SetError`] value that refuses a split `Space/set` update before any
 /// write: the closed-Space gate, a reserved role position, or a per-Space
 /// count cap. `None` to go on.
 async fn update_ops_error<B: ChatBackend>(
@@ -1674,7 +1747,7 @@ async fn apply_update<B: ChatBackend>(
 
 /// Apply the structural ops of one `Space/set` update and report each
 /// removed channel to `ChatEvents::on_chat_destroyed`. Returns the
-/// SetError value of the first failed op.
+/// [`SetError`] value of the first failed op.
 async fn apply_structural_ops<B: ChatBackend>(
     ctx: &SetCtx<'_, B>,
     id: &Id,
@@ -1859,6 +1932,20 @@ async fn set_destroy<B: ChatBackend>(
 /// an unknown code.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, not
+///   exactly one of `inviteCode` and `spaceId` is given, `spaceId` is not a
+///   valid Id, the invite code is unknown, expired or used up, or the caller
+///   is already a member;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `notPermitted` when `spaceId` names no public Space;
+/// - `forbidden` when a `SpaceBan` in force bans the caller from the Space,
+///   or the Space is closed;
+/// - `serverFail` when the backend fails.
 pub async fn handle_space_join<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -2180,16 +2267,16 @@ pub async fn handle_space_join<B: ChatBackend>(
     joined()
 }
 
-/// The `forbidden` SetError for a `Space/set` update to a closed Space
+/// The `forbidden` [`SetError`] for a `Space/set` update to a closed Space
 /// (draft-atwood-jmap-chat-00 §Space `closedAt`).
 fn space_closed() -> Value {
     json!({ "type": "forbidden", "description": "the Space is closed" })
 }
 
-/// Create the owner's ReadPosition for every channel Chat of `space_id`.
+/// Create the owner's `ReadPosition` for every channel Chat of `space_id`.
 ///
-/// draft-atwood-jmap-chat-00 §ReadPosition: "For channel Chats, a
-/// ReadPosition is created when the owner joins the containing Space."
+/// draft-atwood-jmap-chat-00 §`ReadPosition`: "For channel Chats, a
+/// `ReadPosition` is created when the owner joins the containing Space."
 /// Best effort, like [`crate::message::ensure_read_positions`]: the join
 /// is already stored, so a failure here is not a method-level error; a
 /// missed record is created by the next delivery to that channel.

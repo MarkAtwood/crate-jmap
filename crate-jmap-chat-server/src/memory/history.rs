@@ -1,7 +1,7 @@
 //! Object history for the memory backend (draft-ietf-jmap-object-history-03
 //! with the -04 editor's copy changes; docs/design/object-history.md §7),
-//! for Chat, Message, Space, ChatContact, CustomEmoji, SpaceBan, ChatBan and
-//! SpaceInvite (ReadPosition and PresenceStatus are excluded, decision 22).
+//! for Chat, Message, Space, `ChatContact`, `CustomEmoji`, `SpaceBan`, `ChatBan` and
+//! `SpaceInvite` (`ReadPosition` and `PresenceStatus` are excluded, decision 22).
 //!
 //! Two chat-00 rules (decision 22): a Message's versions are purged when it
 //! is deleted (`deletedAt` set) or hard-deleted, so a Message is never a
@@ -84,8 +84,8 @@ impl Inner {
 
     /// chat-00 §Space/set "Hard-deletes all records; no tombstones are
     /// retained" (decision 22): forget the history of the Space, of the
-    /// Chats `chat_ids` and every Chat, SpaceBan, SpaceInvite and
-    /// CustomEmoji whose newest version names the Space, and of every
+    /// Chats `chat_ids` and every Chat, `SpaceBan`, `SpaceInvite` and
+    /// `CustomEmoji` whose newest version names the Space, and of every
     /// Message in those Chats.
     pub(super) fn purge_space_history(&mut self, account: &Id, space: &Id, chat_ids: &[Id]) {
         let Some(h) = self.history.as_mut() else {
@@ -116,8 +116,8 @@ impl Inner {
 
     /// The restore rules of the chat types, as an update would apply them:
     /// a referenced Space must exist (`invalidProperties` naming
-    /// `spaceId`), so must a ChatBan's Chat (naming `chatId`), and a
-    /// CustomEmoji's name must be free.
+    /// `spaceId`), so must a `ChatBan`'s Chat (naming `chatId`), and a
+    /// `CustomEmoji`'s name must be free.
     fn check_chat_restore(
         &self,
         type_name: &str,

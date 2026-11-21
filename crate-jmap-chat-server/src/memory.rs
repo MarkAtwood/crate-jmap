@@ -230,7 +230,7 @@ struct Inner {
     /// skipped).
     ids: Arc<Mutex<ulid::Generator>>,
     /// `type_name` → the draft-ietf-jmap-metadata-05 §1.2.1
-    /// DataTypeMetadataInfo set by [`MemoryBackend::with_metadata_info`].
+    /// [`DataTypeMetadataInfo`] set by [`MemoryBackend::with_metadata_info`].
     /// A type without an entry does not have the metadata properties.
     metadata_info: HashMap<&'static str, DataTypeMetadataInfo>,
     /// The `urn:ietf:params:jmap:search` capability of every account, set
@@ -479,7 +479,7 @@ impl MemoryBackend {
 
 impl<C: MemoryCaller> MemoryBackend<C> {
     /// Give `data_type` the draft-ietf-jmap-metadata-05 `metadata`
-    /// property, configured by `info` (the DataTypeMetadataInfo of -05
+    /// property, configured by `info` (the [`DataTypeMetadataInfo`] of -05
     /// §1.2.1). draft-atwood-jmap-chat-00 lets a server list `Chat`,
     /// `Message` and `Space` in the capability's `dataTypes`.
     ///
@@ -756,13 +756,13 @@ impl<C: MemoryCaller> MemoryBackend<C> {
     /// state advances and the change log records the id as created, as for
     /// [`ChatStore::create_object`], with the same per-type uniqueness
     /// checks. The id may be one the caller chose (such as a hash-derived
-    /// ChatContact id) or one from [`mint_id`](Self::mint_id).
+    /// `ChatContact` id) or one from [`mint_id`](Self::mint_id).
     ///
     /// # Errors
     ///
     /// - `alreadyExists` naming the stored object when the id is taken, or
-    ///   when a per-type uniqueness contract (ChatContact `identity`,
-    ///   CustomEmoji `name`) is violated.
+    ///   when a per-type uniqueness contract (`ChatContact` `identity`,
+    ///   `CustomEmoji` `name`) is violated.
     /// - [`BackendSetError::Other`] when `account_id` is not registered, or
     ///   when `object` does not serialize to a JSON object with a
     ///   non-empty `id` string.
@@ -1951,11 +1951,11 @@ impl<C: MemoryCaller> ChatSpaces for MemoryBackend<C> {
     /// failure mid-way through the op vector does NOT roll back ops
     /// that already succeeded — they remain applied. **Exception:**
     /// the helper runs a pre-validation pass over the ops and rejects the whole patch up-front with a
-    /// single `forbidden` SetError if any op would fail permission or
+    /// single `forbidden` [`SetError`] if any op would fail permission or
     /// role-hierarchy enforcement. This implements criterion 6
     /// "whole-patch reject on permission failure" from
     /// `bd:JMAP-g7wu.2.4.3`. Per-op failures with other error types
-    /// (NotFound, InvalidProperties) keep the legacy per-op outcome
+    /// (`NotFound`, `InvalidProperties`) keep the legacy per-op outcome
     /// shape. Production backends should wrap the sequence in a real
     /// transaction.
     ///
@@ -2187,7 +2187,7 @@ impl<C: MemoryCaller> SpacePolicy for MemoryBackend<C> {
 impl<C: MemoryCaller> ChatAccessPolicy for MemoryBackend<C> {
     /// Reference implementation of [`ChatAccessPolicy::may_broadcast_mention`].
     ///
-    /// Implements draft-atwood-jmap-chat-00 §BroadcastMention: a
+    /// Implements draft-atwood-jmap-chat-00 §`BroadcastMention`: a
     /// non-empty `broadcastMentions` array in a channel requires the
     /// [`ChatPermission::MentionBroadcast`]
     /// permission, resolved in channel `chat_id` per §Space Permission
@@ -2228,7 +2228,7 @@ impl<C: MemoryCaller> ChatAccessPolicy for MemoryBackend<C> {
     /// Reference implementation of [`ChatAccessPolicy::may_send_message`].
     ///
     /// Implements draft-atwood-jmap-chat-00 §Message/set: in a group Chat
-    /// the owner's ChatMember entry (id = accountId) must exist; in a
+    /// the owner's `ChatMember` entry (id = accountId) must exist; in a
     /// channel the owner must be a member of the containing Space and hold
     /// `"send"` after §Space Permission Resolution. A channel whose Space
     /// does not exist has no members, so the create is forbidden. Direct
@@ -2825,7 +2825,7 @@ fn invalid_metadata_property(property: &str, description: &str) -> BackendSetErr
 impl Inner {
     /// draft-ietf-jmap-metadata-05 §3.2 rules 1 to 3 for a metadata write
     /// on a `type_name` object, before the write is applied. Returns the
-    /// type's DataTypeMetadataInfo for the rule 4 check after applying,
+    /// type's [`DataTypeMetadataInfo`] for the rule 4 check after applying,
     /// or `None` when `entry` writes no metadata.
     ///
     /// `entry` is the create object or update patch and `stored` the
@@ -2863,10 +2863,10 @@ impl Inner {
 /// `Err` nothing is changed.
 ///
 /// `defer`: an atomic conditional-02 scope is open on this task
-/// ([`ScopedState::deferring`]), so the CustomEmoji name and per-Space
+/// ([`ScopedState::deferring`]), so the `CustomEmoji` name and per-Space
 /// count checks are left to its commit (`final_state_failures`). The
-/// ChatContact identity check is not: an identity cannot be given up
-/// within one call (ChatContact destroy is refused), so the final state
+/// `ChatContact` identity check is not: an identity cannot be given up
+/// within one call (`ChatContact` destroy is refused), so the final state
 /// could not differ.
 /// The non-empty `id` string of a serialized object.
 fn object_id_of(val: &serde_json::Value) -> Result<Id, BackendSetError<MemoryError>> {
@@ -3058,7 +3058,7 @@ fn stored_reply_parent(inner: &Inner, account_id: &str, msg: &serde_json::Value)
         .then_some(parent)
 }
 
-/// Thread roots whose `unreadReplyCount` differs between ReadPosition
+/// Thread roots whose `unreadReplyCount` differs between `ReadPosition`
 /// `old` and `new` (draft-atwood-jmap-chat-00 §Message: "Count of
 /// replies to this message received after the owner's
 /// `ReadPosition.lastReadMessageId` in this Chat", only when
@@ -3573,7 +3573,7 @@ fn apply_space_metadata_patch_impl(
 /// Apply one Category-family [`SpacePatchOp`] to the in-memory Space.
 ///
 /// Per draft-atwood-jmap-chat-00 §Space/set:
-/// - `addCategories`: assigns a fresh CategoryId and pushes the category
+/// - `addCategories`: assigns a fresh `CategoryId` and pushes the category
 ///   into `space.categories`. If the entry's `channelIds` list references
 ///   channels of the Space, those channels' `categoryId` is updated and
 ///   they leave their previous category or `uncategorizedChannelIds`.
@@ -4530,9 +4530,9 @@ fn apply_remove_role(
     Ok(None)
 }
 
-/// Apply `SpacePatchOp::UpdateRole`: apply the [`RolePatch`] to the
-/// named role. Permission and hierarchy checks happen in
-/// [`validate_space_patch_ops`].
+/// Apply `SpacePatchOp::UpdateRole`: apply the
+/// [`RolePatch`](jmap_chat_types::RolePatch) to the named role. Permission
+/// and hierarchy checks happen in [`validate_space_patch_ops`].
 fn apply_update_role(
     inner: &mut Inner,
     account_id: &str,
@@ -4773,7 +4773,8 @@ fn apply_remove_member(
     Ok(None)
 }
 
-/// Apply `SpacePatchOp::UpdateMember`: apply the [`MemberPatch`] to
+/// Apply `SpacePatchOp::UpdateMember`: apply the
+/// [`MemberPatch`](jmap_chat_types::MemberPatch) to
 /// the named member. Permission and hierarchy checks happen in
 /// [`validate_space_patch_ops`].
 fn apply_update_member(
@@ -4881,7 +4882,7 @@ fn apply_update_member(
 // ---------------------------------------------------------------------------
 
 /// Project the post-patch aggregate counts and reject the whole patch
-/// with an `overQuota` SetError (RFC 8620 §5.3) if any aggregate
+/// with an `overQuota` [`SetError`] (RFC 8620 §5.3) if any aggregate
 /// (roles, members, channels, categories) would exceed its cap from
 /// [`ChatLimits`].
 ///
@@ -4893,7 +4894,7 @@ fn apply_update_member(
 /// caps enforced.
 ///
 /// Returns `None` if no `Add*` ops are present or all caps are
-/// satisfied. Returns the first offending collection's SetError
+/// satisfied. Returns the first offending collection's `SetError`
 /// otherwise — matching the handler's "first cap to trip" surface
 /// for response shape parity.
 ///
@@ -5001,7 +5002,8 @@ fn check_count_caps(
 /// Walks every op (Role, Member, Channel, Category) and applies:
 ///
 /// - **Permission gating** (criterion 1): the caller's effective
-///   permissions must be a superset of [`required_permissions_for_op`]'s
+///   permissions must be a superset of
+///   [`required_permissions_for_op`](crate::required_permissions_for_op)'s
 ///   return value for each op. Gated permissions per
 ///   draft-atwood-jmap-chat-00 §Space/set:
 ///   * Role ops (`AddRole`, `RemoveRole`, `UpdateRole`): `manage_roles`
@@ -5014,8 +5016,8 @@ fn check_count_caps(
 /// - **Role-position hierarchy** (criterion 2): the caller may only
 ///   add or modify roles whose `position` is strictly less than their
 ///   own highest-position role (draft §Space/set L1260, L1266).
-///   Cross-cuts AddRole, UpdateRole, AddMember (when `role_ids` is
-///   non-empty), and UpdateMember (when `patch.role_ids` is set: every
+///   Cross-cuts `AddRole`, `UpdateRole`, `AddMember` (when `role_ids` is
+///   non-empty), and `UpdateMember` (when `patch.role_ids` is set: every
 ///   role the patch grants or removes, i.e. the symmetric difference
 ///   of the member's current and new `roleIds`, must rank below the
 ///   caller).
@@ -5369,7 +5371,7 @@ fn last_admin_patch_keys(
 }
 
 /// Construct the standard "role position not strictly less than
-/// caller's highest" SetError. Used by [`validate_space_patch_ops`].
+/// caller's highest" `SetError`. Used by [`validate_space_patch_ops`].
 fn hierarchy_error(target_pos: u64, caller_highest: u64, op_label: &str) -> SetError {
     SetError::new(SetErrorType::Forbidden).with_description(format!(
         "{op_label}: target role position {target_pos} is not strictly less than \
@@ -5561,7 +5563,7 @@ fn role_position(space_val: &serde_json::Value, role_id: &str) -> Option<u64> {
 // ---------------------------------------------------------------------------
 
 /// A broadcast mention whose scope resolves to include the owner
-/// satisfies hasMention. The MemoryBackend reference impl resolves:
+/// satisfies hasMention. The [`MemoryBackend`] reference impl resolves:
 ///   "everyone" -> true (owner is always a member)
 ///   "here"     -> true (reference impl: all accounts active)
 ///   "admins"   -> `owner_is_admin()` (see [`owner_is_chat_admin`])
@@ -5582,11 +5584,11 @@ fn broadcast_mention_matches_owner(
 /// `chat_id`, the reference impl's predicate for the `"admins"`
 /// broadcast scope.
 ///
-/// draft-atwood-jmap-chat-00 §BroadcastMention: `"admins"` is "members
+/// draft-atwood-jmap-chat-00 §`BroadcastMention`: `"admins"` is "members
 /// holding administrative authority in the Space or Chat; the predicate
 /// that defines "admin" ... is deployment-defined". The predicate here
 /// is evaluated against the owner's member entry (accountId):
-/// - group: the owner's ChatMember `role` is `"admin"` (§ChatMember);
+/// - group: the owner's `ChatMember` `role` is `"admin"` (§`ChatMember`);
 /// - channel: the owner's Space permissions include `"manage_members"`
 ///   or `"manage_space"`, the holders §Space/set last-administrator
 ///   protection keeps;
@@ -5625,7 +5627,7 @@ fn owner_is_chat_admin(
 }
 
 /// Whether `member_id`'s entry in group `chat`'s `members` has
-/// `role: "admin"` (draft-atwood-jmap-chat-00 §ChatMember).
+/// `role: "admin"` (draft-atwood-jmap-chat-00 §`ChatMember`).
 fn is_group_admin(chat: &serde_json::Value, member_id: &Id) -> bool {
     chat.get("members")
         .and_then(|v| v.as_array())
@@ -5637,10 +5639,10 @@ fn is_group_admin(chat: &serde_json::Value, member_id: &Id) -> bool {
         })
 }
 
-/// The id of a stored CustomEmoji other than `except` with the same
+/// The id of a stored `CustomEmoji` other than `except` with the same
 /// `name` and scope as `emoji`.
 ///
-/// draft-atwood-jmap-chat-00 §CustomEmoji `name`: "MUST be unique within
+/// draft-atwood-jmap-chat-00 §`CustomEmoji` `name`: "MUST be unique within
 /// its scope (Space or server-global)." The scope is `spaceId`; an absent
 /// or null `spaceId` is the server-global scope.
 fn emoji_name_holder(
@@ -5659,12 +5661,12 @@ fn emoji_name_holder(
         .map(|(id, _)| id.clone())
 }
 
-/// The `spaceId` of a stored CustomEmoji; `None` for a server-global one.
+/// The `spaceId` of a stored `CustomEmoji`; `None` for a server-global one.
 fn emoji_scope(emoji: &serde_json::Value) -> Option<serde_json::Value> {
     emoji.get("spaceId").filter(|v| !v.is_null()).cloned()
 }
 
-/// How many stored CustomEmoji of `account_id` belong to Space `space`,
+/// How many stored `CustomEmoji` of `account_id` belong to Space `space`,
 /// for [`ChatLimits::max_custom_emoji_per_space`].
 fn emoji_count_in_space(inner: &Inner, account_id: &str, space: &serde_json::Value) -> u64 {
     inner.objects_ref("CustomEmoji", account_id).map_or(0, |m| {
@@ -5697,7 +5699,7 @@ fn emoji_blob_over_cap(
         .is_some_and(|b| b.size > max)
 }
 
-/// An `overQuota` SetError (RFC 8620 §5.3) with a static `description`.
+/// An `overQuota` [`SetError`] (RFC 8620 §5.3) with a static `description`.
 fn over_quota_error(description: &str) -> BackendSetError<MemoryError> {
     BackendSetError::SetError(Box::new(
         SetError::new(SetErrorType::OverQuota).with_description(description),
@@ -5708,11 +5710,11 @@ fn over_quota_error(description: &str) -> BackendSetError<MemoryError> {
 /// (`property`, `isAscending` defaulting to `true`).
 ///
 /// An absent or null property sorts last in either direction
-/// (draft-atwood-jmap-chat-00 §ChatContact/query "ChatContacts for which
+/// (draft-atwood-jmap-chat-00 §ChatContact/query "`ChatContact`s for which
 /// the field is absent sort last"; §Chat/query "chats without messages
 /// sort last").
 ///
-/// Two UTCDate strings compare chronologically ([`utc_date_key`]): RFC
+/// Two `UTCDate` strings compare chronologically ([`utc_date_key`]): RFC
 /// 8620 §1.4 omits a zero time-secfrac, so byte-wise `...:05Z` sorts
 /// after `...:05.001Z` (bd:JMAP-rvp2).
 ///
@@ -5764,10 +5766,10 @@ fn compare_by_sort(
     Ordering::Equal
 }
 
-/// Chronological sort key of an RFC 8620 §1.4 UTCDate string: whole
+/// Chronological sort key of an RFC 8620 §1.4 `UTCDate` string: whole
 /// epoch seconds, then the fraction digits without trailing zeros, which
 /// order lexicographically as they do numerically. `None` when `s` is not
-/// a UTCDate.
+/// a `UTCDate`.
 fn utc_date_key(s: &str) -> Option<(i64, &str)> {
     let secs = jmap_types::UTCDate::from(s).to_epoch_seconds().ok()?;
     let frac = s
@@ -5778,8 +5780,8 @@ fn utc_date_key(s: &str) -> Option<(i64, &str)> {
 }
 
 /// Check whether a stored object of type `type_name` passes an RFC 8620
-/// §5.5 filter: a FilterOperator (`AND` / `OR` / `NOT` over `conditions`)
-/// or a type-specific FilterCondition (see [`condition_matches`]).
+/// §5.5 filter: a `FilterOperator` (`AND` / `OR` / `NOT` over `conditions`)
+/// or a type-specific `FilterCondition` (see [`condition_matches`]).
 fn filter_matches(
     inner: &Inner,
     type_name: &str,
@@ -5804,7 +5806,7 @@ fn filter_matches(
     }
 }
 
-/// The six draft-ietf-jmap-metadata-05 §3.6 FilterCondition fields.
+/// The six draft-ietf-jmap-metadata-05 §3.6 `FilterCondition` fields.
 const METADATA_CONDITION_KEYS: [&str; 6] = [
     "metadataExists",
     "privateMetadataExists",
@@ -5815,7 +5817,7 @@ const METADATA_CONDITION_KEYS: [&str; 6] = [
 ];
 
 /// Validate the draft-ietf-jmap-metadata-05 §3.6 conditions on every leaf
-/// of `filter`, a FilterCondition or FilterOperator tree (RFC 8620 §5.5),
+/// of `filter`, a `FilterCondition` or `FilterOperator` tree (RFC 8620 §5.5),
 /// before any object is matched.
 ///
 /// A type without `info` has no metadata (-05 §1.2.1: it "does not gain
@@ -5867,7 +5869,7 @@ fn check_metadata_filter(
 }
 
 /// Whether a stored object passes the draft-ietf-jmap-metadata-05 §3.6
-/// conditions of one FilterCondition `cond`, matched against its
+/// conditions of one `FilterCondition` `cond`, matched against its
 /// `metadata` (absent means `{}`, -05 §2). A leaf without them matches.
 /// The `privateMetadata*` conditions never reach this point:
 /// [`check_metadata_filter`] rejects them, since this backend has
@@ -5877,8 +5879,8 @@ fn metadata_leaf_matches(obj: &serde_json::Value, cond: &serde_json::Value) -> b
         .is_ok_and(|c| c.matches(obj.get("metadata").and_then(|m| m.as_object()), None))
 }
 
-/// Whether `filter`, a FilterCondition or a FilterOperator tree (RFC 8620
-/// §5.5), contains an `isPublic: true` FilterCondition at any depth.
+/// Whether `filter`, a `FilterCondition` or a `FilterOperator` tree (RFC 8620
+/// §5.5), contains an `isPublic: true` `FilterCondition` at any depth.
 fn has_is_public_true(filter: &serde_json::Value) -> bool {
     filter.get("isPublic") == Some(&serde_json::Value::Bool(true))
         || filter
@@ -5887,16 +5889,16 @@ fn has_is_public_true(filter: &serde_json::Value) -> bool {
             .is_some_and(|cs| cs.iter().any(has_is_public_true))
 }
 
-/// Check whether a stored object passes one FilterCondition of the
+/// Check whether a stored object passes one `FilterCondition` of the
 /// draft-atwood-jmap-chat-00 `/query` method for `type_name`; all supplied
 /// keys must match (AND semantics).
 ///
 /// - Chat (§Chat/query): `kind`, `muted`.
-/// - ChatContact (§ChatContact/query): `blocked`, `presence`, and
+/// - `ChatContact` (§ChatContact/query): `blocked`, `presence`, and
 ///   `identity` ("equals the value octet for octet").
 /// - Message: see [`message_matches_filter`].
 /// - Space (§Space/query): `name` ("substring match"), `isPublic`.
-/// - CustomEmoji (§CustomEmoji/query): `spaceId`; absent returns all.
+/// - `CustomEmoji` (§CustomEmoji/query): `spaceId`; absent returns all.
 /// - Chat, Message and Space also take the draft-ietf-jmap-metadata-05
 ///   §3.6 conditions; see [`metadata_leaf_matches`].
 ///
@@ -5946,7 +5948,7 @@ fn condition_matches(
 }
 
 /// Check whether a stored Message JSON value passes one
-/// draft-atwood-jmap-chat-00 §Message/query FilterCondition.
+/// draft-atwood-jmap-chat-00 §Message/query `FilterCondition`.
 ///
 /// Supported filter keys (`text` is refused by the handler):
 /// - `chatId`, `threadRootId`, `topicId`: exact match against the
@@ -6038,7 +6040,7 @@ fn check_where(
 }
 
 /// Whether the stored Message `obj` passes the JMAP Search `where` of the
-/// FilterCondition `cond` (crate-jmap docs/specs/jmap-search.md); a
+/// `FilterCondition` `cond` (crate-jmap docs/specs/jmap-search.md); a
 /// condition without `where` passes, and one that does not parse (which
 /// the handler and [`check_where`] refuse first) fails.
 ///
@@ -6087,10 +6089,10 @@ fn scan_messages_in_chat(inner: &Inner, account_id: &str, chat_id: &Id) -> Vec<I
         .collect()
 }
 
-/// Destroy the ReadPosition of every Chat in `chat_ids`, recording one
+/// Destroy the `ReadPosition` of every Chat in `chat_ids`, recording one
 /// `ReadPosition` change entry when anything was removed.
 ///
-/// draft-atwood-jmap-chat-00 §ReadPosition: the server "destroys it when
+/// draft-atwood-jmap-chat-00 §`ReadPosition`: the server "destroys it when
 /// the Chat is destroyed". The caller holds the lock that destroyed the
 /// Chats, so the cascade is atomic with it.
 fn destroy_read_positions(inner: &mut Inner, account_id: &str, chat_ids: &[Id]) {
@@ -6129,7 +6131,7 @@ fn destroy_read_positions(inner: &mut Inner, account_id: &str, chat_ids: &[Id]) 
 }
 
 /// True if `chat_id` names an existing Chat with kind=channel and
-/// space_id matching `space_id`.
+/// `space_id` matching `space_id`.
 fn channel_belongs_to_space(inner: &Inner, account_id: &str, chat_id: &Id, space_id: &Id) -> bool {
     inner
         .objects_ref("Chat", account_id)
@@ -6292,7 +6294,7 @@ conformance_backend!(
 /// atomic rollback restores objects, state strings, change logs, push
 /// subscriptions and the queued lifecycle and outbound events, so nothing
 /// is announced for a change that never happened (§4.3). Under an atomic
-/// scope the backend leaves its cross-object checks (CustomEmoji names and
+/// scope the backend leaves its cross-object checks (`CustomEmoji` names and
 /// per-Space counts, the push subscription cap) to the commit, which
 /// checks the final state (`final_state_failures`).
 impl<C: MemoryCaller> ConditionalBackend for MemoryBackend<C> {
@@ -6308,10 +6310,10 @@ impl<C: MemoryCaller> ConditionalBackend for MemoryBackend<C> {
 /// The changes an atomic scope made that break a cross-object constraint
 /// in the state it would commit (conditional-02 §4.2):
 ///
-/// - two CustomEmoji with one `name` in one scope (account-wide or one
+/// - two `CustomEmoji` with one `name` in one scope (account-wide or one
 ///   Space): `alreadyExists` with `existingId` on a create,
 ///   `invalidProperties` `name` on an update, as outside a scope;
-/// - a Space holding more CustomEmoji than
+/// - a Space holding more `CustomEmoji` than
 ///   [`ChatLimits::max_custom_emoji_per_space`]: `overQuota` on the
 ///   creates in that Space (jmap-chat-implementer-guide §2.2);
 /// - more than [`MAX_PUSH_SUBSCRIPTIONS`] push subscriptions:

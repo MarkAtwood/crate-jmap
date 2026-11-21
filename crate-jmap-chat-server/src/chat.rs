@@ -214,10 +214,10 @@ fn apply_member_patch_keys(
     Ok((members, closes))
 }
 
-/// Whether a ChatBan in force bans any of `user_ids` from Chat `chat_id`
-/// (draft-atwood-jmap-chat-00 §ChatBan).
+/// Whether a `ChatBan` in force bans any of `user_ids` from Chat `chat_id`
+/// (draft-atwood-jmap-chat-00 §`ChatBan`).
 ///
-/// ponytail: loads every ChatBan of the account per call. A backend with
+/// ponytail: loads every `ChatBan` of the account per call. A backend with
 /// many bans should index them by Chat.
 async fn banned_among<B: ChatBackend>(
     backend: &B,
@@ -339,7 +339,7 @@ fn group_update_events(
 /// candidates count is implementation-defined; for example, a server MAY
 /// exclude Messages the owner sent." This server does not count Messages
 /// the owner sent (`senderId` is the accountId), so a Chat with no
-/// ReadPosition counts every Message from others. A backend whose
+/// [`ReadPosition`] counts every Message from others. A backend whose
 /// [`ChatSettings::maintains_unread_count`](crate::ChatSettings::maintains_unread_count) is `true` gets its stored
 /// value back instead.
 ///
@@ -352,6 +352,12 @@ fn group_update_events(
 /// §3.1); see [`jmap_server::handle_get_with_metadata`].
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]: those of
+/// [`jmap_server::handle_get_with_metadata`], and `serverFail` when reading
+/// the Messages and `ReadPosition`s behind `unreadCount` fails.
 // NOTE: properties forwarded via handle_get
 pub async fn handle_chat_get<B: ChatBackend>(
     backend: &B,
@@ -451,7 +457,7 @@ pub(crate) fn unread_count(
 /// RFC 8620 §5.1: "If the data changes, this string MUST change", and
 /// §ReadPosition/set (jmap-chat-spec 33702a5 L1434) "updates
 /// `Chat.unreadCount` for the affected Chat, possibly later". `Chat/get`
-/// derives the count on every call, so a ReadPosition update or a Message
+/// derives the count on every call, so a [`ReadPosition`] update or a Message
 /// create/destroy changes Chat data; this records that change through
 /// [`ChatStore::update_object`](crate::ChatStore::update_object), whose contract bumps the type state
 /// and logs the id as updated. Does nothing when the backend maintains
@@ -506,6 +512,18 @@ pub(crate) async fn record_unread_count_changes<B: ChatBackend>(
 /// without it metadata-only changes are left out (-05 §3).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `sinceState` is missing, `maxChanges` is not a positive integer, or
+///   `ignoreMetadataOnlyChanges` is not a boolean;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `cannotCalculateChanges` when the backend cannot compute the changes
+///   since `sinceState`;
+/// - `serverFail` when the backend fails.
 pub async fn handle_chat_changes<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -537,6 +555,23 @@ pub async fn handle_chat_changes<B: ChatBackend>(
 /// filter condition is `unsupportedFilter` (-05 §3).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `filter`, `sort`, `position`, `anchor`, `anchorOffset` or `limit`
+///   is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `unsupportedFilter` when the filter does not decode as a Chat filter, or
+///   holds a draft-ietf-jmap-metadata-05 §3.6 condition without
+///   `urn:ietf:params:jmap:metadata` in `using`;
+/// - `unsupportedSort` when `sort` names a property this server does not
+///   define;
+/// - `anchorNotFound` when `anchor` is not in the results;
+/// - `serverFail` when the backend fails, or any other RFC 8620 §5.5 error
+///   the backend returns.
 pub async fn handle_chat_query<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -579,6 +614,24 @@ pub async fn handle_chat_query<B: ChatBackend>(
 /// filter condition is `unsupportedFilter` (-05 §3).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `sinceQueryState` is missing, or `filter`, `sort`, `maxChanges` or
+///   `upToId` is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `unsupportedFilter` when the filter does not decode as a Chat filter, or
+///   holds a draft-ietf-jmap-metadata-05 §3.6 condition without
+///   `urn:ietf:params:jmap:metadata` in `using`;
+/// - `unsupportedSort` when `sort` names a property this server does not
+///   define;
+/// - `cannotCalculateChanges` when the backend cannot compute the changes
+///   since `sinceQueryState`;
+/// - `serverFail` when the backend fails, or any other RFC 8620 §5.6 error
+///   the backend returns.
 pub async fn handle_chat_query_changes<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -617,7 +670,7 @@ const CHAT_ID_PROPERTIES: &[&str] = &[
 ];
 
 /// The `Chat/set` update key draft-atwood-jmap-chat-mimi-00 §Moderation
-/// adds "for Chats bound to a room" (String\[], ChatContact ids).
+/// adds "for Chats bound to a room" (String\[], `ChatContact` ids).
 const KICK_MEMBERS_KEY: &str = "kickMembers";
 
 /// Remove [`KICK_MEMBERS_KEY`] from `patch` and return its ids, or `None`
@@ -650,10 +703,10 @@ fn take_kick_members(
     Ok((!ids.is_empty()).then_some(ids))
 }
 
-/// The Chat update entry fields that hold a ChatContact id, as
+/// The Chat update entry fields that hold a `ChatContact` id, as
 /// `(patch key, entry field, property named on failure)`: draft-atwood-jmap-chat-00
 /// §Chat/set "Updating a Chat" gives each `addMembers` and
-/// `updateMemberRoles` entry an `id`, a ChatContact id.
+/// `updateMemberRoles` entry an `id`, a `ChatContact` id.
 const CHAT_ENTRY_ID_PROPERTIES: &[(&str, &str, &str)] = &[
     ("addMembers", "id", "addMembers"),
     ("updateMemberRoles", "id", "updateMemberRoles"),
@@ -695,6 +748,21 @@ const CHAT_ENTRY_ID_PROPERTIES: &[(&str, &str, &str)] = &[
 /// `privateMetadata` without `urn:ietf:params:jmap:metadata` is
 /// `invalidProperties` (draft-ietf-jmap-metadata-05 §3), as is `null` for
 /// either in a create (-05 §3.2). The backend validates the rest.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   an element of `destroy` is not a string;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `create`, `update` and `destroy` together hold
+///   more than `maxObjectsInSet` objects;
+/// - `stateMismatch` when `ifInState` is not the current state;
+/// - `serverFail` when the backend fails.
+///
+/// A create, update or destroy that fails on its own is a [`SetError`] in
+/// the response, not an `Err`.
 pub async fn handle_chat_set<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -770,7 +838,7 @@ struct CreateRun {
     /// `contactId`s of the account's Direct chats, including those created
     /// earlier in this batch.
     known_direct_contact_ids: HashSet<String>,
-    /// Maps contactId -> assigned new_id for Direct chats successfully
+    /// Maps contactId -> assigned `new_id` for Direct chats successfully
     /// created earlier in this batch. Used to resolve intra-batch
     /// duplicates without a re-fetch (JMAP-63k.12).
     batch_direct_ids: HashMap<String, Id>,
@@ -932,7 +1000,7 @@ async fn create_one<B: ChatBackend>(
 }
 
 /// Check the metadata and wrongly-typed properties of one `Chat/set`
-/// create object and return its metadata maps, or the SetError value for
+/// create object and return its metadata maps, or the [`SetError`] value for
 /// `notCreated`.
 fn check_create_props(obj_val: &Value, using: &[String]) -> Result<MetadataMaps, Value> {
     if let Some(Err(err)) = obj_val
@@ -965,7 +1033,7 @@ fn check_create_props(obj_val: &Value, using: &[String]) -> Result<MetadataMaps,
 }
 
 /// The `kind` of one `Chat/set` create object, checked together with the
-/// kind-scoped and server-set properties, or the SetError value for
+/// kind-scoped and server-set properties, or the [`SetError`] value for
 /// `notCreated`.
 fn create_kind(obj_val: &Value) -> Result<ChatKind, Value> {
     // kind is required.
@@ -1013,7 +1081,7 @@ fn create_kind(obj_val: &Value) -> Result<ChatKind, Value> {
 
 /// The `contactId` of a Direct `Chat/set` create, checked against the
 /// Direct chats already known to `run`; `None` for a group. The inner
-/// `Err` is the SetError value for `notCreated`.
+/// `Err` is the [`SetError`] value for `notCreated`.
 ///
 /// `Some(id)` for Direct chats and `None` for all other kinds — it
 /// simultaneously encodes the "is direct" flag and the contact ID,
@@ -1080,7 +1148,7 @@ fn direct_contact_id(
 }
 
 /// The `memberIds` of a group `Chat/set` create (`None` for another
-/// kind), or the SetError value for `notCreated`.
+/// kind), or the [`SetError`] value for `notCreated`.
 ///
 /// Group create: "`memberIds` (String[], required): ChatContact.ids
 /// of additional initial members." Absent is tolerated for
@@ -1104,7 +1172,7 @@ fn create_member_ids(kind: &ChatKind, obj_val: &Value) -> Result<Option<Vec<Id>>
 }
 
 /// The initial `members` of a group `Chat/set` create (`None` for another
-/// kind), or the SetError value for `notCreated`.
+/// kind), or the [`SetError`] value for `notCreated`.
 fn create_members<B: ChatBackend>(
     ctx: &SetCtx<'_, B>,
     kind: &ChatKind,
@@ -1175,7 +1243,7 @@ struct CreateOptionals {
 }
 
 /// The [`CreateOptionals`] of one `Chat/set` create object, or the
-/// SetError value for `notCreated`.
+/// [`SetError`] value for `notCreated`.
 fn create_optionals(obj_val: &Value) -> Result<CreateOptionals, Value> {
     let contact_id: Option<Id> = match obj_val.get("contactId").and_then(|v| v.as_str()) {
         Some(s) => Some(
@@ -1267,7 +1335,7 @@ async fn after_create<B: ChatBackend>(
 
 /// Re-check a committed Direct-chat create `new_id` for a concurrent
 /// duplicate with the same `contactId`, and roll it back when it lost.
-/// Returns the SetError value for `notCreated`, or `None` when the create
+/// Returns the [`SetError`] value for `notCreated`, or `None` when the create
 /// stands.
 ///
 /// Optimistic create-then-validate, required for JMAP-0c9. We fetch all
@@ -1472,7 +1540,7 @@ async fn update_one<B: ChatBackend>(
 }
 
 /// Resolve the `#creationId` references of one `Chat/set` update patch and
-/// convert it into a typed PatchObject, or return the SetError value for
+/// convert it into a typed [`PatchObject`], or return the [`SetError`] value for
 /// `notUpdated`.
 fn update_patch(
     mut patch_val: Value,
@@ -1506,7 +1574,7 @@ fn update_patch(
 }
 
 /// The stored Chat `id` a `Chat/set` update targets, read once for every
-/// check, or the SetError value for `notUpdated`.
+/// check, or the [`SetError`] value for `notUpdated`.
 async fn update_target<B: ChatBackend>(
     ctx: &SetCtx<'_, B>,
     id: &Id,
@@ -1558,7 +1626,7 @@ fn is_defined_update_key(k: &str) -> bool {
 /// RFC 8620 §5.3: "Any server-set properties MAY be included in
 /// the patch if their value is identical to the current server
 /// value ... Otherwise, the update MUST be rejected with an
-/// "invalidProperties" SetError." Identical values are dropped
+/// "invalidProperties" `SetError`." Identical values are dropped
 /// here, so the checks below see only the client changes.
 fn update_shape_error(patch: &mut PatchObject, chat: &Chat) -> Option<Value> {
     let shape_err = strip_read_only_patch::<Chat>(patch.as_map_mut(), chat).err();
@@ -1582,7 +1650,7 @@ fn update_shape_error(patch: &mut PatchObject, chat: &Chat) -> Option<Value> {
 /// a closed group, and the group admin keys. Takes `kickMembers` out of
 /// `patch` and returns its ids and, for a group update that touches
 /// members or shared settings, the stored member list for
-/// `group_update_events`. `Err` is the SetError value for `notUpdated`.
+/// `group_update_events`. `Err` is the [`SetError`] value for `notUpdated`.
 async fn update_gates<B: ChatBackend>(
     ctx: &SetCtx<'_, B>,
     chat: &Chat,
@@ -1655,7 +1723,7 @@ type MemberChange = (Vec<ChatMember>, bool);
 /// and replace them in `patch` by the resulting `members` (and
 /// `closedAt` when the change closes the group). Returns that member list
 /// and whether it closes the group, or `None` when the patch has no
-/// member key. The inner `Err` is the SetError value for `notUpdated`.
+/// member key. The inner `Err` is the [`SetError`] value for `notUpdated`.
 ///
 /// draft-atwood-jmap-chat-00 §Chat/set "Updating a Chat": the
 /// member patch keys are operations on `members`, not
@@ -1701,7 +1769,7 @@ fn apply_member_keys<B: ChatBackend>(
 
 /// The `forbidden` checks of a `Chat/set` update that read backend state:
 /// a banned user among the added members, and the `pinnedMessageIds`
-/// policy. Returns the SetError value for `notUpdated`, or `None`.
+/// policy. Returns the [`SetError`] value for `notUpdated`, or `None`.
 async fn update_policy_error<B: ChatBackend>(
     ctx: &SetCtx<'_, B>,
     id: &Id,
@@ -1751,16 +1819,16 @@ async fn update_policy_error<B: ChatBackend>(
     None
 }
 
-/// The SetError value when a `Chat/set` update's `pinnedMessageIds` would
+/// The [`SetError`] value when a `Chat/set` update's `pinnedMessageIds` would
 /// add an id that does not name a Message in this Chat, or `None`.
 ///
 /// draft-atwood-jmap-chat-00 §Chat `pinnedMessageIds`: an update
 /// that would add an id not naming a Message in this Chat is
 /// `invalidProperties`. RFC 8620 §5.3 forbids pointers into
-/// arrays (update_object rejects them as invalidPatch), so only
+/// arrays (`update_object` rejects them as invalidPatch), so only
 /// the whole-property key can add ids, and its value is the
 /// post-patch list. Only ids absent from the stored list count
-/// as added; see ChatAccessPolicy::validate_pinned_message_ids.
+/// as added; see `ChatAccessPolicy::validate_pinned_message_ids`.
 /// ponytail: check-then-update is not atomic; a Message
 /// hard-deleted between the two leaves a stale pin. A backend
 /// needing strictness re-checks inside its update transaction.
@@ -1983,6 +2051,16 @@ async fn set_destroy<B: ChatBackend>(
 /// The wire response (echo `accountId`) is the same either way.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `chatId` is missing or not a valid Id, `typing` is missing or not a
+///   boolean, or `chatId` names no Chat the account participates in;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `serverFail` when the backend fails.
 pub async fn handle_chat_typing<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,

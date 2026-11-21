@@ -32,32 +32,32 @@ use jmap_server::BackendSetError;
 ///   Message whose `senderId` is the account itself.
 /// - §Chat `muteUntil`: "Servers SHOULD clear `muted` and `muteUntil`
 ///   automatically when the time passes."
-/// - §PresenceStatus `expiresAt`: "the server SHOULD clear `statusText`
+/// - §`PresenceStatus` `expiresAt`: "the server SHOULD clear `statusText`
 ///   and `statusEmoji` (setting them to null) at this time, and SHOULD
 ///   reset `presence` to `"online"`."
-/// - §ChatBan `expiresAt`: "If present, the ban expires at this time and
+/// - §`ChatBan` `expiresAt`: "If present, the ban expires at this time and
 ///   the server MUST lift it." The ban is destroyed through
 ///   [`ChatModeration::destroy_chat_ban`](crate::ChatModeration::destroy_chat_ban); as for a `ChatBan/set` destroy,
 ///   "Lifting a ban does not add the user back to the Chat."
-/// - §SpaceBan `expiresAt`: "If present, the ban expires at this time and
+/// - §`SpaceBan` `expiresAt`: "If present, the ban expires at this time and
 ///   the server MUST restore the user's access." The ban is destroyed
 ///   through [`ChatStore::destroy_object`](crate::ChatStore::destroy_object), as a `SpaceBan/set`
-///   destroy ("`destroy` lifts the ban") does, so the SpaceBan state
+///   destroy ("`destroy` lifts the ban") does, so the [`SpaceBan`] state
 ///   advances. Space membership is not touched; the user regains access
 ///   by joining again.
 ///
 /// Messages are hard-deleted through [`ChatMessageLifecycle::expire_message`](crate::ChatMessageLifecycle::expire_message),
 /// after which each affected Chat's derived §Chat `unreadCount` is
 /// recorded as changed, as `Message/set` destroy does. Chat and
-/// PresenceStatus resets go through
+/// [`PresenceStatus`] resets go through
 /// [`ChatStore::update_object`](crate::ChatStore::update_object), so each advances its type's state.
 ///
 /// Each step is idempotent: a re-run at the same `now` finds nothing left
 /// to do, and changes no state.
 ///
-/// A stored date that does not parse as a UTCDate never counts as passed.
+/// A stored date that does not parse as a [`UTCDate`] never counts as passed.
 ///
-/// ponytail: loads every Message, Chat, PresenceStatus, ChatBan and SpaceBan of the account
+/// ponytail: loads every Message, Chat, `PresenceStatus`, [`ChatBan`] and `SpaceBan` of the account
 /// on each run, so a sweep is O(records). A backend with many messages
 /// should index the deadlines itself and call
 /// [`ChatMessageLifecycle::expire_message`](crate::ChatMessageLifecycle::expire_message) directly.

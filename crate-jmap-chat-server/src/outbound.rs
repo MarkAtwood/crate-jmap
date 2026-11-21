@@ -9,7 +9,7 @@
 //! `Peer/groupUpdate`, `Peer/receipt`, `Peer/typing`, `Peer/presence`) are
 //! defined by
 //! draft-atwood-jmap-chat-federation-00 and implemented outside this
-//! crate. These events carry local ids (ChatContact ids, Message ids);
+//! crate. These events carry local ids (`ChatContact` ids, Message ids);
 //! the federation layer maps them to identity strings and sends them.
 //! Each `Peer/*` call names its recipient, the owner of the receiving
 //! mailbox, by identity in `recipientUserId`, and goes to the peer domain
@@ -95,7 +95,7 @@ pub enum OutboundEvent {
         chat_id: Id,
         /// What changed (`Peer/groupUpdate` `action`).
         action: GroupUpdateAction,
-        /// ChatContact ids of the members to notify, per
+        /// `ChatContact` ids of the members to notify, per
         /// draft-atwood-jmap-chat-00 §Chat/set (see each
         /// [`GroupUpdateAction`] variant). Never contains the accountId.
         recipients: Vec<Id>,
@@ -117,7 +117,7 @@ pub enum OutboundEvent {
         message_id: Id,
         /// The Message's `senderMsgId` (`Peer/receipt` `senderMsgId`).
         sender_msg_id: Id,
-        /// The Message's `senderId`: the ChatContact id of its original
+        /// The Message's `senderId`: the `ChatContact` id of its original
         /// sender, whose identity is the `Peer/receipt` `recipientUserId`
         /// ("the message's original sender").
         sender_id: Id,
@@ -150,7 +150,7 @@ pub enum OutboundEvent {
     /// the owner, so each push sends the owner's `ownerUserId` as
     /// `identity` and one subscriber as `recipientUserId`. Reported after a
     /// `PresenceStatus/set` update that names any of the three is written;
-    /// the payload is read from the stored PresenceStatus, and the
+    /// the payload is read from the stored `PresenceStatus`, and the
     /// subscribers are the backend's.
     Presence,
 }

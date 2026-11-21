@@ -33,9 +33,9 @@ pub(crate) enum PropType {
 ///
 /// - -05 §3: for a request whose `using` lacks
 ///   `urn:ietf:params:jmap:metadata`, "Foo/set MUST reject any write to
-///   them with an "invalidProperties" SetError".
+///   them with an "invalidProperties" `SetError`".
 /// - -05 §3.2: on create, "A value of null for either property MUST be
-///   rejected with an "invalidProperties" SetError".
+///   rejected with an "invalidProperties" `SetError`".
 ///
 /// The backend validates the rest (-05 §3.2 rules 1 to 4). Mirrors the
 /// canonical `jmap-mail-server` helper (bd JMAP-s4kp.1).
@@ -89,7 +89,7 @@ pub(crate) type MetadataMaps = (Option<Map<String, Value>>, Option<Map<String, V
 ///
 /// # Errors
 ///
-/// The `invalidProperties` SetError value naming a property whose value
+/// The `invalidProperties` `SetError` value naming a property whose value
 /// is not an object.
 pub(crate) fn create_metadata(entry: &Value) -> Result<MetadataMaps, Value> {
     let take = |property: &str| match entry.get(property) {
@@ -107,7 +107,7 @@ pub(crate) fn create_metadata(entry: &Value) -> Result<MetadataMaps, Value> {
 /// Largest RFC 8620 §1.3 `UnsignedInt`: 2^53-1.
 const MAX_UNSIGNED_INT: u64 = (1 << 53) - 1;
 
-/// Return an `invalidProperties` SetError naming every property in
+/// Return an `invalidProperties` `SetError` naming every property in
 /// `props` whose value in the create object `obj` has the wrong JSON type,
 /// or `None` when all of them are absent, `null`, or correctly typed.
 ///
@@ -196,7 +196,7 @@ known_sort!(
     jmap_chat_types::CustomEmojiComparator => jmap_chat_types::CustomEmojiComparatorProperty::Other,
 );
 
-/// The SetError value for a refused backend policy check, or `None` when
+/// The `SetError` value for a refused backend policy check, or `None` when
 /// it allowed the operation.
 ///
 /// `outcome` is what a policy hook such as
@@ -314,7 +314,7 @@ where
 ///
 /// # Errors
 ///
-/// The `notUpdated` value: `notFound`, the `invalidProperties` SetError,
+/// The `notUpdated` value: `notFound`, the `invalidProperties` `SetError`,
 /// or `serverFail` when the fetch fails.
 pub(crate) async fn check_read_only_patch<B, O>(
     backend: &B,
@@ -342,7 +342,7 @@ where
 ///
 /// # Errors
 ///
-/// The `notUpdated` value: the `invalidProperties` SetError, or
+/// The `notUpdated` value: the `invalidProperties` `SetError`, or
 /// `serverFail` when `stored` does not serialize to a JSON object.
 pub(crate) fn strip_read_only_patch<O>(
     patch: &mut Map<String, Value>,
@@ -548,7 +548,7 @@ pub(crate) fn parents_first<'a>(
     }
 }
 
-/// Count `Add*` ops in a [`SpacePatchOp`] sequence, returning
+/// Count `Add*` ops in a [`SpacePatchOp`](crate::SpacePatchOp) sequence, returning
 /// `(add_roles, add_members, add_channels, add_categories)`.
 ///
 /// `Remove*` and `Update*` ops are not counted: the conservative

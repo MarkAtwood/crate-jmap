@@ -1,19 +1,19 @@
-//! ChatBan/* method handlers (draft-atwood-jmap-chat-00 §ChatBan).
+//! `ChatBan`/* method handlers (draft-atwood-jmap-chat-00 §`ChatBan`).
 //!
-//! ChatBan supports get, changes, and set only (no query, no queryChanges).
+//! [`ChatBan`] supports get, changes, and set only (no query, no queryChanges).
 //! `bannedBy` is always set server-side from the `accountId`; it is never
 //! accepted from client request bodies.
 //!
 //! # Permission rules
 //!
-//! draft-atwood-jmap-chat-00 §ChatBan Methods ties every rule to the stored
+//! draft-atwood-jmap-chat-00 §`ChatBan` Methods ties every rule to the stored
 //! Chat: create, update and destroy require "the `"admin"` role in the
 //! Chat", create requires a group Chat, and `/get` shows a ban to the
 //! Chat's admins and to the banned user. Like the `Chat/set` member keys,
 //! these handlers read the role from the stored Chat's `members`, where the
 //! owner's entry is the accountId (§Terminology). A ban whose Chat no
 //! longer exists stays visible and may still be updated or destroyed, so
-//! it can be cleaned up, as the memory backend does for a SpaceBan whose
+//! it can be cleaned up, as the memory backend does for a `SpaceBan` whose
 //! Space is gone. The writes go through
 //! [`ChatModeration::create_chat_ban`](crate::ChatModeration::create_chat_ban), [`ChatModeration::update_chat_ban`](crate::ChatModeration::update_chat_ban) and
 //! [`ChatModeration::destroy_chat_ban`](crate::ChatModeration::destroy_chat_ban), where a backend re-verifies and
@@ -25,7 +25,7 @@
 //! method shape. The `args: serde_json::Value` parameter MUST be a JSON
 //! Object whose fields match the corresponding RFC 8620 §5 method shape
 //! (`/get` → §5.1, `/changes` → §5.2, `/set` → §5.3), with the
-//! type-specific arguments defined by draft-atwood-jmap-chat-00 §ChatBan.
+//! type-specific arguments defined by draft-atwood-jmap-chat-00 §`ChatBan`.
 //! The returned `Value` is the corresponding method-response object
 //! per the same section refs.
 //!
@@ -87,20 +87,30 @@ async fn stored_chat<B: ChatBackend>(
 // ChatBan/get
 // ---------------------------------------------------------------------------
 
-/// Handle a `ChatBan/get` method call (draft-atwood-jmap-chat-00 §ChatBan).
+/// Handle a `ChatBan/get` method call (draft-atwood-jmap-chat-00 §`ChatBan`).
 ///
 /// `args` is the RFC 8620 §5.1 `/get` request shape (`accountId`, optional
 /// `ids`, optional `properties`); the returned `Value` is the §5.1
 /// `/get` response shape (`accountId`, `state`, `list`, `notFound`).
 ///
 /// §ChatBan/get: "Members with the `"admin"` role in a group Chat see all
-/// ChatBan records for that Chat. A banned user fetching their own account
-/// sees only ChatBan records where `userId` is the accountId." A ban is
+/// [`ChatBan`] records for that Chat. A banned user fetching their own account
+/// sees only `ChatBan` records where `userId` is the accountId." A ban is
 /// returned when its `userId` is the accountId, when the accountId holds
 /// the `"admin"` role in its stored Chat, or when that Chat no longer
 /// exists. A hidden ban is reported exactly like a missing one.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   `ids` is not an Id array;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `ids` holds more than `maxObjectsInGet` ids;
+/// - `serverFail` when the backend fails.
 pub async fn handle_chat_ban_get<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -180,6 +190,17 @@ pub async fn handle_chat_ban_get<B: ChatBackend>(
 /// `hasMoreChanges`, `created`, `updated`, `destroyed`).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `sinceState` is missing, or `maxChanges` is not a positive integer;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `cannotCalculateChanges` when the backend cannot compute the changes
+///   since `sinceState`;
+/// - `serverFail` when the backend fails.
 pub async fn handle_chat_ban_changes<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -192,7 +213,7 @@ pub async fn handle_chat_ban_changes<B: ChatBackend>(
 // ChatBan/set
 // ---------------------------------------------------------------------------
 
-/// Handle a `ChatBan/set` method call (draft-atwood-jmap-chat-00 §ChatBan).
+/// Handle a `ChatBan/set` method call (draft-atwood-jmap-chat-00 §`ChatBan`).
 ///
 /// `args` is the RFC 8620 §5.3 `/set` request shape (`accountId`, optional
 /// `ifInState`, optional `create` / `update` / `destroy` maps); the
@@ -206,7 +227,7 @@ pub async fn handle_chat_ban_changes<B: ChatBackend>(
 ///   no stored Chat is `invalidProperties` naming `chatId`.
 /// - §ChatBan/set create "requires the `"admin"` role in the Chat, and the
 ///   Chat MUST be a group Chat; the server MUST reject any other with a
-///   `forbidden` SetError." A `userId` equal to the accountId (the owner
+///   `forbidden` `SetError`." A `userId` equal to the accountId (the owner
 ///   banning themselves) is `forbidden` too; the owner leaves a group with
 ///   `removeMembers` instead.
 /// - `bannedBy` is set server-side from `accountId`; never accepted from client.
@@ -227,6 +248,21 @@ pub async fn handle_chat_ban_changes<B: ChatBackend>(
 /// earlier in the request and resolves against `created_ids` (pass
 /// [`jmap_server::CallContext::created_ids`]; RFC 8620 §5.3); an unknown
 /// reference is `invalidProperties` naming the property.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   an element of `destroy` is not a string;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `create`, `update` and `destroy` together hold
+///   more than `maxObjectsInSet` objects;
+/// - `stateMismatch` when `ifInState` is not the current state;
+/// - `serverFail` when the backend fails.
+///
+/// A create, update or destroy that fails on its own is a
+/// [`SetError`](jmap_server::SetError) in the response, not an `Err`.
 pub async fn handle_chat_ban_set<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -405,7 +441,7 @@ struct CreateFields {
 }
 
 /// Check one `ChatBan/set` create object (with `#creationId` references
-/// resolved) and return its properties, or the SetError value for
+/// resolved) and return its properties, or the `SetError` value for
 /// `notCreated`.
 fn create_fields(obj_val: &Value) -> Result<CreateFields, Value> {
     if let Some(err) = obj_val.as_object().and_then(reject_server_set::<ChatBan>) {
@@ -621,7 +657,7 @@ async fn set_destroy<B: ChatBackend>(
 }
 
 /// draft-atwood-jmap-chat-00 §ChatBan/set: update and destroy each
-/// "Requires the `"admin"` role in the Chat". Returns the SetError value
+/// "Requires the `"admin"` role in the Chat". Returns the `SetError` value
 /// to report when the stored ban `id` is in a Chat where the accountId is
 /// not an admin. A ban that does not resolve is not gated, so the backend
 /// surfaces `notFound`; nor is a ban whose Chat no longer exists.
@@ -648,7 +684,7 @@ async fn stored_ban_denied<B: ChatBackend>(
     }
 }
 
-/// Whether `ban` is in force at `now`: §ChatBan `expiresAt`: "If present,
+/// Whether `ban` is in force at `now`: §`ChatBan` `expiresAt`: "If present,
 /// the ban expires at this time and the server MUST lift it."
 pub(crate) fn chat_ban_is_active(ban: &ChatBan, now: &UTCDate) -> bool {
     ban.expires_at

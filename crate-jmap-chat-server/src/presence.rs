@@ -1,6 +1,6 @@
-//! PresenceStatus/* method handlers (draft-atwood-jmap-chat-00 §PresenceStatus).
+//! `PresenceStatus`/* method handlers (draft-atwood-jmap-chat-00 §`PresenceStatus`).
 //!
-//! PresenceStatus is a singleton — exactly one per account. Clients MUST NOT
+//! [`PresenceStatus`] is a singleton — exactly one per account. Clients MUST NOT
 //! create or destroy it; any attempt is rejected with `forbidden`. Only
 //! `update` is permitted. `id` and `updatedAt` are server-set: `id` is
 //! immutable and `updatedAt` is injected by the handler on every update.
@@ -12,7 +12,7 @@
 //! Object whose fields match the corresponding RFC 8620 §5 method shape
 //! (`/get` → §5.1, `/changes` → §5.2, `/set` → §5.3), with the
 //! type-specific arguments defined by draft-atwood-jmap-chat-00
-//! §PresenceStatus. The returned `Value` is the corresponding
+//! §`PresenceStatus`. The returned `Value` is the corresponding
 //! method-response object per the same section refs.
 //!
 //! The returned `HandlerOutput::extra_invocations` carries any invocations
@@ -50,13 +50,23 @@ use jmap_server::{SetError, SetErrorType};
 // PresenceStatus/get
 // ---------------------------------------------------------------------------
 
-/// Handle a `PresenceStatus/get` method call (draft-atwood-jmap-chat-00 §PresenceStatus).
+/// Handle a `PresenceStatus/get` method call (draft-atwood-jmap-chat-00 §`PresenceStatus`).
 ///
 /// `args` is the RFC 8620 §5.1 `/get` request shape (`accountId`, optional
 /// `ids`, optional `properties`); the returned `Value` is the §5.1
 /// `/get` response shape (`accountId`, `state`, `list`, `notFound`).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   `ids` is not an Id array;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `ids` holds more than `maxObjectsInGet` ids;
+/// - `serverFail` when the backend fails.
 pub async fn handle_presence_get<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -110,7 +120,7 @@ pub async fn handle_presence_get<B: ChatBackend>(
 // PresenceStatus/changes
 // ---------------------------------------------------------------------------
 
-/// Handle a `PresenceStatus/changes` method call (draft-atwood-jmap-chat-00 §PresenceStatus).
+/// Handle a `PresenceStatus/changes` method call (draft-atwood-jmap-chat-00 §`PresenceStatus`).
 ///
 /// `args` is the RFC 8620 §5.2 `/changes` request shape (`accountId`,
 /// `sinceState`, optional `maxChanges`); the returned `Value` is the
@@ -118,6 +128,17 @@ pub async fn handle_presence_get<B: ChatBackend>(
 /// `hasMoreChanges`, `created`, `updated`, `destroyed`).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `sinceState` is missing, or `maxChanges` is not a positive integer;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `cannotCalculateChanges` when the backend cannot compute the changes
+///   since `sinceState`;
+/// - `serverFail` when the backend fails.
 pub async fn handle_presence_changes<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -166,7 +187,7 @@ pub async fn handle_presence_changes<B: ChatBackend>(
 // PresenceStatus/set
 // ---------------------------------------------------------------------------
 
-/// Handle a `PresenceStatus/set` method call (draft-atwood-jmap-chat-00 §PresenceStatus).
+/// Handle a `PresenceStatus/set` method call (draft-atwood-jmap-chat-00 §`PresenceStatus`).
 ///
 /// `args` is the RFC 8620 §5.3 `/set` request shape (`accountId`, optional
 /// `ifInState`, optional `create` / `update` / `destroy` maps); the
@@ -175,12 +196,27 @@ pub async fn handle_presence_changes<B: ChatBackend>(
 /// `notCreated` / `updated` / `notUpdated` / `destroyed` / `notDestroyed`
 /// maps).
 ///
-/// PresenceStatus is a singleton — create and destroy are forbidden. Only
+/// [`PresenceStatus`] is a singleton — create and destroy are forbidden. Only
 /// `update` is permitted. `id` and `updatedAt` are rejected in an update
 /// unless identical to the stored value (RFC 8620 §5.3); `updatedAt` is set server-side on every
 /// update except an empty patch, which is a no-op success.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   an element of `destroy` is not a string;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `create`, `update` and `destroy` together hold
+///   more than `maxObjectsInSet` objects;
+/// - `stateMismatch` when `ifInState` is not the current state;
+/// - `serverFail` when the backend fails.
+///
+/// An update that fails on its own, and every create and destroy, is a
+/// [`SetError`] in the response, not an `Err`.
 pub async fn handle_presence_set<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -242,7 +278,7 @@ struct SetCtx<'a, B: ChatBackend> {
 }
 
 /// The `create` part of `PresenceStatus/set`: forbidden, because
-/// PresenceStatus is a server-managed singleton.
+/// [`PresenceStatus`] is a server-managed singleton.
 fn set_create(args: &serde_json::Map<String, Value>, acc: &mut SetAccumulators) {
     if let Some(create_map) = args.get("create").and_then(|v| v.as_object()) {
         for create_id in create_map.keys() {
@@ -362,7 +398,7 @@ async fn update_one<B: ChatBackend>(
 }
 
 /// The `destroy` part of `PresenceStatus/set`: forbidden, because
-/// PresenceStatus is a server-managed singleton.
+/// [`PresenceStatus`] is a server-managed singleton.
 fn set_destroy(
     args: &serde_json::Map<String, Value>,
     acc: &mut SetAccumulators,

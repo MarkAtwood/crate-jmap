@@ -1,8 +1,8 @@
 //! Object history for the chat types (draft-ietf-jmap-object-history-03
 //! with the -04 editor's copy changes; docs/design/object-history.md;
 //! docs/design/DECISIONS.md decision 22): Chat, Message, Space,
-//! ChatContact, CustomEmoji, SpaceBan, ChatBan and SpaceInvite. ReadPosition and
-//! PresenceStatus have none.
+//! [`ChatContact`], [`CustomEmoji`], [`SpaceBan`], [`ChatBan`] and `SpaceInvite`. `ReadPosition` and
+//! `PresenceStatus` have none.
 //!
 //! In the shape of the canonical `jmap-mail-server` opt-in: each
 //! registered handler wraps the type's plain handler with
@@ -31,7 +31,7 @@ use crate::{
 
 /// [`register_chat_handlers`], then history-aware `/get` and `/set` of the
 /// eight chat history types and `/query`, `/queryChanges` of those that
-/// have them (Chat, Message, Space, ChatContact, CustomEmoji), through
+/// have them (Chat, Message, Space, [`ChatContact`], [`CustomEmoji`]), through
 /// `Dispatcher::register_history_aware` (docs/design/DECISIONS.md decision
 /// 1). Handlers that take no `using` in the plain registration are bound to
 /// the request's here.

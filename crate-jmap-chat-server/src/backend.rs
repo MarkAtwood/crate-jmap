@@ -1,4 +1,4 @@
-//! ChatBackend trait and supporting types for JMAP Chat method handlers.
+//! [`ChatBackend`] trait and supporting types for JMAP Chat method handlers.
 //!
 //! Consumers implement [`ChatBackend`] for their storage system. The method
 //! handlers in sibling modules call into the backend through this trait.
@@ -131,7 +131,7 @@ impl OpResult {
 ///
 /// Per draft-atwood-jmap-chat-00 §Space/set (spec commit `80d5e11`,
 /// 2026-05-11), each `add*` op on a Space MUST return an `overQuota`
-/// SetError (RFC 8620 §5.3) when the resulting count would exceed a
+/// [`SetError`] (RFC 8620 §5.3) when the resulting count would exceed a
 /// server-defined limit. The spec does not name or normatively define
 /// the cap values; they are implementation-defined and may vary per
 /// account or per tenant.
@@ -186,7 +186,7 @@ pub struct ChatLimits {
     /// Listed types that a companion specification reserves for
     /// server-created Messages (e.g. `"application/mimi-fanout"`,
     /// draft-atwood-jmap-chat-mimi-00). `Message/set` create rejects
-    /// them with an `invalidProperties` SetError naming `bodyType`;
+    /// them with an `invalidProperties` [`SetError`] naming `bodyType`;
     /// update does not. Defaults to empty.
     pub server_reserved_body_types: &'static [&'static str],
     /// `bodyType` values that indicate an end-to-end encrypted body.
@@ -208,27 +208,27 @@ pub struct ChatLimits {
     /// The account's `maxBodyBytes` capability value
     /// (draft-atwood-jmap-chat-00 §Account-Level Capability Object):
     /// "Maximum UTF-8 byte length of a Message `body`." `Message/set`
-    /// create rejects a longer `body` with a `tooLarge` SetError.
+    /// create rejects a longer `body` with a `tooLarge` `SetError`.
     /// Defaults to 100,000.
     pub max_body_bytes: u64,
     /// The account's `maxAttachmentBytes` capability value: "Maximum size
     /// in bytes of a single attachment blob." `Message/set` create
     /// rejects an Attachment whose `size` exceeds it with a `tooLarge`
-    /// SetError, before consulting [`ChatResolvers::attachment_blob`].
+    /// [`SetError`], before consulting [`ChatResolvers::attachment_blob`].
     /// Defaults to 50,000,000.
     pub max_attachment_bytes: u64,
     /// The account's `maxAttachmentsPerMessage` capability value:
     /// "Maximum number of attachments per message." `Message/set` create
-    /// rejects more with a `tooLarge` SetError. Defaults to 16.
+    /// rejects more with a `tooLarge` `SetError`. Defaults to 16.
     pub max_attachments_per_message: u64,
-    /// Maximum number of CustomEmoji in one Space; `None` is no limit.
+    /// Maximum number of `CustomEmoji` in one Space; `None` is no limit.
     /// jmap-chat-implementer-guide §2.2: "The server MUST reject
     /// `CustomEmoji/set` with `overQuota` (per RFC 8620 §5.3) when the
     /// count or size limit is exceeded." A create that would make the
     /// Space hold more is rejected. Server-global emoji (no `spaceId`)
     /// are not counted. Defaults to the guide's starting point, 100.
     pub max_custom_emoji_per_space: Option<u32>,
-    /// Maximum size in bytes of a CustomEmoji image blob; `None` is no
+    /// Maximum size in bytes of a `CustomEmoji` image blob; `None` is no
     /// limit. `CustomEmoji/set` rejects a create or a `blobId` update
     /// naming a larger blob with `overQuota` (guide §2.2, as above). The
     /// size comes from [`ChatResolvers::attachment_blob`]; a blob it does
@@ -459,13 +459,13 @@ pub enum InviteJoinRefusal {
 /// Per draft-atwood-jmap-chat-00 §Chat `slowModeSeconds` plus spec commit
 /// `de60acb` (2026-05-11) which softened the manage-channels exemption to
 /// SHOULD: a non-exempt member who sends faster than the configured rate
-/// MUST be rejected with a `rateLimit` SetError (RFC 8620 §5.3) carrying a
-/// `serverRetryAfter` UTCDate that tells the client when it may retry.
+/// MUST be rejected with a `rateLimit` [`SetError`] (RFC 8620 §5.3) carrying a
+/// `serverRetryAfter` `UTCDate` that tells the client when it may retry.
 ///
 /// `retry_after` is a fully-formed [`jmap_types::UTCDate`] — the backend
 /// has already done the arithmetic (typically "now + remaining slow-mode
 /// window"). The handler serialises it verbatim onto the wire as the
-/// `serverRetryAfter` SetError extra field.
+/// `serverRetryAfter` `SetError` extra field.
 ///
 /// `#[non_exhaustive]` preserves the ability to add fields without a
 /// SemVer break (e.g. an error code, sender-facing retry hint string,
@@ -659,14 +659,14 @@ pub trait ChatStore: ChatEvents {
     ///   composite unique index in a database backend) and surface a
     ///   duplicate as `BackendSetError::SetError(SetError::new(
     ///   SetErrorType::AlreadyExists).with_existing_id(canonical))`.
-    ///   See draft-atwood-jmap-chat-00 §ReadPosition.
+    ///   See draft-atwood-jmap-chat-00 §`ReadPosition`.
     /// - **`ChatContact`** — at most one record per
     ///   `(account_id, identity)`, compared octet for octet.
     ///   [`crate::contact::handle_contact_set`] does not pre-check: the
     ///   backend MUST reject a duplicate atomically with the create as
     ///   `BackendSetError::SetError(SetError::new(
     ///   SetErrorType::AlreadyExists).with_existing_id(existing))`, where
-    ///   `existing` is the id of the ChatContact that holds the
+    ///   `existing` is the id of the `ChatContact` that holds the
     ///   `identity`. See draft-atwood-jmap-chat-00 §ChatContact/set.
     /// - **`CustomEmoji`** — at most one emoji per `(account_id,
     ///   spaceId, name)`, an absent `spaceId` being the server-global
@@ -675,14 +675,14 @@ pub trait ChatStore: ChatEvents {
     ///   `BackendSetError::SetError(SetError::new(
     ///   SetErrorType::AlreadyExists).with_existing_id(existing))` and,
     ///   in `update_object`, a rename onto a held name as an
-    ///   `invalidProperties` SetError naming `name`. See
-    ///   draft-atwood-jmap-chat-00 §CustomEmoji `name`.
+    ///   `invalidProperties` [`SetError`] naming `name`. See
+    ///   draft-atwood-jmap-chat-00 §`CustomEmoji` `name`.
     ///   The same holds for the [`ChatLimits`] emoji caps: the backend
     ///   MUST reject, atomically with the write, a create that would put
     ///   more than `max_custom_emoji_per_space` emoji in its Space, and a
     ///   create or `blobId` update naming a blob larger than
     ///   `max_custom_emoji_bytes`, as `BackendSetError::SetError` with an
-    ///   `overQuota` SetError (jmap-chat-implementer-guide §2.2: "The
+    ///   `overQuota` `SetError` (jmap-chat-implementer-guide §2.2: "The
     ///   server MUST reject `CustomEmoji/set` with `overQuota` ... when
     ///   the count or size limit is exceeded"). The handler pre-checks
     ///   both, but the pre-check cannot close the race.
@@ -741,7 +741,7 @@ pub trait ChatStore: ChatEvents {
     ///   [`read_and_burn_message`](ChatMessageLifecycle::read_and_burn_message)), the
     ///   still-stored Message its `replyTo` names, whose `replyCount`
     ///   changed;
-    /// - on a ReadPosition update that changes `lastReadMessageId`, each
+    /// - on a `ReadPosition` update that changes `lastReadMessageId`, each
     ///   thread root (no `threadRootId`) in that Chat with a direct reply
     ///   not sent by the owner (`senderId` is not the accountId) whose id
     ///   moved across `lastReadMessageId`, whose `unreadReplyCount`
@@ -835,7 +835,7 @@ pub trait ChatStore: ChatEvents {
     ///
     /// # Patch format
     ///
-    /// `patch` is an RFC 8620 §5.3 PatchObject, not an RFC 7396 JSON
+    /// `patch` is an RFC 8620 §5.3 `PatchObject`, not an RFC 7396 JSON
     /// Merge Patch: "The keys are a path in JSON Pointer format
     /// \[RFC6901\], with an implicit leading "/"". So `{"a/b": null}`
     /// removes member `b` of property `a`; it does not touch a top-level
@@ -901,7 +901,7 @@ pub trait ChatStore: ChatEvents {
     /// holds `manage_space` in that Space, checked atomically with the
     /// destroy (draft-atwood-jmap-chat-00 §Destroying a Space, jmap-chat-spec
     /// 77c3474 L1391: "The caller SHOULD hold `"manage_space"`"; "Servers
-    /// SHOULD return a `forbidden` SetError when the caller does not satisfy
+    /// SHOULD return a `forbidden` [`SetError`] when the caller does not satisfy
     /// the deployment's destroy-authorization rules"). This crate performs
     /// the recommended check by choice. The handler does no check of its
     /// own.
@@ -922,9 +922,9 @@ pub trait ChatStore: ChatEvents {
     /// tombstones are retained."). Those are Chat and Message destroys.
     ///
     /// Every Chat destroy, including those cascades, MUST also destroy
-    /// the Chat's ReadPosition (draft-atwood-jmap-chat-00 §ReadPosition:
+    /// the Chat's `ReadPosition` (draft-atwood-jmap-chat-00 §`ReadPosition`:
     /// the server "destroys it when the Chat is destroyed"). That is a
-    /// ReadPosition destroy.
+    /// `ReadPosition` destroy.
     ///
     /// If the backend itself changes another record because of the
     /// destroy, it MUST advance that record type's state and record the
@@ -1055,7 +1055,7 @@ pub trait ChatSpaces: JmapBackend {
     /// unreachable HSM or KMS) returns `Err`; `SpaceInvite/set` reports
     /// that create as `serverFail`. Never fall back to a predictable code.
     ///
-    /// `caller` and `account_id` identify the SpaceInvite create the code
+    /// `caller` and `account_id` identify the `SpaceInvite` create the code
     /// is for, so a backend can scope its entropy source per account.
     ///
     /// [`rand::rngs::OsRng`]: https://docs.rs/rand/latest/rand/rngs/struct.OsRng.html
@@ -1066,7 +1066,7 @@ pub trait ChatSpaces: JmapBackend {
         account_id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = Result<String, Self::Error>> + Send;
 
-    /// Redeem the SpaceInvite `invite_id` for `Space/join`: add the owner
+    /// Redeem the `SpaceInvite` `invite_id` for `Space/join`: add the owner
     /// (member entry `account_id`, no roles, `joinedAt` = `joined_at`) to
     /// the invite's Space and increment the invite's `uses`.
     ///
@@ -1151,7 +1151,7 @@ pub trait ChatSpaces: JmapBackend {
     /// bd:JMAP-x2gd.44: the backend MUST query its own
     /// [`ChatSettings::limits`], project the post-patch counts for the
     /// target Space, and reject the whole patch with an `overQuota`
-    /// SetError (RFC 8620 §5.3) if any aggregate would exceed its
+    /// [`SetError`] (RFC 8620 §5.3) if any aggregate would exceed its
     /// cap. The cap enforcement MUST be atomic with the mutation
     /// itself — typically inside the same database transaction or
     /// the same mutex critical section. Per
@@ -1165,7 +1165,7 @@ pub trait ChatSpaces: JmapBackend {
     /// federation receiver, internal batch importer) and calls
     /// `apply_space_patch` directly MUST still see caps enforced.
     /// The pre-flight exists only to surface `overQuota` to the
-    /// client as a single SetError without consuming a backend
+    /// client as a single `SetError` without consuming a backend
     /// round-trip; backends MAY rely on the handler having pre-checked
     /// for performance, but MUST NOT rely on it for correctness.
     ///
@@ -1192,7 +1192,7 @@ pub trait ChatSpaces: JmapBackend {
     ///   and every `Message` whose `chatId` matches the removed
     ///   channel (draft §Space/set L1283: "Cascades to all
     ///   Messages in those channels."), and the channel's
-    ///   `ReadPosition` (draft §ReadPosition: the server "destroys it
+    ///   `ReadPosition` (draft §`ReadPosition`: the server "destroys it
     ///   when the Chat is destroyed"). The `Chat`, `Message` and
     ///   `ReadPosition` type state tokens MUST bump so their `/changes`
     ///   subscribers see the destruction.
@@ -1225,8 +1225,8 @@ pub trait ChatSpaces: JmapBackend {
     ///   `Space.memberCount` consistent with `members.len()`. The
     ///   spec does not mandate cascade to the member's `ReadPosition`
     ///   records; the reference impl leaves them in place and treats
-    ///   ReadPosition cleanup as implementation-defined. A backend
-    ///   that destroys orphaned ReadPositions MUST bump the
+    ///   `ReadPosition` cleanup as implementation-defined. A backend
+    ///   that destroys orphaned `ReadPosition`s MUST bump the
     ///   `ReadPosition` type state token; a backend that retains
     ///   them MUST NOT.
     ///
@@ -1285,7 +1285,7 @@ pub trait ChatSpaces: JmapBackend {
     /// The "MUST contain ... as a substring" rule on permission-denied
     /// failures lets downstream UI / CLI consumers route
     /// permission-request flows by parsing the description, and lets
-    /// users see "Permission denied: missing manage_space" rather
+    /// users see "Permission denied: missing `manage_space`" rather
     /// than a bare "Permission denied". Deployments that need a
     /// programmatic alternative SHOULD additionally surface the
     /// missing permission via [`SetError::with_extra`] under a
@@ -1383,7 +1383,7 @@ pub trait ChatSpaces: JmapBackend {
     /// name in `properties` — see the "Diagnostic content
     /// convention" section below for the blob-not-found shape
     /// specifically. (RFC 8620 §5.3 defines `blobNotFound` only as
-    /// a method-level error; at the SetError level it surfaces as
+    /// a method-level error; at the `SetError` level it surfaces as
     /// `InvalidProperties` naming the offending blob-id field.)
     ///
     /// # Return value
@@ -1472,9 +1472,9 @@ pub trait ChatSpaces: JmapBackend {
     /// property. The non-member restricted view omits them.
     ///
     /// The handler does not validate values. A backend that must check
-    /// one (for example, that `taskListId` names an existing TaskList on
+    /// one (for example, that `taskListId` names an existing `TaskList` on
     /// the same account) rejects it in `create_object` or
-    /// `apply_space_metadata_patch` with an `invalidProperties` SetError
+    /// `apply_space_metadata_patch` with an `invalidProperties` [`SetError`]
     /// naming the key. A listed key that is already a core Space property
     /// or a structural patch key keeps its core meaning.
     ///
@@ -1556,7 +1556,7 @@ pub trait ChatSpaces: JmapBackend {
     /// member/role state, projects the post-patch admin count across
     /// all ops in the patch (member adds/removes, role-id changes,
     /// permission edits), and rejects the whole update target with an
-    /// `invalidProperties` SetError naming the patch key(s) concerned
+    /// `invalidProperties` [`SetError`] naming the patch key(s) concerned
     /// if zero admins would remain (draft §Space/set `removeMembers`:
     /// "a refusal names the patch key concerned").
     ///
@@ -1577,9 +1577,9 @@ pub trait ChatSpaces: JmapBackend {
     /// account `account_id`'s Space.
     ///
     /// Every member holds that role, "which serves as the permission
-    /// floor" (draft-atwood-jmap-chat-00 §SpaceRole, jmap-chat-spec
+    /// floor" (draft-atwood-jmap-chat-00 §`SpaceRole`, jmap-chat-spec
     /// 29e9a41 L812), and §Space Permission Resolution step 1 (L1705)
-    /// unions its permissions with the member's SpaceRoles. The draft puts
+    /// unions its permissions with the member's `SpaceRole`s. The draft puts
     /// them on no wire object, so the backend decides where each Space's
     /// set is stored. The chat bindings (`jmap-chat-filenode-server`,
     /// `jmap-chat-vtc-server`) and the `Peer/deliver` handler of
@@ -1596,7 +1596,7 @@ pub trait ChatSpaces: JmapBackend {
     > + Send;
 }
 
-/// Space-scoped authorization gates: custom emoji, SpaceBan and SpaceInvite writes and reads.
+/// Space-scoped authorization gates: custom emoji, `SpaceBan` and `SpaceInvite` writes and reads.
 ///
 /// Part of [`ChatBackend`] (docs/design/chat-backend-split.md).
 pub trait SpacePolicy: JmapBackend {
@@ -1608,7 +1608,7 @@ pub trait SpacePolicy: JmapBackend {
     /// authorization for `CustomEmoji/set` is fully
     /// implementation-defined, for both server-global and Space-scoped
     /// emoji. When the caller is not authorized, the handler emits a
-    /// `forbidden` SetError (RFC 8620 §5.3).
+    /// `forbidden` [`SetError`] (RFC 8620 §5.3).
     ///
     /// # `target_space_id` semantics
     ///
@@ -1625,7 +1625,7 @@ pub trait SpacePolicy: JmapBackend {
     /// the existing emoji via `get_objects` and passes its current
     /// `spaceId`. If the pre-fetch reports the id as not found, the
     /// handler skips this gate entirely and lets `update_object` /
-    /// `destroy_object` surface a `notFound` SetError naturally — a
+    /// `destroy_object` surface a `notFound` `SetError` naturally — a
     /// non-existent target consumes no authorization decision.
     ///
     /// # When the handler calls this
@@ -1641,11 +1641,11 @@ pub trait SpacePolicy: JmapBackend {
     ///   `create_object` / `update_object` / `destroy_object`.
     /// - `Ok(Err(set_err))` — deny with reason; the handler serialises
     ///   `set_err` into the appropriate `notCreated` / `notUpdated` /
-    ///   `notDestroyed` map verbatim. Backends construct the SetError
+    ///   `notDestroyed` map verbatim. Backends construct the `SetError`
     ///   with the type, description, and any `with_extra` fields the
     ///   deployment wants the client to see.
     /// - `Err(e)` — backend infrastructure failure; the handler maps
-    ///   to a `serverFail` SetError.
+    ///   to a `serverFail` `SetError`.
     ///
     /// # Default implementation
     ///
@@ -1658,7 +1658,7 @@ pub trait SpacePolicy: JmapBackend {
     /// emoji" or "only `manage_emoji` permission-holders may modify
     /// server-global emoji."
     ///
-    /// # SetError shape recommendation
+    /// # `SetError` shape recommendation
     ///
     /// Production backends SHOULD return
     /// `Ok(Err(SetError::new(SetErrorType::Forbidden)
@@ -1693,7 +1693,7 @@ pub trait SpacePolicy: JmapBackend {
     }
 
     /// Authorization gate consulted by `handle_ban_set` before each
-    /// SpaceBan create, update or destroy.
+    /// `SpaceBan` create, update or destroy.
     ///
     /// Per draft-atwood-jmap-chat-00 §SpaceBan/set: create, update and
     /// destroy each "Requires `"ban"` permission in the Space."
@@ -1723,7 +1723,7 @@ pub trait SpacePolicy: JmapBackend {
     }
 
     /// Authorization gate consulted by `handle_invite_set` before each
-    /// SpaceInvite create or destroy.
+    /// `SpaceInvite` create or destroy.
     ///
     /// Per draft-atwood-jmap-chat-00 §SpaceInvite/set: create "Requires
     /// `"manage_members"` permission"; destroy "Requires
@@ -1756,7 +1756,7 @@ pub trait SpacePolicy: JmapBackend {
     }
 
     /// Visibility gate consulted by `handle_invite_get` and
-    /// `handle_invite_changes` for each stored SpaceInvite.
+    /// `handle_invite_changes` for each stored `SpaceInvite`.
     ///
     /// Per draft-atwood-jmap-chat-00 §SpaceInvite/get: "Only members of
     /// the Space may retrieve its invites. Members with
@@ -1785,11 +1785,11 @@ pub trait SpacePolicy: JmapBackend {
     }
 
     /// Visibility gate consulted by `handle_ban_get` for each stored
-    /// SpaceBan.
+    /// `SpaceBan`.
     ///
     /// Per draft-atwood-jmap-chat-00 §SpaceBan/get: "Members with
-    /// `"ban"` permission in the Space see all SpaceBan records for that
-    /// Space. A banned user fetching their own account sees only SpaceBan
+    /// `"ban"` permission in the Space see all `SpaceBan` records for that
+    /// Space. A banned user fetching their own account sees only `SpaceBan`
     /// records where `userId` is the accountId."
     ///
     /// # When the handler calls this
@@ -1822,12 +1822,12 @@ pub trait ChatAccessPolicy: JmapBackend {
     ///
     /// Delivery paths call this per recipient: `account_id` is the
     /// recipient (the owner of the contact list) and `contact_id` is the
-    /// sender's or referenced ChatContact id *in that account*.
+    /// sender's or referenced `ChatContact` id *in that account*.
     /// draft-atwood-jmap-chat-00 §Blocked Contacts: "Typing and presence
-    /// push events whose sending or referenced ChatContact has
+    /// push events whose sending or referenced `ChatContact` has
     /// `blocked: true` on the receiving owner's contact list are
     /// similarly dropped server-side before delivery to any of the
-    /// owner's clients". §ChatContact `id` "identifies the ChatContact only
+    /// owner's clients". §`ChatContact` `id` "identifies the `ChatContact` only
     /// on this server", so `contact_id` is always resolved within
     /// `account_id`'s list; it is never looked up in the sender's account.
     ///
@@ -1849,9 +1849,9 @@ pub trait ChatAccessPolicy: JmapBackend {
     ///
     /// Fetches `contact_id` from `account_id` with
     /// [`JmapReads::get_objects`](jmap_server::JmapReads::get_objects) and returns its `blocked` field, or
-    /// `Ok(false)` when `account_id` holds no such ChatContact. The
+    /// `Ok(false)` when `account_id` holds no such `ChatContact`. The
     /// callers pass the recipient's `caller`, the same one they use to
-    /// read the recipient's Chat. Override this only when ChatContacts are
+    /// read the recipient's Chat. Override this only when `ChatContact`s are
     /// not stored behind `get_objects` or a cheaper lookup exists.
     fn is_contact_blocked(
         &self,
@@ -1876,7 +1876,7 @@ pub trait ChatAccessPolicy: JmapBackend {
     /// create or update with a non-empty `broadcastMentions` array is
     /// applied.
     ///
-    /// Per draft-atwood-jmap-chat-00 §BroadcastMention (jmap-chat-spec
+    /// Per draft-atwood-jmap-chat-00 §`BroadcastMention` (jmap-chat-spec
     /// 77c3474 L462): sending a `Message` with a non-empty
     /// `broadcastMentions` array requires the `"mention_broadcast"` Space
     /// permission, and "Servers SHOULD reject `Message/set` create or update
@@ -1927,7 +1927,7 @@ pub trait ChatAccessPolicy: JmapBackend {
     /// resolved per §Space Permission Resolution (see
     /// [`resolve_channel_permissions`](crate::permissions::resolve_channel_permissions)).
     ///
-    /// # SetError shape recommendation
+    /// # `SetError` shape recommendation
     ///
     /// Production backends SHOULD return
     /// `Ok(Err(SetError::new(SetErrorType::Forbidden)
@@ -1980,13 +1980,13 @@ pub trait ChatAccessPolicy: JmapBackend {
     ///
     /// Per draft-atwood-jmap-chat-00 §Message/set (jmap-chat-spec 77c3474
     /// L1218): "The server SHOULD verify the sender is a current member of
-    /// the target Chat. For group chats, this means a ChatMember record
+    /// the target Chat. For group chats, this means a `ChatMember` record
     /// exists; for channel chats, the sender must be a member of the
-    /// containing Space. Non-members SHOULD receive a SetError of type
+    /// containing Space. Non-members SHOULD receive a [`SetError`] of type
     /// `forbidden`." and (L1220) "For channel Chats, the server SHOULD
     /// verify the sender holds the `"send"` permission (resolved per
     /// {{space-permissions}}) before accepting the message; if absent, the
-    /// server SHOULD return a SetError of type `forbidden`." The handler
+    /// server SHOULD return a `SetError` of type `forbidden`." The handler
     /// performs these recommended checks by choice.
     /// [`resolve_channel_permissions`](crate::permissions::resolve_channel_permissions)
     /// implements that resolution.
@@ -2119,11 +2119,11 @@ pub trait ChatAccessPolicy: JmapBackend {
     /// backend implements the policy.
     ///
     /// When the caller is throttled, the backend returns
-    /// `Err(`[`SlowModeError`]`)` with `retry_after` set to a UTCDate
+    /// `Err(`[`SlowModeError`]`)` with `retry_after` set to a `UTCDate`
     /// the rate-limited sender may use to schedule a retry. The
     /// `Message/set` create handler maps the error onto a
-    /// `rateLimit` SetError (RFC 8620 §5.3 `SetError.type`) whose
-    /// `serverRetryAfter` extra field carries the UTCDate verbatim.
+    /// `rateLimit` [`SetError`] (RFC 8620 §5.3 `SetError.type`) whose
+    /// `serverRetryAfter` extra field carries the `UTCDate` verbatim.
     ///
     /// # When the handler calls this
     ///
@@ -2131,7 +2131,7 @@ pub trait ChatAccessPolicy: JmapBackend {
     /// entry, after wire-format validation has succeeded and before
     /// `create_object`. A throttle rejection short-circuits to
     /// `notCreated[create_id] = { type: "rateLimit",
-    /// serverRetryAfter: <UTCDate> }` and the create_object call is
+    /// serverRetryAfter: <UTCDate> }` and the `create_object` call is
     /// never made.
     ///
     /// # Default implementation
@@ -2167,7 +2167,7 @@ pub trait ChatRestrictions: JmapBackend {
     /// For extensions that bind a Chat to something outside JMAP Chat and
     /// so restrict it, e.g. draft-atwood-jmap-chat-mimi-00 §message/mls:
     /// "The server MUST reject a `Message/set` create in a Chat with a
-    /// `roomId` with a `forbidden` SetError." Extension properties of the
+    /// `roomId` with a `forbidden` `SetError`." Extension properties of the
     /// Chat are in [`Chat::extra`](jmap_chat_types::Chat::extra).
     /// [`ChatAccessPolicy::may_send_message`] is the sender's membership and
     /// permission gate; this one sees the Chat itself.
@@ -2199,7 +2199,7 @@ pub trait ChatRestrictions: JmapBackend {
     /// For extension-bound Chats, e.g. draft-atwood-jmap-chat-mimi-00
     /// §message/mls: "The server MUST reject a `Message/set` update that
     /// changes `body`, `bodyType`, or `reactions` of a Message in a Chat
-    /// with a `roomId` with an `invalidProperties` SetError naming the
+    /// with a `roomId` with an `invalidProperties` [`SetError`] naming the
     /// changed properties."
     ///
     /// # When the handler calls this
@@ -2262,13 +2262,13 @@ pub trait ChatRestrictions: JmapBackend {
     }
 }
 
-/// Group Chat moderation: ChatBan create, update and destroy, and the `kickMembers` patch key.
+/// Group Chat moderation: `ChatBan` create, update and destroy, and the `kickMembers` patch key.
 ///
 /// Its defaults write through [`ChatStore`].
 ///
 /// Part of [`ChatBackend`] (docs/design/chat-backend-split.md).
 pub trait ChatModeration: ChatStore {
-    /// Store a ChatBan and remove the banned user from the Chat's
+    /// Store a `ChatBan` and remove the banned user from the Chat's
     /// `members` as one unit.
     ///
     /// [`crate::handle_chat_ban_set`] calls this for every `ChatBan/set`
@@ -2403,7 +2403,7 @@ pub trait ChatModeration: ChatStore {
         self.update_object::<jmap_chat_types::ChatBan>(caller, account_id, id, patch)
     }
 
-    /// Lift the ChatBan `id`.
+    /// Lift the `ChatBan` `id`.
     ///
     /// [`crate::handle_chat_ban_set`] calls this for every destroy that
     /// passes its checks (the caller holds the `"admin"` role in the ban's
@@ -2431,7 +2431,7 @@ pub trait ChatModeration: ChatStore {
     /// Apply the `kickMembers` key of a `Chat/set` update.
     ///
     /// draft-atwood-jmap-chat-mimi-00 §Moderation: "The `kickMembers`
-    /// patch key of `Chat/set` (String\[], ChatContact ids), which this
+    /// patch key of `Chat/set` (String\[], `ChatContact` ids), which this
     /// document adds for Chats bound to a room, removes the listed users'
     /// clients from the group but keeps them in the participant list, so
     /// that they can rejoin (`canKick`)." A backend that binds Chats to
@@ -2446,9 +2446,9 @@ pub trait ChatModeration: ChatStore {
     /// valid ids (else `invalidProperties`), after
     /// [`ChatRestrictions::may_update_chat`] and the other patch checks, and before
     /// [`ChatStore::update_object`] writes the rest of the patch (if any).
-    /// `chat` is the stored Chat and `user_ids` the listed ChatContact ids
+    /// `chat` is the stored Chat and `user_ids` the listed `ChatContact` ids
     /// with `#creationId` references resolved. `Ok(Err(set_error))`
-    /// rejects the update with that SetError and nothing is written; `Err`
+    /// rejects the update with that [`SetError`] and nothing is written; `Err`
     /// is `serverFail`.
     ///
     /// # Default implementation
@@ -2569,7 +2569,7 @@ pub trait ChatMessageLifecycle: JmapBackend {
     /// crashed mid-batch). The
     /// return type is `Result<(), Self::Error>` (not
     /// `BackendSetError`) precisely to prevent a `NotFound`
-    /// SetError construction on this path: expiry is an internal
+    /// [`SetError`] construction on this path: expiry is an internal
     /// scheduler hook, not a `/set`-shaped call, and there is no
     /// JMAP wire surface for per-message expiry rejection.
     ///
@@ -2609,8 +2609,8 @@ pub trait ChatEvents: JmapBackend {
     /// update the records that reference it. Examples:
     /// draft-atwood-jmap-chat-tasks-00 §Lifecycle ("the affected Tasks'
     /// `chatId` fields MUST be cleared") and draft-atwood-jmap-vtc-00
-    /// §VTCCall ("the server MUST clear the corresponding field to
-    /// `null` on all VTCCalls that reference it").
+    /// §`VTCCall` ("the server MUST clear the corresponding field to
+    /// `null` on all `VTCCall`s that reference it").
     ///
     /// # When the handler calls this
     ///
@@ -2649,8 +2649,8 @@ pub trait ChatEvents: JmapBackend {
 
     /// Called after a `Space/set` destroy succeeds, so a companion
     /// extension can update the records that reference the Space.
-    /// Examples: draft-atwood-jmap-vtc-00 §VTCCall (clear `spaceId` on
-    /// VTCCalls) and draft-atwood-jmap-chat-filenode-00 §Space Deletion
+    /// Examples: draft-atwood-jmap-vtc-00 §`VTCCall` (clear `spaceId` on
+    /// `VTCCall`s) and draft-atwood-jmap-chat-filenode-00 §Space Deletion
     /// ("the server SHOULD also destroy the associated file tree").
     ///
     /// The handler calls it once per destroyed Space, after
@@ -2675,7 +2675,7 @@ pub trait ChatEvents: JmapBackend {
     /// ban, so a companion extension can apply the ban to its own
     /// records. Example: draft-atwood-jmap-vtc-00 §Access Control "Space
     /// ban enforcement" (the server "MUST set `leftAt` on that
-    /// VTCParticipant record"; "The ban takes effect immediately on
+    /// `VTCParticipant` record"; "The ban takes effect immediately on
     /// active calls").
     ///
     /// The handler calls it once per created ban. The error and state
@@ -2808,9 +2808,9 @@ pub trait ChatSettings: JmapBackend {
     /// Whether the backend retains edit history for messages.
     ///
     /// Per draft-atwood-jmap-chat-00 commit `0783fc4` ("condition
-    /// MessageRevision push on edit-history retention") +
+    /// `MessageRevision` push on edit-history retention") +
     /// `§Message editHistory`: servers MAY limit retained
-    /// MessageRevisions, and when the server does not retain edit
+    /// `MessageRevision`s, and when the server does not retain edit
     /// history, the `editHistory` field MUST be omitted from
     /// `Message/get` and (in principle) `Message/changes` responses.
     /// `Message/changes` per RFC 8620 §5.2 returns only id arrays,
@@ -2861,16 +2861,16 @@ pub trait ChatSettings: JmapBackend {
     /// # When the handlers call this
     ///
     /// When `false`, the kit keeps the count exact: `Chat/get` recomputes
-    /// `unreadCount` from the account's Messages and ReadPositions, and
+    /// `unreadCount` from the account's Messages and `ReadPosition`s, and
     /// every Message create or destroy, Message expiry, read-and-burn and
-    /// ReadPosition update writes the recomputed count to each affected
+    /// `ReadPosition` update writes the recomputed count to each affected
     /// Chat through [`ChatStore::update_object`], which advances the
     /// `Chat` state.
     ///
     /// When `true`, the kit does neither: `Chat/get` returns the stored
     /// `unreadCount` and no Chat is rewritten. The backend sees every
     /// write that moves the count (the `create_object`, `update_object`
-    /// and `destroy_object` calls for Message and ReadPosition,
+    /// and `destroy_object` calls for Message and `ReadPosition`,
     /// [`ChatMessageLifecycle::expire_message`] and
     /// [`ChatMessageLifecycle::read_and_burn_message`]), and may defer, coalesce or
     /// cap its update. It MUST still advance the `Chat` state, and log the
@@ -2893,9 +2893,9 @@ pub trait ChatSettings: JmapBackend {
     ///
     /// [`crate::contact::handle_contact_set`] rejects a `ChatContact/set`
     /// create whose `identity` equals this value, octet for octet, with
-    /// an `invalidProperties` SetError naming `identity`
+    /// an `invalidProperties` [`SetError`] naming `identity`
     /// (draft-atwood-jmap-chat-00 §ChatContact/set: "the owner has no
-    /// ChatContact").
+    /// `ChatContact`").
     ///
     /// # Default implementation
     ///
@@ -2947,7 +2947,7 @@ pub trait ChatSettings: JmapBackend {
     }
 }
 
-/// Lookups outside chat storage: attachment blobs and FileNode attachments.
+/// Lookups outside chat storage: attachment blobs and `FileNode` attachments.
 ///
 /// Part of [`ChatBackend`] (docs/design/chat-backend-split.md).
 pub trait ChatResolvers: JmapBackend {
@@ -2959,7 +2959,7 @@ pub trait ChatResolvers: JmapBackend {
     /// `sha256` L377: "Servers SHOULD verify". By choice, the handler
     /// compares the returned [`AttachmentBlob`]
     /// against the Attachment and rejects a mismatch with an
-    /// `invalidProperties` SetError naming `attachments` (§Input
+    /// `invalidProperties` [`SetError`] naming `attachments` (§Input
     /// Validation). The `sha256` comparison is constant-time
     /// (`subtle::ConstantTimeEq`), so implementations return the digest
     /// rather than comparing it themselves.
@@ -2983,14 +2983,14 @@ pub trait ChatResolvers: JmapBackend {
     /// Required: the `size` check is a MUST, so a backend that cannot
     /// verify blobs says so explicitly by returning `Ok(Ok(None))`.
     ///
-    /// # CustomEmoji images
+    /// # `CustomEmoji` images
     ///
     /// `handle_emoji_set` also calls this for the `blobId` of a create,
     /// and of an update that sets `blobId`, when
     /// [`ChatLimits::max_custom_emoji_bytes`] is a limit, to compare the
     /// blob's `size` with it (`overQuota` when larger). There `Ok(Ok(None))`
     /// skips the check, and `Ok(Err(_))` rejects the emoji with an
-    /// `invalidProperties` SetError naming `blobId`.
+    /// `invalidProperties` `SetError` naming `blobId`.
     fn attachment_blob(
         &self,
         caller: &Self::CallerCtx,
@@ -3000,15 +3000,15 @@ pub trait ChatResolvers: JmapBackend {
         Output = Result<Result<Option<AttachmentBlob>, SetError>, Self::Error>,
     > + Send;
 
-    /// FileNode resolution consulted by `handle_message_set` for each
+    /// `FileNode` resolution consulted by `handle_message_set` for each
     /// create Attachment that carries `filenodeId`.
     ///
     /// Per draft-atwood-jmap-chat-filenode-00 §filenodeId: "When
     /// `filenodeId` is present on an Attachment, the fields `blobId`,
     /// `filename`, `contentType`, `size`, and `sha256` become OPTIONAL for
     /// that Attachment entry; the server MUST populate any absent fields
-    /// from the referenced FileNode's properties before storage", and the
-    /// server "MUST verify that the referenced FileNode exists and belongs
+    /// from the referenced `FileNode`'s properties before storage", and the
+    /// server "MUST verify that the referenced `FileNode` exists and belongs
     /// to the same Space" and that "the sender has at least read access".
     /// `chat` is the message's target Chat. A deployment offering
     /// `urn:ietf:params:jmap:chat:filenode` implements this with
@@ -3033,7 +3033,7 @@ pub trait ChatResolvers: JmapBackend {
     ///
     /// # Default implementation
     ///
-    /// Returns `Ok(Ok(None))`: no FileNode store, matching the fail-open
+    /// Returns `Ok(Ok(None))`: no `FileNode` store, matching the fail-open
     /// hooks above.
     fn filenode_attachment(
         &self,

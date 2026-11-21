@@ -1,6 +1,6 @@
-//! SpaceBan/* method handlers (draft-atwood-jmap-chat-00 §SpaceBan).
+//! `SpaceBan`/* method handlers (draft-atwood-jmap-chat-00 §`SpaceBan`).
 //!
-//! SpaceBan supports get, changes, and set only (no query, no queryChanges).
+//! [`SpaceBan`] supports get, changes, and set only (no query, no queryChanges).
 //! `bannedBy` is always set server-side from the `accountId`; it is never
 //! accepted from client request bodies.
 //!
@@ -10,7 +10,7 @@
 //! method shape. The `args: serde_json::Value` parameter MUST be a JSON
 //! Object whose fields match the corresponding RFC 8620 §5 method shape
 //! (`/get` → §5.1, `/changes` → §5.2, `/set` → §5.3), with the
-//! type-specific arguments defined by draft-atwood-jmap-chat-00 §SpaceBan.
+//! type-specific arguments defined by draft-atwood-jmap-chat-00 §`SpaceBan`.
 //! The returned `Value` is the corresponding method-response object
 //! per the same section refs.
 //!
@@ -53,7 +53,7 @@ use jmap_server::{
 // SpaceBan/get
 // ---------------------------------------------------------------------------
 
-/// Handle a `SpaceBan/get` method call (draft-atwood-jmap-chat-00 §SpaceBan).
+/// Handle a `SpaceBan/get` method call (draft-atwood-jmap-chat-00 §`SpaceBan`).
 ///
 /// `args` is the RFC 8620 §5.1 `/get` request shape (`accountId`, optional
 /// `ids`, optional `properties`); the returned `Value` is the §5.1
@@ -63,6 +63,16 @@ use jmap_server::{
 /// hidden ban is reported exactly like a missing one.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   `ids` is not an Id array;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `ids` holds more than `maxObjectsInGet` ids;
+/// - `serverFail` when the backend fails.
 pub async fn handle_ban_get<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -132,7 +142,7 @@ pub async fn handle_ban_get<B: ChatBackend>(
 // SpaceBan/changes
 // ---------------------------------------------------------------------------
 
-/// Handle a `SpaceBan/changes` method call (draft-atwood-jmap-chat-00 §SpaceBan).
+/// Handle a `SpaceBan/changes` method call (draft-atwood-jmap-chat-00 §`SpaceBan`).
 ///
 /// `args` is the RFC 8620 §5.2 `/changes` request shape (`accountId`,
 /// `sinceState`, optional `maxChanges`); the returned `Value` is the
@@ -140,6 +150,17 @@ pub async fn handle_ban_get<B: ChatBackend>(
 /// `hasMoreChanges`, `created`, `updated`, `destroyed`).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `sinceState` is missing, or `maxChanges` is not a positive integer;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `cannotCalculateChanges` when the backend cannot compute the changes
+///   since `sinceState`;
+/// - `serverFail` when the backend fails.
 pub async fn handle_ban_changes<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -152,7 +173,7 @@ pub async fn handle_ban_changes<B: ChatBackend>(
 // SpaceBan/set
 // ---------------------------------------------------------------------------
 
-/// Handle a `SpaceBan/set` method call (draft-atwood-jmap-chat-00 §SpaceBan).
+/// Handle a `SpaceBan/set` method call (draft-atwood-jmap-chat-00 §`SpaceBan`).
 ///
 /// `args` is the RFC 8620 §5.3 `/set` request shape (`accountId`, optional
 /// `ifInState`, optional `create` / `update` / `destroy` maps); the
@@ -176,6 +197,21 @@ pub async fn handle_ban_changes<B: ChatBackend>(
 /// A `spaceId` that is a `#creationId` reference names a record created earlier in the request and resolves against
 /// `created_ids` (pass [`jmap_server::CallContext::created_ids`]; RFC 8620
 /// §5.3); an unknown reference is `invalidProperties` naming the property.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   an element of `destroy` is not a string;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `create`, `update` and `destroy` together hold
+///   more than `maxObjectsInSet` objects;
+/// - `stateMismatch` when `ifInState` is not the current state;
+/// - `serverFail` when the backend fails.
+///
+/// A create, update or destroy that fails on its own is a
+/// [`SetError`](jmap_server::SetError) in the response, not an `Err`.
 pub async fn handle_ban_set<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -336,7 +372,7 @@ struct CreateFields {
 }
 
 /// Check one `SpaceBan/set` create object (with `#creationId` references
-/// resolved) and return its properties, or the SetError value for
+/// resolved) and return its properties, or the `SetError` value for
 /// `notCreated`.
 fn create_fields(obj_val: &Value) -> Result<CreateFields, Value> {
     if let Some(err) = obj_val.as_object().and_then(reject_server_set::<SpaceBan>) {
@@ -556,7 +592,7 @@ async fn set_destroy<B: ChatBackend>(
 
 /// draft-atwood-jmap-chat-00 §SpaceBan/set: create, update and destroy
 /// each "Requires `"ban"` permission in the Space"; the backend decides.
-/// Returns the SetError value to report when the op is denied.
+/// Returns the `SetError` value to report when the op is denied.
 async fn ban_denied<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,

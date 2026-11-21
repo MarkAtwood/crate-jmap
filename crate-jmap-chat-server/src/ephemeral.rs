@@ -1,5 +1,5 @@
 //! Ephemeral-stream subscription state (draft-atwood-jmap-chat-wss-00
-//! §ChatStreamEnable).
+//! §`ChatStreamEnable`).
 //!
 //! A WebSocket transport keeps one [`EphemeralSubscription`] per
 //! connection, starting from [`EphemeralSubscription::default`] (nothing
@@ -22,12 +22,12 @@
 //!
 //! - Typing: "no more than one `ChatTypingEvent` per sender per chat per 3
 //!   seconds SHOULD be delivered; events above this rate MAY be silently
-//!   dropped" (draft-atwood-jmap-chat-wss-00 §ChatTypingEvent, L251).
+//!   dropped" (draft-atwood-jmap-chat-wss-00 §`ChatTypingEvent`, L251).
 //! - Presence: "no more than one `ChatPresenceEvent` per contact per 30
 //!   seconds SHOULD be delivered; events above this rate MAY be silently
 //!   dropped, but the most recent presence state SHOULD be delivered when
 //!   the rate window reopens" (draft-atwood-jmap-chat-wss-00
-//!   §ChatPresenceEvent, L298). A presence limiter therefore keeps the
+//!   §`ChatPresenceEvent`, L298). A presence limiter therefore keeps the
 //!   latest dropped event per contact and sends it, after passing it
 //!   through [`project_presence`] again, when that contact's 30-second
 //!   window reopens, so the recipient is not left with stale presence.
@@ -73,7 +73,7 @@ impl IdScope {
 impl From<Option<&Vec<Id>>> for IdScope {
     /// `None` (absent or JSON `null`) maps to [`IdScope::All`]: "An absent
     /// `chatIds` or `contactIds` is equivalent to `null`"
-    /// (draft-atwood-jmap-chat-wss-00 §ChatStreamEnable).
+    /// (draft-atwood-jmap-chat-wss-00 §`ChatStreamEnable`).
     fn from(ids: Option<&Vec<Id>>) -> Self {
         ids.map_or(Self::All, |ids| Self::Only(ids.clone()))
     }
@@ -132,7 +132,7 @@ impl EphemeralSubscription {
     /// [`JmapError`] carries the short method-level name. When `enable.id`
     /// is set, the transport MUST put it in the frame's `requestId`: "A
     /// `RequestError` caused by this message carries this value as its
-    /// `requestId`" (draft-atwood-jmap-chat-wss-00 §ChatStreamEnable, L186).
+    /// `requestId`" (draft-atwood-jmap-chat-wss-00 §`ChatStreamEnable`, L186).
     pub fn from_enable(
         enable: &ChatStreamEnable,
         companions: CompanionStreams,
@@ -155,7 +155,7 @@ impl EphemeralSubscription {
     /// Replaces this subscription with the one in `enable`.
     ///
     /// The new frame replaces the old subscription in full; nothing is
-    /// merged from it (draft-atwood-jmap-chat-wss-00 §ChatStreamEnable).
+    /// merged from it (draft-atwood-jmap-chat-wss-00 §`ChatStreamEnable`).
     ///
     /// # Errors
     ///
@@ -178,9 +178,9 @@ impl EphemeralSubscription {
         self.typing.as_ref()
     }
 
-    /// The ChatContacts covered for presence events, or `None` when
+    /// The `ChatContact`s covered for presence events, or `None` when
     /// presence is not subscribed. [`IdScope::All`] means every known
-    /// ChatContact.
+    /// `ChatContact`.
     pub fn presence(&self) -> Option<&IdScope> {
         self.presence.as_ref()
     }
@@ -204,7 +204,7 @@ impl EphemeralSubscription {
 ///
 /// `account_id` is the recipient. `event.chat_id` names the recipient's
 /// Chat record, and `event.sender_id` is the typing user as the recipient
-/// sees it: a ChatContact id on the recipient's contact list. The
+/// sees it: a `ChatContact` id on the recipient's contact list. The
 /// transport calls this once per recipient, at delivery time, and sends
 /// the event to none of the recipient's connections when it returns
 /// `false`. The sender is never told. The connection's `chatIds` scope
@@ -214,18 +214,18 @@ impl EphemeralSubscription {
 /// Delivery is allowed only when all of these hold:
 ///
 /// - `event.account_id` is `account_id` (draft-atwood-jmap-chat-wss-00
-///   §ChatTypingEvent: `accountId` is "The id of the account that
+///   §`ChatTypingEvent`: `accountId` is "The id of the account that
 ///   contains the Chat").
 /// - The sender is not the recipient (draft-atwood-jmap-chat-00
 ///   §Chat/typing: delivery goes to "each local participant in the Chat
 ///   other than the requesting account").
 /// - The Chat exists in the recipient's account and the recipient is
 ///   still a member of it (draft-atwood-jmap-chat-wss-00
-///   §ChatTypingEvent, L255: "Servers SHOULD verify at delivery time that
+///   §`ChatTypingEvent`, L255: "Servers SHOULD verify at delivery time that
 ///   the owner remains a current member of the identified Chat").
 /// - For a direct or group Chat, its `receiveTypingIndicators` is `true`.
 ///   Other kinds ignore it.
-/// - The sender's ChatContact is not blocked on the recipient's contact
+/// - The sender's `ChatContact` is not blocked on the recipient's contact
 ///   list, per [`ChatAccessPolicy::is_contact_blocked`](crate::ChatAccessPolicy::is_contact_blocked).
 ///
 /// # Errors
@@ -267,7 +267,7 @@ pub async fn should_deliver_typing<B: ChatBackend>(
 /// `event`, or `None` if it must be dropped.
 ///
 /// `account_id` is the recipient and `event.contact_id` is the contact
-/// whose presence changed, as a ChatContact id on the recipient's contact
+/// whose presence changed, as a `ChatContact` id on the recipient's contact
 /// list. The transport calls this once per recipient, at delivery time,
 /// and sends the returned frame, or nothing, to that owner's connections.
 /// The contact is never told. The connection's `contactIds` scope
@@ -276,12 +276,12 @@ pub async fn should_deliver_typing<B: ChatBackend>(
 ///
 /// - If `event.account_id` is not `account_id`, the result is `None`
 ///   (same section: `accountId` is "The id of the account that contains
-///   the ChatContact").
+///   the `ChatContact`").
 /// - If the contact is blocked on the recipient's contact list, per
 ///   [`ChatAccessPolicy::is_contact_blocked`](crate::ChatAccessPolicy::is_contact_blocked), the result is `None`
-///   (draft-atwood-jmap-chat-wss-00 §ChatPresenceEvent, L300: "a
+///   (draft-atwood-jmap-chat-wss-00 §`ChatPresenceEvent`, L300: "a
 ///   `ChatPresenceEvent` is not delivered for a contact whose `blocked`
-///   field is `true` on the owner's ChatContact record for that contact").
+///   field is `true` on the owner's `ChatContact` record for that contact").
 /// - Otherwise the result is `event` with an `"invisible"` presence
 ///   replaced by `"offline"` (same section, L275: "`"invisible"` is not a
 ///   value of this field. The server reports a contact whose presence is

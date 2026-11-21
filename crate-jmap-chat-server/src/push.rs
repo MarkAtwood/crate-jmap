@@ -31,7 +31,7 @@ use jmap_server::{SetError, SetErrorType};
 pub(crate) const CHAT_PUSH: &str = "chatPush";
 
 /// The `ChatMessageEntry` fields a server MUST support in `properties`
-/// (draft-atwood-jmap-chat-push-00 §ChatPushConfig). `unreadCount` is a
+/// (draft-atwood-jmap-chat-push-00 §`ChatPushConfig`). `unreadCount` is a
 /// `ChatMessagePush` property, not an entry field, so it is rejected like
 /// any unknown name.
 const ENTRY_PROPERTIES: [&str; 13] = [
@@ -51,7 +51,7 @@ const ENTRY_PROPERTIES: [&str; 13] = [
 ];
 
 /// The `ChatMessageEntry` fields sent when `properties` is absent
-/// (draft-atwood-jmap-chat-push-00 §ChatPushConfig).
+/// (draft-atwood-jmap-chat-push-00 §`ChatPushConfig`).
 const DEFAULT_ENTRY_PROPERTIES: [&str; 10] = [
     "messageId",
     "chatId",
@@ -71,17 +71,21 @@ const DEFAULT_ENTRY_PROPERTIES: [&str; 10] = [
 /// `caps` maps each account that advertises
 /// `urn:ietf:params:jmap:chat:push` to its account-level capability object.
 /// An absent or `null` `chatPush`, and a `null` entry for an account, are
-/// accepted. Otherwise the first offending value gets an
-/// `invalidProperties` SetError naming it:
+/// accepted.
+///
+/// # Errors
+///
+/// The first offending value gets an `invalidProperties` [`SetError`]
+/// naming it:
 ///
 /// - `chatPush`: the value is not an object.
 /// - `chatPush/<accountId>`: the account is not in `caps`, or the entry is
 ///   not a `ChatPushConfig`. draft-atwood-jmap-chat-push-00
-///   §PushSubscription Extension: "If a `PushSubscription/set` create or
+///   §`PushSubscription` Extension: "If a `PushSubscription/set` create or
 ///   update includes a `chatPush` entry for an account whose
 ///   `accountCapabilities` does not include
 ///   `urn:ietf:params:jmap:chat:push`, the server MUST return an
-///   `invalidProperties` SetError whose `properties` names the offending
+///   `invalidProperties` `SetError` whose `properties` names the offending
 ///   entry (e.g., `chatPush/<id>`) and MUST NOT store the subscription
 ///   change."
 /// - `chatPush/<accountId>/kinds`: a value other than `"direct"`,
@@ -91,8 +95,8 @@ const DEFAULT_ENTRY_PROPERTIES: [&str; 10] = [
 /// - `chatPush/<accountId>/urgency` and `.../mentionUrgency`: a value not
 ///   in the account's `supportedUrgencyValues`, including any value outside
 ///   RFC 8030 §5.3, which no capability can list. draft-atwood-jmap-chat-push-00
-///   §ChatPushConfig: "the server MUST return an `invalidProperties`
-///   SetError on `PushSubscription/set` whose `properties` names the
+///   §`ChatPushConfig`: "the server MUST return an `invalidProperties`
+///   `SetError` on `PushSubscription/set` whose `properties` names the
 ///   offending path (e.g., `chatPush/<id>/urgency`)".
 pub fn validate_chat_push(
     extra: &Map<String, Value>,
@@ -148,7 +152,7 @@ pub fn validate_chat_push(
 /// An entry stored while the account advertised
 /// `urn:ietf:params:jmap:chat:push` stops being returned once it no longer
 /// does. draft-atwood-jmap-chat-push-00 rejects such an entry only on
-/// `/set` (§PushSubscription Extension) and states no rule for one stored
+/// `/set` (§`PushSubscription` Extension) and states no rule for one stored
 /// before the capability was withdrawn. This server strips it so that
 /// `/get` matches delivery: [`should_push`] treats the entry as absent, and
 /// the draft says "When `chatPush` is absent or null for an account, the
@@ -172,7 +176,7 @@ pub fn strip_unsupported_chat_push(
 /// arrived in a `ChatMessagePush` delivered to `sub`; an edit, a destroy,
 /// the owner's own message or a message [`should_push`] filtered out keeps
 /// the account out, and `Message` stays in its `StateChange`.
-/// draft-atwood-jmap-chat-push-00 §PushSubscription Extension: "A
+/// draft-atwood-jmap-chat-push-00 §`PushSubscription` Extension: "A
 /// `ChatMessagePush` stands in for the `StateChange` that the arrival of
 /// the messages it carries would otherwise cause. Every other change in
 /// the account is still announced by a standard `StateChange`, as
@@ -204,7 +208,7 @@ pub fn chat_state_change_for(
 /// The account owner's standing in the Chat at delivery time, which
 /// decides the broadcast scopes that target them.
 ///
-/// draft-atwood-jmap-chat-push-00 §ChatMessageEntry `mentionScopes`:
+/// draft-atwood-jmap-chat-push-00 §`ChatMessageEntry` `mentionScopes`:
 /// "`"here"` is included only when the owner satisfies the
 /// deployment-defined "active" predicate at delivery time; `"admins"` is
 /// included only when the owner satisfies the deployment-defined
@@ -278,21 +282,21 @@ pub struct BuiltPush {
 ///
 /// The caller decides whether to deliver at all (draft-atwood-jmap-chat-push-00
 /// §Delivery) and passes `state`, the account's `Message` state after this
-/// message was stored. §ChatMessagePush: "The server MUST set this field to
+/// message was stored. §`ChatMessagePush`: "The server MUST set this field to
 /// the post-delivery state".
 ///
 /// `unread_count` becomes the payload's `unreadCount`, normally the
 /// value of [`owner_unread_count`] read after this message was stored.
-/// §ChatMessagePush: "The account owner's total unread message count
+/// §`ChatMessagePush`: "The account owner's total unread message count
 /// across all non-muted Chats at the time this push was generated.
 /// Servers MAY include this for platforms that support atomic badge
 /// updates" (draft-atwood-jmap-chat-push-00, jmap-chat-spec 77c3474 L150).
 /// `None` leaves it out.
 ///
 /// The entry holds exactly the fields in `cfg.properties`, or the default
-/// set when it is absent. §ChatPushConfig: "The `properties` list is
+/// set when it is absent. §`ChatPushConfig`: "The `properties` list is
 /// authoritative: the server returns exactly the requested fields." Each
-/// field is derived as §ChatMessageEntry says, with these exceptions:
+/// field is derived as §`ChatMessageEntry` says, with these exceptions:
 ///
 /// - `encrypted` comes from `bodyType`: `false` for `text/plain`,
 ///   `text/markdown` and `application/jmap-chat-rich`, otherwise `true`
@@ -300,7 +304,7 @@ pub struct BuiltPush {
 ///   `hasMention`, `mentionScopes` or `bodySnippet`.
 /// - `bodySnippet` is the body with control characters removed, cut to at
 ///   most `cap.maxSnippetBytes` bytes on a UTF-8 character boundary.
-///   Markdown markup is left in, which misses the §ChatMessageEntry SHOULD
+///   Markdown markup is left in, which misses the §`ChatMessageEntry` SHOULD
 ///   for a plaintext approximation. For `application/jmap-chat-rich` the
 ///   snippet is rendered from the span `text` values joined in order
 ///   (draft-atwood-jmap-chat-00 §Span Object: "The plaintext content of
@@ -411,19 +415,19 @@ pub fn build_chat_message_push(
 /// The owner of `account_id`'s total unread message count across all
 /// non-muted Chats, for [`build_chat_message_push`].
 ///
-/// draft-atwood-jmap-chat-push-00 §ChatMessagePush `unreadCount`: "The
+/// draft-atwood-jmap-chat-push-00 §`ChatMessagePush` `unreadCount`: "The
 /// account owner's total unread message count across all non-muted Chats
 /// at the time this push was generated." Each Chat contributes its
 /// `unreadCount` as `Chat/get` reports it: the stored value when
 /// [`ChatSettings::maintains_unread_count`](crate::ChatSettings::maintains_unread_count) is `true`, otherwise the count
-/// derived from the owner's ReadPosition (draft-atwood-jmap-chat-00
+/// derived from the owner's [`ReadPosition`] (draft-atwood-jmap-chat-00
 /// §Chat `unreadCount`). A Chat is muted as in [`should_push`]: until
 /// `muteUntil` when it is set, otherwise when `muted` is `true`.
 ///
 /// # Errors
 ///
 /// Returns the backend's error if reading the Chats, Messages or
-/// ReadPositions fails.
+/// `ReadPosition`s fails.
 // ponytail: like Chat/get, a backend that does not maintain the count is
 // scanned in full (O(messages)) per call.
 pub async fn owner_unread_count<B: ChatBackend>(
@@ -515,14 +519,14 @@ pub fn fit_chat_message_push(
 /// `caps` maps each account that advertises
 /// `urn:ietf:params:jmap:chat:push` to its capability object; a `cfg` for
 /// an account not in `caps` counts as absent and gets `false`
-/// (draft-atwood-jmap-chat-push-00 §PushSubscription Extension). `owner`
+/// (draft-atwood-jmap-chat-push-00 §`PushSubscription` Extension). `owner`
 /// is the owner's standing at delivery time, as for
 /// [`build_chat_message_push`].
 ///
 /// Returns `true` only when the Chat matches `cfg` and none of the
 /// §Delivery exclusions applies:
 ///
-/// - `cfg.kinds` and `cfg.chatIds` both match when present. §ChatPushConfig:
+/// - `cfg.kinds` and `cfg.chatIds` both match when present. §`ChatPushConfig`:
 ///   "If both `kinds` and `chatIds` are present, a Chat matches only if its
 ///   id appears in `chatIds` and its kind appears in `kinds`."
 /// - The sender is not the owner: `senderId` is not `account_id`.
@@ -537,7 +541,7 @@ pub fn fit_chat_message_push(
 ///   §Chat `muteUntil` says "Muting expires at this time" and clearing
 ///   `muted` afterwards is only a SHOULD. Otherwise the Chat is muted when
 ///   `muted` is `true`. A `muteUntil` that is not a seconds-precision
-///   UTCDate, or a system clock before 1970, counts as an active mute.
+///   [`UTCDate`], or a system clock before 1970, counts as an active mute.
 /// - The sender's `ChatContact` is not blocked, per
 ///   [`ChatAccessPolicy::is_contact_blocked`](crate::ChatAccessPolicy::is_contact_blocked).
 ///
@@ -701,7 +705,7 @@ fn snippet(body: &str, max_bytes: u64) -> String {
 }
 
 /// The `senderDisplayName` chain from draft-atwood-jmap-chat-push-00
-/// §ChatMessageEntry: the `SpaceMember.nick` (channels only), then
+/// §`ChatMessageEntry`: the `SpaceMember.nick` (channels only), then
 /// `ChatContact.displayName`, then a non-empty `ChatContact.login`, then
 /// `ChatContact.identity`.
 fn sender_display_name(kind: &ChatKind, item: &PushItem<'_>) -> String {
@@ -715,7 +719,7 @@ fn sender_display_name(kind: &ChatKind, item: &PushItem<'_>) -> String {
         .unwrap_or_else(|| item.sender.identity.clone())
 }
 
-/// An `invalidProperties` SetError naming `property`.
+/// An `invalidProperties` [`SetError`] naming `property`.
 fn invalid(property: String) -> SetError {
     SetError::new(SetErrorType::InvalidProperties).with_properties([property])
 }

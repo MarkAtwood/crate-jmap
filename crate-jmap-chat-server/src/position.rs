@@ -1,7 +1,7 @@
-//! ReadPosition/* method handlers (draft-atwood-jmap-chat-00 §ReadPosition).
+//! `ReadPosition`/* method handlers (draft-atwood-jmap-chat-00 §`ReadPosition`).
 //!
-//! ReadPosition tracks how far a user has read in a given Chat. There is at
-//! most one ReadPosition per (account, chat) pair. The records are managed
+//! [`ReadPosition`] tracks how far a user has read in a given Chat. There is at
+//! most one `ReadPosition` per (account, chat) pair. The records are managed
 //! by the server: `ReadPosition/set` supports only `update`; `create` and
 //! `destroy` return `forbidden`. The record itself is created on first
 //! message delivery by [`crate::message::handle_message_set`] or, for
@@ -15,7 +15,7 @@
 //! Object whose fields match the corresponding RFC 8620 §5 method shape
 //! (`/get` → §5.1, `/changes` → §5.2, `/set` → §5.3), with the
 //! type-specific arguments defined by draft-atwood-jmap-chat-00
-//! §ReadPosition. The returned `Value` is the corresponding
+//! §`ReadPosition`. The returned `Value` is the corresponding
 //! method-response object per the same section refs.
 //!
 //! The returned `HandlerOutput::extra_invocations` carries any invocations
@@ -56,13 +56,23 @@ use jmap_server::{SetError, SetErrorType};
 // ReadPosition/get
 // ---------------------------------------------------------------------------
 
-/// Handle a `ReadPosition/get` method call (draft-atwood-jmap-chat-00 §ReadPosition).
+/// Handle a `ReadPosition/get` method call (draft-atwood-jmap-chat-00 §`ReadPosition`).
 ///
 /// `args` is the RFC 8620 §5.1 `/get` request shape (`accountId`, optional
 /// `ids`, optional `properties`); the returned `Value` is the §5.1
 /// `/get` response shape (`accountId`, `state`, `list`, `notFound`).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   `ids` is not an Id array;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `ids` holds more than `maxObjectsInGet` ids;
+/// - `serverFail` when the backend fails.
 pub async fn handle_position_get<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -116,7 +126,7 @@ pub async fn handle_position_get<B: ChatBackend>(
 // ReadPosition/changes
 // ---------------------------------------------------------------------------
 
-/// Handle a `ReadPosition/changes` method call (draft-atwood-jmap-chat-00 §ReadPosition).
+/// Handle a `ReadPosition/changes` method call (draft-atwood-jmap-chat-00 §`ReadPosition`).
 ///
 /// `args` is the RFC 8620 §5.2 `/changes` request shape (`accountId`,
 /// `sinceState`, optional `maxChanges`); the returned `Value` is the
@@ -124,6 +134,17 @@ pub async fn handle_position_get<B: ChatBackend>(
 /// `hasMoreChanges`, `created`, `updated`, `destroyed`).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `sinceState` is missing, or `maxChanges` is not a positive integer;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `cannotCalculateChanges` when the backend cannot compute the changes
+///   since `sinceState`;
+/// - `serverFail` when the backend fails.
 pub async fn handle_position_changes<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -172,7 +193,7 @@ pub async fn handle_position_changes<B: ChatBackend>(
 // ReadPosition/set
 // ---------------------------------------------------------------------------
 
-/// Handle a `ReadPosition/set` method call (draft-atwood-jmap-chat-00 §ReadPosition).
+/// Handle a `ReadPosition/set` method call (draft-atwood-jmap-chat-00 §`ReadPosition`).
 ///
 /// `args` is the RFC 8620 §5.3 `/set` request shape (`accountId`, optional
 /// `ifInState`, optional `create` / `update` / `destroy` maps); the
@@ -193,6 +214,21 @@ pub async fn handle_position_changes<B: ChatBackend>(
 /// A `lastReadMessageId` that is a `#creationId` reference names a record created earlier in the request and resolves against
 /// `created_ids` (pass [`jmap_server::CallContext::created_ids`]; RFC 8620
 /// §5.3); an unknown reference is `invalidProperties` naming the property.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   an element of `destroy` is not a string;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `create`, `update` and `destroy` together hold
+///   more than `maxObjectsInSet` objects;
+/// - `stateMismatch` when `ifInState` is not the current state;
+/// - `serverFail` when the backend fails.
+///
+/// An update that fails on its own, and every create and destroy, is a
+/// [`SetError`] in the response, not an `Err`.
 pub async fn handle_position_set<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -253,7 +289,7 @@ struct SetCtx<'a, B: ChatBackend> {
 /// The `create` part of `ReadPosition/set`: forbidden.
 ///
 /// §ReadPosition/set: "`create` and `destroy` are not supported; both
-/// MUST return a SetError of type `forbidden`. ReadPosition records are
+/// MUST return a [`SetError`] of type `forbidden`. [`ReadPosition`] records are
 /// managed by the server." The server creates them on first message
 /// delivery (see `crate::message::handle_message_set`).
 fn set_create(args: &serde_json::Map<String, Value>, acc: &mut SetAccumulators) {
@@ -424,8 +460,8 @@ fn set_destroy(
     Ok(())
 }
 
-/// The `forbidden` SetError for a client `create` or `destroy` of a
-/// server-managed ReadPosition (draft-atwood-jmap-chat-00 §ReadPosition/set).
+/// The `forbidden` [`SetError`] for a client `create` or `destroy` of a
+/// server-managed [`ReadPosition`] (draft-atwood-jmap-chat-00 §ReadPosition/set).
 fn forbidden_server_managed() -> Value {
     serde_json::Value::from(
         &SetError::new(SetErrorType::Forbidden)

@@ -81,7 +81,7 @@ enum ChatEvent {
 /// Publish one event per recipient account, with that account as
 /// `accountId`: for typing, the account holding the recipient's Chat
 /// record and `senderId` as the recipient sees it; for presence, the
-/// account holding the recipient's ChatContact. A connection takes the
+/// account holding the recipient's `ChatContact`. A connection takes the
 /// events whose `accountId` is one of its accounts.
 ///
 /// The hub keeps the last `capacity` events for connections that fall
@@ -132,12 +132,12 @@ impl ChatEventHub {
 ///
 /// - typing: "no more than one `ChatTypingEvent` per sender per chat per
 ///   3 seconds SHOULD be delivered; events above this rate MAY be
-///   silently dropped" (draft-atwood-jmap-chat-wss-00 §ChatTypingEvent).
+///   silently dropped" (draft-atwood-jmap-chat-wss-00 §`ChatTypingEvent`).
 ///   Dropped, including a `typing: false` inside the window.
 /// - presence: "no more than one `ChatPresenceEvent` per contact per 30
 ///   seconds SHOULD be delivered; events above this rate MAY be silently
 ///   dropped, but the most recent presence state SHOULD be delivered when
-///   the rate window reopens" (§ChatPresenceEvent). The latest event over
+///   the rate window reopens" (§`ChatPresenceEvent`). The latest event over
 ///   the limit is held and sent when the window reopens, after the
 ///   delivery checks run again.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -273,7 +273,7 @@ impl<B: ChatBackend> fmt::Debug for ChatStreamHandler<B> {
 impl<B: ChatBackend> ChatStreamHandler<B> {
     /// The handler of a connection authenticated as `caller`, receiving
     /// the events of `accounts` (the accounts whose Chats and
-    /// ChatContacts the owner sees, usually the owner's own) from `hub`.
+    /// `ChatContact`s the owner sees, usually the owner's own) from `hub`.
     ///
     /// No companion value is recognized and the default
     /// [`ChatStreamLimits`] apply.

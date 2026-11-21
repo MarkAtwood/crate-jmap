@@ -1,7 +1,7 @@
-//! SpaceInvite/* method handlers (draft-atwood-jmap-chat-00 §SpaceInvite).
+//! `SpaceInvite`/* method handlers (draft-atwood-jmap-chat-00 §`SpaceInvite`).
 //!
 //! Methods: get, changes, set only (no query, no queryChanges per spec).
-//! Updates are forbidden — the spec treats SpaceInvite as write-once.
+//! Updates are forbidden — the spec treats [`SpaceInvite`] as write-once.
 //!
 //! # Wire-shape contract
 //!
@@ -10,7 +10,7 @@
 //! Object whose fields match the corresponding RFC 8620 §5 method shape
 //! (`/get` → §5.1, `/changes` → §5.2, `/set` → §5.3), with the
 //! type-specific arguments defined by draft-atwood-jmap-chat-00
-//! §SpaceInvite. The returned `Value` is the corresponding
+//! §`SpaceInvite`. The returned `Value` is the corresponding
 //! method-response object per the same section refs.
 //!
 //! The returned `HandlerOutput::extra_invocations` carries any invocations
@@ -53,7 +53,7 @@ use jmap_server::{SetError, SetErrorType};
 // SpaceInvite/get
 // ---------------------------------------------------------------------------
 
-/// Handle a `SpaceInvite/get` method call (draft-atwood-jmap-chat-00 §SpaceInvite).
+/// Handle a `SpaceInvite/get` method call (draft-atwood-jmap-chat-00 §`SpaceInvite`).
 ///
 /// `args` is the RFC 8620 §5.1 `/get` request shape (`accountId`, optional
 /// `ids`, optional `properties`); the returned `Value` is the §5.1
@@ -63,6 +63,16 @@ use jmap_server::{SetError, SetErrorType};
 /// a hidden invite is reported exactly like a missing one.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   `ids` is not an Id array;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `ids` holds more than `maxObjectsInGet` ids;
+/// - `serverFail` when the backend fails.
 pub async fn handle_invite_get<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -132,7 +142,7 @@ pub async fn handle_invite_get<B: ChatBackend>(
 // SpaceInvite/changes
 // ---------------------------------------------------------------------------
 
-/// Handle a `SpaceInvite/changes` method call (draft-atwood-jmap-chat-00 §SpaceInvite).
+/// Handle a `SpaceInvite/changes` method call (draft-atwood-jmap-chat-00 §`SpaceInvite`).
 ///
 /// `args` is the RFC 8620 §5.2 `/changes` request shape (`accountId`,
 /// `sinceState`, optional `maxChanges`); the returned `Value` is the
@@ -143,6 +153,17 @@ pub async fn handle_invite_get<B: ChatBackend>(
 /// [`SpacePolicy::may_get_space_invite`](crate::SpacePolicy::may_get_space_invite); `destroyed` is not filtered.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `sinceState` is missing, or `maxChanges` is not a positive integer;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `cannotCalculateChanges` when the backend cannot compute the changes
+///   since `sinceState`;
+/// - `serverFail` when the backend fails.
 pub async fn handle_invite_changes<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -226,7 +247,7 @@ pub async fn handle_invite_changes<B: ChatBackend>(
 // SpaceInvite/set
 // ---------------------------------------------------------------------------
 
-/// Handle a `SpaceInvite/set` method call (draft-atwood-jmap-chat-00 §SpaceInvite).
+/// Handle a `SpaceInvite/set` method call (draft-atwood-jmap-chat-00 §`SpaceInvite`).
 ///
 /// `args` is the RFC 8620 §5.3 `/set` request shape (`accountId`, optional
 /// `ifInState`, optional `create` / `update` / `destroy` maps); the
@@ -235,7 +256,7 @@ pub async fn handle_invite_changes<B: ChatBackend>(
 /// `notCreated` / `updated` / `notUpdated` / `destroyed` / `notDestroyed`
 /// maps).
 ///
-/// Per spec, SpaceInvite objects are write-once:
+/// Per spec, [`SpaceInvite`] objects are write-once:
 /// - create: accepted (`spaceId` required; server sets `code`, `createdBy`,
 ///   `uses`, `createdAt`).
 /// - update: always rejected with `forbidden`.
@@ -250,6 +271,21 @@ pub async fn handle_invite_changes<B: ChatBackend>(
 /// names a record created earlier in the request and resolves against
 /// `created_ids` (pass [`jmap_server::CallContext::created_ids`]; RFC 8620
 /// §5.3); an unknown reference is `invalidProperties` naming the property.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   an element of `destroy` is not a string;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `create`, `update` and `destroy` together hold
+///   more than `maxObjectsInSet` objects;
+/// - `stateMismatch` when `ifInState` is not the current state;
+/// - `serverFail` when the backend fails.
+///
+/// A create or destroy that fails on its own, and every update, is a
+/// [`SetError`] in the response, not an `Err`.
 pub async fn handle_invite_set<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -434,7 +470,7 @@ async fn create_one<B: ChatBackend>(
 
 /// Check the server-set, wrongly-typed and `spaceId` properties of one
 /// `SpaceInvite/set` create object (with `#creationId` references
-/// resolved) and return its `spaceId`, or the SetError value for
+/// resolved) and return its `spaceId`, or the [`SetError`] value for
 /// `notCreated`.
 fn create_space_id(obj_val: &Value) -> Result<Id, Value> {
     if let Some(err) = obj_val
@@ -466,12 +502,12 @@ fn create_space_id(obj_val: &Value) -> Result<Id, Value> {
     }
 }
 
-/// The SetError value for a `SpaceInvite/set` create in a closed Space, or
+/// The [`SetError`] value for a `SpaceInvite/set` create in a closed Space, or
 /// `None` to go on.
 ///
 /// draft-atwood-jmap-chat-00 §Space `closedAt`: "The server MUST also
 /// reject ... `SpaceInvite/set` create for the Space with a `forbidden`
-/// SetError".
+/// `SetError`".
 async fn space_closed_error<B: ChatBackend>(ctx: &SetCtx<'_, B>, space_id: &Id) -> Option<Value> {
     match ctx
         .backend
@@ -499,7 +535,7 @@ struct CreateOptions {
 }
 
 /// The optional `defaultChannelId`, `expiresAt` and `maxUses` of one
-/// `SpaceInvite/set` create object, checked, or the SetError value for
+/// `SpaceInvite/set` create object, checked, or the [`SetError`] value for
 /// `notCreated`.
 fn create_options(obj_val: &Value) -> Result<CreateOptions, Value> {
     let default_channel_id: Option<Id> =
@@ -538,7 +574,7 @@ fn create_options(obj_val: &Value) -> Result<CreateOptions, Value> {
     })
 }
 
-/// The `update` part of `SpaceInvite/set`: forbidden, because SpaceInvite
+/// The `update` part of `SpaceInvite/set`: forbidden, because [`SpaceInvite`]
 /// objects are write-once per spec.
 fn set_update(args: &mut serde_json::Map<String, Value>, acc: &mut SetAccumulators) {
     if let Some(Value::Object(update_map)) = args.remove("update") {
@@ -614,7 +650,7 @@ async fn set_destroy<B: ChatBackend>(
 /// draft-atwood-jmap-chat-00 §SpaceInvite/set: create "Requires
 /// `"manage_members"` permission"; destroy "Requires `"manage_members"`
 /// permission or ownership of the invite"; the backend decides. Returns
-/// the SetError value to report when the op is denied.
+/// the [`SetError`] value to report when the op is denied.
 async fn invite_denied<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,

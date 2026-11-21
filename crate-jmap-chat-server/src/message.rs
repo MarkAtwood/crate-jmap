@@ -84,6 +84,17 @@ use jmap_server::{
 /// [`jmap_server::MetadataProjection`].
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `ids` or `properties` is malformed or holds a malformed
+///   `metadata/` subselector;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `ids` holds more than `maxObjectsInGet` ids;
+/// - `serverFail` when the backend fails.
 pub async fn handle_message_get<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -292,6 +303,18 @@ async fn fill_reply_counts<B: ChatBackend>(
 /// without it metadata-only changes are left out (-05 §3).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `sinceState` is missing, `maxChanges` is not a positive integer, or
+///   `ignoreMetadataOnlyChanges` is not a boolean;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `cannotCalculateChanges` when the backend cannot compute the changes
+///   since `sinceState`;
+/// - `serverFail` when the backend fails.
 pub async fn handle_message_changes<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -329,6 +352,28 @@ pub async fn handle_message_changes<B: ChatBackend>(
 /// `hasMention: true` rule.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `filter`, `sort`, `position`, `anchor`, `anchorOffset` or `limit`
+///   is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `unsupportedFilter` when the filter does not decode as a Message filter, or
+///   holds a draft-ietf-jmap-metadata-05 §3.6 condition without
+///   `urn:ietf:params:jmap:metadata` in `using`;
+/// - `unsupportedFilter`, too, when the filter is not a single condition
+///   with `chatId` or `hasMention: true`, sets `text`, or sets
+///   `threadRootId` without thread support, or when a JMAP Search `where`
+///   is refused; a malformed `where` is `invalidArguments` and one nested
+///   too deep `queryTooComplex` ([`jmap_search::check_where_filter`]);
+/// - `unsupportedSort` when `sort` names a property this server does not
+///   define;
+/// - `anchorNotFound` when `anchor` is not in the results;
+/// - `serverFail` when the backend fails, or any other RFC 8620 §5.5 error
+///   the backend returns.
 pub async fn handle_message_query<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -490,7 +535,7 @@ async fn check_message_search<B: ChatBackend>(
 /// `unsupportedFilter`").
 ///
 /// ponytail: no backend implements `text`, so it is refused for every
-/// backend; a backend that adds it needs a ChatBackend capability hook to
+/// backend; a backend that adds it needs a [`ChatBackend`] capability hook to
 /// lift the refusal.
 fn check_message_filter(
     filter: Option<&MessageFilter>,
@@ -547,6 +592,28 @@ fn check_message_filter(
 /// answered with `cannotCalculateChanges` (jmap-search §Query Changes).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `sinceQueryState` is missing, or `filter`, `sort`, `maxChanges` or
+///   `upToId` is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `unsupportedFilter` when the filter does not decode as a Message filter, or
+///   holds a draft-ietf-jmap-metadata-05 §3.6 condition without
+///   `urn:ietf:params:jmap:metadata` in `using`;
+/// - `unsupportedFilter`, too, as for [`handle_message_query`], which
+///   also gives the `where` errors;
+/// - `cannotCalculateChanges` when the filter has a JMAP Search `where` or
+///   names a Chat the caller cannot view;
+/// - `unsupportedSort` when `sort` names a property this server does not
+///   define;
+/// - `cannotCalculateChanges` when the backend cannot compute the changes
+///   since `sinceQueryState`;
+/// - `serverFail` when the backend fails, or any other RFC 8620 §5.6 error
+///   the backend returns.
 pub async fn handle_message_query_changes<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -621,11 +688,11 @@ pub async fn handle_message_query_changes<B: ChatBackend>(
 
 /// Validate broadcast mentions against spec §4.4.1 / §4.16 constraints.
 ///
-/// Returns the SetError value on failure, None on success. §BroadcastMention:
-/// "Servers MUST reject a BroadcastMention with an unrecognized `scope`
-/// value; in `Message/set` the rejection is an `invalidProperties` SetError
+/// Returns the [`SetError`] value on failure, None on success. §`BroadcastMention`:
+/// "Servers MUST reject a [`BroadcastMention`] with an unrecognized `scope`
+/// value; in `Message/set` the rejection is an `invalidProperties` `SetError`
 /// naming `broadcastMentions`." A missing or non-string `scope` takes the
-/// §Input Validation default, which is the same SetError.
+/// §Input Validation default, which is the same `SetError`.
 fn validate_broadcast_mentions(broadcast_mentions: &[serde_json::Value]) -> Option<Value> {
     let invalid_properties = |desc: String| {
         json!({
@@ -693,7 +760,7 @@ const CIPHERTEXT_ONLY_FIELDS: [&str; 8] = [
 /// `encrypted` types (§Fields Inside the Ciphertext).
 ///
 /// Returns every offending field, in [`CIPHERTEXT_ONLY_FIELDS`] order, for
-/// an `invalidProperties` SetError "whose `properties` lists each such
+/// an `invalidProperties` [`SetError`] "whose `properties` lists each such
 /// field"; empty on success.
 fn body_type_field_conflicts(
     obj: &Value,
@@ -719,14 +786,14 @@ fn body_type_field_conflicts(
 ///
 /// draft-atwood-jmap-chat-00 §Account-Level Capability Object
 /// `maxBodyBytes`: "in `Message/set` the rejection is a `tooLarge`
-/// SetError." §Fields Inside the Ciphertext (jmap-chat-spec 77c3474
+/// `SetError`." §Fields Inside the Ciphertext (jmap-chat-spec 77c3474
 /// L1823): "Servers SHOULD reject a `Message/set` create or update that has
 /// an encrypted `bodyType` and any of these fields non-empty"; this crate
 /// performs the recommended rejection by choice. The field rule runs on the Message as it
 /// would be after the patch, so a `bodyType`-only patch to an encrypted
 /// type is rejected when the stored Message keeps such a field.
 ///
-/// Returns the SetError, or `None` when the edit passes.
+/// Returns the [`SetError`], or `None` when the edit passes.
 fn edit_limit_error(msg: &Message, patch: &Value, limits: &ChatLimits) -> Option<Value> {
     if let Some(body) = patch.get("body").and_then(Value::as_str)
         && u64::try_from(body.len()).map_or(true, |n| n > limits.max_body_bytes)
@@ -755,7 +822,7 @@ fn edit_limit_error(msg: &Message, patch: &Value, limits: &ChatLimits) -> Option
 /// (draft-atwood-jmap-chat-00 §Input Validation).
 const MAX_SUBJECT_BYTES: usize = 1024;
 
-/// RFC 8620 §1.3 UnsignedInt upper bound, 2^53 - 1.
+/// RFC 8620 §1.3 `UnsignedInt` upper bound, 2^53 - 1.
 const MAX_UNSIGNED_INT: u64 = (1 << 53) - 1;
 
 /// Parse the optional `Message/set` create properties `mentions`,
@@ -767,7 +834,7 @@ const MAX_UNSIGNED_INT: u64 = (1 << 53) - 1;
 /// passed [`validate_broadcast_mentions`].
 ///
 /// On error, returns the wire name of the first offending property, for an
-/// `invalidProperties` SetError.
+/// `invalidProperties` `SetError`.
 fn apply_create_optionals(
     obj: &Value,
 ) -> Result<impl FnOnce(&mut Message) + Send + use<>, &'static str> {
@@ -827,7 +894,7 @@ fn apply_create_optionals(
 }
 
 /// Build a `Message/set` create's `attachments` from its wire value `v`
-/// for target Chat `chat`; `Err` holds the SetError value.
+/// for target Chat `chat`; `Err` holds the [`SetError`] value.
 ///
 /// draft-atwood-jmap-chat-00 §Denial of Service: "Enforce
 /// `maxAttachmentsPerMessage` at creation and update time"; it is checked
@@ -895,7 +962,7 @@ fn valid_attachment(a: &Attachment) -> bool {
 
 /// Enforce the size limit and blob checks on a `Message/set` create's
 /// `attachments` from [`create_attachments`]; `None` on success, else the
-/// SetError value.
+/// [`SetError`] value.
 ///
 /// draft-atwood-jmap-chat-00 §Denial of Service: "Enforce `maxBodyBytes`
 /// and `maxAttachmentBytes` at parse time, before any fetch or storage."
@@ -970,10 +1037,10 @@ fn valid_media_type(s: &str) -> bool {
 // Message/set
 // ---------------------------------------------------------------------------
 
-/// Create the owner's ReadPosition for each Chat in `chat_ids` that has
-/// none yet. draft-atwood-jmap-chat-00 §ReadPosition: "For direct and
-/// group Chats, a ReadPosition is created when the first message is
-/// delivered. For channel Chats, a ReadPosition is created when the
+/// Create the owner's [`ReadPosition`] for each Chat in `chat_ids` that has
+/// none yet. draft-atwood-jmap-chat-00 §`ReadPosition`: "For direct and
+/// group Chats, a `ReadPosition` is created when the first message is
+/// delivered. For channel Chats, a `ReadPosition` is created when the
 /// owner joins the containing Space." Called by `Message/set` and by
 /// `Space/join` ([`crate::space::handle_space_join`]).
 ///
@@ -982,12 +1049,12 @@ fn valid_media_type(s: &str) -> bool {
 /// externally visible state of the server MUST NOT have changed if an
 /// error is returned at the method level"). A record missed here is
 /// created by the next delivery to that Chat. `alreadyExists` means a
-/// concurrent delivery created it first (see the ReadPosition uniqueness
+/// concurrent delivery created it first (see the `ReadPosition` uniqueness
 /// contract on `ChatStore::create_object`).
 ///
 /// ponytail: does not look up the Chat's kind, so `Message/set` also
 /// fills in a missing channel position (for example a channel added
-/// after the owner joined). One full ReadPosition scan per `Message/set` call that created a
+/// after the owner joined). One full `ReadPosition` scan per `Message/set` call that created a
 /// message; a backend with a `(account, chatId)` index can replace it.
 pub(crate) async fn ensure_read_positions<B: ChatBackend>(
     backend: &B,
@@ -1072,12 +1139,12 @@ pub enum StoreOutcome {
 /// Before storing, `chat_id` is searched for `sender_msg_id` with
 /// [`find_message_by_sender_msg_id`]. A hit returns
 /// [`StoreOutcome::Duplicate`] and writes nothing. The mimi draft
-/// requires this: "The server MUST NOT store a FanoutMessage whose
+/// requires this: "The server MUST NOT store a `FanoutMessage` whose
 /// `senderMsgId` it has already stored in the Chat". After a store, the
-/// owner's ReadPosition for the Chat is created if missing and the
+/// owner's [`ReadPosition`] for the Chat is created if missing and the
 /// Chat's `unreadCount` is recomputed, as for `Message/set`
-/// (draft-atwood-jmap-chat-00 §ReadPosition: "For direct and group
-/// Chats, a ReadPosition is created when the first message is
+/// (draft-atwood-jmap-chat-00 §`ReadPosition`: "For direct and group
+/// Chats, a `ReadPosition` is created when the first message is
 /// delivered.").
 ///
 /// ponytail: the duplicate check and the create are separate backend
@@ -1134,7 +1201,7 @@ where
 /// draft-atwood-jmap-chat-federation-00 §Peer/receipt "Sender Behavior":
 /// "if `Chat.receiptSharing` is present for the relevant Chat, that value
 /// is used; otherwise the account-level `PresenceStatus.receiptSharing`
-/// applies". A missing PresenceStatus takes the draft-atwood-jmap-chat-00
+/// applies". A missing [`PresenceStatus`] takes the draft-atwood-jmap-chat-00
 /// default, `true`. A failed lookup yields `false`: the read has already
 /// been written, and a receipt not shown to be permitted is not sent.
 async fn shares_receipts<B: ChatBackend>(
@@ -1171,12 +1238,12 @@ async fn shares_receipts<B: ChatBackend>(
 /// client may set to a `#creationId` reference (RFC 8620 §5.3).
 const MESSAGE_ID_PROPERTIES: &[&str] = &["chatId", "replyTo", "threadRootId"];
 
-/// A Mention `id`, a ChatContact id (draft-atwood-jmap-chat-00 §Mention),
+/// A Mention `id`, a `ChatContact` id (draft-atwood-jmap-chat-00 §Mention),
 /// as `(property, entry field, property named on failure)` for
 /// [`resolve_entry_refs`].
 const MENTION_ID: (&str, &str, &str) = ("mentions", "id", "mentions");
 
-/// An Attachment `filenodeId`, a FileNode id; failed validation names
+/// An Attachment `filenodeId`, a `FileNode` id; failed validation names
 /// `filenodeId` (draft-atwood-jmap-chat-filenode-00 §filenodeId).
 const ATTACHMENT_FILENODE_ID: (&str, &str, &str) = ("attachments", "filenodeId", "filenodeId");
 
@@ -1210,6 +1277,21 @@ const ATTACHMENT_FILENODE_ID: (&str, &str, &str) = ("attachments", "filenodeId",
 /// `privateMetadata` without `urn:ietf:params:jmap:metadata` is
 /// `invalidProperties` (draft-ietf-jmap-metadata-05 §3), as is `null` for
 /// either in a create (-05 §3.2). The backend validates the rest.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   an element of `destroy` is not a string;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `create`, `update` and `destroy` together hold
+///   more than `maxObjectsInSet` objects;
+/// - `stateMismatch` when `ifInState` is not the current state;
+/// - `serverFail` when the backend fails.
+///
+/// A create, update or destroy that fails on its own is a [`SetError`] in
+/// the response, not an `Err`.
 pub async fn handle_message_set<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -1286,7 +1368,7 @@ struct CreateRun {
     /// far (RFC 8620 §5.3: creates of this call join the request-wide map
     /// so later creates in this call can reference them).
     created_ids: BTreeMap<Id, Id>,
-    /// The Chats of the created Messages, for the ReadPosition and
+    /// The Chats of the created Messages, for the [`ReadPosition`] and
     /// `unreadCount` bookkeeping after the loop.
     delivered_chat_ids: Vec<Id>,
 }
@@ -1364,7 +1446,7 @@ async fn create_one<B: ChatBackend>(
 
 /// Check one `Message/set` create object, with its `#creationId`
 /// references resolved against `created_ids`, and return the builder for
-/// the stored Message, or the SetError value for `notCreated`.
+/// the stored Message, or the [`SetError`] value for `notCreated`.
 async fn message_builder<B: ChatBackend>(
     ctx: &SetCtx<'_, B>,
     obj_val: &Value,
@@ -1433,7 +1515,7 @@ struct CreateFields {
 }
 
 /// Check the properties of one `Message/set` create object that need no
-/// backend read and return them, or the SetError value for `notCreated`.
+/// backend read and return them, or the [`SetError`] value for `notCreated`.
 fn create_fields(
     obj_val: &Value,
     using: &[String],
@@ -1489,7 +1571,7 @@ fn create_fields(
 }
 
 /// The `chatId`, `body` and `sentAt` of one `Message/set` create object,
-/// checked, or the SetError value for `notCreated`.
+/// checked, or the [`SetError`] value for `notCreated`.
 fn create_chat_body(obj_val: &Value, limits: &ChatLimits) -> Result<(Id, String, UTCDate), Value> {
     let Some(chat_id_str) = obj_val.get("chatId").and_then(|v| v.as_str()) else {
         return Err(json!({ "type": "invalidProperties", "properties": ["chatId"] }));
@@ -1531,7 +1613,7 @@ fn create_chat_body(obj_val: &Value, limits: &ChatLimits) -> Result<(Id, String,
 }
 
 /// The `bodyType` of one `Message/set` create object, checked against the
-/// supported, server-reserved and encrypted body types, or the SetError
+/// supported, server-reserved and encrypted body types, or the [`SetError`]
 /// value for `notCreated`.
 fn create_body_type(obj_val: &Value, limits: &ChatLimits) -> Result<String, Value> {
     // §Input Validation: "`bodyType`: reject a value not listed in
@@ -1573,7 +1655,7 @@ fn create_body_type(obj_val: &Value, limits: &ChatLimits) -> Result<String, Valu
 }
 
 /// The Chat a `Message/set` create posts to, once it accepts the create,
-/// or the SetError value for `notCreated`.
+/// or the [`SetError`] value for `notCreated`.
 async fn create_target_chat<B: ChatBackend>(
     ctx: &SetCtx<'_, B>,
     chat_id: &Id,
@@ -1645,7 +1727,7 @@ async fn create_target_chat<B: ChatBackend>(
     Ok(chat)
 }
 
-/// The SetError value when the sender may not post to `chat` (the Chat
+/// The [`SetError`] value when the sender may not post to `chat` (the Chat
 /// `chat_id`), or may not send its `broadcast_mentions` there; `None` to
 /// go on.
 async fn create_send_error<B: ChatBackend>(
@@ -1685,7 +1767,7 @@ async fn create_send_error<B: ChatBackend>(
 }
 
 /// The `replyTo` and the thread root of one `Message/set` create in Chat
-/// `chat_id`, checked, or the SetError value for `notCreated`.
+/// `chat_id`, checked, or the [`SetError`] value for `notCreated`.
 async fn create_thread<B: ChatBackend>(
     ctx: &SetCtx<'_, B>,
     obj_val: &Value,
@@ -1753,7 +1835,7 @@ async fn create_thread<B: ChatBackend>(
 }
 
 /// The `senderExpiresAt` and `burnOnRead` of one `Message/set` create
-/// object, checked, or the SetError value for `notCreated`.
+/// object, checked, or the [`SetError`] value for `notCreated`.
 fn create_expiry(obj_val: &Value) -> Result<(Option<UTCDate>, Option<bool>), Value> {
     // senderExpiresAt is a UTCDate per RFC 8620 §1.4 (20-char
     // YYYY-MM-DDTHH:MM:SSZ). Validate the wire shape via
@@ -1786,7 +1868,7 @@ fn create_expiry(obj_val: &Value) -> Result<(Option<UTCDate>, Option<bool>), Val
 
 /// The attachments of one `Message/set` create in `chat`, and the function
 /// that copies its other optional properties onto the Message, checked,
-/// or the SetError value for `notCreated`.
+/// or the [`SetError`] value for `notCreated`.
 async fn create_payload<B: ChatBackend>(
     ctx: &SetCtx<'_, B>,
     chat: &Chat,
@@ -1814,7 +1896,7 @@ async fn create_payload<B: ChatBackend>(
     Ok((attachments, apply_optionals))
 }
 
-/// The `rateLimit` SetError value when slow mode holds the sender back in
+/// The `rateLimit` [`SetError`] value when slow mode holds the sender back in
 /// Chat `chat_id`, or `None`.
 ///
 /// Slow-mode rate-limit gate (draft-atwood-jmap-chat-00
@@ -1826,9 +1908,9 @@ async fn create_payload<B: ChatBackend>(
 /// message touch storage. On a Throttled return the backend
 /// tells us when the caller may retry; we surface that
 /// verbatim as the `serverRetryAfter` extra field on the
-/// `rateLimit` SetError, built via the typed
+/// `rateLimit` `SetError`, built via the typed
 /// `SetError::with_extra` builder added in bd:JMAP-dha0.
-/// The spec requires "a `rateLimit` SetError ({{RFC8620,
+/// The spec requires "a `rateLimit` `SetError` ({{RFC8620,
 /// Section 5.3}}) on the offending `Message/set` create",
 /// not the method-level `rateLimited` (which is reserved
 /// for the Peer/* methods). `serverRetryAfter` is a
@@ -1863,7 +1945,7 @@ async fn set_update<B: ChatBackend>(
     Ok(mutated)
 }
 
-/// The SetError value when `ChatRestrictions::may_update_message` refuses
+/// The [`SetError`] value when `ChatRestrictions::may_update_message` refuses
 /// a `Message/set` update of `stored` in `chat`, or `None`. A Message
 /// whose Chat does not resolve is not gated.
 ///
@@ -2013,7 +2095,7 @@ fn read_outcome(
 
 /// Resolve the `#creationId` references of one `Message/set` update patch
 /// and run the checks that need only the request, returning the patch or
-/// the SetError value for `notUpdated`.
+/// the [`SetError`] value for `notUpdated`.
 fn update_patch_error(
     mut patch_val: Value,
     created_ids: &BTreeMap<Id, Id>,
@@ -2056,7 +2138,7 @@ fn update_patch_error(
 }
 
 /// The stored Message `id` a `Message/set` update targets and its Chat,
-/// read once for every check, or the SetError value for `notUpdated`.
+/// read once for every check, or the [`SetError`] value for `notUpdated`.
 async fn update_targets<B: ChatBackend>(
     ctx: &SetCtx<'_, B>,
     id: &Id,
@@ -2133,7 +2215,7 @@ fn defined_message_keys(patch_val: &Value) -> Vec<&str> {
 /// RFC 8620 §5.3: "Any server-set properties MAY be included in
 /// the patch if their value is identical to the current server
 /// value ... Otherwise, the update MUST be rejected with an
-/// "invalidProperties" SetError." Identical values are dropped
+/// "invalidProperties" `SetError`." Identical values are dropped
 /// here, so the checks below see only the client changes.
 fn update_shape_error(
     patch_val: &mut Value,
@@ -2197,7 +2279,7 @@ fn update_shape_error(
     None
 }
 
-/// The `forbidden` SetError value for a `Message/set` update that deletes
+/// The `forbidden` [`SetError`] value for a `Message/set` update that deletes
 /// for all or edits a Message it may not, or `None`.
 ///
 /// draft-atwood-jmap-chat-00 §Deleting a Message: servers MUST
@@ -2290,7 +2372,7 @@ fn augment_patch(patch_val: Value, deletes_for_all: bool) -> (Value, bool) {
 /// Check the `reactions/{senderReactionId}` keys of an augmented
 /// `Message/set` update patch against `stored`, server-set their
 /// `senderId` and `sentAt`, and return one `ReactionUpdate` event per
-/// patched key, or the SetError value for `notUpdated`.
+/// patched key, or the [`SetError`] value for `notUpdated`.
 ///
 /// Reaction patch processing
 /// (draft-atwood-jmap-chat-00 §Message/set, §Reaction).
@@ -2432,10 +2514,10 @@ fn decode_reaction_keys(augmented: &Value) -> Result<Vec<(String, String)>, Stri
         .collect()
 }
 
-/// The SetError value when an edit of `stored` keeps or adds a broadcast
+/// The [`SetError`] value when an edit of `stored` keeps or adds a broadcast
 /// mention it may not send, or `None`.
 ///
-/// BroadcastMention validation and permission check on edit
+/// [`BroadcastMention`] validation and permission check on edit
 /// (§4.4.1 / §4.16). The post-patch broadcastMentions fall back
 /// to the stored message where the patch leaves them unchanged,
 /// so an edit that retains a broadcast mention is gated like one

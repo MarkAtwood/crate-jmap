@@ -82,7 +82,7 @@ pub trait ConformanceBackend: ChatBackend {
     /// `id` member, replacing any object stored under that id.
     ///
     /// Fixtures use this for objects no client method creates (received
-    /// Messages, ChatContacts, PresenceStatus) and for fields no client
+    /// Messages, `ChatContact`s, `PresenceStatus`) and for fields no client
     /// may set. The suite reads state before and after the writes it
     /// tests, so whether seeding advances the state does not matter.
     /// Objects may omit properties that have a default.
@@ -363,7 +363,11 @@ mod backend_basics {
 
     use super::{ACCOUNT_ID, ConformanceBackend, OWNER_USER_ID, seed, setup};
 
-    /// Oracle: state advances after a successful create_object call.
+    /// Oracle: state advances after a successful `create_object` call.
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn state_advances_after_create<B: ConformanceBackend>(backend: B) {
         let account_id = Id::from("account1");
         backend.add_account(&account_id, OWNER_USER_ID).await;
@@ -401,6 +405,10 @@ mod backend_basics {
     }
 
     /// Oracle: created objects are retrievable by id.
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn create_then_get<B: ConformanceBackend>(backend: B) {
         let account_id = Id::from("account1");
         backend.add_account(&account_id, OWNER_USER_ID).await;
@@ -440,6 +448,10 @@ mod backend_basics {
     /// Oracle: `is_contact_blocked` reads `ChatContact.blocked` from the
     /// store. The backend's predicate is exercised directly, mirroring the
     /// way a consumer's transport layer would consult it before a fan-out.
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn is_contact_blocked_reads_chat_contact_blocked_field<B: ConformanceBackend>(
         backend: B,
     ) {
@@ -504,12 +516,16 @@ mod backend_basics {
     }
 
     /// Oracle: draft-atwood-jmap-chat-00 §Blocked Contacts (L1698): "Typing and
-    /// presence push events whose sending or referenced ChatContact has
+    /// presence push events whose sending or referenced `ChatContact` has
     /// `blocked: true` on the receiving owner's contact list are similarly
-    /// dropped", and §ChatContact `id` (L426): "It identifies the ChatContact
-    /// only on this server". Two accounts each hold a ChatContact for the
+    /// dropped", and §`ChatContact` `id` (L426): "It identifies the `ChatContact`
+    /// only on this server". Two accounts each hold a `ChatContact` for the
     /// other; only the recipient's own list decides, and a contact id is never
     /// resolved in another account's list.
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn is_contact_blocked_reads_only_the_owner_list<B: ConformanceBackend>(backend: B) {
         let recipient = Id::from("acct-recipient");
         let sender = Id::from("acct-sender");
@@ -614,7 +630,7 @@ mod patch_paths {
             .to_owned()
     }
 
-    /// Apply `patch` to message `id` in the backend, returning the SetError
+    /// Apply `patch` to message `id` in the backend, returning the `SetError`
     /// type on rejection.
     async fn update<B: ConformanceBackend>(
         backend: &B,
@@ -663,6 +679,10 @@ mod patch_paths {
     /// `deliveryReceipts/u2` therefore adds member `u2` of the
     /// `deliveryReceipts` object, keeping `u1`, rather than creating a
     /// property literally named `deliveryReceipts/u2`.
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn path_key_updates_nested_member<B: ConformanceBackend>(backend: B) {
         setup(&backend).await;
         let id = message_with_receipt(&backend).await;
@@ -690,6 +710,10 @@ mod patch_paths {
     /// property (this may be a replacement or addition to the object being
     /// patched)." A top-level `deliveryReceipts` value replaces the whole
     /// property; the existing `u1` entry is not merged into it.
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn top_level_object_value_replaces_property<B: ConformanceBackend>(backend: B) {
         setup(&backend).await;
         let id = message_with_receipt(&backend).await;
@@ -715,6 +739,10 @@ mod patch_paths {
     /// rejected with an "invalidPatch" error". A fresh Message has no
     /// `deliveryReceipts`, so `deliveryReceipts/u1` is rejected and the
     /// stored Message is unchanged.
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn path_through_absent_parent_is_invalid_patch<B: ConformanceBackend>(backend: B) {
         setup(&backend).await;
         let id = create_message(&backend).await;
@@ -732,10 +760,14 @@ mod patch_paths {
     }
 
     /// Oracle: RFC 8620 §5.3: "There MUST NOT be two patches in the
-    /// PatchObject where the pointer of one is the prefix of the pointer of
+    /// [`PatchObject`] where the pointer of one is the prefix of the pointer of
     /// the other, e.g., "alerts/1/offset" and "alerts"." and "if there is
     /// any violation, the update MUST be rejected with an "invalidPatch"
     /// error". The stored Message is unchanged.
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn prefix_conflict_is_invalid_patch<B: ConformanceBackend>(backend: B) {
         setup(&backend).await;
         let id = message_with_receipt(&backend).await;
@@ -766,6 +798,10 @@ mod patch_paths {
     /// count toward the cap. Test vector: a 21-segment path into an
     /// existing 21-level value, setting another 21-level value, would store
     /// 43 levels; each repeat could add 21 more.
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn path_depth_counts_toward_nesting_cap<B: ConformanceBackend>(backend: B) {
         setup(&backend).await;
         let id = create_message(&backend).await;
@@ -849,6 +885,10 @@ mod patch_null {
 
     /// Oracle: draft-atwood-jmap-chat-00 Chat `muted`: "When `true`, push
     /// notifications for this chat are suppressed. \[...\] Default: `false`."
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn chat_muted_null_resets_to_false<B: ConformanceBackend>(backend: B) {
         setup(&backend).await;
         let id = make_chat_group(&backend, "g").await;
@@ -862,6 +902,10 @@ mod patch_null {
     /// Oracle: draft-atwood-jmap-chat-00 Chat `pinnedMessageIds`: "Ordered
     /// list of pinned Message ids, most-recently-pinned first. \[...\] Empty by
     /// default."
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn chat_pinned_message_ids_null_resets_to_empty<B: ConformanceBackend>(backend: B) {
         setup(&backend).await;
         let id = make_chat_group(&backend, "g").await;
@@ -873,6 +917,10 @@ mod patch_null {
 
     /// Oracle: draft-atwood-jmap-chat-00 Chat `receiveTypingIndicators`:
     /// "Default: `true`."
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn chat_receive_typing_indicators_null_resets_to_true<B: ConformanceBackend>(
         backend: B,
     ) {
@@ -894,6 +942,10 @@ mod patch_null {
     /// absent, the account-level preference applies." The property has no
     /// default, so `null` removes the override and `/get` omits it
     /// (bd:JMAP-w9ox.2).
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn chat_receipt_sharing_null_removes_override<B: ConformanceBackend>(backend: B) {
         setup(&backend).await;
         let id = make_chat_group(&backend, "g").await;
@@ -913,9 +965,13 @@ mod patch_null {
         );
     }
 
-    /// Oracle: draft-atwood-jmap-chat-00 ChatContact `blocked`: "When
-    /// `true`, messages from this ChatContact are silently dropped by this
+    /// Oracle: draft-atwood-jmap-chat-00 `ChatContact` `blocked`: "When
+    /// `true`, messages from this `ChatContact` are silently dropped by this
     /// mailbox \[...\] Default: `false`."
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn contact_blocked_null_resets_to_false<B: ConformanceBackend>(backend: B) {
         setup(&backend).await;
         // ChatContact objects are server-managed (create is forbidden).
@@ -952,7 +1008,7 @@ mod patch_null {
         assert_eq!(resp["list"][0]["blocked"], json!(false), "{resp:?}");
     }
 
-    /// Seed a PresenceStatus with non-default `presence` and `receiptSharing`.
+    /// Seed a `PresenceStatus` with non-default `presence` and `receiptSharing`.
     async fn seed_presence<B: ConformanceBackend>(backend: &B) {
         // PresenceStatus objects are server-managed (only update is permitted).
         seed(
@@ -988,9 +1044,13 @@ mod patch_null {
         resp["list"][0].clone()
     }
 
-    /// Oracle: draft-atwood-jmap-chat-00 PresenceStatus `presence`: "One of
+    /// Oracle: draft-atwood-jmap-chat-00 `PresenceStatus` `presence`: "One of
     /// `"online"`, `"away"`, `"busy"`, `"invisible"`, or `"offline"`.
     /// Default is `"online"`."
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn presence_null_resets_to_online<B: ConformanceBackend>(backend: B) {
         setup(&backend).await;
         seed_presence(&backend).await;
@@ -1000,9 +1060,13 @@ mod patch_null {
         assert_eq!(ps["presence"], json!("online"), "{ps:?}");
     }
 
-    /// Oracle: draft-atwood-jmap-chat-00 PresenceStatus `receiptSharing`:
+    /// Oracle: draft-atwood-jmap-chat-00 `PresenceStatus` `receiptSharing`:
     /// "When `false`, this account does not send read receipts to peers.
     /// \[...\] Default: `true`."
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn presence_receipt_sharing_null_resets_to_true<B: ConformanceBackend>(backend: B) {
         setup(&backend).await;
         seed_presence(&backend).await;
@@ -1065,6 +1129,10 @@ mod patch_null {
 
     /// Oracle: draft-atwood-jmap-chat-00 Message `mentions`: "Structured
     /// per-user @mention annotations. Empty by default."
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn message_mentions_null_resets_to_empty<B: ConformanceBackend>(backend: B) {
         let msg = message_null_then_get(&backend, "mentions").await;
         assert_eq!(msg["mentions"], json!([]), "{msg:?}");
@@ -1072,6 +1140,10 @@ mod patch_null {
 
     /// Oracle: draft-atwood-jmap-chat-00 Message `actions`: "Out-of-band
     /// action invitations associated with this message. Empty by default."
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn message_actions_null_resets_to_empty<B: ConformanceBackend>(backend: B) {
         let msg = message_null_then_get(&backend, "actions").await;
         assert_eq!(msg["actions"], json!([]), "{msg:?}");
@@ -1080,6 +1152,10 @@ mod patch_null {
     /// Oracle: draft-atwood-jmap-chat-00 Message `reactions`: "Emoji
     /// reactions, keyed by `senderReactionId`. \[...\] Empty object by
     /// default."
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn message_reactions_null_resets_to_empty<B: ConformanceBackend>(backend: B) {
         let msg = message_null_then_get(&backend, "reactions").await;
         assert_eq!(msg["reactions"], json!({}), "{msg:?}");
@@ -1088,6 +1164,10 @@ mod patch_null {
     /// Oracle: draft-atwood-jmap-chat-00 Message `broadcastMentions`:
     /// "Structured broadcast-scope mention annotations \[...\]. Empty by
     /// default."
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn message_broadcast_mentions_null_resets_to_empty<B: ConformanceBackend>(
         backend: B,
     ) {
@@ -1197,6 +1277,10 @@ mod query_filters {
     ///
     /// L1139: `kind` and `muted` each restrict the result; together both must
     /// hold.
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn chat_query_filters_kind_and_muted<B: ConformanceBackend>(backend: B) {
         chat_backend(&backend).await;
         assert_eq!(
@@ -1213,12 +1297,16 @@ mod query_filters {
         );
     }
 
-    /// RFC 8620 §5.5 FilterOperator: "AND: All of the conditions must match
+    /// RFC 8620 §5.5 `FilterOperator`: "AND: All of the conditions must match
     /// for the filter to match. OR: At least one of the conditions must
     /// match for the filter to match. NOT: None of the conditions must match
     /// for the filter to match."
     ///
     /// RFC 8620 §5.5 OR and NOT over §Chat/query conditions.
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn chat_query_applies_filter_operators<B: ConformanceBackend>(backend: B) {
         chat_backend(&backend).await;
         let or = json!({ "operator": "OR", "conditions": [
@@ -1238,6 +1326,10 @@ mod query_filters {
     /// (String; ...)."
     ///
     /// L1064: `blocked` and `presence` each restrict `ChatContact/query`.
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn contact_query_filters_blocked_and_presence<B: ConformanceBackend>(backend: B) {
         seeded(
             &backend,
@@ -1339,6 +1431,10 @@ mod query_filters {
     /// whose `topicId` equals this value."
     ///
     /// L1285: `topicId` matches equal values only.
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn message_query_filters_topic_id<B: ConformanceBackend>(backend: B) {
         message_backend(&backend).await;
         assert_eq!(
@@ -1351,6 +1447,10 @@ mod query_filters {
     /// with or without attachments."
     ///
     /// L1288: `hasAttachment` selects messages "with or without attachments".
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn message_query_filters_has_attachment_both_ways<B: ConformanceBackend>(backend: B) {
         message_backend(&backend).await;
         assert_eq!(
@@ -1368,6 +1468,10 @@ mod query_filters {
     ///
     /// L1291: `hasMention` is a Boolean filter, so `false` selects the
     /// messages that do not mention the owner.
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn message_query_has_mention_false_excludes_mentions<B: ConformanceBackend>(
         backend: B,
     ) {
@@ -1384,6 +1488,10 @@ mod query_filters {
     /// L1279 and RFC 8620 §5.6 (the filter "as given in the query"): a
     /// `text` filter the server cannot run is `unsupportedFilter` on
     /// `Message/queryChanges` as on `Message/query`.
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn message_query_changes_refuses_text_filter<B: ConformanceBackend>(backend: B) {
         message_backend(&backend).await;
         let err = handle_message_query_changes(
@@ -1405,6 +1513,10 @@ mod query_filters {
     /// L1269: "Servers MUST return an `unsupportedFilter` error for any
     /// request that omits `chatId` without also including `hasMention:
     /// true`" applies to `Message/queryChanges` too.
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn message_query_changes_requires_chat_id_or_has_mention<B: ConformanceBackend>(
         backend: B,
     ) {
@@ -1429,6 +1541,10 @@ mod query_filters {
     /// `name` (String, substring match), `isPublic` (Boolean)."
     ///
     /// L1389: `name` is a substring match.
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn space_query_filters_name_substring<B: ConformanceBackend>(backend: B) {
         let member = json!([{ "id": ACCOUNT_ID }]);
         seeded(
@@ -1469,6 +1585,10 @@ mod query_filters {
     ///
     /// L1482: `spaceId` restricts the result to that Space's emoji; absent,
     /// server-global emoji are included.
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn emoji_query_filters_space_id<B: ConformanceBackend>(backend: B) {
         setup(&backend).await;
         let resp = emoji_set(
@@ -1503,6 +1623,10 @@ mod query_filters {
 
     /// RFC 8620 §5.6: `CustomEmoji/queryChanges` with the query's `spaceId`
     /// filter adds only emoji that the query matches.
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn emoji_query_changes_applies_space_id_filter<B: ConformanceBackend>(backend: B) {
         setup(&backend).await;
         let filter = json!({ "spaceId": "space1" });
@@ -1617,6 +1741,10 @@ mod query_sort {
 
     /// RFC 8620 §5.5 Comparator `isAscending`: "If false, reverse the
     /// comparator's results to sort in descending order."
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn space_query_sort_descending_reverses_order<B: ConformanceBackend>(backend: B) {
         setup(&backend).await;
         for name in ["Alpha", "Bravo", "Charlie"] {
@@ -1631,6 +1759,10 @@ mod query_sort {
     /// RFC 8620 §5.5 Comparator `isAscending`: "If true, sort in ascending
     /// order." The Spaces are created out of name order so creation order
     /// cannot satisfy the assertion.
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn space_query_sort_ascending_orders_by_property<B: ConformanceBackend>(backend: B) {
         setup(&backend).await;
         for name in ["Charlie", "Alpha", "Bravo"] {
@@ -1643,8 +1775,12 @@ mod query_sort {
     }
 
     /// draft-atwood-jmap-chat-00 §ChatContact/query: "When sorting by
-    /// `lastActiveAt`, ChatContacts for which the field is absent sort
+    /// `lastActiveAt`, `ChatContact`s for which the field is absent sort
     /// last." in both directions.
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn contact_query_sort_last_active_at_absent_sorts_last<B: ConformanceBackend>(
         backend: B,
     ) {
@@ -1732,6 +1868,10 @@ mod query_anchor {
     /// exactly as though it were supplied as the "position" argument."
     ///
     /// Anchor `c3` is index 2; offset +1 gives start index 3.
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn anchor_with_positive_offset_starts_after_anchor<B: ConformanceBackend>(
         backend: B,
     ) {
@@ -1749,6 +1889,10 @@ mod query_anchor {
     /// RFC 8620 §5.5 anchorOffset: "This MAY be negative.  For example, "-1"
     /// means the Foo immediately preceding the anchor is the first result in
     /// the list returned".
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn anchor_with_negative_offset_starts_before_anchor<B: ConformanceBackend>(
         backend: B,
     ) {
@@ -1765,6 +1909,10 @@ mod query_anchor {
 
     /// RFC 8620 §5.5 anchorOffset: "(default: 0)". Without an offset the
     /// anchor itself is the first result.
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn anchor_without_offset_starts_at_anchor<B: ConformanceBackend>(backend: B) {
         seeded_backend(&backend).await;
         let resp = query(&backend, json!({ "anchor": "c4" }))
@@ -1779,6 +1927,10 @@ mod query_anchor {
     ///
     /// Anchor `c2` is index 1; offset -3 gives -2, clamped to 0. The ignored
     /// `position` keeps the expected page distinct from the `position` page.
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn anchor_offset_before_start_clamps_to_zero<B: ConformanceBackend>(backend: B) {
         seeded_backend(&backend).await;
         let resp = query(
@@ -1793,6 +1945,10 @@ mod query_anchor {
 
     /// RFC 8620 §5.5: "If the anchor is not found, the call is rejected with
     /// an "anchorNotFound" error."
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn anchor_absent_from_results_is_anchor_not_found<B: ConformanceBackend>(backend: B) {
         seeded_backend(&backend).await;
         let err = query(&backend, json!({ "anchor": "nope" }))
@@ -1803,6 +1959,10 @@ mod query_anchor {
 
     /// RFC 8620 §5.5: "If an "anchor" is specified, any position argument
     /// supplied by the client MUST be ignored."
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn anchor_overrides_position<B: ConformanceBackend>(backend: B) {
         seeded_backend(&backend).await;
         let resp = query(
@@ -1819,6 +1979,10 @@ mod query_anchor {
     /// argument MUST be ignored."
     ///
     /// Guards the fix against applying `anchorOffset` to `position`.
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn anchor_offset_without_anchor_is_ignored<B: ConformanceBackend>(backend: B) {
         seeded_backend(&backend).await;
         let resp = query(
@@ -1834,6 +1998,10 @@ mod query_anchor {
     /// RFC 8620 §5.5 argument types: "anchor: "Id|null"" and
     /// "anchorOffset: "Int" (default: 0)"; RFC 8620 §3.6.2 ""invalidArguments":
     /// One of the arguments is of the wrong type or is otherwise invalid".
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn anchor_arguments_of_wrong_type_are_invalid_arguments<B: ConformanceBackend>(
         backend: B,
     ) {
@@ -1855,6 +2023,10 @@ mod query_anchor {
     /// text suitable for displaying to a developer", so the client-supplied
     /// value is never echoed (bd JMAP-zegc). `CustomEmoji/query` parses these
     /// arguments itself rather than through `jmap_server::handle_query`.
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn emoji_query_wrongly_typed_args_do_not_echo_value<B: ConformanceBackend>(
         backend: B,
     ) {
@@ -1879,6 +2051,10 @@ mod query_anchor {
     /// and if still negative, it's clamped to "0"", so the most negative
     /// legal `position` starts at index 0, and the largest legal `limit`
     /// returns all five results (bd:JMAP-uqhn.2).
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn extreme_position_and_limit_saturate<B: ConformanceBackend>(backend: B) {
         seeded_backend(&backend).await;
         let resp = query(
@@ -1894,6 +2070,10 @@ mod query_anchor {
     /// RFC 8620 §5.5 position: "If the index is greater than or equal to the
     /// total number of objects in the results list, then the "ids" array in
     /// the response will be empty, but this is not an error."
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn largest_position_is_empty_page_not_error<B: ConformanceBackend>(backend: B) {
         seeded_backend(&backend).await;
         let resp = query(&backend, json!({ "position": 9_007_199_254_740_991_i64 }))
@@ -2005,6 +2185,10 @@ mod space_join {
     /// draft-atwood-jmap-chat-00 §Space/join: "... atomically increment
     /// `uses` and add the caller to the Space's member list": one join
     /// produces both effects, each recorded as a change.
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn join_adds_member_and_counts_use_together<B: ConformanceBackend>(backend: B) {
         seeded(&backend, 0, 2).await;
         let (_, _, space_before, invite_before) = snapshot(&backend).await;
@@ -2031,6 +2215,10 @@ mod space_join {
     /// redemptions cannot exceed `maxUses`": the backend re-checks
     /// `maxUses` itself rather than trusting the handler's earlier read,
     /// and the refusal writes nothing.
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn exhausted_invite_is_refused_without_any_write<B: ConformanceBackend>(backend: B) {
         seeded(&backend, 1, 1).await;
         let before = snapshot(&backend).await;
@@ -2058,6 +2246,10 @@ mod space_join {
     ///
     /// Spawns tokio tasks, so it must run on a multi-thread tokio runtime
     /// such as [`run`](super::run)'s.
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn concurrent_redemptions_increment_exactly_once<B: ConformanceBackend>(backend: B) {
         const RACERS: usize = 32;
         seeded(&backend, 0, 100).await;
@@ -2182,7 +2374,11 @@ mod message_atomic {
     ///
     /// A `readAt` patch the backend cannot store is rejected and burns
     /// nothing. RFC 8620 §5.3: "invalidProperties: The record given is
-    /// invalid in some way." `readAt` is a UTCDate, so a number is invalid.
+    /// invalid in some way." `readAt` is a `UTCDate`, so a number is invalid.
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn invalid_read_at_patch_is_rejected_without_burning<B: ConformanceBackend>(
         backend: B,
     ) {
@@ -2260,6 +2456,10 @@ mod message_atomic {
     ///
     /// Runs only when [`ConformanceBackend::take_outbound_events`] returns
     /// `Some`.
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn create_message_stores_and_reports_one_new_message<B: ConformanceBackend>(
         backend: B,
     ) {
@@ -2322,7 +2522,7 @@ mod contact_identity {
     use super::{ACCOUNT_ID, ConformanceBackend, owner, seed, setup};
     use crate::{handle_contact_get, handle_contact_query, handle_contact_set};
 
-    /// Store a ChatContact with the given `id` and `identity`.
+    /// Store a `ChatContact` with the given `id` and `identity`.
     async fn insert_contact<B: ConformanceBackend>(backend: &B, id: &str, identity: &str) {
         seed(
             backend,
@@ -2351,7 +2551,7 @@ mod contact_identity {
         resp
     }
 
-    /// The sorted `properties` of a SetError.
+    /// The sorted `properties` of a `SetError`.
     fn error_properties(err: &Value) -> Vec<String> {
         let mut props: Vec<String> = err["properties"]
             .as_array()
@@ -2366,6 +2566,10 @@ mod contact_identity {
     /// draft-atwood-jmap-chat-00 §ChatContact/set: "`create` accepts only
     /// `identity`, which is required; the server assigns `id` and sets the
     /// other server-set properties."
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn contact_create_by_identity_assigns_id<B: ConformanceBackend>(backend: B) {
         setup(&backend).await;
         let resp = create(
@@ -2395,10 +2599,14 @@ mod contact_identity {
         assert_eq!(get["list"][0]["identity"], json!("alice@example.com"));
     }
 
-    /// draft-atwood-jmap-chat-00 §ChatContact/set: "If a ChatContact with
+    /// draft-atwood-jmap-chat-00 §ChatContact/set: "If a `ChatContact` with
     /// that `identity` already exists, the server MUST reject the create with
-    /// a SetError of type `alreadyExists`, including the existing
-    /// ChatContact's id in the `existingId` field ({{RFC8620}} Section 5.3)."
+    /// a `SetError` of type `alreadyExists`, including the existing
+    /// `ChatContact`'s id in the `existingId` field ({{RFC8620}} Section 5.3)."
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn contact_create_existing_identity_already_exists<B: ConformanceBackend>(
         backend: B,
     ) {
@@ -2419,6 +2627,10 @@ mod contact_identity {
     /// draft-atwood-jmap-chat-00 §ChatContact/set: "`create` accepts only
     /// `identity`, which is required". A create without `identity` is an
     /// invalid record (RFC 8620 §5.3 `invalidProperties`).
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn contact_create_without_identity_invalid_properties<B: ConformanceBackend>(
         backend: B,
     ) {
@@ -2435,8 +2647,12 @@ mod contact_identity {
 
     /// draft-atwood-jmap-chat-00 §ChatContact/set: "`create` accepts only
     /// `identity`". Any other property in a create is rejected with an RFC
-    /// 8620 §5.3 `invalidProperties` SetError naming it, and no ChatContact
+    /// 8620 §5.3 `invalidProperties` `SetError` naming it, and no `ChatContact`
     /// is recorded.
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn contact_create_other_properties_invalid_properties<B: ConformanceBackend>(
         backend: B,
     ) {
@@ -2478,8 +2694,12 @@ mod contact_identity {
 
     /// draft-atwood-jmap-chat-00 §ChatContact/query: "Filter properties:
     /// `blocked` (Boolean), `presence` (String), `identity` (String; matches
-    /// the ChatContact whose `identity` equals the value octet for octet)."
+    /// the `ChatContact` whose `identity` equals the value octet for octet)."
     /// The case-variant contact shows the match is octet-exact.
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn contact_query_identity_filter_matches_octet_for_octet<B: ConformanceBackend>(
         backend: B,
     ) {
@@ -2541,7 +2761,7 @@ mod threads {
     const C: &str = "01J0000000000000000000000D";
     const OTHER_CHAT_MSG: &str = "01J0000000000000000000000E";
 
-    /// A ChatContact other than the owner; the owner's own Messages carry the
+    /// A `ChatContact` other than the owner; the owner's own Messages carry the
     /// accountId as `senderId`.
     const OTHER_SENDER: &str = "contact-bob";
 
@@ -2602,7 +2822,7 @@ mod threads {
     /// └── C  (replyTo ROOT, threadRootId ROOT)
     /// ```
     ///
-    /// plus OTHER_CHAT_MSG in a second Chat, and a ReadPosition for the
+    /// plus `OTHER_CHAT_MSG` in a second Chat, and a `ReadPosition` for the
     /// first Chat with `lastReadMessageId` = A.
     async fn fixture<K: ConformanceBackend>(backend: &K) -> (String, String) {
         setup(backend).await;
@@ -2682,6 +2902,10 @@ mod threads {
     /// - B, C: no replies -> replyCount 0, no unreadReplyCount.
     ///
     /// Runs only when `supportsThreads` is `true`.
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn reply_counts_match_fixture<K: ConformanceBackend>(backend: K) {
         if !supports_threads(&backend) {
             return;
@@ -2706,6 +2930,10 @@ mod threads {
     /// (ROOT: A and C -> 2).
     ///
     /// Runs only when `supportsThreads` is `true`.
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn unread_reply_count_without_read_position<K: ConformanceBackend>(backend: K) {
         if !supports_threads(&backend) {
             return;
@@ -2726,6 +2954,10 @@ mod threads {
     /// count is returned.
     ///
     /// Runs only when `supportsThreads` is `false`.
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn counts_absent_without_supports_threads<K: ConformanceBackend>(backend: K) {
         if supports_threads(&backend) {
             return;
@@ -2774,6 +3006,10 @@ mod threads {
     /// so `Message/changes` lists A as updated and the reply as created.
     ///
     /// Runs only when `supportsThreads` is `true`.
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn reply_create_lists_parent_updated<K: ConformanceBackend>(backend: K) {
         if !supports_threads(&backend) {
             return;
@@ -2792,6 +3028,10 @@ mod threads {
     /// 0, so `Message/changes` lists A as updated and B as destroyed.
     ///
     /// Runs only when `supportsThreads` is `true`.
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn reply_destroy_lists_parent_updated<K: ConformanceBackend>(backend: K) {
         if !supports_threads(&backend) {
             return;
@@ -2821,6 +3061,10 @@ mod threads {
     /// `unreadReplyCount`, and is not listed.
     ///
     /// Runs only when `supportsThreads` is `true`.
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn read_position_update_lists_thread_root_updated<K: ConformanceBackend>(backend: K) {
         if !supports_threads(&backend) {
             return;
@@ -2984,6 +3228,10 @@ mod expiry {
     ///
     /// L747: deletion "at or before this time", and the id lands in
     /// `destroyed`, not `updated`.
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn sender_expires_at_hard_deletes_at_deadline<B: ConformanceBackend>(b: B) {
         setup(&b).await;
         seed_chat(&b, "c1", json!({})).await;
@@ -3033,6 +3281,10 @@ mod expiry {
     ///
     /// L581 + L654: "older than this many seconds", measured from
     /// `receivedAt`; a zero policy deletes nothing ("When set and non-zero").
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn message_expiry_seconds_deletes_messages_older_than_policy<
         B: ConformanceBackend,
     >(
@@ -3064,6 +3316,10 @@ mod expiry {
     ///
     /// L753: deletion "this many seconds after setting `readAt`"; an unread
     /// message has no such deadline.
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn expires_after_read_seconds_counts_from_read_at<B: ConformanceBackend>(b: B) {
         setup(&b).await;
         seed_chat(&b, "c1", json!({})).await;
@@ -3094,6 +3350,10 @@ mod expiry {
     /// L750: a read `burnOnRead` message must not survive (this crate
     /// requires the recommended deletion); the sweep deletes
     /// one stored with `readAt` set.
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn read_burn_on_read_message_is_deleted<B: ConformanceBackend>(b: B) {
         setup(&b).await;
         seed_chat(&b, "c1", json!({})).await;
@@ -3116,6 +3376,10 @@ mod expiry {
     ///
     /// L660 + L663: "the sender's own copy is not affected", so an own-sent
     /// message (`senderId` is the account) survives with `readAt` set.
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn read_rules_spare_the_senders_own_copy<B: ConformanceBackend>(b: B) {
         setup(&b).await;
         seed_chat(&b, "c1", json!({})).await;
@@ -3148,6 +3412,10 @@ mod expiry {
     /// automatically when the time passes."
     ///
     /// L559: `muted` and `muteUntil` are cleared once the time passes.
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn mute_until_clears_muted_and_mute_until<B: ConformanceBackend>(b: B) {
         setup(&b).await;
         seed_chat(
@@ -3171,13 +3439,17 @@ mod expiry {
         );
     }
 
-    /// L941-942 (jmap-chat-spec 91672c9), §PresenceStatus `expiresAt`: "If
+    /// L941-942 (jmap-chat-spec 91672c9), §`PresenceStatus` `expiresAt`: "If
     /// set, the server SHOULD clear `statusText` and `statusEmoji` (setting
     /// them to null) at this time, and SHOULD reset `presence` to
     /// `"online"`."
     ///
     /// L941-942: at `expiresAt` the status text and emoji are nulled and
     /// presence resets to "online".
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn presence_expires_at_resets_status<B: ConformanceBackend>(b: B) {
         setup(&b).await;
         seed(
@@ -3249,6 +3521,10 @@ mod expiry {
     /// a re-run at the same time changes nothing.
     ///
     /// Runs only when `maintains_unread_count` is `false`.
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn expiry_records_chat_unread_count_change<B: ConformanceBackend>(b: B) {
         if !exact_unread_count(&b) {
             return;
@@ -3350,7 +3626,7 @@ mod read_position {
     const M5: &str = "01J0000000000000000000000E";
     const OTHER_MSG: &str = "01J0000000000000000000000F";
 
-    /// A ChatContact other than the owner; the owner's own Messages carry the
+    /// A `ChatContact` other than the owner; the owner's own Messages carry the
     /// accountId as `senderId`.
     const OTHER_SENDER: &str = "contact-bob";
 
@@ -3414,8 +3690,8 @@ mod read_position {
         .await;
     }
 
-    /// Group Chat `g` with M1..M5 and its ReadPosition `rp-g` (no
-    /// `lastReadMessageId`), plus group Chat `h` with OTHER_MSG.
+    /// Group Chat `g` with M1..M5 and its `ReadPosition` `rp-g` (no
+    /// `lastReadMessageId`), plus group Chat `h` with `OTHER_MSG`.
     async fn seed_five<B: ConformanceBackend>(backend: &B) {
         setup(backend).await;
         seed_group(backend, "g").await;
@@ -3505,6 +3781,10 @@ mod read_position {
     /// `h` has 1.
     ///
     /// Runs only when `maintains_unread_count` is `false`.
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn absent_last_read_counts_every_message<B: ConformanceBackend>(backend: B) {
         if !exact_unread_count(&backend) {
             return;
@@ -3514,10 +3794,14 @@ mod read_position {
         assert_eq!(unread_of(&backend, "h").await, 1);
     }
 
-    /// Compliance §11.1: "Send 5 messages. Set ReadPosition to message 3.
+    /// Compliance §11.1: "Send 5 messages. Set `ReadPosition` to message 3.
     /// Call `Chat/get`. Verify `unreadCount` is 2 (messages 4 and 5)."
     ///
     /// Runs only when `maintains_unread_count` is `false`.
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn compliance_11_1_unread_count_from_read_position<B: ConformanceBackend>(
         backend: B,
     ) {
@@ -3538,12 +3822,16 @@ mod read_position {
     }
 
     /// Compliance §11.1 with server-assigned ids: "Send 5 messages. Set
-    /// ReadPosition to message 3. Call `Chat/get`. Verify `unreadCount` is
+    /// `ReadPosition` to message 3. Call `Chat/get`. Verify `unreadCount` is
     /// 2 (messages 4 and 5)." The count holds only if, per L675, "Message
     /// IDs are ULIDs \[...\] lexicographically ordered by time", including
     /// for messages sent within the same millisecond (bd:JMAP-nls1).
     ///
     /// Runs only when `maintains_unread_count` is `false`.
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn compliance_11_1_with_assigned_ids<B: ConformanceBackend>(backend: B) {
         // ULID spec: 26 chars of Crockford base32 (no I, L, O, U).
         const CROCKFORD: &str = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
@@ -3600,6 +3888,10 @@ mod read_position {
     /// `ids`) as well.
     ///
     /// Runs only when `maintains_unread_count` is `false`.
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn unread_count_in_full_get<B: ConformanceBackend>(backend: B) {
         if !exact_unread_count(&backend) {
             return;
@@ -3619,6 +3911,10 @@ mod read_position {
     }
 
     /// L1434: "The server sets `lastReadAt` to the current time".
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn read_position_set_updates_last_read_at<B: ConformanceBackend>(backend: B) {
         seed_five(&backend).await;
 
@@ -3636,6 +3932,10 @@ mod read_position {
 
     /// L1004 `lastReadAt` is server-set: a client write is `invalidProperties`
     /// (RFC 8620 §5.3) and the record is unchanged.
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn client_last_read_at_is_rejected<B: ConformanceBackend>(backend: B) {
         seed_five(&backend).await;
 
@@ -3661,6 +3961,10 @@ mod read_position {
 
     /// L993: the server "destroys it when the Chat is destroyed"; RFC 8620
     /// §5.1 makes `ReadPosition/changes` report it.
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn chat_destroy_destroys_its_read_position<B: ConformanceBackend>(backend: B) {
         seed_five(&backend).await;
         seed_position(&backend, "rp-h", "h").await;
@@ -3744,8 +4048,12 @@ mod read_position {
         .await;
     }
 
-    /// L993: "For channel Chats, a ReadPosition is created when the owner
+    /// L993: "For channel Chats, a `ReadPosition` is created when the owner
     /// joins the containing Space." Only that Space's channels get one.
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn space_join_creates_read_positions_for_its_channels<B: ConformanceBackend>(
         backend: B,
     ) {
@@ -3768,6 +4076,10 @@ mod read_position {
 
     /// L993 "destroys it when the Chat is destroyed" holds for a channel
     /// removed by `Space/set` `removeChannels`.
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn remove_channels_destroys_their_read_positions<B: ConformanceBackend>(backend: B) {
         seed_space_with_channels(&backend, false, true).await;
         seed_position(&backend, "rp1", "ch1").await;
@@ -3797,7 +4109,11 @@ mod read_position {
     }
 
     /// Destroying a Space destroys its channel Chats (§Destroying a Space),
-    /// so their ReadPositions go too (L993).
+    /// so their `ReadPosition`s go too (L993).
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn space_destroy_destroys_channel_read_positions<B: ConformanceBackend>(backend: B) {
         seed_space_with_channels(&backend, false, true).await;
         seed_position(&backend, "rp1", "ch1").await;
@@ -3866,6 +4182,10 @@ mod read_position {
     /// `Chat/changes` lists only the affected Chat.
     ///
     /// Runs only when `maintains_unread_count` is `false`.
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn read_position_set_advances_chat_state<B: ConformanceBackend>(backend: B) {
         if !exact_unread_count(&backend) {
             return;
@@ -3888,6 +4208,10 @@ mod read_position {
     /// (L629), so `Chat/changes` reports that Chat (RFC 8620 §5.2).
     ///
     /// Runs only when `maintains_unread_count` is `false`.
+    ///
+    /// # Panics
+    ///
+    /// When the backend fails the oracle above, or a setup step errors.
     pub async fn message_destroy_advances_chat_state<B: ConformanceBackend>(backend: B) {
         if !exact_unread_count(&backend) {
             return;
