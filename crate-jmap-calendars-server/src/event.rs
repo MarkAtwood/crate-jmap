@@ -1117,7 +1117,8 @@ async fn set_destroy<B: CalendarsBackend>(
 /// Returns a method-level [`JmapError`]:
 ///
 /// - `invalidArguments` when `accountId` or `fromAccountId` is missing or not
-///   a valid Id, or `fromAccountId` equals `accountId`;
+///   a valid Id, `fromAccountId` equals `accountId`, or `create` is missing
+///   or not an object;
 /// - `accountNotFound` when the backend does not know `accountId`;
 /// - `fromAccountNotFound` when the backend does not know `fromAccountId`;
 /// - `stateMismatch` when `ifFromInState` or `ifInState` is not the current
@@ -1187,6 +1188,11 @@ pub(crate) async fn calendar_event_copy<B: CalendarsBackend>(
         return Err(JmapError::from_account_not_found());
     }
 
+    // RFC 8620 §5.4: `create` is a required argument.
+    let Some(Value::Object(create_map)) = args.remove("create") else {
+        return Err(JmapError::invalid_arguments("create is required"));
+    };
+
     // ifFromInState: verify source account state matches (RFC 8620 §5.4).
     if let Some(if_from_in_state) = args.get("ifFromInState").and_then(|v| v.as_str()) {
         let from_state = backend
@@ -1217,200 +1223,194 @@ pub(crate) async fn calendar_event_copy<B: CalendarsBackend>(
     // Track (create_id, source_id) pairs for successful copies.
     let mut copied_pairs: Vec<(String, Id)> = Vec::new();
 
-    if let Some(Value::Object(create_map)) = args.remove("create") {
-        for (create_id, client_val) in create_map {
-            // draft-ietf-jmap-calendars §5.3: a Link `blobId` is an Id.
-            if let Some(err) = client_val
-                .as_object()
-                .and_then(|o| jmap_server::check_blob_ids(o, &["blobId"]))
-            {
-                not_created.insert(create_id, serde_json::Value::from(&err));
-                continue;
-            }
-            // RFC 8620 §5.4: "id" in the create entry is the source object id.
-            // bd:JMAP-ic0j.12: distinguish missing-id from non-string-id so the
-            // client error message points at the actual problem; both shapes are
-            // RFC 8620 §5.3 invalidProperties-conformant, but the description
-            // field disambiguates them.
-            let source_id: Id = match client_val.get("id") {
-                Some(Value::String(s)) => match jmap_server::parse_wire_id(s, "id") {
-                    Ok(id) => id,
-                    Err(err) => {
-                        not_created.insert(create_id, serde_json::Value::from(&*err));
-                        continue;
-                    }
-                },
-                Some(_) => {
-                    not_created.insert(
-                        create_id,
-                        json!({
-                            "type": "invalidProperties",
-                            "properties": ["id"],
-                            "description": "id must be a string",
-                        }),
-                    );
+    for (create_id, client_val) in create_map {
+        // draft-ietf-jmap-calendars §5.3: a Link `blobId` is an Id.
+        if let Some(err) = client_val
+            .as_object()
+            .and_then(|o| jmap_server::check_blob_ids(o, &["blobId"]))
+        {
+            not_created.insert(create_id, serde_json::Value::from(&err));
+            continue;
+        }
+        // RFC 8620 §5.4: "id" in the create entry is the source object id.
+        // bd:JMAP-ic0j.12: distinguish missing-id from non-string-id so the
+        // client error message points at the actual problem; both shapes are
+        // RFC 8620 §5.3 invalidProperties-conformant, but the description
+        // field disambiguates them.
+        let source_id: Id = match client_val.get("id") {
+            Some(Value::String(s)) => match jmap_server::parse_wire_id(s, "id") {
+                Ok(id) => id,
+                Err(err) => {
+                    not_created.insert(create_id, serde_json::Value::from(&*err));
                     continue;
                 }
-                None => {
-                    not_created.insert(
-                        create_id,
-                        json!({"type": "invalidProperties", "properties": ["id"]}),
-                    );
-                    continue;
-                }
-            };
-
-            // Fetch source event from fromAccountId.
-            let mut source_events: Vec<CalendarEvent> = match backend
-                .get_objects::<CalendarEvent>(
-                    caller,
-                    &from_account_id,
-                    Some(std::slice::from_ref(&source_id)),
-                    None,
-                )
-                .await
-            {
-                Ok((objs, not_found)) => {
-                    if !not_found.is_empty() || objs.is_empty() {
-                        not_created.insert(create_id, json!({"type": "notFound"}));
-                        continue;
-                    }
-                    objs
-                }
-                Err(e) => {
-                    not_created.insert(create_id, server_fail_value_from_backend(&e));
-                    continue;
-                }
-            };
-
-            // §5.10: "If the account being copied from does not belong to
-            // the user and the "privacy" property of the event being copied
-            // is "private", the server MUST reject the copy with a forbidden
-            // SetError."
-            match backend
-                .may_copy_calendar_event(caller, &from_account_id, &source_events[0])
-                .await
-            {
-                Ok(true) => {}
-                Ok(false) => {
-                    not_created.insert(create_id, json!({"type": "forbidden"}));
-                    continue;
-                }
-                Err(e) => {
-                    not_created.insert(create_id, server_fail_value_from_backend(&e));
-                    continue;
-                }
-            }
-
-            // Merge: serialize source to map, overlay client-supplied properties,
-            // then strip "id" so the backend assigns a fresh server id.
-            // draft-ietf-jmap-metadata-05 §3.4: metadata overrides follow the
-            // Foo/set create rules (§3, §3.2).
-            if let Some(Err(err)) = client_val
-                .as_object()
-                .map(|o| check_metadata_entry(o, true, using))
-            {
-                not_created.insert(create_id, Value::from(&*err));
-                continue;
-            }
-            if let Some(err) = client_val.as_object().and_then(jscalendar_uri_error) {
-                not_created.insert(create_id, err);
-                continue;
-            }
-            // -05 §3.4: "When the request does not use this capability, only
-            // metadata is copied", "privateMetadata is not copied when the
-            // destination does not support it, and neither property is
-            // copied when the data type is not listed in the destination
-            // account". The overrides are merged in below.
-            let info = backend.metadata_info::<CalendarEvent>(caller, &account_id);
-            if !jmap_server::uses_metadata(using)
-                || !info.as_ref().is_some_and(|i| i.supports_private)
-            {
-                source_events[0].private_metadata = None;
-            }
-            if info.is_none() {
-                source_events[0].metadata = None;
-            }
-            let Ok(Value::Object(mut merged)) = serde_json::to_value(&source_events[0]) else {
+            },
+            Some(_) => {
                 not_created.insert(
                     create_id,
-                    json!({"type": "serverFail", "description": "failed to serialize source event"}),
-                );
-                continue;
-            };
-            if let Value::Object(client_props) = &client_val {
-                for (k, v) in client_props {
-                    if k != "id" {
-                        merged.insert(k.clone(), v.clone());
-                    }
-                }
-            }
-            merged.remove("id");
-
-            // A `/copy` override does not pass through
-            // [`resolve_map_key_refs`], so a `calendarIds` key that is not an
-            // RFC 8620 §1.2 Id is reported here, naming the property, before
-            // the typed parse turns it into an unattributed error.
-            if merged
-                .get("calendarIds")
-                .is_some_and(|v| serde_json::from_value::<BTreeMap<Id, bool>>(v.clone()).is_err())
-            {
-                not_created.insert(
-                    create_id,
-                    json!({ "type": "invalidProperties", "properties": ["calendarIds"] }),
+                    json!({
+                        "type": "invalidProperties",
+                        "properties": ["id"],
+                        "description": "id must be a string",
+                    }),
                 );
                 continue;
             }
+            None => {
+                not_created.insert(
+                    create_id,
+                    json!({"type": "invalidProperties", "properties": ["id"]}),
+                );
+                continue;
+            }
+        };
 
-            // draft-ietf-jmap-calendars-34 §5.9: a create over the target
-            // account's per-event caps MUST be invalidProperties; a copy
-            // creates an event there.
-            if let Some(err) = limits_set_error(&merged, &copy_limits, None) {
+        // Fetch source event from fromAccountId.
+        let mut source_events: Vec<CalendarEvent> = match backend
+            .get_objects::<CalendarEvent>(
+                caller,
+                &from_account_id,
+                Some(std::slice::from_ref(&source_id)),
+                None,
+            )
+            .await
+        {
+            Ok((objs, not_found)) => {
+                if !not_found.is_empty() || objs.is_empty() {
+                    not_created.insert(create_id, json!({"type": "notFound"}));
+                    continue;
+                }
+                objs
+            }
+            Err(e) => {
+                not_created.insert(create_id, server_fail_value_from_backend(&e));
+                continue;
+            }
+        };
+
+        // §5.10: "If the account being copied from does not belong to
+        // the user and the "privacy" property of the event being copied
+        // is "private", the server MUST reject the copy with a forbidden
+        // SetError."
+        match backend
+            .may_copy_calendar_event(caller, &from_account_id, &source_events[0])
+            .await
+        {
+            Ok(true) => {}
+            Ok(false) => {
+                not_created.insert(create_id, json!({"type": "forbidden"}));
+                continue;
+            }
+            Err(e) => {
+                not_created.insert(create_id, server_fail_value_from_backend(&e));
+                continue;
+            }
+        }
+
+        // Merge: serialize source to map, overlay client-supplied properties,
+        // then strip "id" so the backend assigns a fresh server id.
+        // draft-ietf-jmap-metadata-05 §3.4: metadata overrides follow the
+        // Foo/set create rules (§3, §3.2).
+        if let Some(Err(err)) = client_val
+            .as_object()
+            .map(|o| check_metadata_entry(o, true, using))
+        {
+            not_created.insert(create_id, Value::from(&*err));
+            continue;
+        }
+        if let Some(err) = client_val.as_object().and_then(jscalendar_uri_error) {
+            not_created.insert(create_id, err);
+            continue;
+        }
+        // -05 §3.4: "When the request does not use this capability, only
+        // metadata is copied", "privateMetadata is not copied when the
+        // destination does not support it, and neither property is
+        // copied when the data type is not listed in the destination
+        // account". The overrides are merged in below.
+        let info = backend.metadata_info::<CalendarEvent>(caller, &account_id);
+        if !jmap_server::uses_metadata(using) || !info.as_ref().is_some_and(|i| i.supports_private)
+        {
+            source_events[0].private_metadata = None;
+        }
+        if info.is_none() {
+            source_events[0].metadata = None;
+        }
+        let Ok(Value::Object(mut merged)) = serde_json::to_value(&source_events[0]) else {
+            not_created.insert(
+                create_id,
+                json!({"type": "serverFail", "description": "failed to serialize source event"}),
+            );
+            continue;
+        };
+        if let Value::Object(client_props) = &client_val {
+            for (k, v) in client_props {
+                if k != "id" {
+                    merged.insert(k.clone(), v.clone());
+                }
+            }
+        }
+        merged.remove("id");
+
+        // A `/copy` override does not pass through
+        // [`resolve_map_key_refs`], so a `calendarIds` key that is not an
+        // RFC 8620 §1.2 Id is reported here, naming the property, before
+        // the typed parse turns it into an unattributed error.
+        if merged
+            .get("calendarIds")
+            .is_some_and(|v| serde_json::from_value::<BTreeMap<Id, bool>>(v.clone()).is_err())
+        {
+            not_created.insert(
+                create_id,
+                json!({ "type": "invalidProperties", "properties": ["calendarIds"] }),
+            );
+            continue;
+        }
+
+        // draft-ietf-jmap-calendars-34 §5.9: a create over the target
+        // account's per-event caps MUST be invalidProperties; a copy
+        // creates an event there.
+        if let Some(err) = limits_set_error(&merged, &copy_limits, None) {
+            not_created.insert(create_id, err);
+            continue;
+        }
+
+        let mut event: CalendarEvent = match serde_path_to_error::deserialize(Value::Object(merged))
+        {
+            Ok(e) => e,
+            Err(e) => {
+                // RFC 8620 §5.3: invalidProperties SHOULD list the
+                // invalid properties; the first path segment is the
+                // top-level property whose value failed to parse.
+                let mut err = json!({ "type": "invalidProperties", "description": e.to_string() });
+                if let Some(serde_path_to_error::Segment::Map { key }) = e.path().iter().next() {
+                    err["properties"] = json!([key]);
+                }
                 not_created.insert(create_id, err);
                 continue;
             }
+        };
+        if let Err(err) = prepare_new_event(backend, caller, &account_id, &mut event).await {
+            not_created.insert(create_id, err);
+            continue;
+        }
 
-            let mut event: CalendarEvent =
-                match serde_path_to_error::deserialize(Value::Object(merged)) {
-                    Ok(e) => e,
-                    Err(e) => {
-                        // RFC 8620 §5.3: invalidProperties SHOULD list the
-                        // invalid properties; the first path segment is the
-                        // top-level property whose value failed to parse.
-                        let mut err =
-                            json!({ "type": "invalidProperties", "description": e.to_string() });
-                        if let Some(serde_path_to_error::Segment::Map { key }) =
-                            e.path().iter().next()
-                        {
-                            err["properties"] = json!([key]);
-                        }
-                        not_created.insert(create_id, err);
-                        continue;
-                    }
-                };
-            if let Err(err) = prepare_new_event(backend, caller, &account_id, &mut event).await {
-                not_created.insert(create_id, err);
-                continue;
+        // The copy is a CalendarEvent create in the destination account:
+        // the backend applies the §5.9 create rules and the §5.10
+        // destination privacy rule, and validates only the metadata
+        // supplied in the create object (-05 §3.4).
+        match backend
+            .copy_object(caller, &from_account_id, &account_id, event, &client_val)
+            .await
+        {
+            Ok((_new_id, created_obj)) => {
+                // CalendarEvent uses #[derive(Serialize)] on plain data;
+                // to_value is infallible (JMAP-r3pg.13).
+                let v = jmap_server::serialize_value(&created_obj)?;
+                created.insert(create_id.clone(), v);
+                copied_pairs.push((create_id, source_id));
             }
-
-            // The copy is a CalendarEvent create in the destination account:
-            // the backend applies the §5.9 create rules and the §5.10
-            // destination privacy rule, and validates only the metadata
-            // supplied in the create object (-05 §3.4).
-            match backend
-                .copy_object(caller, &from_account_id, &account_id, event, &client_val)
-                .await
-            {
-                Ok((_new_id, created_obj)) => {
-                    // CalendarEvent uses #[derive(Serialize)] on plain data;
-                    // to_value is infallible (JMAP-r3pg.13).
-                    let v = jmap_server::serialize_value(&created_obj)?;
-                    created.insert(create_id.clone(), v);
-                    copied_pairs.push((create_id, source_id));
-                }
-                Err(e) => {
-                    not_created.insert(create_id, backend_set_error_value(e));
-                }
+            Err(e) => {
+                not_created.insert(create_id, backend_set_error_value(e));
             }
         }
     }
@@ -2116,6 +2116,34 @@ mod tests {
         .await
         .expect_err("unknown account must be rejected");
         assert_eq!(err.error_type.to_string(), "accountNotFound", "{err:?}");
+    }
+
+    /// Oracle: RFC 8620 §5.4 lists `create` (`Id[Foo]`) among the /copy
+    /// arguments with no default. As in the canonical `Email/copy`, a
+    /// missing or non-object `create` is `invalidArguments`, checked after
+    /// `fromAccountNotFound` and before `ifFromInState`.
+    #[tokio::test]
+    async fn copy_missing_or_malformed_create_returns_invalid_arguments() {
+        let backend = MockBackend::new_with_account("acc");
+        backend.add_account("src");
+        for create in [None, Some(json!(null)), Some(json!(["ev1"]))] {
+            let mut args = json!({
+                "accountId": "acc",
+                "fromAccountId": "src",
+                "ifFromInState": "stale",
+            });
+            if let Some(create) = create.clone() {
+                args["create"] = create;
+            }
+            let err = handle_calendar_event_copy(&backend, &(), args, "c0", &[])
+                .await
+                .expect_err("create is required");
+            assert_eq!(
+                err.error_type.to_string(),
+                "invalidArguments",
+                "create {create:?}: {err:?}"
+            );
+        }
     }
 
     /// Oracle: RFC 8620 §5.4 — when the source id is absent from the create

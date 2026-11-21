@@ -719,8 +719,8 @@ fn person_uri_error(property: &str) -> Value {
 /// Returns a method-level [`JmapError`]:
 ///
 /// - `invalidArguments` when `accountId` or `fromAccountId` is missing or not
-///   a valid Id, or `fromAccountId`
-///   equals `accountId`;
+///   a valid Id, `fromAccountId` equals `accountId`, or `create` is missing
+///   or not an object;
 /// - `accountNotFound` when the backend does not know `accountId`;
 /// - `fromAccountNotFound` when the backend does not know `fromAccountId`;
 /// - `stateMismatch` when `ifFromInState` or `ifInState` is not the current
@@ -774,6 +774,11 @@ pub async fn handle_task_copy<B: TasksBackend>(
         return Err(JmapError::from_account_not_found());
     }
 
+    // RFC 8620 §5.4: `create` is a required argument.
+    let Some(Value::Object(create_map)) = args.remove("create") else {
+        return Err(JmapError::invalid_arguments("create is required"));
+    };
+
     // RFC 8620 §5.4 `ifFromInState`: if supplied, the source-account Task
     // state MUST match; otherwise abort with stateMismatch. Probed before
     // the destination state so a stale source guard fails fast.
@@ -816,143 +821,138 @@ pub async fn handle_task_copy<B: TasksBackend>(
     // implicit Task/set destroy below when onSuccessDestroyOriginal is true.
     let mut copied_source_ids: Vec<(String, Id)> = Vec::new();
 
-    if let Some(Value::Object(create_map)) = args.remove("create") {
-        for (create_id, client_val) in create_map {
-            // RFC 8620 §5.4: the Foo object MUST contain an `id` property,
-            // which is the id (in the fromAccount) of the record to be copied.
-            // The earlier handler silently invented a "placeholder" id when
-            // the client omitted one, masking the missing-id case the spec
-            // treats as a hard requirement.
-            let Some(source_id_str) = client_val.get("id").and_then(|v| v.as_str()) else {
-                not_created.insert(
-                    create_id,
-                    json!({"type": "invalidProperties", "properties": ["id"]}),
+    for (create_id, client_val) in create_map {
+        // RFC 8620 §5.4: the Foo object MUST contain an `id` property,
+        // which is the id (in the fromAccount) of the record to be copied.
+        // The earlier handler silently invented a "placeholder" id when
+        // the client omitted one, masking the missing-id case the spec
+        // treats as a hard requirement.
+        let Some(source_id_str) = client_val.get("id").and_then(|v| v.as_str()) else {
+            not_created.insert(
+                create_id,
+                json!({"type": "invalidProperties", "properties": ["id"]}),
+            );
+            continue;
+        };
+        let source_id: Id = match jmap_server::parse_wire_id(source_id_str, "id") {
+            Ok(id) => id,
+            Err(err) => {
+                not_created.insert(create_id, serde_json::Value::from(&*err));
+                continue;
+            }
+        };
+
+        // Fetch the source Task from `fromAccountId`. RFC 8620 §5.4 frames
+        // /copy as a read-from-source-then-create-in-destination operation;
+        // unknown source ids surface as `notFound` per-entry SetErrors.
+        let mut source_tasks: Vec<Task> = match backend
+            .get_objects::<Task>(
+                caller,
+                &from_account_id,
+                Some(std::slice::from_ref(&source_id)),
+                None,
+            )
+            .await
+        {
+            Ok((objs, not_found)) => {
+                if !not_found.is_empty() || objs.is_empty() {
+                    not_created.insert(create_id, json!({"type": "notFound"}));
+                    continue;
+                }
+                objs
+            }
+            Err(e) => {
+                not_created.insert(create_id, server_fail_value_from_backend(&e));
+                continue;
+            }
+        };
+
+        // RFC 8620 §5.4: "any other properties included [in the create
+        // entry] are used instead of the current value for that property
+        // on the original." Serialize the source, overlay client-supplied
+        // properties, strip the source id so the backend assigns a fresh
+        // server id. Pattern mirrors jmap-calendars-server event.rs:610-642.
+        // draft-ietf-jmap-metadata-05 §3.4: metadata overrides follow the
+        // Foo/set create rules (§3, §3.2).
+        if let Some(Err(err)) = client_val
+            .as_object()
+            .map(|o| check_metadata_entry(o, true, using))
+        {
+            not_created.insert(create_id, Value::from(&*err));
+            continue;
+        }
+        // -05 §3.4: "When the request does not use this capability, only
+        // metadata is copied", "privateMetadata is not copied when the
+        // destination does not support it, and neither property is
+        // copied when the data type is not listed in the destination
+        // account". The overrides are merged in below.
+        let info = backend.metadata_info::<Task>(caller, &to_account_id);
+        if !jmap_server::uses_metadata(using) || !info.as_ref().is_some_and(|i| i.supports_private)
+        {
+            source_tasks[0].private_metadata = None;
+        }
+        if info.is_none() {
+            source_tasks[0].metadata = None;
+        }
+        let Ok(Value::Object(mut merged)) = serde_json::to_value(&source_tasks[0]) else {
+            not_created.insert(
+                create_id,
+                json!({
+                    "type": "serverFail",
+                    "description": "failed to serialize source Task",
+                }),
+            );
+            continue;
+        };
+        if let Value::Object(client_props) = &client_val {
+            for (k, v) in client_props {
+                if k != "id" {
+                    merged.insert(k.clone(), v.clone());
+                }
+            }
+        }
+        merged.remove("id");
+        // draft-atwood-jmap-updates-00 §7.1, as for Task/set create.
+        if let Some(prop) = merged
+            .iter()
+            .find(|(_, v)| has_bad_person_uri(v))
+            .map(|(k, _)| k.clone())
+        {
+            not_created.insert(create_id, person_uri_error(&prop));
+            continue;
+        }
+
+        let task: Task = match serde_path_to_error::deserialize(Value::Object(merged)) {
+            Ok(t) => t,
+            Err(e) => {
+                // RFC 8620 §5.3: invalidProperties SHOULD list the
+                // invalid properties; the first path segment is the
+                // top-level property whose value failed to parse.
+                let mut err = json!({ "type": "invalidProperties", "description": e.to_string() });
+                if let Some(serde_path_to_error::Segment::Map { key }) = e.path().iter().next() {
+                    err["properties"] = json!([key]);
+                }
+                not_created.insert(create_id, err);
+                continue;
+            }
+        };
+
+        // -05 §3.4: the backend validates only the metadata supplied in
+        // the create object; the copied values are not revalidated.
+        match backend
+            .copy_object(caller, &from_account_id, &to_account_id, task, &client_val)
+            .await
+        {
+            Ok((_new_id, created_task)) => {
+                mutated = true;
+                created.insert(
+                    create_id.clone(),
+                    jmap_server::serialize_value(&created_task)?,
                 );
-                continue;
-            };
-            let source_id: Id = match jmap_server::parse_wire_id(source_id_str, "id") {
-                Ok(id) => id,
-                Err(err) => {
-                    not_created.insert(create_id, serde_json::Value::from(&*err));
-                    continue;
-                }
-            };
-
-            // Fetch the source Task from `fromAccountId`. RFC 8620 §5.4 frames
-            // /copy as a read-from-source-then-create-in-destination operation;
-            // unknown source ids surface as `notFound` per-entry SetErrors.
-            let mut source_tasks: Vec<Task> = match backend
-                .get_objects::<Task>(
-                    caller,
-                    &from_account_id,
-                    Some(std::slice::from_ref(&source_id)),
-                    None,
-                )
-                .await
-            {
-                Ok((objs, not_found)) => {
-                    if !not_found.is_empty() || objs.is_empty() {
-                        not_created.insert(create_id, json!({"type": "notFound"}));
-                        continue;
-                    }
-                    objs
-                }
-                Err(e) => {
-                    not_created.insert(create_id, server_fail_value_from_backend(&e));
-                    continue;
-                }
-            };
-
-            // RFC 8620 §5.4: "any other properties included [in the create
-            // entry] are used instead of the current value for that property
-            // on the original." Serialize the source, overlay client-supplied
-            // properties, strip the source id so the backend assigns a fresh
-            // server id. Pattern mirrors jmap-calendars-server event.rs:610-642.
-            // draft-ietf-jmap-metadata-05 §3.4: metadata overrides follow the
-            // Foo/set create rules (§3, §3.2).
-            if let Some(Err(err)) = client_val
-                .as_object()
-                .map(|o| check_metadata_entry(o, true, using))
-            {
-                not_created.insert(create_id, Value::from(&*err));
-                continue;
+                copied_source_ids.push((create_id, source_id));
             }
-            // -05 §3.4: "When the request does not use this capability, only
-            // metadata is copied", "privateMetadata is not copied when the
-            // destination does not support it, and neither property is
-            // copied when the data type is not listed in the destination
-            // account". The overrides are merged in below.
-            let info = backend.metadata_info::<Task>(caller, &to_account_id);
-            if !jmap_server::uses_metadata(using)
-                || !info.as_ref().is_some_and(|i| i.supports_private)
-            {
-                source_tasks[0].private_metadata = None;
-            }
-            if info.is_none() {
-                source_tasks[0].metadata = None;
-            }
-            let Ok(Value::Object(mut merged)) = serde_json::to_value(&source_tasks[0]) else {
-                not_created.insert(
-                    create_id,
-                    json!({
-                        "type": "serverFail",
-                        "description": "failed to serialize source Task",
-                    }),
-                );
-                continue;
-            };
-            if let Value::Object(client_props) = &client_val {
-                for (k, v) in client_props {
-                    if k != "id" {
-                        merged.insert(k.clone(), v.clone());
-                    }
-                }
-            }
-            merged.remove("id");
-            // draft-atwood-jmap-updates-00 §7.1, as for Task/set create.
-            if let Some(prop) = merged
-                .iter()
-                .find(|(_, v)| has_bad_person_uri(v))
-                .map(|(k, _)| k.clone())
-            {
-                not_created.insert(create_id, person_uri_error(&prop));
-                continue;
-            }
-
-            let task: Task = match serde_path_to_error::deserialize(Value::Object(merged)) {
-                Ok(t) => t,
-                Err(e) => {
-                    // RFC 8620 §5.3: invalidProperties SHOULD list the
-                    // invalid properties; the first path segment is the
-                    // top-level property whose value failed to parse.
-                    let mut err =
-                        json!({ "type": "invalidProperties", "description": e.to_string() });
-                    if let Some(serde_path_to_error::Segment::Map { key }) = e.path().iter().next()
-                    {
-                        err["properties"] = json!([key]);
-                    }
-                    not_created.insert(create_id, err);
-                    continue;
-                }
-            };
-
-            // -05 §3.4: the backend validates only the metadata supplied in
-            // the create object; the copied values are not revalidated.
-            match backend
-                .copy_object(caller, &from_account_id, &to_account_id, task, &client_val)
-                .await
-            {
-                Ok((_new_id, created_task)) => {
-                    mutated = true;
-                    created.insert(
-                        create_id.clone(),
-                        jmap_server::serialize_value(&created_task)?,
-                    );
-                    copied_source_ids.push((create_id, source_id));
-                }
-                Err(e) => {
-                    not_created.insert(create_id, backend_set_error_value(e));
-                }
+            Err(e) => {
+                not_created.insert(create_id, backend_set_error_value(e));
             }
         }
     }
@@ -1384,6 +1384,34 @@ mod tests {
         let result = handle_task_copy(&backend, &(), args, "c0", &[]).await;
         let err = result.expect_err("must reject same-account Task/copy per RFC 8620 §5.4");
         assert_eq!(err.error_type.to_string(), "invalidArguments");
+    }
+
+    /// Oracle: RFC 8620 §5.4 lists `create` (`Id[Foo]`) among the /copy
+    /// arguments with no default. As in the canonical `Email/copy`, a
+    /// missing or non-object `create` is `invalidArguments`, checked after
+    /// `fromAccountNotFound` and before `ifFromInState`.
+    #[tokio::test]
+    async fn copy_missing_or_malformed_create_returns_invalid_arguments() {
+        let mut backend = MockBackend::new_with_account("acc1");
+        backend.add_account("acc2");
+        for create in [None, Some(json!(null)), Some(json!(["t1"]))] {
+            let mut args = json!({
+                "accountId": "acc2",
+                "fromAccountId": "acc1",
+                "ifFromInState": "stale",
+            });
+            if let Some(create) = create.clone() {
+                args["create"] = create;
+            }
+            let err = handle_task_copy(&backend, &(), args, "c0", &[])
+                .await
+                .expect_err("create is required");
+            assert_eq!(
+                err.error_type.to_string(),
+                "invalidArguments",
+                "create {create:?}: {err:?}"
+            );
+        }
     }
 
     /// Oracle: RFC 8620 §5.4 — `fromAccountId` that does not resolve to a

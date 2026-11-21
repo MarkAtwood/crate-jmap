@@ -2747,7 +2747,8 @@ async fn destroy_one<B: FileNodeBackend>(
 /// Returns a method-level [`JmapError`]:
 ///
 /// - `invalidArguments` when `accountId` or `fromAccountId` is missing or not
-///   a valid Id, or `create` or `onExists` is malformed;
+///   a valid Id, `create` is missing or not an object, or `onExists` is
+///   malformed;
 /// - `accountNotFound` when the backend does not know `accountId`;
 /// - `fromAccountNotFound` when the backend does not know `fromAccountId`;
 /// - `accountNotSupportedByMethod` or `fromAccountNotSupportedByMethod` when
@@ -2821,6 +2822,11 @@ pub(crate) async fn filenode_copy<B: FileNodeBackend>(
     }
     if !backend.supports_type::<FileNode>(caller, &from_account_id) {
         return Err(JmapError::from_account_not_supported_by_method());
+    }
+    // RFC 8620 §5.4: `create` is a required argument. Taken out of `args`
+    // further down, after the role-uniqueness scan reads it.
+    if !matches!(args.get("create"), Some(Value::Object(_))) {
+        return Err(JmapError::invalid_arguments("create is required"));
     }
 
     // ifFromInState: check source account state (RFC 8620 §5.4).
@@ -5532,6 +5538,37 @@ mod tests {
             err.error_type.to_string(),
             "fromAccountNotSupportedByMethod"
         );
+    }
+
+    /// Oracle: RFC 8620 §5.4 lists `create` (`Id[Foo]`) among the /copy
+    /// arguments with no default, and draft-ietf-jmap-filenode-20 §3.2.4
+    /// makes FileNode/copy "a standard Foo/copy method". As in the
+    /// canonical `Email/copy`, a missing or non-object `create` is
+    /// `invalidArguments`, checked after the account checks and before
+    /// `ifFromInState`.
+    #[tokio::test]
+    async fn copy_missing_or_malformed_create_returns_invalid_arguments() {
+        let backend = MemoryBackend::new()
+            .with_account_owner(&Id::from("acc1"), &owner())
+            .with_account_owner(&Id::from("acc2"), &owner());
+        for create in [None, Some(json!(null)), Some(json!(["n1"]))] {
+            let mut args = json!({
+                "accountId": "acc2",
+                "fromAccountId": "acc1",
+                "ifFromInState": "stale",
+            });
+            if let Some(create) = create.clone() {
+                args["create"] = create;
+            }
+            let err = handle_filenode_copy(&backend, &owner(), args, "c0", &[])
+                .await
+                .expect_err("create is required");
+            assert_eq!(
+                err.error_type.to_string(),
+                "invalidArguments",
+                "create {create:?}: {err:?}"
+            );
+        }
     }
 
     // -----------------------------------------------------------------------

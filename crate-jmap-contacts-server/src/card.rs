@@ -546,7 +546,8 @@ async fn set_destroy<B: ContactsBackend>(
 /// Returns a method-level [`JmapError`]:
 ///
 /// - `invalidArguments` when `accountId` or `fromAccountId` is missing or not
-///   a valid Id, or `fromAccountId` equals `accountId`;
+///   a valid Id, `fromAccountId` equals `accountId`, or `create` is missing
+///   or not an object;
 /// - `accountNotFound` when the backend does not know `accountId`;
 /// - `fromAccountNotFound` when the backend does not know `fromAccountId`;
 /// - `stateMismatch` when `ifFromInState` or `ifInState` is not the current
@@ -617,6 +618,11 @@ pub(crate) async fn contact_card_copy<B: ContactsBackend>(
         return Err(JmapError::from_account_not_found());
     }
 
+    // RFC 8620 §5.4: `create` is a required argument.
+    let Some(Value::Object(create_map)) = args.remove("create") else {
+        return Err(JmapError::invalid_arguments("create is required"));
+    };
+
     let on_success_destroy_original: bool = bool_arg(&args, "onSuccessDestroyOriginal", false);
 
     let destroy_from_if_in_state: Option<String> = args
@@ -655,137 +661,134 @@ pub(crate) async fn contact_card_copy<B: ContactsBackend>(
     // drive the implicit destroy when onSuccessDestroyOriginal is true.
     let mut copied_source_ids: Vec<(String, Id)> = Vec::new();
 
-    if let Some(Value::Object(create_map)) = args.remove("create") {
-        for (create_id, spec_val) in create_map {
-            // The copy spec is an object with an "id" of the source card and
-            // optionally patch fields to apply after copy (RFC 8620 §6.3).
-            let Some(source_id_str) = spec_val.get("id").and_then(|v| v.as_str()) else {
-                not_copied.insert(
-                    create_id,
-                    json!({ "type": "invalidProperties", "description": "id is required in copy spec" }),
-                );
+    for (create_id, spec_val) in create_map {
+        // The copy spec is an object with an "id" of the source card and
+        // optionally patch fields to apply after copy (RFC 8620 §6.3).
+        let Some(source_id_str) = spec_val.get("id").and_then(|v| v.as_str()) else {
+            not_copied.insert(
+                create_id,
+                json!({ "type": "invalidProperties", "description": "id is required in copy spec" }),
+            );
+            continue;
+        };
+        let source_id = match jmap_server::parse_wire_id(source_id_str, "id") {
+            Ok(id) => id,
+            Err(err) => {
+                not_copied.insert(create_id, serde_json::Value::from(&*err));
                 continue;
-            };
-            let source_id = match jmap_server::parse_wire_id(source_id_str, "id") {
-                Ok(id) => id,
-                Err(err) => {
-                    not_copied.insert(create_id, serde_json::Value::from(&*err));
+            }
+        };
+
+        // draft-ietf-jmap-metadata-05 §3.4: metadata overrides follow the
+        // Foo/set create rules (§3, §3.2).
+        if let Some(Err(err)) = spec_val
+            .as_object()
+            .map(|o| check_metadata_entry(o, true, using))
+        {
+            not_copied.insert(create_id, Value::from(&*err));
+            continue;
+        }
+        if let Some(err) = spec_val.as_object().and_then(jscontact_uri_error) {
+            not_copied.insert(create_id, err);
+            continue;
+        }
+        // RFC 9610 §2: an override Media `blobId` is an Id.
+        if let Some(err) = spec_val
+            .as_object()
+            .and_then(|o| jmap_server::check_blob_ids(o, &["blobId"]))
+        {
+            not_copied.insert(create_id, Value::from(&err));
+            continue;
+        }
+
+        // Fetch the source card.
+        let (mut cards, not_found) = backend
+            .get_objects::<ContactCard>(
+                caller,
+                &from_account_id,
+                Some(std::slice::from_ref(&source_id)),
+                None,
+            )
+            .await
+            .map_err(|e| server_fail_from_backend(&e))?;
+
+        if !not_found.is_empty() || cards.is_empty() {
+            not_copied.insert(create_id, json!({ "type": "notFound" }));
+            continue;
+        }
+
+        let mut card = cards.remove(0);
+        // draft-ietf-jmap-metadata-05 §3.4: "When the request does not use
+        // this capability, only metadata is copied", "privateMetadata is
+        // not copied when the destination does not support it, and
+        // neither property is copied when the data type is not listed in
+        // the destination account". Overrides are applied below.
+        let info = backend.metadata_info::<ContactCard>(caller, &to_account_id);
+        if !uses_metadata(using) || !info.as_ref().is_some_and(|i| i.supports_private) {
+            card.private_metadata = None;
+        }
+        if info.is_none() {
+            card.metadata = None;
+        }
+
+        // Apply any patch fields from the copy spec (RFC 8620 §6.3).
+        // Keys are RFC 8620 §5.3 PatchObject paths; a path the shared
+        // `apply_patch_object` rejects surfaces as invalidPatch.
+        //
+        // serialize-roundtrip-then-patch: serialize the source card to
+        // JSON, mutate the JSON via apply_patch_object, then deserialize
+        // back to ContactCard. Failure to deserialize the patched JSON
+        // signals that the patch produced a structurally invalid card
+        // (e.g. wrong type for a typed field); surface as an
+        // invalidProperties SetError per RFC 8620 §5.3 rather than
+        // silently using the un-patched card and claiming success.
+        if let Value::Object(spec_obj) = &spec_val {
+            let mut card_val = jmap_server::serialize_value(&card)?;
+            if let Value::Object(ref mut merged_map) = card_val {
+                let mut patch = spec_obj.clone();
+                patch.remove("id");
+                if let Err(e) = apply_patch_object(merged_map, &patch) {
+                    not_copied.insert(
+                        create_id,
+                        json!({ "type": "invalidPatch", "description": e.to_string() }),
+                    );
+                    continue;
+                }
+            }
+            card = match serde_path_to_error::deserialize(card_val) {
+                Ok(c) => c,
+                Err(e) => {
+                    // RFC 8620 §5.3: invalidProperties SHOULD list the
+                    // invalid properties; the first path segment is the
+                    // top-level property whose value failed to parse.
+                    let mut err = json!({
+                        "type": "invalidProperties",
+                        "description": format!("patch produced invalid ContactCard: {e}"),
+                    });
+                    if let Some(serde_path_to_error::Segment::Map { key }) = e.path().iter().next()
+                    {
+                        err["properties"] = json!([key]);
+                    }
+                    not_copied.insert(create_id, err);
                     continue;
                 }
             };
+        }
 
-            // draft-ietf-jmap-metadata-05 §3.4: metadata overrides follow the
-            // Foo/set create rules (§3, §3.2).
-            if let Some(Err(err)) = spec_val
-                .as_object()
-                .map(|o| check_metadata_entry(o, true, using))
-            {
-                not_copied.insert(create_id, Value::from(&*err));
-                continue;
+        match backend
+            .copy_object(caller, &from_account_id, &to_account_id, card, &spec_val)
+            .await
+        {
+            Ok((_new_id, copied_obj)) => {
+                mutated = true;
+                copied.insert(
+                    create_id.clone(),
+                    jmap_server::serialize_value(&copied_obj)?,
+                );
+                copied_source_ids.push((create_id, source_id));
             }
-            if let Some(err) = spec_val.as_object().and_then(jscontact_uri_error) {
-                not_copied.insert(create_id, err);
-                continue;
-            }
-            // RFC 9610 §2: an override Media `blobId` is an Id.
-            if let Some(err) = spec_val
-                .as_object()
-                .and_then(|o| jmap_server::check_blob_ids(o, &["blobId"]))
-            {
-                not_copied.insert(create_id, Value::from(&err));
-                continue;
-            }
-
-            // Fetch the source card.
-            let (mut cards, not_found) = backend
-                .get_objects::<ContactCard>(
-                    caller,
-                    &from_account_id,
-                    Some(std::slice::from_ref(&source_id)),
-                    None,
-                )
-                .await
-                .map_err(|e| server_fail_from_backend(&e))?;
-
-            if !not_found.is_empty() || cards.is_empty() {
-                not_copied.insert(create_id, json!({ "type": "notFound" }));
-                continue;
-            }
-
-            let mut card = cards.remove(0);
-            // draft-ietf-jmap-metadata-05 §3.4: "When the request does not use
-            // this capability, only metadata is copied", "privateMetadata is
-            // not copied when the destination does not support it, and
-            // neither property is copied when the data type is not listed in
-            // the destination account". Overrides are applied below.
-            let info = backend.metadata_info::<ContactCard>(caller, &to_account_id);
-            if !uses_metadata(using) || !info.as_ref().is_some_and(|i| i.supports_private) {
-                card.private_metadata = None;
-            }
-            if info.is_none() {
-                card.metadata = None;
-            }
-
-            // Apply any patch fields from the copy spec (RFC 8620 §6.3).
-            // Keys are RFC 8620 §5.3 PatchObject paths; a path the shared
-            // `apply_patch_object` rejects surfaces as invalidPatch.
-            //
-            // serialize-roundtrip-then-patch: serialize the source card to
-            // JSON, mutate the JSON via apply_patch_object, then deserialize
-            // back to ContactCard. Failure to deserialize the patched JSON
-            // signals that the patch produced a structurally invalid card
-            // (e.g. wrong type for a typed field); surface as an
-            // invalidProperties SetError per RFC 8620 §5.3 rather than
-            // silently using the un-patched card and claiming success.
-            if let Value::Object(spec_obj) = &spec_val {
-                let mut card_val = jmap_server::serialize_value(&card)?;
-                if let Value::Object(ref mut merged_map) = card_val {
-                    let mut patch = spec_obj.clone();
-                    patch.remove("id");
-                    if let Err(e) = apply_patch_object(merged_map, &patch) {
-                        not_copied.insert(
-                            create_id,
-                            json!({ "type": "invalidPatch", "description": e.to_string() }),
-                        );
-                        continue;
-                    }
-                }
-                card = match serde_path_to_error::deserialize(card_val) {
-                    Ok(c) => c,
-                    Err(e) => {
-                        // RFC 8620 §5.3: invalidProperties SHOULD list the
-                        // invalid properties; the first path segment is the
-                        // top-level property whose value failed to parse.
-                        let mut err = json!({
-                            "type": "invalidProperties",
-                            "description": format!("patch produced invalid ContactCard: {e}"),
-                        });
-                        if let Some(serde_path_to_error::Segment::Map { key }) =
-                            e.path().iter().next()
-                        {
-                            err["properties"] = json!([key]);
-                        }
-                        not_copied.insert(create_id, err);
-                        continue;
-                    }
-                };
-            }
-
-            match backend
-                .copy_object(caller, &from_account_id, &to_account_id, card, &spec_val)
-                .await
-            {
-                Ok((_new_id, copied_obj)) => {
-                    mutated = true;
-                    copied.insert(
-                        create_id.clone(),
-                        jmap_server::serialize_value(&copied_obj)?,
-                    );
-                    copied_source_ids.push((create_id, source_id));
-                }
-                Err(e) => {
-                    not_copied.insert(create_id, backend_set_error_value(e));
-                }
+            Err(e) => {
+                not_copied.insert(create_id, backend_set_error_value(e));
             }
         }
     }
@@ -1378,6 +1381,34 @@ mod tests {
             .await
             .expect_err("same-account copy must error");
         assert_eq!(err.error_type.to_string(), "invalidArguments");
+    }
+
+    /// Oracle: RFC 8620 §5.4 lists `create` (`Id[Foo]`) among the /copy
+    /// arguments with no default. As in the canonical `Email/copy`, a
+    /// missing or non-object `create` is `invalidArguments`, checked after
+    /// `fromAccountNotFound` and before `ifFromInState`.
+    #[tokio::test]
+    async fn copy_missing_or_malformed_create_returns_invalid_arguments() {
+        let mut backend = MockBackend::new_with_account("acc1");
+        backend.add_account("acc2");
+        for create in [None, Some(json!(null)), Some(json!(["card1"]))] {
+            let mut args = json!({
+                "accountId": "acc2",
+                "fromAccountId": "acc1",
+                "ifFromInState": "stale",
+            });
+            if let Some(create) = create.clone() {
+                args["create"] = create;
+            }
+            let err = handle_contact_card_copy(&backend, &(), args, "c0", &[])
+                .await
+                .expect_err("create is required");
+            assert_eq!(
+                err.error_type.to_string(),
+                "invalidArguments",
+                "create {create:?}: {err:?}"
+            );
+        }
     }
 
     /// Oracle: the canonical `Email/copy` order (RFC 8620 §3.6.2, §5.4):

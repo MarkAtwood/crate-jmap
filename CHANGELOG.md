@@ -132,6 +132,12 @@ wire behaviour that a conforming peer can observe.
   `Email/copy` order, so an unknown `accountId` is `accountNotFound` even
   when `fromAccountId` is missing or equal to it; before this it was
   `invalidArguments` (bd:JMAP-wr3k).
+- **jmap-calendars-server**, **jmap-tasks-server**,
+  **jmap-contacts-server**, **jmap-filenode-server**: `CalendarEvent/copy`,
+  `Task/copy`, `ContactCard/copy` and `FileNode/copy` reject a missing or
+  non-object `create` with `invalidArguments` ("create is required"), as
+  `Email/copy` does, after the account checks and before `ifFromInState`.
+  Before this they answered with an empty `created` (bd:JMAP-fcu4).
 
 ## [0.6.0] - 2026-11-20
 
