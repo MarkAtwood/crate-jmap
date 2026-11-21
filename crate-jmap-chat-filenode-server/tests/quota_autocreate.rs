@@ -24,6 +24,7 @@ use jmap_chat_filenode_server::{check_space_quota, create_space_file_tree};
 use jmap_filenode_server::memory::MemoryBackend;
 use jmap_filenode_server::{handle_filenode_changes, handle_filenode_query};
 use jmap_filenode_types::FileNode;
+use jmap_server::BackendSetError;
 use jmap_types::Id;
 use serde_json::{Value, json};
 
@@ -207,4 +208,46 @@ async fn auto_created_root_is_in_filenode_changes() {
     .await
     .expect("FileNode/changes");
     assert_eq!(out.primary["created"], json!([id]), "{}", out.primary);
+}
+
+/// A `space_id` built unchecked with `Id::from` that is no RFC 8620 Id
+/// (§1.2: 1-255 octets of `A-Za-z0-9_-`) cannot be a root's `spaceId`:
+/// `create_space_file_tree` returns an `invalidProperties` error naming
+/// `spaceId`, without panicking and without storing a node.
+#[tokio::test]
+async fn auto_create_with_an_invalid_space_id_is_an_error() {
+    let files = MemoryBackend::new().with_account(&Id::from(ACCOUNT));
+    let before = handle_filenode_changes(
+        &files,
+        &owner(),
+        json!({ "accountId": ACCOUNT, "sinceState": "0" }),
+        &[],
+    )
+    .await
+    .expect("FileNode/changes");
+
+    let err = create_space_file_tree(
+        &files,
+        &owner(),
+        &Id::from(ACCOUNT),
+        &Id::from("not an id!"),
+    )
+    .await
+    .expect_err("an invalid spaceId must be refused");
+    let BackendSetError::SetError(err) = err else {
+        panic!("expected a SetError, got {err:?}");
+    };
+    let wire = serde_json::to_value(&*err).expect("SetError serializes");
+    assert_eq!(wire["type"], "invalidProperties", "{wire}");
+    assert_eq!(wire["properties"], json!(["spaceId"]), "{wire}");
+
+    let after = handle_filenode_changes(
+        &files,
+        &owner(),
+        json!({ "accountId": ACCOUNT, "sinceState": before.primary["newState"] }),
+        &[],
+    )
+    .await
+    .expect("FileNode/changes");
+    assert_eq!(after.primary["created"], json!([]), "{}", after.primary);
 }

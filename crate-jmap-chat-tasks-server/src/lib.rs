@@ -176,13 +176,10 @@ pub async fn check_task_list_id<K: TasksBackend>(
 ///
 /// # Errors
 ///
-/// Returns the backend's error from `create_object`.
-///
-/// # Panics
-///
-/// Panics if the id the backend assigns is not a valid RFC 8620 Id (one
-/// built unchecked with `Id::from`): the `TaskList` is deserialized from
-/// JSON, and that validates the Id.
+/// Returns the backend's error from `create_object`, or, before anything is
+/// stored, [`BackendSetError::SetError`] with an `invalidProperties`
+/// [`SetError`] naming `name` if the `TaskList` cannot be built from the
+/// Space's name.
 // Same error type as `TasksBackend::create_object`, which it propagates.
 pub async fn create_space_task_list<K: TasksBackend>(
     tasks: &K,
@@ -194,24 +191,7 @@ pub async fn create_space_task_list<K: TasksBackend>(
         // Id::from: this crate stored the id when it created the record.
         return Ok(Id::from(existing.as_str()));
     }
-    let name = space.name.clone();
-    let build = move |id: &Id| -> TaskList {
-        serde_json::from_value(serde_json::json!({
-            "id": id,
-            "name": name,
-            "isSubscribed": true,
-            "myRights": {
-                "mayReadItems": true,
-                "mayWriteAll": true,
-                "mayWriteOwn": true,
-                "mayUpdatePrivate": true,
-                "mayRSVP": true,
-                "mayAdmin": true,
-                "mayDelete": true,
-            },
-        }))
-        .expect("a TaskList with every required field deserializes")
-    };
+    let build = space_task_list_builder(&space.name)?;
     let (task_list_id, _) = tasks
         .create_object(caller, account_id, "spaceTaskList", build)
         .await?;
@@ -220,6 +200,44 @@ pub async fn create_space_task_list<K: TasksBackend>(
         Value::String(task_list_id.as_ref().to_owned()),
     );
     Ok(task_list_id)
+}
+
+/// The [`TasksBackend::create_object`] builder for the `TaskList` that
+/// [`create_space_task_list`] binds to a Space named `name`.
+///
+/// The `TaskList` is deserialized once, with a placeholder id, before the
+/// backend is called; the builder then sets the id the backend assigns
+/// directly, as `TaskList/set` create does. An id the backend built
+/// unchecked with `Id::from` is stored as given, where deserializing it
+/// would fail the RFC 8620 Id check.
+fn space_task_list_builder(
+    name: &str,
+) -> Result<impl FnOnce(&Id) -> TaskList + Send + use<>, Box<SetError>> {
+    let mut task_list: TaskList = serde_json::from_value(serde_json::json!({
+        "id": "spaceTaskList",
+        "name": name,
+        "isSubscribed": true,
+        "myRights": {
+            "mayReadItems": true,
+            "mayWriteAll": true,
+            "mayWriteOwn": true,
+            "mayUpdatePrivate": true,
+            "mayRSVP": true,
+            "mayAdmin": true,
+            "mayDelete": true,
+        },
+    }))
+    .map_err(|e| {
+        Box::new(
+            SetError::new(SetErrorType::InvalidProperties)
+                .with_properties(["name"])
+                .with_description(format!("the Space's TaskList cannot be built: {e}")),
+        )
+    })?;
+    Ok(move |id: &Id| {
+        task_list.id = id.clone();
+        task_list
+    })
 }
 
 /// Clear `taskListId` on every Space of `account_id` bound to the
@@ -476,4 +494,24 @@ fn invalid(property: &str, description: &str) -> SetError {
     SetError::new(SetErrorType::InvalidProperties)
         .with_properties([property])
         .with_description(description)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The auto-bind builder sets the id the backend assigns without
+    /// deserializing it, so an id built unchecked with `Id::from` that is
+    /// no RFC 8620 Id (§1.2: 1-255 octets of `A-Za-z0-9_-`) is kept as given
+    /// instead of panicking. The rest of the `TaskList` is unchanged.
+    #[test]
+    fn space_task_list_builder_takes_an_unchecked_id() {
+        let build = space_task_list_builder("Team").expect("a TaskList for any name");
+        let task_list = build(&Id::from("not an id!"));
+        assert_eq!(task_list.id.as_ref(), "not an id!");
+        let wire = serde_json::to_value(&task_list).expect("TaskList serializes");
+        assert_eq!(wire["name"], "Team");
+        assert_eq!(wire["isSubscribed"], true);
+        assert_eq!(wire["myRights"]["mayAdmin"], true);
+    }
 }

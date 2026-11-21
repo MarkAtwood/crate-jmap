@@ -240,13 +240,10 @@ pub async fn check_space_quota<F: FileNodeBackend>(
 ///
 /// # Errors
 ///
-/// Returns the backend's error from `create_object`.
-///
-/// # Panics
-///
-/// Panics if `space_id` or the id the backend assigns is not a valid
-/// RFC 8620 Id (one built unchecked with `Id::from`): the root Directory is
-/// deserialized from JSON, and that validates each Id.
+/// Returns the backend's error from `create_object`, or, before anything is
+/// stored, [`BackendSetError::SetError`] with an `invalidProperties`
+/// [`SetError`] naming `spaceId` if `space_id` is not a valid RFC 8620 Id
+/// (one built unchecked with `Id::from`).
 // Same error type as `FileNodeBackend::create_object`, which it propagates.
 pub async fn create_space_file_tree<F: FileNodeBackend>(
     files: &F,
@@ -254,19 +251,43 @@ pub async fn create_space_file_tree<F: FileNodeBackend>(
     account_id: &Id,
     space_id: &Id,
 ) -> Result<(Id, FileNode), BackendSetError<F::Error>> {
-    let root = |id: &Id| -> FileNode {
-        serde_json::from_value(serde_json::json!({
-            "id": id,
-            "@type": "Directory",
-            "name": space_id,
-            "parentId": null,
-            "spaceId": space_id,
-        }))
-        .expect("a Directory FileNode with every required field deserializes")
-    };
+    let build = space_root_builder(space_id)?;
     files
-        .create_object(caller, account_id, "spaceFileTree", root)
+        .create_object(caller, account_id, "spaceFileTree", build)
         .await
+}
+
+/// The [`FileNodeBackend::create_object`] builder for the Space root that
+/// [`create_space_file_tree`] creates for `space_id`.
+///
+/// The root is deserialized once, before the backend is called, so a
+/// `space_id` that is not a valid RFC 8620 Id fails here, as an
+/// `invalidProperties` [`SetError`] naming `spaceId`, and nothing is
+/// stored. `space_id` stands in for the id until the backend assigns one,
+/// which the builder then sets directly, as `FileNode/set` create does: an
+/// id the backend built unchecked with `Id::from` is stored as given, where
+/// deserializing it would fail the Id check.
+fn space_root_builder(
+    space_id: &Id,
+) -> Result<impl FnOnce(&Id) -> FileNode + Send + use<>, Box<SetError>> {
+    let mut root: FileNode = serde_json::from_value(serde_json::json!({
+        "id": space_id,
+        "@type": "Directory",
+        "name": space_id,
+        "parentId": null,
+        "spaceId": space_id,
+    }))
+    .map_err(|e| {
+        Box::new(
+            SetError::new(SetErrorType::InvalidProperties)
+                .with_properties(["spaceId"])
+                .with_description(format!("the Space root cannot be built: {e}")),
+        )
+    })?;
+    Ok(move |id: &Id| {
+        root.id = id.clone();
+        root
+    })
 }
 
 /// A storage failure while destroying a Space file tree.
@@ -984,4 +1005,24 @@ async fn member_permissions<C: ChatBackend>(
 /// A `forbidden` [`SetError`] with `description`.
 fn forbidden(description: &str) -> SetError {
     SetError::new(SetErrorType::Forbidden).with_description(description)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The Space root builder sets the id the backend assigns without
+    /// deserializing it, so an id built unchecked with `Id::from` that is
+    /// no RFC 8620 Id (§1.2: 1-255 octets of `A-Za-z0-9_-`) is kept as given
+    /// instead of panicking. The rest of the root is unchanged.
+    #[test]
+    fn space_root_builder_takes_an_unchecked_backend_id() {
+        let build = space_root_builder(&Id::from("S1")).expect("S1 is a valid Id");
+        let root = build(&Id::from("not an id!"));
+        assert_eq!(root.id.as_ref(), "not an id!");
+        assert_eq!(root.name, "S1");
+        assert_eq!(root.node_type, Some(NodeType::Directory));
+        assert_eq!(root.parent_id, None);
+        assert_eq!(root.space_id, Some(Id::from("S1")));
+    }
 }

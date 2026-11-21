@@ -289,6 +289,27 @@ fn projected_edge_properties() {
     );
 }
 
+/// Ids built unchecked with `Id::from` that are no RFC 8620 Id (§1.2:
+/// 1-255 octets of `A-Za-z0-9_-`) are taken as given: `projected_node` and
+/// `projected_edge` do not panic on them.
+#[test]
+fn projected_node_and_edge_take_unchecked_ids() {
+    let bad = Id::from("not an id!");
+    let added = UTCDate::from("2026-10-20T12:00:00Z");
+    let uri = object_uri::<Email>(&id("A1"), &id("M42")).unwrap();
+    let node = projected_node(&bad, &bad, &uri, &added);
+    assert_eq!(node.id, bad);
+    assert_eq!(node.graph_id, bad);
+    assert_eq!(node_object_uri(&node), Some("jmap:email:A1:M42"));
+
+    let reference: Reference = example_email().references().remove(1);
+    let edge = projected_edge(&bad, &bad, &bad, &bad, &reference, &added);
+    assert_eq!(edge.id, bad);
+    assert_eq!(edge.from_id, bad);
+    assert_eq!(edge.to_id, bad);
+    assert_eq!(edge.edge_type, "Email/mailboxIds");
+}
+
 fn cond(v: Value) -> GraphNodeFilterCondition {
     serde_json::from_value(v).unwrap()
 }

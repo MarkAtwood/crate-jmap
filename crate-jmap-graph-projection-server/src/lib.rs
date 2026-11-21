@@ -256,27 +256,44 @@ pub fn object_uri<O: Projectable>(account_id: &Id, id: &Id) -> Result<JmapUri, J
 /// are "the time the node was added to the projection"; `createdBy` and
 /// `updatedBy` are `null`. `objectUri` is in [`GraphNode::extra`].
 ///
+/// The ids are taken as given: one built unchecked with `Id::from` that is
+/// not a valid RFC 8620 Id is not checked.
+///
 /// # Panics
 ///
-/// Panics if `id` or `graph_id` is not a valid RFC 8620 Id (one built
-/// unchecked with `Id::from`): the node is deserialized from JSON, and that
-/// validates each Id.
+/// Does not panic: the `expect` guards deserializing a node made only of
+/// constants, which cannot fail. The arguments are set field by field
+/// afterwards, as deserializing them would check each Id.
 pub fn projected_node(id: &Id, graph_id: &Id, object_uri: &JmapUri, added: &UTCDate) -> GraphNode {
-    serde_json::from_value(json!({
-        "id": id,
-        "graphId": graph_id,
-        OBJECT_URI_PROPERTY: object_uri.to_string(),
+    let mut node: GraphNode = serde_json::from_value(json!({
+        "id": TEMPLATE_ID,
+        "graphId": TEMPLATE_ID,
         "annotations": {},
         "blobId": null,
         "mediaType": null,
         "uri": null,
-        "created": added,
-        "updated": added,
+        "created": TEMPLATE_DATE,
+        "updated": TEMPLATE_DATE,
         "createdBy": null,
         "updatedBy": null,
     }))
-    .expect("a GraphNode built from typed ids and dates always deserializes")
+    .expect("a GraphNode of constants deserializes");
+    node.id = id.clone();
+    node.graph_id = graph_id.clone();
+    node.created = added.clone();
+    node.updated = added.clone();
+    node.extra.insert(
+        OBJECT_URI_PROPERTY.to_owned(),
+        object_uri.to_string().into(),
+    );
+    node
 }
+
+/// The placeholder Id in the constant templates [`projected_node`] and
+/// [`projected_edge`] deserialize before setting the real values.
+const TEMPLATE_ID: &str = "template";
+/// The placeholder `UTCDate` in the same templates.
+const TEMPLATE_DATE: &str = "1970-01-01T00:00:00Z";
 
 /// The [`GraphEdge`] `id` in projected Graph `graph_id` from node `from_id` to
 /// node `to_id` for `reference`, added to the projection at `added`
@@ -286,11 +303,14 @@ pub fn projected_node(id: &Id, graph_id: &Id, object_uri: &JmapUri, added: &UTCD
 /// and `updated` are "the time the edge was added to the projection";
 /// `createdBy` and `updatedBy` are `null`.
 ///
+/// The ids are taken as given: one built unchecked with `Id::from` that is
+/// not a valid RFC 8620 Id is not checked.
+///
 /// # Panics
 ///
-/// Panics if `id`, `graph_id`, `from_id` or `to_id` is not a valid RFC 8620
-/// Id (one built unchecked with `Id::from`): the edge is deserialized from
-/// JSON, and that validates each Id.
+/// Does not panic: the `expect` guards deserializing an edge made only of
+/// constants, which cannot fail. The arguments are set field by field
+/// afterwards, as deserializing them would check each Id.
 pub fn projected_edge(
     id: &Id,
     graph_id: &Id,
@@ -299,19 +319,26 @@ pub fn projected_edge(
     reference: &Reference,
     added: &UTCDate,
 ) -> GraphEdge {
-    serde_json::from_value(json!({
-        "id": id,
-        "graphId": graph_id,
-        "fromId": from_id,
-        "toId": to_id,
-        "type": reference.edge_type,
+    let mut edge: GraphEdge = serde_json::from_value(json!({
+        "id": TEMPLATE_ID,
+        "graphId": TEMPLATE_ID,
+        "fromId": TEMPLATE_ID,
+        "toId": TEMPLATE_ID,
         "annotations": {},
-        "created": added,
-        "updated": added,
+        "created": TEMPLATE_DATE,
+        "updated": TEMPLATE_DATE,
         "createdBy": null,
         "updatedBy": null,
     }))
-    .expect("a GraphEdge built from typed ids and dates always deserializes")
+    .expect("a GraphEdge of constants deserializes");
+    edge.id = id.clone();
+    edge.graph_id = graph_id.clone();
+    edge.from_id = from_id.clone();
+    edge.to_id = to_id.clone();
+    edge.edge_type = reference.edge_type.clone();
+    edge.created = added.clone();
+    edge.updated = added.clone();
+    edge
 }
 
 /// The node's `objectUri`, or `None`: "Always `null` for nodes that are not

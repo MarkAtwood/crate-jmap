@@ -138,6 +138,15 @@ wire behaviour that a conforming peer can observe.
   non-object `create` with `invalidArguments` ("create is required"), as
   `Email/copy` does, after the account checks and before `ifFromInState`.
   Before this they answered with an empty `created` (bd:JMAP-fcu4).
+- **jmap-chat-filenode-server**, **jmap-chat-tasks-server**,
+  **jmap-graph-projection-server**: `create_space_file_tree`,
+  `create_space_task_list`, `projected_node` and `projected_edge` no
+  longer panic on an `Id` built unchecked with `Id::from` that is not a
+  valid RFC 8620 Id. An id the backend assigns, and the ids given to
+  `projected_node` and `projected_edge`, are set as given;
+  `create_space_file_tree` returns an `invalidProperties` `SetError`
+  naming `spaceId` for an invalid `space_id`, before anything is stored.
+  Valid ids give the same objects as before (bd:JMAP-x3s1).
 
 ## [0.6.0] - 2026-11-20
 
