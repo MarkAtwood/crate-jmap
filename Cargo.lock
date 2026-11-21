@@ -2995,6 +2995,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "jmap-vtc-livekit"
+version = "0.6.0"
+dependencies = [
+ "base64",
+ "jmap-types",
+ "jmap-vtc-server",
+ "jmap-vtc-types",
+ "reqwest",
+ "ring",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "url",
+ "wiremock",
+]
+
+[[package]]
 name = "jmap-vtc-server"
 version = "0.6.0"
 dependencies = [

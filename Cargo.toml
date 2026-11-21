@@ -61,6 +61,7 @@ members = [
     "crate-jmap-chat-slack",
     "crate-jmap-vtc-aws",
     "crate-jmap-vtc-ffmpeg",
+    "crate-jmap-vtc-livekit",
     "crate-jmap-scene-vtc-server",
     "crate-jmap-base-client",
     "crate-jmap-chat-client",

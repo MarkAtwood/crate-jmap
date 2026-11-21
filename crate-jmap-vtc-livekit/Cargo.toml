@@ -1,0 +1,38 @@
+[package]
+name = "jmap-vtc-livekit"
+version = "0.6.0"
+authors.workspace = true
+repository.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "LiveKit media backend for jmap-vtc-server livestreams and recordings: room-composite Egress over the Twirp API, signed webhooks"
+keywords = ["jmap", "vtc", "livekit", "egress", "livestream"]
+categories = ["network-programming", "multimedia::video"]
+exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
+
+[dependencies]
+# base64url for the JWT segments, base64 for the webhook body checksum.
+base64 = { workspace = true }
+jmap-types = { workspace = true }
+jmap-vtc-server = { workspace = true }
+jmap-vtc-types = { workspace = true }
+reqwest = { workspace = true }
+# HMAC-SHA256 (HS256) for LiveKit access tokens and SHA-256 for the
+# webhook checksum. Already in the tree as reqwest's rustls crypto
+# provider; no JWT crate is in the tree.
+ring = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+url = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+wiremock = { workspace = true }
+# Integration tests drive the adapter through MemoryBackend.
+jmap-vtc-server = { workspace = true, features = ["memory", "test-helpers"] }
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

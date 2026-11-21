@@ -1,6 +1,6 @@
 # Releasing
 
-The 94 publishable `jmap-*` crates in this workspace must reach crates.io
+The 95 publishable `jmap-*` crates in this workspace must reach crates.io
 in **topological order**: each crate must find its dependencies on the
 registry. `cargo publish` with several `-p` flags orders them itself, and
 `scripts/publish.sh` wraps it (see "Publish procedure").
@@ -43,7 +43,7 @@ below). A crate's own self-dev-dependency is not an ordering edge.
 | 2 | `jmap-blob-types`, `jmap-cid`, `jmap-did-types`, `jmap-jscalendar-types`, `jmap-metadata-server`, `jmap-object-history-types`, `jmap-object-uri`, `jmap-platform-push`, `jmap-quotas-types`, `jmap-search`, `jmap-sharing-types`, `jmap-web-push` |
 | 3 | `jmap-base-client`, `jmap-calendars-types`, `jmap-chat-types`, `jmap-contacts-types`, `jmap-did`, `jmap-did-resolver`, `jmap-filenode-types`, `jmap-graph-types`, `jmap-mail-types`, `jmap-metadata`, `jmap-object-history-server`, `jmap-peer-auth`, `jmap-scene-types`, `jmap-server`, `jmap-tasks-types`, `jmap-vtc-types` |
 | 4 | `jmap-blob-client`, `jmap-blob-server`, `jmap-calendars-client`, `jmap-calendars-server`, `jmap-chat-federation-types`, `jmap-chat-mimi-types`, `jmap-chat-server`, `jmap-conditional`, `jmap-contacts-client`, `jmap-contacts-server`, `jmap-filenode-client`, `jmap-filenode-server`, `jmap-graph-client`, `jmap-graph-server`, `jmap-mail-client`, `jmap-mime`, `jmap-object-history-client`, `jmap-peer-auth-io`, `jmap-quotas-client`, `jmap-quotas-server`, `jmap-scene-client`, `jmap-scene-server`, `jmap-sharing-client`, `jmap-sharing-server`, `jmap-tasks-client`, `jmap-tasks-server`, `jmap-vtc-client`, `jmap-vtc-server` |
-| 5 | `jmap-blob`, `jmap-calendars`, `jmap-chat-calendars-server`, `jmap-chat-client`, `jmap-chat-federation-server`, `jmap-chat-filenode-server`, `jmap-chat-mimi-client`, `jmap-chat-mimi-server`, `jmap-chat-scene-server`, `jmap-chat-slack`, `jmap-chat-tasks-server`, `jmap-chat-vtc-server`, `jmap-contacts`, `jmap-filenode`, `jmap-graph`, `jmap-mail-server`, `jmap-mail-sharing`, `jmap-object-history`, `jmap-quotas`, `jmap-scene`, `jmap-scene-vtc-server`, `jmap-sharing`, `jmap-tasks`, `jmap-vtc`, `jmap-vtc-aws`, `jmap-vtc-ffmpeg` |
+| 5 | `jmap-blob`, `jmap-calendars`, `jmap-chat-calendars-server`, `jmap-chat-client`, `jmap-chat-federation-server`, `jmap-chat-filenode-server`, `jmap-chat-mimi-client`, `jmap-chat-mimi-server`, `jmap-chat-scene-server`, `jmap-chat-slack`, `jmap-chat-tasks-server`, `jmap-chat-vtc-server`, `jmap-contacts`, `jmap-filenode`, `jmap-graph`, `jmap-mail-server`, `jmap-mail-sharing`, `jmap-object-history`, `jmap-quotas`, `jmap-scene`, `jmap-scene-vtc-server`, `jmap-sharing`, `jmap-tasks`, `jmap-vtc`, `jmap-vtc-aws`, `jmap-vtc-ffmpeg`, `jmap-vtc-livekit` |
 | 6 | `jmap-chat`, `jmap-emailpush`, `jmap-graph-projection-server`, `jmap-mail`, `jmap-mdn`, `jmap-sieve`, `jmap-websocket` |
 
 Crates within the same layer have no dependencies on each other. Direct
@@ -139,6 +139,7 @@ dependencies are listed separately):
 | `jmap-vtc` | 5 | `jmap-vtc-client`, `jmap-vtc-server`, `jmap-vtc-types` | (none) |
 | `jmap-vtc-aws` | 5 | `jmap-types`, `jmap-vtc-server`, `jmap-vtc-types` | (none) |
 | `jmap-vtc-ffmpeg` | 5 | `jmap-types`, `jmap-vtc-server`, `jmap-vtc-types` | (none) |
+| `jmap-vtc-livekit` | 5 | `jmap-types`, `jmap-vtc-server`, `jmap-vtc-types` | (none) |
 | `jmap-chat` | 6 | `jmap-chat-client`, `jmap-chat-server`, `jmap-chat-types` | (none) |
 | `jmap-emailpush` | 6 | `jmap-mail-client`, `jmap-mail-server`, `jmap-mail-types` | (none) |
 | `jmap-graph-projection-server` | 6 | `jmap-contacts-types`, `jmap-graph-types`, `jmap-mail-types`, `jmap-server`, `jmap-types` | `jmap-mail-server`, `jmap-object-uri` |
@@ -379,8 +380,8 @@ Some crates expose third-party types: `jmap_peer_auth::ed25519_dalek`
 (re-export), `reqwest::Client` and `reqwest::ClientBuilder` in
 `jmap-base-client`, `jmap-did-resolver`, `jmap-peer-auth-io`,
 `jmap-scene-client`, `jmap-web-push`, `jmap-platform-push`,
-`jmap-chat-slack` and `jmap-vtc-aws`, and `url::Url` (re-exported)
-in `jmap-vtc-ffmpeg`. A major bump of such a
+`jmap-chat-slack`, `jmap-vtc-aws` and `jmap-vtc-livekit`, and
+`url::Url` (re-exported) in `jmap-vtc-ffmpeg`. A major bump of such a
 dependency is a minor bump of ours (the pre-1.0 breaking bump), listed as
 **BREAKING** in `CHANGELOG.md`.
 
