@@ -1,0 +1,12 @@
+{
+  "id": "JMAP-x3s1",
+  "title": "Latent panic: companion create helpers deserialize JSON built from unchecked Id::from values",
+  "description": "ibyi sweep: create_space_file_tree (chat-filenode-server), create_space_task_list (chat-tasks-server), projected_node / projected_edge (graph-projection-server) build objects as JSON and deserialize with .expect('always deserializes'). Id's Deserialize validates but Id::from(\u0026str) does not, so a non-RFC-8620 id (passed in or backend-assigned) panics. Return an error (serverFail) instead of panicking, and add a test with an invalid id; then remove the # Panics notes.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-21T02:40:17.471474631Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-21T02:40:17.471474631Z"
+}

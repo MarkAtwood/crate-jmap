@@ -1,0 +1,12 @@
+{
+  "id": "JMAP-fcu4",
+  "title": "/copy without create: calendars/tasks/contacts accept it, mail returns invalidArguments",
+  "description": "ibyi sweep: Calendars, Tasks and Contacts /copy silently accept a missing 'create' argument; Email/copy returns invalidArguments. RFC 8620 §5.4 lists create as required. Align on mail-server's behaviour (canonical template) with tests.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-21T02:40:17.267803746Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-21T02:40:17.267803746Z"
+}

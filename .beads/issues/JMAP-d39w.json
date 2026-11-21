@@ -1,0 +1,12 @@
+{
+  "id": "JMAP-d39w",
+  "title": "jmap-server: fix the comment above error_invocation (JmapError fields)",
+  "description": "The source comment above error_invocation in jmap-server describes JmapError's fields as String/Option\u003cString\u003e/Option\u003cId\u003e; actual fields are a type string, optional string and integer fields and a string-keyed extra map. Also: 16 redundant_explicit_links and a few unescaped [RFC..] / \u003cname\u003e warnings under cargo doc --document-private-items (metadata-server validate.rs:74, contacts-server helpers.rs:284, mail-server project.rs:212, filter.rs:410).",
+  "status": "open",
+  "priority": 4,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-21T02:40:17.765640571Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-21T02:40:17.765640571Z"
+}
