@@ -2,14 +2,14 @@
   "id": "JMAP-cyub.5",
   "title": "Triage interop divergences",
   "description": "Each divergence from S3/S4 becomes its own bead citing the RFC/draft text that decides it. crate-jmap bugs get fixed; Stalwart bugs get filed upstream only with Mark's per-item OK.",
-  "notes": "2026-11-21 divergences from cyub.3 (Stalwart 1.1.1), recorded via known_divergence (fail under JMAP_INTEROP_STRICT=1): (1) RFC 8620 §3.6.1 unsupported using capability -\u003e notRequest 400 instead of unknownCapability; (2) RFC 8620 §5.3 Identity/set never sends oldState; Identity/set and EmailSubmission/set with nothing changed omit oldState and newState; EmailSubmission/set create has newState but no oldState (Mailbox/set and Email/set correct); (3) consequence: jmap-mail-client email_submission_set fails ClientError::Parse ('missing field newState') because SetResponse requires newState per RFC — leniency would be a design choice; (4) destroy ['#m'] with a creation id from an earlier call -\u003e notFound (RFC 8620 §5.3 ambiguous across calls); (5) Stalwart adds $hasnoattachment itself (not a divergence). Candidates: report 1-2 upstream to Stalwart; decide on 3.\n2026-11-21: decision 67. Stalwart takes reports only at support.stalw.art (GitHub issues auto-closed). Merged report drafted at docs/upstream/2026-11-21/stalwart/report.md (both deviations, captured against 1.1.1, RFC quotes checked); waiting for Mark to post it. Client leniency for missing newState in progress.",
+  "notes": "2026-11-21 divergences from cyub.3 (Stalwart 1.1.1), recorded via known_divergence (fail under JMAP_INTEROP_STRICT=1): (1) RFC 8620 §3.6.1 unsupported using capability -\u003e notRequest 400 instead of unknownCapability; (2) RFC 8620 §5.3 Identity/set never sends oldState; Identity/set and EmailSubmission/set with nothing changed omit oldState and newState; EmailSubmission/set create has newState but no oldState (Mailbox/set and Email/set correct); (3) consequence: jmap-mail-client email_submission_set fails ClientError::Parse ('missing field newState') because SetResponse requires newState per RFC — leniency would be a design choice; (4) destroy ['#m'] with a creation id from an earlier call -\u003e notFound (RFC 8620 §5.3 ambiguous across calls); (5) Stalwart adds $hasnoattachment itself (not a divergence). Candidates: report 1-2 upstream to Stalwart; decide on 3.\n2026-11-21: decision 67. Stalwart takes reports only at support.stalw.art (GitHub issues auto-closed). Merged report drafted at docs/upstream/2026-11-21/stalwart/report.md (both deviations, captured against 1.1.1, RFC quotes checked); waiting for Mark to post it. Client leniency for missing newState in progress.\n2026-11-21: unknownCapability-\u003enotRequest already reported (support.stalw.art t/2445) and fixed upstream, next weekly release; report.md trimmed to the oldState/newState deviation only (no existing report found by search).",
   "status": "open",
   "priority": 2,
   "issue_type": "task",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-18T20:10:19.297414765Z",
   "created_by": "agent",
-  "updated_at": "2026-11-21T21:32:36.402304333Z",
+  "updated_at": "2026-11-21T21:35:41.927013529Z",
   "dependencies": [
     {
       "issue_id": "JMAP-cyub.5",
