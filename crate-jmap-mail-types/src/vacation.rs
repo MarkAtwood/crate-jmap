@@ -1,4 +1,4 @@
-//! RFC 8621 §8 VacationResponse object.
+//! RFC 8621 §8 [`VacationResponse`] object.
 //!
 //! Provides [`VacationResponse`] — a singleton object (one per account) that
 //! controls the automatic out-of-office reply behaviour for the account.

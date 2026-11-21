@@ -1,7 +1,7 @@
 //! JMAP Mail — VacationResponse/get and VacationResponse/set implementations
-//! on SessionClient.
+//! on `SessionClient`.
 //!
-//! VacationResponse is a singleton object per account (RFC 8621 §8). Its `id`
+//! `VacationResponse` is a singleton object per account (RFC 8621 §8). Its `id`
 //! is always `"singleton"`. `VacationResponse/get` ignores the `ids` argument
 //! and always returns the single object; `VacationResponse/set` does not
 //! support `create` or `destroy` — only `update`.
@@ -21,7 +21,7 @@ use jmap_types::{Id, PatchObject, State};
 use super::{GetResponse, PartialObject, SetResponse};
 
 impl super::SessionClient {
-    /// Fetch the VacationResponse singleton for the account (RFC 8621 §8).
+    /// Fetch the `VacationResponse` singleton for the account (RFC 8621 §8).
     ///
     /// RFC 8621 §8 declares `VacationResponse` a per-account singleton
     /// whose `id` is always `"singleton"`; one always exists per
@@ -36,7 +36,7 @@ impl super::SessionClient {
     ///
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
     ///   if the bound session has no primary account for
-    ///   `urn:ietf:params:jmap:mail`. (VacationResponse/* uses
+    ///   `urn:ietf:params:jmap:mail`. (`VacationResponse`/* uses
     ///   `urn:ietf:params:jmap:vacationresponse` in its `using` array
     ///   but is keyed on the mail primary account.)
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
@@ -67,7 +67,7 @@ impl super::SessionClient {
         })
     }
 
-    /// Fetch the VacationResponse singleton including the standard
+    /// Fetch the `VacationResponse` singleton including the standard
     /// /get envelope (`accountId`, `state`, `list`, `notFound`).
     ///
     /// Use this instead of [`Self::vacation_response_get`] when you
@@ -99,7 +99,7 @@ impl super::SessionClient {
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 
-    /// Update the VacationResponse singleton (RFC 8621 §8).
+    /// Update the `VacationResponse` singleton (RFC 8621 §8).
     ///
     /// `update` should be a JSON object of the form:
     /// ```json

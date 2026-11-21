@@ -1,4 +1,4 @@
-//! JMAP Mail — Email/* method implementations on SessionClient.
+//! JMAP Mail — Email/* method implementations on `SessionClient`.
 //!
 //! Each method follows the standard five-step pattern:
 //!   1. Validate arguments (defence-in-depth empty-state guards).
@@ -53,6 +53,12 @@ impl super::SessionClient {
     ///
     /// [`ClientError::InvalidSession`]: jmap_base_client::ClientError::InvalidSession
     /// [`ClientError::InvalidArgument`]: jmap_base_client::ClientError::InvalidArgument
+    ///
+    /// # Panics
+    ///
+    /// Does not panic in practice. The one `expect` is on the method arguments
+    /// being a JSON object when caller extras are merged in; they are built
+    /// with `json!({ ... })` and only ever have keys assigned, so it cannot fail.
     pub async fn email_get(
         &self,
         ids: Option<&[Id]>,
@@ -416,6 +422,12 @@ impl super::SessionClient {
     /// - The /copy-specific method-level errors listed in the
     ///   "Cross-account error space" section above, surfaced as
     ///   [`MethodError`](jmap_base_client::ClientError::MethodError).
+    ///
+    /// # Panics
+    ///
+    /// Does not panic in practice. The one `expect` is on the method arguments
+    /// being a JSON object when caller extras are merged in; they are built
+    /// with `json!({ ... })` and only ever have keys assigned, so it cannot fail.
     pub async fn email_copy(
         &self,
         params: EmailCopyParams,
@@ -572,6 +584,12 @@ impl super::SessionClient {
     /// - Any transport / protocol variant returned by
     ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
     ///   the matching error list on [`Self::email_get`].
+    ///
+    /// # Panics
+    ///
+    /// Does not panic in practice. The one `expect` is on the method arguments
+    /// being a JSON object when caller extras are merged in; they are built
+    /// with `json!({ ... })` and only ever have keys assigned, so it cannot fail.
     pub async fn email_parse(
         &self,
         blob_ids: &[Id],

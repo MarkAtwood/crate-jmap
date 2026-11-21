@@ -1,4 +1,4 @@
-//! JMAP Mail — SearchSnippet/get method implementation on SessionClient.
+//! JMAP Mail — SearchSnippet/get method implementation on `SessionClient`.
 //!
 //! SearchSnippet/get (RFC 8621 §5.1) is not a standard /get method: it takes
 //! `filter` and `emailIds` instead of a plain `ids` array, and the response
@@ -20,7 +20,7 @@ use jmap_types::Id;
 use serde::Serialize;
 
 impl super::SessionClient {
-    /// Fetch SearchSnippet objects (RFC 8621 §5.1 — SearchSnippet/get).
+    /// Fetch `SearchSnippet` objects (RFC 8621 §5.1 — SearchSnippet/get).
     ///
     /// `filter` is the same filter object used in `Email/query`. `email_ids`
     /// is the spec-defined list of Email ids to fetch snippets for; the

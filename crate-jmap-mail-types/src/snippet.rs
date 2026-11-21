@@ -1,4 +1,4 @@
-//! RFC 8621 §5 SearchSnippet object.
+//! RFC 8621 §5 [`SearchSnippet`] object.
 //!
 //! Provides [`SearchSnippet`] — a highlighted text excerpt returned by
 //! `SearchSnippet/get` for each matched [`crate::Email`] — and

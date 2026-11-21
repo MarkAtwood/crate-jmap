@@ -90,7 +90,7 @@ pub trait JmapMailExt: sealed::Sealed {
     /// ```
     ///
     /// `SessionClient::mail_account_id()` exposes the same check as a
-    /// convenience accessor on an already-bound SessionClient.
+    /// convenience accessor on an already-bound [`SessionClient`].
     fn with_mail_session(&self, session: jmap_base_client::Session) -> methods::SessionClient;
 }
 

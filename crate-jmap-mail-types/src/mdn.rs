@@ -261,7 +261,7 @@ pub struct MdnSendRequest {
     /// (RFC 8620 §1.2: URL-safe base64 alphabet) does not admit the
     /// `#`-prefix used by creation-id references; values are
     /// [`PatchObject`] (RFC 8620 §5.3). This matches the canonical
-    /// SetResponse pattern in `jmap-types` where
+    /// `SetResponse` pattern in `jmap-types` where
     /// creation-id-keyed maps use `BTreeMap<String, _>` and
     /// real-id-keyed maps use `BTreeMap<Id, _>`.
     #[serde(skip_serializing_if = "Option::is_none")]

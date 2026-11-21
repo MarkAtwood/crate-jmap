@@ -260,7 +260,7 @@ pub struct Email {
     ///
     /// Represented as `BTreeMap<Id, bool>` because the JMAP wire format uses a JSON object
     /// with boolean values (RFC 8621 §4.1.1).  Values are always `true` in full-object
-    /// responses; the map shape is also used in PatchObject updates (RFC 8620 §5.3) where
+    /// responses; the map shape is also used in `PatchObject` updates (RFC 8620 §5.3) where
     /// a `null` value removes an entry.
     pub mailbox_ids: BTreeMap<Id, bool>,
     /// Keywords applied to this Email.

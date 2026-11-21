@@ -22,7 +22,7 @@ pub const JMAP_SUBMISSION_URI: &str = "urn:ietf:params:jmap:submission";
 pub const JMAP_VACATIONRESPONSE_URI: &str = "urn:ietf:params:jmap:vacationresponse";
 
 /// Capability URI for JMAP Mail Sharing (draft-ietf-jmap-mail-sharing-02
-/// §1.2.1): the Mailbox has the `shareWith` property and MailboxRights the
+/// §1.2.1): the Mailbox has the `shareWith` property and `MailboxRights` the
 /// `mayShare` right.
 pub const JMAP_MAIL_SHARE_URI: &str = "urn:ietf:params:jmap:mail:share";
 
@@ -103,7 +103,7 @@ pub struct SubmissionAccountCapability {
     pub submission_extensions: BTreeMap<String, Vec<String>>,
 }
 
-/// Session-level VacationResponse capability (RFC 8621 §1.3.3).
+/// Session-level `VacationResponse` capability (RFC 8621 §1.3.3).
 ///
 /// The value of `capabilities["urn:ietf:params:jmap:vacationresponse"]`
 /// in the JMAP Session object.  RFC 8621 §1.3.3 mandates that this is an

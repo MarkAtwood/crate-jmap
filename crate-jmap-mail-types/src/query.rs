@@ -223,7 +223,7 @@ pub struct EmailFilterCondition {
     pub private_metadata_text_equals: Option<MetadataTextMatch>,
 
     /// JMAP Search (`urn:ietf:params:jmap:search`, crate-jmap
-    /// docs/specs/jmap-search.md §The where FilterCondition Property)
+    /// docs/specs/jmap-search.md §The where `FilterCondition` Property)
     /// `where`: "A filter expression. The candidate matches if the
     /// expression is true for it." Raw JSON, because a malformed expression
     /// is `invalidArguments` but an unknown operator `unsupportedFilter`,
@@ -482,7 +482,7 @@ impl MailboxComparator {
 
 /// The property to sort by in an [`EmailSubmissionComparator`].
 ///
-/// RFC 8621 §7.3: "The following EmailSubmission properties MUST be
+/// RFC 8621 §7.3: "The following `EmailSubmission` properties MUST be
 /// supported for sorting: "emailId" "threadId" "sentAt"". Unknown names
 /// are kept in [`Other`](EmailSubmissionComparatorProperty::Other) so they
 /// round-trip; a server answers one it does not support with
@@ -545,7 +545,7 @@ impl EmailSubmissionComparator {
 
 /// The property to sort by in a [`SieveScriptComparator`].
 ///
-/// RFC 9661 §2.5: "The following SieveScript properties MUST be supported
+/// RFC 9661 §2.5: "The following `SieveScript` properties MUST be supported
 /// for sorting: name, isActive". Unknown names are kept in
 /// [`Other`](SieveScriptComparatorProperty::Other) so they round-trip; a
 /// server answers one it does not support with `unsupportedSort` (RFC 8620

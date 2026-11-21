@@ -1,13 +1,13 @@
 //! Email Delivery Push (draft-ietf-jmap-emailpush-05), client side: a
-//! PushSubscription create that asks for EmailPush objects, updates of its
+//! [`PushSubscription`] create that asks for [`EmailPush`] objects, updates of its
 //! `emailPush` map, and decoding of the push payloads a client receives.
 //!
 //! Gated by the `emailpush` feature.
 //!
-//! # What an EmailPush is good for
+//! # What an [`EmailPush`] is good for
 //!
 //! "Delivery of push messages is not guaranteed: the push service may delay
-//! or drop them. Clients MUST NOT rely on EmailPush objects as a complete
+//! or drop them. Clients MUST NOT rely on [`EmailPush`] objects as a complete
 //! record of new messages" (-05 §3): resynchronize with `Email/changes` (or
 //! IMAP) as usual. The pushed Emails hold a prefix of the config's
 //! `properties` when one is too large, so clients are RECOMMENDED "to only
@@ -26,11 +26,11 @@ use serde_json::{Map, Value};
 
 use super::SessionClient;
 
-/// A PushSubscription create (RFC 8620 §7.2) that asks for EmailPush
+/// A [`PushSubscription`] create (RFC 8620 §7.2) that asks for [`EmailPush`]
 /// objects for some accounts.
 ///
-/// `keys` is required: EmailPush objects carry user data, so "the client
-/// MUST specify encryption keys when establishing the PushSubscription"
+/// `keys` is required: [`EmailPush`] objects carry user data, so "the client
+/// MUST specify encryption keys when establishing the [`PushSubscription`]"
 /// (-05 §6), and a server rejects `emailPush` without them (-05 §4).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
@@ -43,8 +43,8 @@ pub struct EmailPushSubscriptionInput {
     pub keys: PushKeys,
     /// `expires`, or `None` for the server's default.
     pub expires: Option<UTCDate>,
-    /// `types`: the StateChange types wanted; `Some(vec![])` for EmailPush
-    /// objects only (-05 §4: "a client that only wants EmailPush objects
+    /// `types`: the [`StateChange`] types wanted; `Some(vec![])` for [`EmailPush`]
+    /// objects only (-05 §4: "a client that only wants [`EmailPush`] objects
     /// can set "types" to an empty array"), `None` for all types.
     pub types: Option<Vec<String>>,
     /// `emailPush`: what to push for each account.
@@ -53,7 +53,7 @@ pub struct EmailPushSubscriptionInput {
 
 impl EmailPushSubscriptionInput {
     /// A create with these required fields, the server's default expiry
-    /// and every StateChange type.
+    /// and every [`StateChange`] type.
     pub fn new(
         device_client_id: impl Into<String>,
         url: impl Into<String>,
@@ -104,14 +104,14 @@ impl EmailPushSubscriptionInput {
 }
 
 impl SessionClient {
-    /// Creates a PushSubscription that asks for EmailPush objects
+    /// Creates a [`PushSubscription`] that asks for [`EmailPush`] objects
     /// (`PushSubscription/set` create, with `urn:ietf:params:jmap:emailpush`
     /// in `using`, -05 §4).
     ///
-    /// The server then pushes a PushVerification to `input.url`; set its
+    /// The server then pushes a [`PushVerification`] to `input.url`; set its
     /// code on the subscription with
     /// [`JmapClient::push_subscription_set`](jmap_base_client::JmapClient::push_subscription_set)
-    /// before any EmailPush is sent. The `created` entry holds the stored
+    /// before any [`EmailPush`] is sent. The `created` entry holds the stored
     /// `emailPush` when the server changed it (filled defaults, a dropped
     /// `objectHistory`).
     ///
@@ -137,7 +137,7 @@ impl SessionClient {
     }
 
     /// Replaces subscription `sub_id`'s whole `emailPush` map; `None` sets
-    /// it to `null`, which stops every EmailPush (-05 §4).
+    /// it to `null`, which stops every [`EmailPush`] (-05 §4).
     ///
     /// # Errors
     ///

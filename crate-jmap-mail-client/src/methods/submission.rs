@@ -1,4 +1,4 @@
-//! JMAP Mail — EmailSubmission/* method implementations on SessionClient.
+//! JMAP Mail — `EmailSubmission`/* method implementations on `SessionClient`.
 //!
 //! Implements RFC 8621 §7.1-7.5.
 //!
@@ -28,7 +28,7 @@ use super::{
 };
 
 impl super::SessionClient {
-    /// Fetch EmailSubmission objects by IDs (RFC 8621 §7.1 — EmailSubmission/get).
+    /// Fetch `EmailSubmission` objects by IDs (RFC 8621 §7.1 — EmailSubmission/get).
     ///
     /// If `ids` is `None`, the server returns all submissions for the account,
     /// SUBJECT TO the server's `maxObjectsInGet` cap (RFC 8620 §5.1).
@@ -42,7 +42,7 @@ impl super::SessionClient {
     ///
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
     ///   if the bound session has no primary account for
-    ///   `urn:ietf:params:jmap:mail`. (EmailSubmission/* uses
+    ///   `urn:ietf:params:jmap:mail`. (`EmailSubmission`/* uses
     ///   `urn:ietf:params:jmap:submission` in its `using` array but is
     ///   keyed on the mail primary account.)
     /// - [`ClientError::Serialize`](jmap_base_client::ClientError::Serialize)
@@ -79,7 +79,7 @@ impl super::SessionClient {
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 
-    /// Fetch changes to EmailSubmission objects since `since_state`
+    /// Fetch changes to `EmailSubmission` objects since `since_state`
     /// (RFC 8621 §7.2 — EmailSubmission/changes).
     ///
     /// `max_changes` follows the same RFC 8620 §5.2 magic-value semantics
@@ -124,7 +124,7 @@ impl super::SessionClient {
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 
-    /// Query EmailSubmission IDs with optional filter and sort
+    /// Query `EmailSubmission` IDs with optional filter and sort
     /// (RFC 8621 §7.3 — EmailSubmission/query).
     ///
     /// The sort property for this object type is `"sentAt"` (RFC 8621 §7.3),
@@ -175,7 +175,7 @@ impl super::SessionClient {
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 
-    /// Fetch query-result changes for EmailSubmission since `since_query_state`
+    /// Fetch query-result changes for `EmailSubmission` since `since_query_state`
     /// (RFC 8621 §7.4 — EmailSubmission/queryChanges).
     ///
     /// `filter` and `sort` MUST match the `filter` / `sort` passed to the
@@ -264,7 +264,7 @@ impl super::SessionClient {
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 
-    /// Create, update, or destroy EmailSubmission objects
+    /// Create, update, or destroy `EmailSubmission` objects
     /// (RFC 8621 §7.5 — EmailSubmission/set).
     ///
     /// The optional `params` argument carries the two success-hook fields:
@@ -294,6 +294,12 @@ impl super::SessionClient {
     /// - Any transport / protocol variant returned by
     ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
     ///   the matching error list on [`Self::email_submission_get`].
+    ///
+    /// # Panics
+    ///
+    /// Does not panic in practice. The one `expect` is on the method arguments
+    /// being a JSON object when caller extras are merged in; they are built
+    /// with `json!({ ... })` and only ever have keys assigned, so it cannot fail.
     pub async fn email_submission_set(
         &self,
         create: Option<serde_json::Value>,

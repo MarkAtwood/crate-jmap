@@ -1,4 +1,4 @@
-//! JMAP Mail — Mailbox/* method implementations on SessionClient.
+//! JMAP Mail — Mailbox/* method implementations on `SessionClient`.
 //!
 //! Each method follows the standard five-step pattern:
 //!   1. Validate arguments (defence-in-depth empty-state guards).
@@ -148,6 +148,12 @@ impl super::SessionClient {
     /// - Any transport / protocol variant returned by
     ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
     ///   the matching error list on [`Self::mailbox_get`].
+    ///
+    /// # Panics
+    ///
+    /// Does not panic in practice. The one `expect` is on the method arguments
+    /// being a JSON object when caller extras are merged in; they are built
+    /// with `json!({ ... })` and only ever have keys assigned, so it cannot fail.
     pub async fn mailbox_set(
         &self,
         create: Option<serde_json::Value>,

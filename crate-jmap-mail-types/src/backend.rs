@@ -209,7 +209,7 @@ pub enum SieveScriptProperty {
 
 /// draft-atwood-jmap-updates-00 §5.1: Mailbox `name` is localizable.
 ///
-/// Identity and VacationResponse are deliberately NOT localizable (§5.1):
+/// Identity and `VacationResponse` are deliberately NOT localizable (§5.1):
 /// an Identity `name` is the sender's own name as recipients see it, and a
 /// vacation reply would be chosen by each incoming message's language, not
 /// by a client's `language`. Do not add `LOCALIZABLE` to them.

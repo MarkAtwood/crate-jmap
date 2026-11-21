@@ -1,4 +1,4 @@
-//! Typed JMAP Mail method wrappers — response types, SessionClient,
+//! Typed JMAP Mail method wrappers — response types, [`SessionClient`],
 //! constants, and helpers.
 //!
 //! Response types mirror RFC 8620 standard shapes (§5.1 /get, §5.5 /query,
@@ -209,7 +209,7 @@ pub struct EmailSubmissionSetParams {
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
-/// Per-creation EmailImport object for [`Email/import`](super::SessionClient::email_import)
+/// Per-creation `EmailImport` object for [`Email/import`](super::SessionClient::email_import)
 /// (RFC 8621 §4.8).
 ///
 /// The raw [RFC 5322] message must already have been uploaded as a blob; the
@@ -454,15 +454,15 @@ pub(crate) const CALL_ID: &str = "r1";
 
 /// Capability URIs for JMAP Mail method calls (RFC 8621 §1.3.1).
 ///
-/// Use for Email/*, Mailbox/*, Thread/*, and SearchSnippet/* methods —
+/// Use for Email/*, Mailbox/*, Thread/*, and `SearchSnippet`/* methods —
 /// i.e. anything covered by `urn:ietf:params:jmap:mail`.
 pub(crate) const USING_MAIL: &[&str] =
     &["urn:ietf:params:jmap:core", jmap_mail_types::JMAP_MAIL_URI];
 
 /// Capability URIs for JMAP Mail Submission method calls (RFC 8621 §1.3.2).
 ///
-/// Use for Identity/* and EmailSubmission/* methods. Includes
-/// `urn:ietf:params:jmap:mail` because EmailSubmission references
+/// Use for Identity/* and `EmailSubmission`/* methods. Includes
+/// `urn:ietf:params:jmap:mail` because `EmailSubmission` references
 /// emailId / threadId (mail-typed) and the onSuccessUpdateEmail /
 /// onSuccessDestroyEmail mechanism produces implicit Email/set or
 /// Email/destroy invocations on the same request.
@@ -472,9 +472,9 @@ pub(crate) const USING_SUBMISSION: &[&str] = &[
     jmap_mail_types::JMAP_SUBMISSION_URI,
 ];
 
-/// Capability URIs for JMAP VacationResponse method calls (RFC 8621 §1.3.3).
+/// Capability URIs for JMAP `VacationResponse` method calls (RFC 8621 §1.3.3).
 ///
-/// Use for VacationResponse/* methods. Does NOT include
+/// Use for `VacationResponse`/* methods. Does NOT include
 /// `urn:ietf:params:jmap:mail` — vacation responses do not reference any
 /// mail-typed fields and stand on their own as a vacation-protocol object.
 pub(crate) const USING_VACATION: &[&str] = &[
@@ -613,9 +613,7 @@ impl SessionClient {
         &self.session
     }
 
-    /// Return the primary mail account id for `urn:ietf:params:jmap:mail`,
-    /// or `Err(InvalidSession)` if the session has no primary account for
-    /// that capability.
+    /// Return the primary mail account id for `urn:ietf:params:jmap:mail`.
     ///
     /// The captured session contract is "this `SessionClient` is bound to
     /// the JMAP Mail capability"; if the underlying primary-accounts map
@@ -624,6 +622,11 @@ impl SessionClient {
     /// surfaces that contract for callers who need the account id outside
     /// the JMAP method calls (e.g. to thread it into a blob-upload URL
     /// template).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    /// if the session has no primary account for that capability.
     pub fn mail_account_id(&self) -> Result<&jmap_types::Id, jmap_base_client::ClientError> {
         self.session
             .primary_account_id(jmap_mail_types::JMAP_MAIL_URI)

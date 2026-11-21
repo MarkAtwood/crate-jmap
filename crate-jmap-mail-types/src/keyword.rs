@@ -98,13 +98,16 @@ impl Keyword {
 
     /// Construct a [`Keyword`] with RFC 8621 §4.1.1 syntax validation.
     ///
-    /// Returns `Err(KeywordError)` if the input:
-    /// - is empty,
-    /// - contains whitespace or non-visible-ASCII characters,
-    /// - starts with `$` but is not one of the IANA-registered system keywords.
-    ///
     /// Use [`Keyword::new`] if you need an infallible constructor (e.g., when
     /// deserializing from JSON where the server guarantees validity).
+    ///
+    /// # Errors
+    ///
+    /// - [`KeywordError::Empty`] if the input is empty.
+    /// - [`KeywordError::InvalidChar`] for the first whitespace or
+    ///   non-visible-ASCII character.
+    /// - [`KeywordError::ReservedPrefix`] if it starts with `$` but is not
+    ///   one of the IANA-registered system keywords.
     pub fn try_new(s: impl Into<String>) -> Result<Self, KeywordError> {
         let s: String = s.into();
         if s.is_empty() {

@@ -4,7 +4,7 @@
 //!   and [`EmailPushAccountCapability`] (§2.1).
 //! - [`EmailPush`], the object pushed when a message is delivered (§3).
 //! - [`EmailPushConfig`], one value of the `emailPush` map that §4 adds to
-//!   the RFC 8620 PushSubscription, and the accessors [`email_push`] and
+//!   the RFC 8620 [`PushSubscription`], and the accessors [`email_push`] and
 //!   [`set_email_push`] that read and write that map in
 //!   [`PushSubscription::extra`].
 //!
@@ -23,7 +23,7 @@ use crate::EmailFilter;
 /// §2.1, §7).
 pub const JMAP_EMAILPUSH_URI: &str = "urn:ietf:params:jmap:emailpush";
 
-/// The PushSubscription property that draft-ietf-jmap-emailpush-05 §4
+/// The [`PushSubscription`] property that draft-ietf-jmap-emailpush-05 §4
 /// adds: `emailPush: Id[EmailPushConfig]|null (default: null)`.
 pub const EMAIL_PUSH_PROPERTY: &str = "emailPush";
 
@@ -52,7 +52,7 @@ pub struct EmailPushAccountCapability {
     pub extra: Map<String, Value>,
 }
 
-/// One value of a PushSubscription's `emailPush` map (§4): which delivered
+/// One value of a [`PushSubscription`]'s `emailPush` map (§4): which delivered
 /// messages to push for one account, which of their properties, and with
 /// what Web Push urgency.
 ///
@@ -126,8 +126,8 @@ impl EmailPushConfig {
     }
 }
 
-/// An EmailPush object (§3): messages newly delivered to one account,
-/// pushed to a PushSubscription's URL.
+/// An [`EmailPush`] object (§3): messages newly delivered to one account,
+/// pushed to a [`PushSubscription`]'s URL.
 ///
 /// The wire form always carries `"@type": "EmailPush"` ("This MUST be the
 /// string "EmailPush""): serialize always emits it; deserialize rejects any
@@ -160,7 +160,7 @@ pub struct EmailPush {
 }
 
 impl EmailPush {
-    /// An EmailPush with the given fields and no extension fields.
+    /// An [`EmailPush`] with the given fields and no extension fields.
     pub fn new(account_id: Id, emails: Vec<Map<String, Value>>, state: Option<State>) -> Self {
         Self {
             account_id,
@@ -222,7 +222,7 @@ fn take<T: serde::de::DeserializeOwned, E: serde::de::Error>(
     serde_json::from_value(value).map_err(E::custom)
 }
 
-/// Reads the `emailPush` property (§4) from a PushSubscription's `extra`.
+/// Reads the `emailPush` property (§4) from a [`PushSubscription`]'s `extra`.
 ///
 /// Returns `Ok(None)` when the property is absent or `null`.
 ///
@@ -239,10 +239,10 @@ pub fn email_push(
     }
 }
 
-/// Writes the `emailPush` property (§4) into a PushSubscription's `extra`.
+/// Writes the `emailPush` property (§4) into a [`PushSubscription`]'s `extra`.
 ///
-/// `None` stores `null`, which stops EmailPush objects for every account
-/// ("set it to null to stop EmailPush objects from being sent"); each
+/// [`None`] stores `null`, which stops [`EmailPush`] objects for every account
+/// ("set it to null to stop [`EmailPush`] objects from being sent"); each
 /// config is stored in its normalized form.
 pub fn set_email_push(sub: &mut PushSubscription, value: Option<BTreeMap<Id, EmailPushConfig>>) {
     let value = match value {
