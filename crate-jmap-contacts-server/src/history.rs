@@ -1,4 +1,4 @@
-//! Object history for AddressBook and ContactCard
+//! Object history for [`AddressBook`] and [`ContactCard`]
 //! (draft-ietf-jmap-object-history-03 with the -04 editor's copy changes;
 //! docs/design/object-history.md), in the shape of the canonical
 //! `jmap-mail-server` opt-in: each handler wraps the type's plain handler,
@@ -41,7 +41,7 @@ pub async fn handle_address_book_get_with_history<B: ContactsBackend + ObjectHis
 }
 
 /// `AddressBook/set` with `restore` (§5.1), then
-/// [`handle_address_book_set`]. A restored AddressBook is not the default
+/// [`handle_address_book_set`]. A restored [`AddressBook`] is not the default
 /// while another one is (RFC 9610 §2).
 ///
 /// # Errors
@@ -118,8 +118,8 @@ pub async fn handle_contact_card_query_changes_with_history<
 
 /// `ContactCard/set` with `restore` (§5.1), then
 /// [`handle_contact_card_set`]. A restore whose `addressBookIds` names a
-/// destroyed AddressBook fails as an update would; restore the
-/// AddressBook in an earlier call (§5.2).
+/// destroyed [`AddressBook`] fails as an update would; restore the
+/// `AddressBook` in an earlier call (§5.2).
 ///
 /// # Errors
 ///
@@ -138,7 +138,7 @@ pub async fn handle_contact_card_set_with_history<B: ContactsBackend + ObjectHis
 }
 
 /// [`register_contacts_handlers`], then the history-aware `/get` and `/set`
-/// of AddressBook and ContactCard and ContactCard `/query` and
+/// of [`AddressBook`] and [`ContactCard`] and `ContactCard` `/query` and
 /// `/queryChanges`, through `Dispatcher::register_history_aware`
 /// (docs/design/DECISIONS.md decision 1). Call
 /// `register_contacts_conditional` after it, if used.

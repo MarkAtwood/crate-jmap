@@ -1,4 +1,4 @@
-//! ParticipantIdentity/* method handlers (draft-ietf-jmap-calendars-34 §3).
+//! [`ParticipantIdentity`]/* method handlers (draft-ietf-jmap-calendars-34 §3).
 //!
 //! The set of identities, and which is the default, depends on the
 //! authenticated user as well as the account, so the backend's
@@ -58,6 +58,16 @@ use jmap_server::{
 /// `/get` response shape (`accountId`, `state`, `list`, `notFound`).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `ids` or `properties` is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `ids` holds more than `maxObjectsInGet` ids;
+/// - `serverFail` when the backend fails.
 pub async fn handle_participant_identity_get<B: CalendarsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -79,6 +89,17 @@ pub async fn handle_participant_identity_get<B: CalendarsBackend>(
 /// `hasMoreChanges`, `created`, `updated`, `destroyed`).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `sinceState` is missing, or `maxChanges` is not a positive integer;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `cannotCalculateChanges` when the backend cannot compute the changes
+///   since `sinceState`;
+/// - `serverFail` when the backend fails.
 pub async fn handle_participant_identity_changes<B: CalendarsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -102,6 +123,21 @@ pub async fn handle_participant_identity_changes<B: CalendarsBackend>(
 /// `updated` / `notUpdated` / `destroyed` / `notDestroyed` maps).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `create`, `update` or `destroy` is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `create`, `update` and `destroy` together hold
+///   more than `maxObjectsInSet` objects;
+/// - `stateMismatch` when `ifInState` is not the current state;
+/// - `serverFail` when the backend fails.
+///
+/// A create, update or destroy that fails on its own is a [`SetError`](jmap_server::SetError) in
+/// the response, not an `Err`.
 pub async fn handle_participant_identity_set<B: CalendarsBackend>(
     backend: &B,
     caller: &B::CallerCtx,

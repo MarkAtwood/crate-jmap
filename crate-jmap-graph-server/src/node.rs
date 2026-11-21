@@ -1,9 +1,9 @@
-//! GraphNode/* method handlers (draft-atwood-jmap-graph-00 §GraphNode
+//! [`GraphNode`]/* method handlers (draft-atwood-jmap-graph-00 §`GraphNode`
 //! Methods).
 //!
 //! `/get` hides the nodes of a Graph the caller may not read; `/changes` is
 //! the standard RFC 8620 §5.2 method; `/query` and `/queryChanges` require
-//! a single FilterCondition with `graphId`. `/set` requires `mayWrite` on
+//! a single `FilterCondition` with `graphId`. `/set` requires `mayWrite` on
 //! the node's Graph, validates `graphId` and `uri`, and leaves the edge
 //! cascade of a destroy to the backend.
 
@@ -62,7 +62,7 @@ pub(crate) fn provenance_on<B: GraphBackend>(
     backend.has_capability(caller, account_id, JMAP_GRAPH_PROVENANCE_URI)
 }
 
-/// A provenance SetError as the handlers' `Value` form.
+/// A provenance `SetError` as the handlers' `Value` form.
 fn set_error_value(e: &jmap_types::SetError) -> Value {
     serde_json::Value::from(e)
 }
@@ -76,7 +76,7 @@ const TYPES: &[TypeCheck] = &[
 
 /// The shape checks a create and an update share, on the node as it would
 /// be stored. "The server rejects a value that is not a URI with an
-/// `invalidProperties` SetError naming `uri`, and does not otherwise
+/// `invalidProperties` `SetError` naming `uri`, and does not otherwise
 /// interpret it."
 fn validate(m: &Map<String, Value>, cap: &GraphCapability) -> Result<(), Value> {
     let bad = mistyped(m, TYPES);
@@ -96,7 +96,7 @@ fn validate(m: &Map<String, Value>, cap: &GraphCapability) -> Result<(), Value> 
     check_annotations(m, cap)
 }
 
-/// Apply the draft-atwood-jmap-graph-edit-00 §GraphNode Extensions rules
+/// Apply the draft-atwood-jmap-graph-edit-00 §`GraphNode` Extensions rules
 /// to `next`, the node as it would be stored, when the account advertises
 /// `urn:ietf:params:jmap:graph:edit` ([`GraphBackend::graph_edit_capability`]);
 /// otherwise accept it unchanged. `node_id` is `None` on a create, whose
@@ -140,7 +140,7 @@ async fn check_edit<B: GraphBackend>(
 
 /// The `graphId` of create `m`, required, and the caller's rights on it:
 /// "If it does not identify a Graph the user may read, the server rejects
-/// the create with an `invalidProperties` SetError naming `graphId`";
+/// the create with an `invalidProperties` `SetError` naming `graphId`";
 /// "Creating ... requires `mayWrite` on its Graph" (`forbidden`).
 pub(crate) async fn create_graph_id<B: GraphBackend>(
     backend: &B,
@@ -237,9 +237,9 @@ pub(crate) fn touch<B: GraphBackend>(
 
 /// The `created` entry for `stored`: the server-set properties and each
 /// property in `omitted` (RFC 8620 §5.3: "any properties that were omitted
-/// or not set to the requested value by the server"). GraphNode and
-/// GraphEdge share their server-set properties (draft-atwood-jmap-graph-00
-/// §GraphEdge: "As defined for GraphNode").
+/// or not set to the requested value by the server"). [`GraphNode`] and
+/// `GraphEdge` share their server-set properties (draft-atwood-jmap-graph-00
+/// §`GraphEdge`: "As defined for `GraphNode`").
 pub(crate) fn created_entry(
     id: &Id,
     stored: &impl serde::Serialize,
@@ -256,6 +256,16 @@ pub(crate) fn created_entry(
 
 /// Handle `GraphNode/get`: standard RFC 8620 §5.1 `/get`, with the nodes of
 /// a Graph the caller may not read reported in `notFound`.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `ids` or `properties` is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `ids` holds more than `maxObjectsInGet` ids;
+/// - `serverFail` when the backend fails.
 pub async fn handle_graph_node_get<B: GraphBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -265,6 +275,17 @@ pub async fn handle_graph_node_get<B: GraphBackend>(
 }
 
 /// Handle `GraphNode/changes`: standard RFC 8620 §5.2 `/changes`.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `sinceState` is missing, or `maxChanges` is not a positive integer;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `cannotCalculateChanges` when the backend cannot compute the changes
+///   since `sinceState`;
+/// - `serverFail` when the backend fails.
 pub async fn handle_graph_node_changes<B: GraphBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -274,7 +295,7 @@ pub async fn handle_graph_node_changes<B: GraphBackend>(
 }
 
 /// Handle `GraphNode/query` (draft-atwood-jmap-graph-00 §GraphNode/query):
-/// no filter, a FilterOperator or a condition without `graphId` is
+/// no filter, a `FilterOperator` or a condition without `graphId` is
 /// `unsupportedFilter`; a sort property other than `created` and `updated`
 /// is `unsupportedSort`. The backend omits the nodes of a Graph the caller
 /// may not read. For an account with
@@ -282,6 +303,24 @@ pub async fn handle_graph_node_changes<B: GraphBackend>(
 /// `where`, `language` and `expression` properties are checked with
 /// [`crate::search::check_search_filter`] and evaluated by the backend;
 /// without it they are `unsupportedFilter`.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, when
+///   `filter`, `sort`, `position`, `anchor`, `anchorOffset` or `limit` is
+///   malformed, or when a search `where` is not well-formed or only one of
+///   `language` and `expression` is present;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `unsupportedFilter` when there is no filter, the filter is a
+///   `FilterOperator` or lacks `graphId`, or it uses provenance or search
+///   properties the account does not support or values the search
+///   capability rejects;
+/// - `unsupportedSort` when `sort` names a property other than `created` and
+///   `updated`;
+/// - `serverFail` when the backend fails, or any other RFC 8620 §5.5 error
+///   the backend returns.
 pub async fn handle_graph_node_query<B: GraphBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -300,6 +339,22 @@ pub async fn handle_graph_node_query<B: GraphBackend>(
 /// `/query` filter and sort rules; a search filter is
 /// `cannotCalculateChanges` (draft-atwood-jmap-graph-search-00 §Query
 /// Changes).
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `sinceQueryState` is missing, or `filter`, `sort`, `maxChanges` or
+///   `upToId` is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `unsupportedFilter` or `unsupportedSort` as for
+///   [`handle_graph_node_query`];
+/// - `cannotCalculateChanges` when the filter uses
+///   draft-atwood-jmap-graph-search-00 or the backend cannot compute the
+///   changes since `sinceQueryState`;
+/// - `tooManyChanges` when there are more changes than `maxChanges`;
+/// - `serverFail` when the backend fails.
 pub async fn handle_graph_node_query_changes<B: GraphBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -323,7 +378,7 @@ pub async fn handle_graph_node_query_changes<B: GraphBackend>(
 ///
 /// When the account has the `urn:ietf:params:jmap:graph:edit` capability,
 /// the `editFormat` and `snapshotSeq` extensions default to `null` and
-/// follow draft-atwood-jmap-graph-edit-00 §GraphNode Extensions and
+/// follow draft-atwood-jmap-graph-edit-00 §`GraphNode` Extensions and
 /// §Snapshots against the head of the node's edit log
 /// ([`GraphBackend::edit_log`]).
 ///
@@ -332,6 +387,21 @@ pub async fn handle_graph_node_query_changes<B: GraphBackend>(
 /// [`jmap_server::CallContext::created_ids`]; draft-atwood-jmap-graph-00
 /// §GraphNode/set, RFC 8620 §5.3); an unknown reference is `invalidProperties`
 /// naming the property.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `destroy` is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `create`, `update` and `destroy` together hold
+///   more than `maxObjectsInSet` objects;
+/// - `stateMismatch` when `ifInState` is not the current state;
+/// - `serverFail` when the backend fails.
+///
+/// A create, update or destroy that fails on its own is a
+/// [`SetError`](jmap_server::SetError) in the response, not an `Err`.
 pub async fn handle_graph_node_set<B: GraphBackend>(
     backend: &B,
     caller: &B::CallerCtx,

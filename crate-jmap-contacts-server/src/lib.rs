@@ -75,7 +75,7 @@ pub use jmap_contacts_types::{AddressBookProperty, ContactCardProperty};
 /// Capability URI for the JMAP for Contacts extension (RFC 9610 §1.4.1).
 ///
 /// Advertise this string in the consumer's Session object `capabilities`
-/// map (RFC 8620 §2.1) to expose AddressBook and ContactCard support to
+/// map (RFC 8620 §2.1) to expose `AddressBook` and `ContactCard` support to
 /// clients. Typically combined with `urn:ietf:params:jmap:core` (RFC 8620
 /// §2.1.1), which the consumer ships separately — the foundation
 /// `jmap-server` crate does not export a core-URI constant.

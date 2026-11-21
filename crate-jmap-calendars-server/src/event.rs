@@ -1,4 +1,4 @@
-//! CalendarEvent/* method handlers (draft-ietf-jmap-calendars-34 §5).
+//! [`CalendarEvent`]/* method handlers (draft-ietf-jmap-calendars-34 §5).
 //!
 //! # Wire-shape contract
 //!
@@ -82,7 +82,7 @@ use jmap_server::{
 ///   lower recurrence-id bound (forwarded to the backend).
 /// - `reduceParticipants`: Boolean (default false) — return only owner /
 ///   user's-identity participants (forwarded to the backend).
-/// - `timeZone`: TimeZoneId (default "Etc/UTC") — the time zone for
+/// - `timeZone`: `TimeZoneId` (default "Etc/UTC") — the time zone for
 ///   floating events, forwarded to the backend. It is used to compute their
 ///   `utcStart` / `utcEnd` when those properties are requested, and to
 ///   translate their recurrence ids into UTC for
@@ -95,7 +95,7 @@ use jmap_server::{
 ///   still produces correct UTC fields for the requested time zone.
 ///
 /// `using` is the request's capability list (pass
-/// [`jmap_server::CallContext::using`]). When the backend lists CalendarEvent for
+/// [`jmap_server::CallContext::using`]). When the backend lists [`CalendarEvent`] for
 /// draft-ietf-jmap-metadata-05 ([`JmapAccounts::metadata_info`](jmap_server::JmapAccounts::metadata_info)),
 /// `metadata` is returned as an object, by default only with
 /// `urn:ietf:params:jmap:metadata` in `using`, and with that capability
@@ -108,6 +108,19 @@ use jmap_server::{
 /// §5.7).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `ids` or `properties` is malformed,
+///   `recurrenceOverridesBefore`, `recurrenceOverridesAfter` or `timeZone` is
+///   malformed, or `properties` names `utcStart` or `utcEnd` together with
+///   `recurrenceOverrides`;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `ids` holds more than `maxObjectsInGet` ids;
+/// - `serverFail` when the backend fails.
 pub async fn handle_calendar_event_get<B: CalendarsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -279,6 +292,18 @@ pub async fn handle_calendar_event_get<B: CalendarsBackend>(
 /// without it metadata-only changes are left out (-05 §3).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `sinceState` is missing, `maxChanges` is not a positive integer, or
+///   `ignoreMetadataOnlyChanges` is not a boolean;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `cannotCalculateChanges` when the backend cannot compute the changes
+///   since `sinceState`;
+/// - `serverFail` when the backend fails.
 pub async fn handle_calendar_event_changes<B: CalendarsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -304,7 +329,7 @@ fn valid_calendar_ids(ids: Option<&BTreeMap<Id, bool>>) -> bool {
 /// event's `organizerCalendarAddress` is null or the account receives
 /// messages sent to it, as answered by the account-level
 /// [`CalendarsBackend::account_receives_at`]. On failure returns the
-/// serverFail SetError.
+/// serverFail `SetError`.
 // ponytail: a later change to the account's addresses does not recompute
 // isOrigin on stored events.
 async fn compute_is_origin<B: CalendarsBackend>(
@@ -322,7 +347,7 @@ async fn compute_is_origin<B: CalendarsBackend>(
         .map_err(|e| server_fail_value_from_backend(&e))
 }
 
-/// Applies the server-set and invariant rules every new CalendarEvent must
+/// Applies the server-set and invariant rules every new [`CalendarEvent`] must
 /// satisfy (create and copy): a valid `calendarIds`, `@type` and `version`
 /// filled in when omitted, and `isOrigin` set by the server, replacing any
 /// client or source value.
@@ -421,8 +446,8 @@ async fn prepare_event_patch<B: CalendarsBackend>(
 /// Returns `Ok(())` without reading the store when the patch touches no
 /// property a cap reads. A missing event or a patch that does not apply is
 /// also `Ok(())`, left for the backend to report as `notFound` or
-/// `invalidPatch`. `Err` carries the `invalidProperties` SetError, or the
-/// serverFail SetError if the store read fails.
+/// `invalidPatch`. `Err` carries the `invalidProperties` `SetError`, or the
+/// serverFail `SetError` if the store read fails.
 async fn check_patch_limits<B: CalendarsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -488,6 +513,21 @@ async fn check_patch_limits<B: CalendarsBackend>(
 /// [`CalendarsLimits`] says which dates are compared and how.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `create`, `update` or `destroy` is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `create`, `update` and `destroy` together hold
+///   more than `maxObjectsInSet` objects;
+/// - `stateMismatch` when `ifInState` is not the current state;
+/// - `serverFail` when the backend fails.
+///
+/// A create, update or destroy that fails on its own is a [`SetError`](jmap_server::SetError) in
+/// the response, not an `Err`.
 pub async fn handle_calendar_event_set<B: CalendarsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -636,7 +676,7 @@ fn take_destroys(
 }
 
 /// §5.9: a create object or patch cannot set both `utcStart` and `start`,
-/// or both `utcEnd` and `duration`. Returns the SetError value, or `None`
+/// or both `utcEnd` and `duration`. Returns the `SetError` value, or `None`
 /// to go on.
 fn time_pair_error(obj_val: &Value) -> Option<Value> {
     let has_utc_start = obj_val.get("utcStart").is_some_and(|v| !v.is_null());
@@ -670,7 +710,7 @@ async fn validate_creates<B: CalendarsBackend>(
 }
 
 /// Check one entry of the `CalendarEvent/set` `create` map: push the event
-/// onto `creates`, or the SetError onto `notCreated`.
+/// onto `creates`, or the `SetError` onto `notCreated`.
 async fn validate_create<B: CalendarsBackend>(
     ctx: &SetCtx<'_, B>,
     create_id: String,
@@ -853,7 +893,7 @@ async fn validate_update<B: CalendarsBackend>(
 
 /// The checks on a `CalendarEvent/set` patch after the server-set ones:
 /// metadata, `calendarIds` references, JSCalendar URIs, the patched
-/// `calendarIds`, and the per-event caps. Returns the SetError value for
+/// `calendarIds`, and the per-event caps. Returns the `SetError` value for
 /// `notUpdated`, or `None` to go on.
 async fn update_patch_error<B: CalendarsBackend>(
     ctx: &SetCtx<'_, B>,
@@ -892,7 +932,7 @@ async fn update_patch_error<B: CalendarsBackend>(
     None
 }
 
-/// The SetError for a create or update rejected by the §5.9 uid/privacy
+/// The `SetError` for a create or update rejected by the §5.9 uid/privacy
 /// rule.
 fn privacy_error() -> Value {
     json!({ "type": "invalidProperties", "properties": ["privacy"] })
@@ -1058,7 +1098,7 @@ async fn set_destroy<B: CalendarsBackend>(
 /// the copy keeps the source's `metadata`, and its `privateMetadata` only
 /// with `urn:ietf:params:jmap:metadata` in `using` and when the
 /// destination supports it; neither is copied when the destination does
-/// not list CalendarEvent ([`JmapAccounts::metadata_info`](jmap_server::JmapAccounts::metadata_info)).
+/// not list [`CalendarEvent`] ([`JmapAccounts::metadata_info`](jmap_server::JmapAccounts::metadata_info)).
 /// The create object "MAY include metadata and privateMetadata to override
 /// the copied values, with the same rules as a create in Foo/set": the
 /// handler rejects them without the capability and rejects `null`, and
@@ -1068,9 +1108,24 @@ async fn set_destroy<B: CalendarsBackend>(
 ///
 /// Returns `(response_args, extra_invocations)`. Extra invocations are
 /// generated when `onSuccessDestroyOriginal: true`, per RFC 8620 §6.3. If
-/// `destroyFromIfInState` does not match the source account's CalendarEvent
+/// `destroyFromIfInState` does not match the source account's `CalendarEvent`
 /// state, the single extra invocation is an `error` of type `stateMismatch`
 /// and the originals are left untouched.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` or `fromAccountId` is missing or not
+///   a valid Id;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `fromAccountNotFound` when the backend does not know `fromAccountId`;
+/// - `stateMismatch` when `ifFromInState` or `ifInState` is not the current
+///   state of its account;
+/// - `serverFail` when the backend fails.
+///
+/// An entry that fails on its own is a
+/// [`SetError`](jmap_server::SetError) in `notCreated`, not an `Err`.
 pub async fn handle_calendar_event_copy<B: CalendarsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -1456,10 +1511,10 @@ pub(crate) async fn calendar_event_copy<B: CalendarsBackend>(
 /// Draft §5.11 extra arguments:
 ///
 /// - `expandRecurrences`: Boolean, default `false`. When `true`, the filter
-///   MUST be a single FilterCondition (not a FilterOperator) carrying both
+///   MUST be a single `FilterCondition` (not a `FilterOperator`) carrying both
 ///   `before` and `after` properties. The handler returns
 ///   `invalidArguments` if either is missing.
-/// - `timeZone`: TimeZoneId, default `Etc/UTC`. Used by the backend when
+/// - `timeZone`: `TimeZoneId`, default `Etc/UTC`. Used by the backend when
 ///   evaluating `before` / `after` against floating events.
 ///
 /// Two new method-level errors may be returned per §10.8.3 / §10.8.4:
@@ -1475,6 +1530,23 @@ pub(crate) async fn calendar_event_copy<B: CalendarsBackend>(
 /// filter condition is `unsupportedFilter` (-05 §3).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `filter`, `sort`, `position`, `anchor`, `anchorOffset` or `limit`
+///   is malformed, or `expandRecurrences` is
+///   set without a filter condition that has both `before` and `after`;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `unsupportedFilter` when the filter does not decode as a `CalendarEvent` filter or uses a metadata
+///   condition without `urn:ietf:params:jmap:metadata` in `using`;
+/// - `unsupportedSort` when `sort` names a property that is not supported;
+/// - `expandDurationTooLarge` when `expandRecurrences` spans more than the
+///   account's `maxExpandedQueryDuration`;
+/// - `serverFail` when the backend fails, or any other RFC 8620 §5.5 error
+///   the backend returns, such as `anchorNotFound`.
 pub async fn handle_calendar_event_query<B: CalendarsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -1680,6 +1752,21 @@ fn expand_duration_seconds(f: &CalendarEventFilterCondition) -> Option<i64> {
 /// filter condition is `unsupportedFilter` (-05 §3).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `sinceQueryState` is missing, or `filter`, `sort`, `maxChanges` or
+///   `upToId` is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `unsupportedFilter` or `unsupportedSort` as for
+///   [`handle_calendar_event_query`];
+/// - `cannotCalculateChanges` when `sinceQueryState` was computed in another
+///   language or the backend cannot compute the changes since it;
+/// - `tooManyChanges` when there are more changes than `maxChanges`;
+/// - `serverFail` when the backend fails.
 pub async fn handle_calendar_event_query_changes<B: CalendarsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -1715,6 +1802,16 @@ pub async fn handle_calendar_event_query_changes<B: CalendarsBackend>(
 /// A `#creationId` in `blobIds` needs the request's creation ids, which this
 /// function does not take: [`register_calendars_handlers`](crate::register_calendars_handlers)
 /// resolves them (RFC 8620 §5.3).
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `blobIds` is missing or not an Id array, or `properties` is
+///   malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `serverFail` when the backend fails.
 pub async fn handle_calendar_event_parse<B: CalendarsBackend>(
     backend: &B,
     caller: &B::CallerCtx,

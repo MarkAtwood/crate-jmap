@@ -3,7 +3,7 @@
 //! capability ([`check_search_filter`]) and evaluating the built-in `where`
 //! language over one Graph ([`GraphView`]).
 //!
-//! The GraphNode and GraphEdge `/query` handlers call
+//! The [`GraphNode`] and [`GraphEdge`] `/query` handlers call
 //! [`check_search_filter`] for an account whose
 //! [`GraphBackend::graph_search_capability`](crate::GraphBackend::graph_search_capability)
 //! is `Some`; the backend's `query_objects` then evaluates `where` with a
@@ -36,8 +36,8 @@ use jmap_search::{collate, is_supported_collation};
 use jmap_types::{Id, JmapError};
 use serde_json::Value;
 
-/// The FilterCondition properties draft-atwood-jmap-graph-search-00 adds
-/// (§FilterCondition Extensions).
+/// The `FilterCondition` properties draft-atwood-jmap-graph-search-00 adds
+/// (§`FilterCondition` Extensions).
 const SEARCH_PROPERTIES: [&str; 3] = ["where", "language", "expression"];
 
 /// `true` if `filter` sets `where`, `language` or `expression` to anything
@@ -51,7 +51,7 @@ pub(crate) fn uses_search(filter: &Value) -> bool {
 /// Check the search properties of a GraphNode/query (`kind`
 /// [`CandidateKind::Node`]) or GraphEdge/query ([`CandidateKind::Edge`])
 /// `filter` against the account's capability `cap`
-/// (draft-atwood-jmap-graph-search-00 §FilterCondition Extensions,
+/// (draft-atwood-jmap-graph-search-00 §`FilterCondition` Extensions,
 /// §Traversal Depth). A filter without them passes.
 ///
 /// Whether `expression` "is not a valid query in its language" is left to
@@ -249,7 +249,7 @@ impl<'a> GraphView<'a> {
     }
 
     /// `$edge`: "True if the candidate has at least one edge satisfying the
-    /// EdgeTest."
+    /// [`EdgeTest`]."
     fn edge_test(&self, t: &EdgeTest, id: &Id) -> bool {
         self.steps(id, t.direction).any(|(edge, other)| {
             t.edge_type.as_ref().is_none_or(|ty| *ty == edge.edge_type)

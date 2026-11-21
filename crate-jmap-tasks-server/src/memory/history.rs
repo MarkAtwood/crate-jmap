@@ -1,6 +1,6 @@
 //! Object history for the memory backend (draft-ietf-jmap-object-history-03
 //! with the -04 editor's copy changes; docs/design/object-history.md §7),
-//! for TaskList and Task (TaskNotification is excluded, decision 22).
+//! for [`TaskList`] and Task (`TaskNotification` is excluded, decision 22).
 //!
 //! Off until [`MemoryBackend::with_object_history`]. Versions live in a
 //! `jmap_object_history_server::HistoryStore` inside the scoped state, so a
@@ -126,7 +126,7 @@ impl Inner {
 
 impl<C: MemoryCaller> MemoryBackend<C> {
     /// Keep object history for the types `capability.supportedTypes` lists
-    /// (TaskList, Task), in every account, with `retention`;
+    /// ([`TaskList`], Task), in every account, with `retention`;
     /// `capability` is also what
     /// [`ObjectHistoryBackend::object_history_capability`] advertises.
     ///

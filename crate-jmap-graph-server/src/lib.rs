@@ -19,13 +19,13 @@
 //! # Scope
 //!
 //! The standard RFC 8620 `/get`, `/changes`, `/set`, `/query` and
-//! `/queryChanges` of Graph, GraphNode and GraphEdge (draft §Methods), with
+//! `/queryChanges` of Graph, `GraphNode` and `GraphEdge` (draft §Methods), with
 //! the draft's additions:
 //!
 //! - Rights (§Graph/set, §Access Control): `Graph/set` lets any user with
 //!   `mayRead` change their own `isSubscribed`, needs `mayWrite` for
 //!   `name` and `annotations` and `mayAdmin` for `shareWith` and destroy;
-//!   GraphNode and GraphEdge `/set` need `mayWrite` on their Graph. A
+//!   `GraphNode` and `GraphEdge` `/set` need `mayWrite` on their Graph. A
 //!   missing right is `forbidden`; a Graph the caller may not read, with
 //!   its nodes and edges, is `notFound` on `/get` and on `/set` update or
 //!   destroy, and `invalidProperties` naming `graphId` on create.
@@ -35,9 +35,9 @@
 //!   nodes and edges with it, a node its edges
 //!   ([`GraphBackend::destroy_object`]).
 //! - `annotations` keys are non-empty and `maxAnnotationSize` is a
-//!   `tooLarge` SetError (§Annotations, §Account-Level Capability Object);
-//!   a node's `uri` must be a URI (§GraphNode).
-//! - GraphNode and GraphEdge `/query` take a single FilterCondition with
+//!   `tooLarge` `SetError` (§Annotations, §Account-Level Capability Object);
+//!   a node's `uri` must be a URI (§`GraphNode`).
+//! - `GraphNode` and `GraphEdge` `/query` take a single `FilterCondition` with
 //!   `graphId`, anything else `unsupportedFilter` (search properties too,
 //!   unless the account has search; see below); each type's `/query`
 //!   refuses a sort property the draft does not list with
@@ -47,7 +47,7 @@
 //!
 //! For an account whose [`GraphBackend::graph_edit_capability`] is `Some`:
 //!
-//! - `GraphNode/set` applies the §GraphNode Extensions and §Snapshots
+//! - `GraphNode/set` applies the §`GraphNode` Extensions and §Snapshots
 //!   rules to `editFormat` and `snapshotSeq`; a projected Graph's nodes
 //!   cannot be given an `editFormat` (`forbidden`).
 //! - [`register_graph_edit_handlers`] wires `GraphNodeOp/get`, `/changes`,
@@ -64,7 +64,7 @@
 //! # Search (draft-atwood-jmap-graph-search-00)
 //!
 //! For an account whose [`GraphBackend::graph_search_capability`] is
-//! `Some`, GraphNode and GraphEdge `/query` accept `where`, `language` and
+//! `Some`, `GraphNode` and `GraphEdge` `/query` accept `where`, `language` and
 //! `expression`. The handlers check them against the capability
 //! ([`search::check_search_filter`]: well-formedness, `languages`,
 //! `supportsText`, `$collation`, `maxDepth` as `queryTooComplex`), report
@@ -73,7 +73,7 @@
 //! filter's Graph as the caller sees it with [`search::GraphView`]. No
 //! advertised language is implemented here.
 //!
-//! Sharing (`shareWith`, Principals, ShareNotifications) is RFC 9670,
+//! Sharing (`shareWith`, Principals, `ShareNotification`s) is RFC 9670,
 //! served by `jmap-sharing-server`; see [`GraphBackend`].
 //!
 //! # `memory` feature (reference implementation)

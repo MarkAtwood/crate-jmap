@@ -3,7 +3,7 @@
 //! ([`GraphBackend::has_capability`](crate::GraphBackend::has_capability)
 //! with [`JMAP_GRAPH_PROVENANCE_URI`]).
 //!
-//! Pure checks over a GraphNode, GraphEdge or Graph as JSON, shared by the
+//! Pure checks over a `GraphNode`, `GraphEdge` or Graph as JSON, shared by the
 //! handlers (on the object as they fetched it) and a backend (re-checked
 //! atomically with the write, as the reference
 //! `memory::MemoryBackend` does):
@@ -18,7 +18,7 @@
 //! - [`require_curate`]: "Destroying a record requires `mayCurate`".
 //! - [`check_retention`]: Graph `retention` (§Graph Extensions).
 //!
-//! The evidence limit (§Limits), the GraphEdge rule for a retracted
+//! The evidence limit (§Limits), the `GraphEdge` rule for a retracted
 //! `fromId`, the retention sweep and the query filters need the store, so
 //! they live in the backend and [`crate::query`].
 
@@ -115,7 +115,7 @@ fn is_digest(s: &str) -> bool {
             .is_some_and(|b| b"AEIMQUYcgkosw048".contains(&b))
 }
 
-/// Whether PermittedUse `p` passes [`PermittedUse::is_well_formed`] and each
+/// Whether [`PermittedUse`] `p` passes [`PermittedUse::is_well_formed`] and each
 /// `purposes` entry is an RFC 3987 IRI ("Between 1 and 8 IRIs"). The IRI
 /// check is stricter than the draft's listed rejections (decision 41).
 fn is_permitted_use(p: &PermittedUse) -> bool {
@@ -127,15 +127,15 @@ fn is_permitted_use(p: &PermittedUse) -> bool {
 }
 
 /// The §Provenance Properties and §Curation Properties of `m`, the
-/// GraphNode as it would be stored, against the draft's types and
+/// `GraphNode` as it would be stored, against the draft's types and
 /// values. Each failure is `invalidProperties` naming the property; all
 /// failing properties are named together.
 ///
 /// - `basis`: `null` or `declared`, `observed`, `verified`, `inferred`
 ///   ("The server rejects any other value").
 /// - `confidence`: `null` or a Number "from 0 to 1 inclusive".
-/// - `validUntil`: `null` or a UTCDate.
-/// - `validFor`: `null` or a PermittedUse with at least one member and
+/// - `validUntil`: `null` or a [`UTCDate`].
+/// - `validFor`: `null` or a [`PermittedUse`] with at least one member and
 ///   1 to 8 `purposes`, each an RFC 3987 IRI, when present.
 /// - `credentialDigest`: `null` or "43 base64url characters" that can
 ///   encode a SHA-256 digest (see `is_digest`).
@@ -210,10 +210,10 @@ pub fn check_record(m: &Map<String, Value>) -> Result<(), Box<SetError>> {
 /// The create rules for record `m`, after [`check_record`]:
 ///
 /// - "the server rejects a create with `status` `retracted` with an
-///   `invalidProperties` SetError naming `status`" (§Retraction);
+///   `invalidProperties` [`SetError`] naming `status`" (§Retraction);
 /// - "On create, a user without `mayCurate` may set `status` only to
 ///   `active`, `pinned` only to `false`, and `curationReason` only to
-///   `null`; the server rejects other values with a `forbidden` SetError"
+///   `null`; the server rejects other values with a `forbidden` `SetError`"
 ///   (§Sharing Rights).
 ///
 /// # Errors
@@ -241,12 +241,12 @@ pub fn check_record_create(m: &Map<String, Value>, may_curate: bool) -> Result<(
 ///
 /// 1. "The server rejects any update to a retracted record other than one
 ///    to `pinned` or `curationReason` ... with an `invalidProperties`
-///    SetError naming the property" (so `status` never leaves
+///    [`SetError`] naming the property" (so `status` never leaves
 ///    `retracted`).
 /// 2. "An update that makes `status` `retracted` and also sets any of
 ///    those properties to a value other than the one listed is rejected
-///    with an `invalidProperties` SetError naming that property."
-/// 3. "The server rejects, with a `forbidden` SetError, a `GraphNode/set`
+///    with an `invalidProperties` `SetError` naming that property."
+/// 3. "The server rejects, with a `forbidden` `SetError`, a `GraphNode/set`
 ///    update by a user without `mayCurate` that changes `status`,
 ///    `pinned`, or `curationReason`. An update that changes only those
 ///    properties requires `mayCurate` and does not require `mayWrite`";
@@ -351,7 +351,7 @@ pub fn retraction_patch(
 
 /// "Destroying a record requires `mayCurate`, in place of the `mayWrite`
 /// that {{JMAP-GRAPH}} requires; the server rejects a destroy by any other
-/// user with a `forbidden` SetError."
+/// user with a `forbidden` [`SetError`]."
 ///
 /// # Errors
 ///
@@ -366,7 +366,7 @@ pub fn require_curate(rights: &GraphRights) -> Result<(), Box<SetError>> {
 
 /// Graph `retention` in `m`, the Graph as it would be stored: `null` or a
 /// Retention whose values, "when not `null`, \[are\] between 1 and 36500.
-/// The server rejects others with an `invalidProperties` SetError naming
+/// The server rejects others with an `invalidProperties` [`SetError`] naming
 /// `retention`."
 ///
 /// # Errors
@@ -383,7 +383,7 @@ pub fn check_retention(m: &Map<String, Value>) -> Result<(), Box<SetError>> {
     }
 }
 
-/// Whether the `mayCurate` of every GraphRights in `shareWith` is absent
+/// Whether the `mayCurate` of every [`GraphRights`] in `shareWith` is absent
 /// or a Boolean.
 pub fn share_with_rights_ok(m: &Map<String, Value>) -> bool {
     m.get("shareWith")
@@ -416,7 +416,7 @@ pub fn share_with_rights_ok(m: &Map<String, Value>) -> bool {
 /// right). A record destroyed meanwhile (`notFound`) is skipped. A stored
 /// `updated` that does not parse never counts as passed.
 ///
-/// ponytail: loads every Graph and GraphNode of the account on each run.
+/// ponytail: loads every Graph and `GraphNode` of the account on each run.
 ///
 /// # Errors
 ///

@@ -1,4 +1,4 @@
-//! JMAP FileNode extension method handlers (draft-ietf-jmap-filenode-20).
+//! JMAP `FileNode` extension method handlers (draft-ietf-jmap-filenode-20).
 //!
 //! # Usage
 //!
@@ -76,7 +76,7 @@ pub use jmap_filenode_types::JMAP_FILENODE_URI;
 // register_filenode_handlers — main entry point for consumers
 // ---------------------------------------------------------------------------
 
-/// Register all JMAP FileNode method handlers with `dispatcher`.
+/// Register all JMAP `FileNode` method handlers with `dispatcher`.
 ///
 /// `backend` is wrapped in [`Arc`] so it is cloned cheaply into each handler.
 /// You may pass any `Arc<B>` — the function clones it internally into each

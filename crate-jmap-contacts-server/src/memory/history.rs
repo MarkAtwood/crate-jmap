@@ -1,6 +1,6 @@
 //! Object history for the memory backend (draft-ietf-jmap-object-history-03
 //! with the -04 editor's copy changes; docs/design/object-history.md §7),
-//! for AddressBook and ContactCard.
+//! for [`AddressBook`] and [`ContactCard`].
 //!
 //! Off until [`MemoryBackend::with_object_history`]. Versions live in a
 //! `jmap_object_history_server::HistoryStore` inside the scoped state, so a
@@ -67,7 +67,7 @@ impl Inner {
         }
     }
 
-    /// Destroyed ContactCards in result order: the window, then the
+    /// Destroyed [`ContactCard`]s in result order: the window, then the
     /// ContactCard/query filter and sort over final versions, most recently
     /// destroyed first when there is no sort (§4).
     fn destroyed_results<O: QueryObject>(
@@ -134,7 +134,7 @@ impl Inner {
 
 impl<C: MemoryCaller> MemoryBackend<C> {
     /// Keep object history for the types `capability.supportedTypes` lists
-    /// (AddressBook, ContactCard), in every account, with `retention`;
+    /// ([`AddressBook`], [`ContactCard`]), in every account, with `retention`;
     /// `capability` is also what
     /// [`ObjectHistoryBackend::object_history_capability`] advertises.
     ///

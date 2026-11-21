@@ -219,9 +219,9 @@ pub(crate) fn check_map_key_ids(
 ///
 /// - -05 §3: for a request whose `using` lacks
 ///   `urn:ietf:params:jmap:metadata`, "Foo/set MUST reject any write to
-///   them with an "invalidProperties" SetError".
+///   them with an "invalidProperties" `SetError`".
 /// - -05 §3.2: on create, "A value of null for either property MUST be
-///   rejected with an "invalidProperties" SetError".
+///   rejected with an "invalidProperties" `SetError`".
 ///
 /// The backend validates the rest (-05 §3.2 rules 1 to 4). Mirrors the
 /// canonical `jmap-mail-server` helper (bd JMAP-s4kp.1).

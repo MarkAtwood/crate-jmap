@@ -230,7 +230,7 @@ struct AccountAux {
     /// is `false`).
     ///
     /// Maintained incrementally by `apply_calendar_event_index_delta`,
-    /// called from each CalendarEvent `create_object` / `update_object` /
+    /// called from each [`CalendarEvent`] `create_object` / `update_object` /
     /// `destroy_object` (which already have the old + new JSON in hand).
     /// `seed_object` falls back to `recompute_calendar_event_counts` since
     /// it bypasses the trait-impl mutators and the old state is unknown.
@@ -239,7 +239,7 @@ struct AccountAux {
     /// `counts.contains_key(id)` is a valid "has events?" test.
     ///
     /// bd:JMAP-ic0j.8 — replaces an earlier `HashSet<Id>` that was rebuilt
-    /// by a full scan of the CalendarEvent store on every mutation
+    /// by a full scan of the `CalendarEvent` store on every mutation
     /// (`O(N)` per write, `O(N²)` ingest). The reverse-index counter
     /// preserves correctness and makes each mutation `O(k)` in the size
     /// of the changed event's `calendarIds` (typically 1–3).
@@ -247,7 +247,7 @@ struct AccountAux {
     /// Current default Calendar id, if set
     /// (draft-ietf-jmap-calendars-34 §4.3 `onSuccessSetIsDefault`).
     default_calendar: Option<Id>,
-    /// Current default ParticipantIdentity id, if set
+    /// Current default `ParticipantIdentity` id, if set
     /// (draft-ietf-jmap-calendars-34 §3.3 `onSuccessSetIsDefault`).
     default_participant_identity: Option<Id>,
 }
@@ -267,7 +267,7 @@ struct Inner {
     /// Explicitly registered account ids (accounts may exist with no objects yet).
     known_accounts: HashSet<String>,
     /// `type_name` → the draft-ietf-jmap-metadata-05 §1.2.1
-    /// DataTypeMetadataInfo set by [`MemoryBackend::with_metadata_info`].
+    /// [`DataTypeMetadataInfo`] set by [`MemoryBackend::with_metadata_info`].
     /// A type without an entry does not have the metadata properties.
     metadata_info: HashMap<&'static str, DataTypeMetadataInfo>,
     /// Object history, once `MemoryBackend::with_object_history` turns it
@@ -407,7 +407,7 @@ impl Inner {
     }
 
     /// Rebuild `calendar_event_counts` for the given account from scratch
-    /// by scanning the CalendarEvent store.
+    /// by scanning the [`CalendarEvent`] store.
     ///
     /// `O(N)` in the number of events. Reserved for `seed_object`, which
     /// bypasses the trait-impl mutators and therefore has no
@@ -415,7 +415,7 @@ impl Inner {
     /// counter map is built from an iterator chain that takes only an
     /// immutable borrow of `self.objects` so the subsequent
     /// `self.aux_mut(account_id)` call is free to take the mutable borrow.
-    /// Avoids cloning the CalendarEvent map. bd:JMAP-ic0j.40 / .8.
+    /// Avoids cloning the `CalendarEvent` map. bd:JMAP-ic0j.40 / .8.
     fn recompute_calendar_event_counts(&mut self, account_id: &str) {
         let mut counts: HashMap<Id, u32> = HashMap::new();
         if let Some(map) = self
@@ -434,7 +434,7 @@ impl Inner {
         self.aux_mut(account_id).calendar_event_counts = counts;
     }
 
-    /// Apply a single CalendarEvent mutation to the reverse-index counter
+    /// Apply a single [`CalendarEvent`] mutation to the reverse-index counter
     /// in `O(k)` where `k` is the size of the symmetric difference between
     /// `old.calendarIds` and `new.calendarIds` (typically 0–3).
     ///
@@ -510,7 +510,7 @@ impl Inner {
 ///   or in an operator tree) is honored on `CalendarEvent/query` (used by
 ///   `Calendar/set` cleanup), plus the draft-ietf-jmap-metadata-05 §3.6
 ///   shared-metadata conditions once [`MemoryBackend::with_metadata_info`]
-///   opts CalendarEvent in; a filter naming any other
+///   opts [`CalendarEvent`] in; a filter naming any other
 ///   `CalendarEventFilterCondition` field, and any non-empty filter on
 ///   another type, is rejected with `unsupportedFilter`. Production
 ///   backends MUST honor every documented filter.
@@ -592,7 +592,7 @@ impl<C: MemoryCaller> MemoryBackend<C> {
     }
 
     /// Give `data_type` the draft-ietf-jmap-metadata-05 `metadata`
-    /// property, configured by `info` (the DataTypeMetadataInfo of -05
+    /// property, configured by `info` (the [`DataTypeMetadataInfo`] of -05
     /// §1.2.1).
     ///
     /// Without this call a type has no metadata: `Foo/set` rejects a
@@ -607,7 +607,7 @@ impl<C: MemoryCaller> MemoryBackend<C> {
     /// `dataTypes`.
     ///
     /// Calendar writes need `myRights.maySetMetadata` on the Calendar, and
-    /// CalendarEvent writes need it on every Calendar the event is in
+    /// [`CalendarEvent`] writes need it on every Calendar the event is in
     /// before and after the update, or on the `calendarIds` of a create
     /// (-05 §4.1). An absent `maySetMetadata` allows the write (fail-open,
     /// JMAP-bghk). This backend never sets `updated`, so a metadata-only
@@ -1098,7 +1098,7 @@ impl<C: MemoryCaller> JmapReads for MemoryBackend<C> {
         .with_updated_properties(updated_properties))
     }
 
-    /// Reference query_objects impl — see the module-level "Caveats" doc
+    /// Reference `query_objects` impl — see the module-level "Caveats" doc
     /// (bd:JMAP-ic0j.16) for the sort / filter / position semantics the
     /// reference impl does NOT honor.
     async fn query_objects<O: QueryObject + Send + Sync>(
@@ -1327,7 +1327,7 @@ fn filter_is_evaluable(filter: &serde_json::Value, evaluable: &[&str], trees: bo
 
 /// The `TYPE_NAME` of the type named `data_type` if it is one this backend
 /// can give draft-ietf-jmap-metadata-05 properties: -05 §4.1 names
-/// Calendar, and CalendarEvent among the types that take the right from
+/// Calendar, and [`CalendarEvent`] among the types that take the right from
 /// their containers.
 fn metadata_type_name(data_type: &str) -> Option<&'static str> {
     [Calendar::TYPE_NAME, CalendarEvent::TYPE_NAME]
@@ -1346,12 +1346,12 @@ fn invalid_metadata_property(property: &str, description: &str) -> BackendSetErr
 impl Inner {
     /// draft-ietf-jmap-metadata-05 §3.2 rules 1 to 3 for a metadata write
     /// on a `type_name` object, before the write is applied. Returns the
-    /// type's DataTypeMetadataInfo for the rule 4 check after applying,
+    /// type's [`DataTypeMetadataInfo`] for the rule 4 check after applying,
     /// or `None` when `entry` writes no metadata.
     ///
     /// `entry` is the create object or update patch, `stored` the object
     /// before an update (`None` on create), and `containers` the Calendar
-    /// ids whose `maySetMetadata` a CalendarEvent write needs (-05 §4.1).
+    /// ids whose `maySetMetadata` a [`CalendarEvent`] write needs (-05 §4.1).
     /// Rule 1's `notFound` is the caller's: this backend has no read
     /// rights, so only a missing object is unreadable.
     fn check_metadata_set(
@@ -1414,7 +1414,7 @@ impl Inner {
     }
 }
 
-/// The Calendar ids a CalendarEvent update's metadata write needs
+/// The Calendar ids a [`CalendarEvent`] update's metadata write needs
 /// `maySetMetadata` on: every Calendar the event is in before the update
 /// and every one `patch` adds (-05 §4.1: "on every container both before
 /// and after the change").
@@ -1447,7 +1447,7 @@ fn event_update_containers<'a>(
 /// stored in `val`. A `Foo/set` create passes `val` as both; a `/copy`
 /// passes its create object, so the copied values are not revalidated
 /// (-05 §3.4: "maxDepth applies only to values supplied in the create
-/// object"). A CalendarEvent needs `maySetMetadata` on the
+/// object"). A [`CalendarEvent`] needs `maySetMetadata` on the
 /// Calendars of its `calendarIds` (-05 §4.1: "on create, on the
 /// containers given in the create"). Types without the -05 properties
 /// pass unchecked.
@@ -1492,7 +1492,7 @@ fn check_metadata_create(
     Ok(())
 }
 
-/// The six draft-ietf-jmap-metadata-05 §3.6 FilterCondition fields.
+/// The six draft-ietf-jmap-metadata-05 §3.6 `FilterCondition` fields.
 const METADATA_CONDITION_KEYS: [&str; 6] = [
     "metadataExists",
     "privateMetadataExists",
@@ -1503,7 +1503,7 @@ const METADATA_CONDITION_KEYS: [&str; 6] = [
 ];
 
 /// Validate the draft-ietf-jmap-metadata-05 §3.6 conditions on every leaf
-/// of `filter`, a FilterCondition or FilterOperator tree (RFC 8620 §5.5),
+/// of `filter`, a `FilterCondition` or `FilterOperator` tree (RFC 8620 §5.5),
 /// before any object is matched.
 ///
 /// A type without `info` has no metadata (-05 §1.2.1: it "does not gain
@@ -2009,7 +2009,7 @@ impl<C: MemoryCaller> CalendarsBackend for MemoryBackend<C> {
     /// `isSubscribed` / `includeInAvailability` / `myRights` are its
     /// per-user values (the caller is the only user, so its
     /// `hideAttendees` view is the whole event). Its calendar addresses are
-    /// the `calendarAddress` of the account's ParticipantIdentity objects,
+    /// the `calendarAddress` of the account's `ParticipantIdentity` objects,
     /// compared exactly.
     ///
     /// The backend has no time-zone database and no recurrence expansion,
@@ -2179,7 +2179,7 @@ impl<C: MemoryCaller> CalendarsBackend for MemoryBackend<C> {
     }
 }
 
-/// `accountId` of a BusyPeriod: the account for an event, `null` without
+/// `accountId` of a `BusyPeriod`: the account for an event, `null` without
 /// one (draft-ietf-jmap-calendars-34 §2.2).
 fn event_account(event: &Option<serde_json::Value>, account: &str) -> serde_json::Value {
     match event {
@@ -3047,11 +3047,11 @@ mod memory_error_tests {
 /// Conditional calendars Foo/set (bd JMAP-y1yu.10): the whole store is one
 /// [`ScopedState`], so a scope isolates every type in every account, and an
 /// atomic rollback restores objects, state strings, change logs and the
-/// per-account auxiliary state (default Calendar and ParticipantIdentity,
+/// per-account auxiliary state (default Calendar and `ParticipantIdentity`,
 /// event counts) together, `onDestroyRemoveEvents` cascades included.
 ///
 /// Commit checks nothing beyond what the handlers already check: the
-/// default Calendar and ParticipantIdentity are single pointers, so one
+/// default Calendar and `ParticipantIdentity` are single pointers, so one
 /// default holds by construction; `calendarHasEvent` is judged within a
 /// Calendar/set, which moves no events; and this backend has no
 /// cross-object caps. It refuses `sendSchedulingMessages`

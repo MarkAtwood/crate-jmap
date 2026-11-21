@@ -305,7 +305,7 @@ impl Inner {
             .count()
     }
 
-    /// The provenance rules on GraphEdge `edge` (stored as `after`, `before`
+    /// The provenance rules on [`GraphEdge`] `edge` (stored as `after`, `before`
     /// for an update), under the lock: a `fromId` that is or would become a
     /// retracted record is `forbidden` (§Retraction); a record with more
     /// than 32 evidence edges is `overQuota` (§Limits), left to the commit
@@ -350,7 +350,7 @@ impl Inner {
         Ok(())
     }
 
-    /// The properties of `which` in edge `v` that do not name a GraphNode
+    /// The properties of `which` in edge `v` that do not name a [`GraphNode`]
     /// of Graph `graph_id`.
     fn bad_endpoints(
         &self,
@@ -621,7 +621,7 @@ impl<C> MemoryBackend<C> {
 
     /// Advertise `urn:ietf:params:jmap:graph:edit`
     /// (draft-atwood-jmap-graph-edit-00) for the registered `account_id`
-    /// with `capability`: GraphNodeOp and the GraphNode edit extensions
+    /// with `capability`: [`GraphNodeOp`] and the [`GraphNode`] edit extensions
     /// then work there. Does nothing for an account not registered.
     pub fn register_edit(&self, account_id: &Id, capability: GraphEditCapability) {
         if let Some(a) = self.lock().accounts.get_mut(account_id.as_ref()) {
@@ -631,7 +631,7 @@ impl<C> MemoryBackend<C> {
 
     /// Advertise `urn:ietf:params:jmap:graph:search`
     /// (draft-atwood-jmap-graph-search-00) for the registered `account_id`
-    /// with `capability`: GraphNode and GraphEdge `/query` then accept a
+    /// with `capability`: [`GraphNode`] and [`GraphEdge`] `/query` then accept a
     /// `where` filter there. Does nothing for an account not registered.
     pub fn register_search(&self, account_id: &Id, capability: GraphSearchCapability) {
         if let Some(a) = self.lock().accounts.get_mut(account_id.as_ref()) {
@@ -771,7 +771,7 @@ impl std::fmt::Display for MemoryError {
 impl std::error::Error for MemoryError {}
 
 /// provenance-00 §Limits: "A record has at most 32 evidence edges. The
-/// server rejects, with an `overQuota` SetError, a `GraphEdge/set` create
+/// server rejects, with an `overQuota` [`SetError`], a `GraphEdge/set` create
 /// or update that would give a record more than 32."
 fn evidence_over_quota() -> SetError {
     SetError::new(SetErrorType::OverQuota)
@@ -1528,7 +1528,7 @@ impl<C: MemoryCaller> GraphBackend for MemoryBackend<C> {
     }
 }
 
-/// Sequence GraphNodeOp `value`, whose id is `id`, under the lock: re-check
+/// Sequence [`GraphNodeOp`] `value`, whose id is `id`, under the lock: re-check
 /// that its node is one the caller may read with a non-null `editFormat`
 /// (`invalidProperties` naming `nodeId`), `mayWrite` (`forbidden`) and
 /// `baseSeq` against the head (`invalidProperties` naming `baseSeq`), then
@@ -1584,7 +1584,7 @@ fn sequence(
 /// logs (so a rolled-back `GraphNodeOp/set` leaves the node's `seq` where
 /// it was) and queued cursor events together, cascades included.
 ///
-/// A GraphNode destroy takes its edges with it, and edge endpoints are
+/// A [`GraphNode`] destroy takes its edges with it, and edge endpoints are
 /// checked against the stored nodes when an edge is written, by
 /// GraphEdge/set, which changes no nodes; so no final state strands an
 /// edge. Under an atomic scope the provenance-00 evidence limit moves to

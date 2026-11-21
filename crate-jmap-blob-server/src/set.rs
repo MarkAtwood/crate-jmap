@@ -47,7 +47,7 @@ use crate::start::{Start, compute_digest, start};
 ///   `#creationId` with no creation; `tooLarge` above `maxDataSources` or
 ///   `maxSizeBlobSet`; and whatever `create_blob` returns.
 /// - update: `invalidProperties` for a property other than `expires` that
-///   is not at its current value, or an `expires` that is not a UTCDate
+///   is not at its current value, or an `expires` that is not a [`UTCDate`]
 ///   or null; `invalidPatch` for a patch that is not an object;
 ///   `notFound`; and whatever `touch_blob` returns.
 /// - destroy: whatever `destroy_blob` returns (`notFound`,
@@ -597,7 +597,7 @@ pub(crate) fn too_large(why: &str) -> SetError {
     SetError::new(SetErrorType::TooLarge).with_description(why)
 }
 
-/// A backend per-entry failure as its SetError; an `Other` error becomes a
+/// A backend per-entry failure as its [`SetError`]; an `Other` error becomes a
 /// redacted `serverFail` for that entry only, exactly as
 /// [`backend_set_error_value`] writes it.
 pub(crate) fn backend_set_error<E: std::fmt::Display>(e: BackendSetError<E>) -> SetError {

@@ -49,6 +49,17 @@ use jmap_server::{HandlerOutput, bool_arg, server_fail_from_backend};
 /// `BusyPeriod` are `null` even when the backend populates them (§2.2).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` or `id` is missing or not a valid
+///   Id, `utcStart` or `utcEnd` is missing or not a `UTCDate`, or `utcEnd`
+///   is not after `utcStart`;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `serverFail` when the backend fails, or any other draft §2.2 error the
+///   backend returns (`notFound`, `forbidden`, `tooLarge`, `rateLimit`).
 pub async fn handle_principal_get_availability<B: CalendarsBackend>(
     backend: &B,
     caller: &B::CallerCtx,

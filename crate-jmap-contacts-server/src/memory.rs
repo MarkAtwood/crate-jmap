@@ -191,13 +191,13 @@ impl ChangeEntry {
 #[derive(Default, Clone)]
 struct AccountAux {
     /// Reverse index: `address_book_id → count of ContactCard objects
-    /// that reference it`. Used to answer "does AddressBook X have any
+    /// that reference it`. Used to answer "does [`AddressBook`] X have any
     /// contents?" in `O(1)` for the `addressBookHasContents` destroy
     /// rejection (RFC 9610 §3 when `onDestroyRemoveContents` is
     /// `false`).
     ///
     /// Maintained incrementally by `apply_contact_card_index_delta`,
-    /// called from each ContactCard `create_object` / `update_object` /
+    /// called from each [`ContactCard`] `create_object` / `update_object` /
     /// `destroy_object`, and from `copy_object` when `O::TYPE_NAME` is
     /// `"ContactCard"` (each already has the old + new JSON in hand). `seed_object` falls back to
     /// `recompute_address_book_card_counts` since it bypasses the
@@ -207,7 +207,7 @@ struct AccountAux {
     /// `counts.contains_key(id)` is a valid "has contents?" test.
     ///
     /// bd:JMAP-ic0j.74 — replaces an earlier `HashSet<Id>` that was
-    /// rebuilt by a full scan of the ContactCard store on every
+    /// rebuilt by a full scan of the `ContactCard` store on every
     /// mutation (`O(N)` per write, `O(N²)` ingest). The reverse-index
     /// counter preserves correctness and makes each mutation `O(k)`
     /// in the size of the changed card's `addressBookIds` (typically
@@ -231,7 +231,7 @@ struct Inner {
     /// Explicitly registered account ids (accounts may exist with no objects yet).
     known_accounts: HashSet<String>,
     /// `type_name` → the draft-ietf-jmap-metadata-05 §1.2.1
-    /// DataTypeMetadataInfo set by [`MemoryBackend::with_metadata_info`].
+    /// [`DataTypeMetadataInfo`] set by [`MemoryBackend::with_metadata_info`].
     /// A type without an entry does not have the metadata properties.
     metadata_info: HashMap<&'static str, DataTypeMetadataInfo>,
     /// Object history, once [`MemoryBackend::with_object_history`] turns it
@@ -333,8 +333,8 @@ impl Inner {
     }
 
     /// Rebuild `address_book_card_counts` for the given account from
-    /// scratch by scanning the ContactCard store. Each ContactCard
-    /// references one or more AddressBooks via
+    /// scratch by scanning the [`ContactCard`] store. Each `ContactCard`
+    /// references one or more [`AddressBook`]s via
     /// `addressBookIds: HashMap<Id, bool>` (RFC 9610 §3 — JMAP
     /// addition over RFC 9553).
     ///
@@ -344,7 +344,7 @@ impl Inner {
     /// counter map is built from an iterator chain that takes only an
     /// immutable borrow of `self.objects` so the subsequent
     /// `self.aux_mut(account_id)` call is free to take the mutable
-    /// borrow. Avoids cloning the ContactCard map. bd:JMAP-ic0j.74,
+    /// borrow. Avoids cloning the `ContactCard` map. bd:JMAP-ic0j.74,
     /// mirrors `jmap-calendars-server::Inner::recompute_calendar_event_counts`
     /// (bd:JMAP-ic0j.40 / .8).
     fn recompute_address_book_card_counts(&mut self, account_id: &str) {
@@ -365,7 +365,7 @@ impl Inner {
         self.aux_mut(account_id).address_book_card_counts = counts;
     }
 
-    /// Apply a single ContactCard mutation to the reverse-index counter
+    /// Apply a single [`ContactCard`] mutation to the reverse-index counter
     /// in `O(k)` where `k` is the size of the symmetric difference
     /// between `old.addressBookIds` and `new.addressBookIds` (typically
     /// 0–3).
@@ -498,7 +498,7 @@ impl<C: MemoryCaller> MemoryBackend<C> {
     }
 
     /// Give `data_type` the draft-ietf-jmap-metadata-05 `metadata`
-    /// property, configured by `info` (the DataTypeMetadataInfo of -05
+    /// property, configured by `info` (the [`DataTypeMetadataInfo`] of -05
     /// §1.2.1).
     ///
     /// Without this call a type has no metadata: `Foo/set` rejects a
@@ -512,11 +512,11 @@ impl<C: MemoryCaller> MemoryBackend<C> {
     /// `data_type` in the account's `urn:ietf:params:jmap:metadata`
     /// `dataTypes`.
     ///
-    /// AddressBook writes need `myRights.maySetMetadata` on the
-    /// AddressBook, and ContactCard writes need it on every AddressBook of
+    /// [`AddressBook`] writes need `myRights.maySetMetadata` on the
+    /// `AddressBook`, and [`ContactCard`] writes need it on every `AddressBook` of
     /// the card before and after the update, or on the `addressBookIds` of
     /// a create (-05 §4.1). An absent `maySetMetadata` allows the write
-    /// (fail-open, JMAP-bghk). This backend never sets ContactCard
+    /// (fail-open, JMAP-bghk). This backend never sets `ContactCard`
     /// `updated`, so a metadata-only change leaves it alone, as -05 §3.1
     /// requires.
     ///
@@ -669,7 +669,7 @@ impl<C: MemoryCaller> JmapAccounts for MemoryBackend<C> {
 
     /// Every account supports localizations
     /// (draft-atwood-jmap-updates-00), with at most 32 localizations per
-    /// AddressBook.
+    /// [`AddressBook`].
     fn i18n_info(&self, _caller: &C, _account_id: &Id) -> Option<jmap_server::I18nInfo> {
         Some(jmap_server::I18nInfo::new().with_max_localizations(Some(MAX_LOCALIZATIONS)))
     }
@@ -1596,8 +1596,8 @@ impl<C: MemoryCaller> ContactsBackend for MemoryBackend<C> {
 // ---------------------------------------------------------------------------
 
 /// The `TYPE_NAME` of the type named `data_type` if it is one this backend
-/// can give draft-ietf-jmap-metadata-05 properties: AddressBook, which has
-/// a rights object (RFC 9610 §2 `myRights`), and ContactCard, which "takes
+/// can give draft-ietf-jmap-metadata-05 properties: [`AddressBook`], which has
+/// a rights object (RFC 9610 §2 `myRights`), and [`ContactCard`], which "takes
 /// the right from its containers" (-05 §4.1).
 fn metadata_type_name(data_type: &str) -> Option<&'static str> {
     [AddressBook::TYPE_NAME, ContactCard::TYPE_NAME]
@@ -1616,12 +1616,12 @@ fn invalid_metadata_property(property: &str, description: &str) -> BackendSetErr
 impl Inner {
     /// draft-ietf-jmap-metadata-05 §3.2 rules 1 to 3 for a metadata write
     /// on a `type_name` object, before the write is applied. Returns the
-    /// type's DataTypeMetadataInfo for the rule 4 check after applying,
+    /// type's [`DataTypeMetadataInfo`] for the rule 4 check after applying,
     /// or `None` when `entry` writes no metadata.
     ///
     /// `entry` is the create object or update patch, `stored` the object
     /// before an update (`None` on create), and `containers` the
-    /// AddressBook ids whose `maySetMetadata` a ContactCard write needs
+    /// [`AddressBook`] ids whose `maySetMetadata` a [`ContactCard`] write needs
     /// (-05 §4.1). Rule 1's `notFound` is the caller's: this backend has
     /// no read rights, so only a missing object is unreadable.
     fn check_metadata_set(
@@ -1684,8 +1684,8 @@ impl Inner {
     }
 }
 
-/// The AddressBook ids a ContactCard update's metadata write needs
-/// `maySetMetadata` on: every AddressBook the card is in before the update
+/// The [`AddressBook`] ids a [`ContactCard`] update's metadata write needs
+/// `maySetMetadata` on: every `AddressBook` the card is in before the update
 /// and every one `patch` adds (-05 §4.1: "on every container both before
 /// and after the change"). RFC 9610 §3: `addressBookIds` is an
 /// `Id[Boolean]` set whose values are `true`.
@@ -1718,8 +1718,8 @@ fn card_update_containers<'a>(
 /// stored in `val`. A `Foo/set` create passes `val` as both; a `/copy`
 /// passes its create object, so the copied values are not revalidated
 /// (-05 §3.4: "maxDepth applies only to values supplied in the create
-/// object"). A ContactCard needs `maySetMetadata` on the
-/// AddressBooks of its `addressBookIds` (-05 §4.1: "on create, on the
+/// object"). A [`ContactCard`] needs `maySetMetadata` on the
+/// [`AddressBook`]s of its `addressBookIds` (-05 §4.1: "on create, on the
 /// containers given in the create"). Types without the -05 properties
 /// pass unchecked.
 fn check_metadata_create(
@@ -1763,7 +1763,7 @@ fn check_metadata_create(
     Ok(())
 }
 
-/// The six draft-ietf-jmap-metadata-05 §3.6 FilterCondition fields.
+/// The six draft-ietf-jmap-metadata-05 §3.6 `FilterCondition` fields.
 const METADATA_CONDITION_KEYS: [&str; 6] = [
     "metadataExists",
     "privateMetadataExists",
@@ -1774,7 +1774,7 @@ const METADATA_CONDITION_KEYS: [&str; 6] = [
 ];
 
 /// Validate the draft-ietf-jmap-metadata-05 §3.6 conditions on every leaf
-/// of `filter`, a FilterCondition or FilterOperator tree (RFC 8620 §5.5),
+/// of `filter`, a `FilterCondition` or `FilterOperator` tree (RFC 8620 §5.5),
 /// before any object is matched.
 ///
 /// A type without `info` has no metadata (-05 §1.2.1: it "does not gain
@@ -1860,7 +1860,7 @@ fn metadata_matches(
 // ---------------------------------------------------------------------------
 
 /// Apply a `ContactCardFilterCondition` (RFC 9610 §3.3.1) to a stored
-/// ContactCard JSON value.
+/// [`ContactCard`] JSON value.
 ///
 /// Returns `true` if the card passes the filter. Unset condition fields
 /// are treated as "no constraint" per §3.3.1.
@@ -2156,9 +2156,9 @@ fn json_contains_substring_recursive(v: &serde_json::Value, needle: &str) -> boo
     }
 }
 
-/// Check whether a serialized ContactCard's `addressBookIds` field is
+/// Check whether a serialized [`ContactCard`]'s `addressBookIds` field is
 /// present, non-empty and maps every id to `true` (RFC 9610 §3: a card
-/// MUST belong to at least one AddressBook at all times, and "The value
+/// MUST belong to at least one [`AddressBook`] at all times, and "The value
 /// for each key in the object MUST be true").
 fn contact_card_has_address_book_ids(card: &serde_json::Value) -> bool {
     card.get("addressBookIds")
@@ -2166,12 +2166,12 @@ fn contact_card_has_address_book_ids(card: &serde_json::Value) -> bool {
         .is_some_and(|m| !m.is_empty() && m.values().all(|v| v == &serde_json::Value::Bool(true)))
 }
 
-/// The RFC 9610 §3 checks a new ContactCard `card` in `account_id` must
+/// The RFC 9610 §3 checks a new [`ContactCard`] `card` in `account_id` must
 /// pass, shared by `create_object` and `copy_object`: `addressBookIds`
 /// maps at least one id, each to `true` (a card "MUST belong to at least
-/// one AddressBook at all times", bd:JMAP-qz9v.16), and no other card in
+/// one [`AddressBook`] at all times", bd:JMAP-qz9v.16), and no other card in
 /// the account has its `uid` ("there MUST NOT be more than one
-/// ContactCard with the same uid in an Account", bd:JMAP-qz9v.6).
+/// `ContactCard` with the same uid in an Account", bd:JMAP-qz9v.6).
 fn check_contact_card_create(
     inner: &Inner,
     account_id: &str,
@@ -2202,7 +2202,7 @@ fn check_contact_card_create(
     Ok(())
 }
 
-/// True iff the serialized AddressBook value has `isDefault: true`.
+/// True iff the serialized [`AddressBook`] value has `isDefault: true`.
 ///
 /// Used to enforce RFC 9610 §2's at-most-one-default invariant
 /// inside `update_object` (bd:JMAP-qz9v.11). Treats missing or
@@ -2213,11 +2213,11 @@ fn address_book_is_default(book: &serde_json::Value) -> bool {
         .unwrap_or(false)
 }
 
-/// Look up whether any ContactCard in `account_id` (other than
+/// Look up whether any [`ContactCard`] in `account_id` (other than
 /// `exclude_id` if supplied) has `uid` set to `target_uid`.
 ///
 /// Used to enforce RFC 9610 §3: 'there MUST NOT be more than one
-/// ContactCard with the same uid in an Account.' Reference impl
+/// `ContactCard` with the same uid in an Account.' Reference impl
 /// scans every card in the account; production backends should
 /// maintain a uid → id index.
 fn account_has_card_with_uid(
@@ -2236,7 +2236,7 @@ fn account_has_card_with_uid(
         })
 }
 
-/// Compare two ContactCard JSON values for sort by RFC 9610 §3.3.2
+/// Compare two [`ContactCard`] JSON values for sort by RFC 9610 §3.3.2
 /// property name.
 ///
 /// Honored properties: `"created"`, `"updated"`, `"uid"`, `"kind"`.
@@ -2279,7 +2279,7 @@ fn compare_contact_cards_by_property(
 
 /// Conditional Foo/set (bd JMAP-y1yu.12): the whole store is one [`ScopedState`],
 /// so a scope isolates every type in every account, and an atomic rollback
-/// restores objects, state strings, change logs and the default AddressBook, `onDestroyRemoveContents` cascades included, together.
+/// restores objects, state strings, change logs and the default [`AddressBook`], `onDestroyRemoveContents` cascades included, together.
 ///
 /// Commit checks nothing beyond what the handlers already check (see the
 /// crate README's conditional section).

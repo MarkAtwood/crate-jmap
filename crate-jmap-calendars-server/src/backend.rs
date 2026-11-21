@@ -1,4 +1,4 @@
-//! CalendarsBackend trait and supporting types for JMAP Calendars method handlers.
+//! [`CalendarsBackend`] trait and supporting types for JMAP Calendars method handlers.
 //!
 //! Consumers implement [`CalendarsBackend`] for their storage system. The method
 //! handlers in sibling modules call into the backend through this trait.
@@ -121,7 +121,7 @@ pub trait CalendarsBackend: JmapBackend {
     /// AGENTS.md "Permission enforcement: backend canonical". Implementors MUST
     /// check that the principal identified by
     /// [`JmapAccounts::principal_id(caller)`](jmap_server::JmapAccounts::principal_id) has write access to the target
-    /// account / Calendar / CalendarEvent
+    /// account / Calendar / `CalendarEvent`
     /// inside the same atomic boundary as the write, and MUST return
     /// [`BackendSetError::SetError`] carrying
     /// [`SetErrorType::Forbidden`](jmap_server::SetErrorType::Forbidden) otherwise. Handlers in this crate do NO
@@ -150,7 +150,7 @@ pub trait CalendarsBackend: JmapBackend {
     /// For create these are `forbidden`, `overQuota`, `tooLarge`,
     /// `rateLimit` and `invalidProperties`. An `invalidProperties` error
     /// SHOULD name in `properties` "*all* the properties that were
-    /// invalid", for example `calendarIds` when a CalendarEvent names a
+    /// invalid", for example `calendarIds` when a `CalendarEvent` names a
     /// Calendar that does not exist.
     ///
     /// Return [`BackendSetError::Other`] only for unexpected storage
@@ -182,10 +182,10 @@ pub trait CalendarsBackend: JmapBackend {
     ///
     /// # Per-event caps
     ///
-    /// For a CalendarEvent, the backend is the canonical enforcement point
+    /// For a `CalendarEvent`, the backend is the canonical enforcement point
     /// of the account's per-event caps ([`Self::limits`],
     /// draft-ietf-jmap-calendars-34 §5.9): an event over them MUST be
-    /// refused with an `invalidProperties` SetError. The handlers check
+    /// refused with an `invalidProperties` `SetError`. The handlers check
     /// first, but their check is incomplete (see [`CalendarsLimits`]).
     fn create_object<O, F>(
         &self,
@@ -220,7 +220,7 @@ pub trait CalendarsBackend: JmapBackend {
     /// "privacy" property of the event to be created would be anything
     /// other than "public" (whether inherited from the event being copied
     /// or set explicitly in the "create" patch), the server MUST reject the
-    /// copy with an invalidProperties SetError." The backend assigns the
+    /// copy with an invalidProperties `SetError`." The backend assigns the
     /// new `id`, stores the record in `to_account_id` and records the
     /// create in the state and change log as
     /// [`create_object`](Self::create_object) does. Returns the new id and
@@ -272,7 +272,7 @@ pub trait CalendarsBackend: JmapBackend {
     ///
     /// # Patch format
     ///
-    /// `patch` is an RFC 8620 §5.3 PatchObject, not an RFC 7396 JSON
+    /// `patch` is an RFC 8620 §5.3 [`PatchObject`], not an RFC 7396 JSON
     /// Merge Patch: "The keys are a path in JSON Pointer format
     /// \[RFC6901\], with an implicit leading "/"". So `{"a/b": null}`
     /// removes member `b` of property `a`; it does not touch a top-level
@@ -314,7 +314,7 @@ pub trait CalendarsBackend: JmapBackend {
     /// # Per-event caps
     ///
     /// As for [`create_object`](Self::create_object), the backend MUST
-    /// refuse a CalendarEvent update whose result is over the per-event
+    /// refuse a `CalendarEvent` update whose result is over the per-event
     /// caps (draft-ietf-jmap-calendars-34 §5.9). Count from the full stored
     /// event, not the caller's view: the handler's check reads the event
     /// through `get_objects` and so, for a caller with a reduced view
@@ -350,7 +350,7 @@ pub trait CalendarsBackend: JmapBackend {
     /// through explicit backend calls, and the backend does not repeat
     /// them. `Calendar/set` (draft-ietf-jmap-calendars-34 §4.4) rejects
     /// a non-empty Calendar with `calendarHasEvent`, or with
-    /// `onDestroyRemoveEvents` destroys the CalendarEvents only in that
+    /// `onDestroyRemoveEvents` destroys the `CalendarEvent`s only in that
     /// Calendar and removes it from the other events' `calendarIds`,
     /// before it calls `destroy_object::<Calendar>`.
     ///
@@ -838,16 +838,16 @@ pub trait CalendarsBackend: JmapBackend {
     ///
     /// - `recurrence_overrides_before` — when set, the backend MUST omit any
     ///   recurrence override whose recurrence id (translated into UTC) is on
-    ///   or after this UTCDateTime. A floating event's recurrence ids are
+    ///   or after this `UTCDateTime`. A floating event's recurrence ids are
     ///   translated with `time_zone`.
     /// - `recurrence_overrides_after` — when set, the backend MUST omit any
     ///   recurrence override whose recurrence id (translated into UTC) is
-    ///   before this UTCDateTime. A floating event's recurrence ids are
+    ///   before this `UTCDateTime`. A floating event's recurrence ids are
     ///   translated with `time_zone`.
     /// - `reduce_participants` — when `true`, the backend MUST return only
     ///   participants with the `"owner"` role or matching the user's
-    ///   ParticipantIdentities, in both the base event's `participants` and
-    ///   in any recurrence override.
+    ///   `ParticipantIdentity` objects, in both the base event's
+    ///   `participants` and in any recurrence override.
     /// - `time_zone` — the time zone (default `"Etc/UTC"` when `None`) for
     ///   floating events (a null `timeZone`): it is used to compute their
     ///   `utcStart` / `utcEnd` and to translate their recurrence ids into UTC
@@ -861,13 +861,13 @@ pub trait CalendarsBackend: JmapBackend {
     /// Whatever `args` says, the backend MUST apply the §5.7 per-user
     /// view: for a user without `mayWriteAll` / `mayWriteOwn` on an event
     /// with `hideAttendees: true`, keep only participants with the
-    /// `"owner"` role or matching one of the user's ParticipantIdentity
+    /// `"owner"` role or matching one of the user's `ParticipantIdentity`
     /// objects, filter each `recurrenceOverrides` patch to match, and drop
     /// or scrub `iCalendar` data about hidden participants. For another
     /// user's `"private"` event, return only the §5.7 permitted
     /// properties, which now include per-user properties. The same view
     /// applies to every caller-scoped
-    /// [`get_objects`](jmap_server::JmapReads::get_objects) read of a CalendarEvent,
+    /// [`get_objects`](jmap_server::JmapReads::get_objects) read of a `CalendarEvent`,
     /// including the source read of `CalendarEvent/copy` (§5.10).
     ///
     /// The default implementation ignores `args` and delegates to
@@ -1021,7 +1021,7 @@ pub trait CalendarsBackend: JmapBackend {
     /// or `notParsable`. Conversion follows
     /// draft-ietf-calext-jscalendar-icalendar-28; if the iCalendar file has
     /// a METHOD property, the backend MUST set `method` on each parsed
-    /// event (the only place a CalendarEvent may carry one, §5).
+    /// event (the only place a `CalendarEvent` may carry one, §5).
     ///
     /// There is no default implementation (bd:JMAP-ic0j.26): a default
     /// that reported every blob as `notParsable` would tell clients that
@@ -1096,7 +1096,7 @@ pub trait CalendarsBackend: JmapBackend {
     /// (draft-ietf-jmap-calendars-34 §2.2).
     /// [`IncludeInAvailability::counts_event`](jmap_calendars_types::IncludeInAvailability::counts_event)
     /// and [`BusyStatus::for_event`](jmap_calendars_types::BusyStatus::for_event)
-    /// implement these participation rules. Each BusyPeriod `event` MUST be
+    /// implement these participation rules. Each `BusyPeriod` `event` MUST be
     /// the caller's `hideAttendees`-filtered view (§2.2, §5.7).
     ///
     /// The §2.2 errors (`notFound`, `forbidden`, `tooLarge`, `rateLimit`)
@@ -1162,7 +1162,7 @@ pub trait CalendarsBackend: JmapBackend {
     /// ([`CalendarsLimits::max_calendars_per_event`],
     /// [`CalendarsLimits::max_participants_per_event`] and the date range)
     /// once per call and rejects a create or update that breaks one with an
-    /// `invalidProperties` SetError before calling the backend
+    /// `invalidProperties` `SetError` before calling the backend
     /// (draft-ietf-jmap-calendars-34 §5.9). See [`CalendarsLimits`] for what
     /// that check covers and what stays with the backend.
     fn limits(&self, _caller: &Self::CallerCtx, _account_id: &jmap_types::Id) -> CalendarsLimits {
@@ -1211,7 +1211,7 @@ pub trait CalendarsBackend: JmapBackend {
 /// # Per-event cap enforcement
 ///
 /// `CalendarEvent/set` rejects a create or update with an
-/// `invalidProperties` SetError naming the offending top-level properties
+/// `invalidProperties` `SetError` naming the offending top-level properties
 /// when the event, as it would be stored, breaks a per-event cap
 /// (draft-ietf-jmap-calendars-34 §5.9). For an update it checks only the
 /// properties the patch changes, or every date property when the patch
@@ -1277,18 +1277,18 @@ pub struct CalendarsLimits {
     /// `expandDurationTooLarge` error per §10.8.3 as
     /// [`BackendQueryError::Method`](jmap_server::BackendQueryError::Method).
     pub max_expanded_query_duration_seconds: u64,
-    /// Most Calendars one CalendarEvent may be in (`maxCalendarsPerEvent`,
+    /// Most Calendars one `CalendarEvent` may be in (`maxCalendarsPerEvent`,
     /// draft-ietf-jmap-calendars-34 §1.5.1), or `None` for no limit.
     pub max_calendars_per_event: Option<u64>,
-    /// Most participants one CalendarEvent may have
+    /// Most participants one `CalendarEvent` may have
     /// (`maxParticipantsPerEvent`, draft-ietf-jmap-calendars-34 §1.5.1), or
     /// `None` for no limit.
     pub max_participants_per_event: Option<u64>,
-    /// Earliest date accepted in a CalendarEvent (`minDateTime`,
+    /// Earliest date accepted in a `CalendarEvent` (`minDateTime`,
     /// draft-ietf-jmap-calendars-34 §1.5.1), in seconds since the Unix
     /// epoch, or `None` for no lower bound.
     pub min_date_time_epoch_seconds: Option<i64>,
-    /// Latest date accepted in a CalendarEvent (`maxDateTime`,
+    /// Latest date accepted in a `CalendarEvent` (`maxDateTime`,
     /// draft-ietf-jmap-calendars-34 §1.5.1), in seconds since the Unix
     /// epoch, or `None` for no upper bound.
     pub max_date_time_epoch_seconds: Option<i64>,
@@ -1587,7 +1587,7 @@ pub struct CalendarEventGetArgs {
     pub recurrence_overrides_after: Option<jmap_types::UTCDate>,
     /// `reduceParticipants` (default `false`). When `true`, the backend
     /// returns only participants with the `"owner"` role or those matching
-    /// the user's ParticipantIdentities.
+    /// the user's `ParticipantIdentity` objects.
     pub reduce_participants: bool,
     /// `timeZone` (default `"Etc/UTC"` when `None`). The time zone for
     /// floating events (a null `timeZone` property): used to compute their
@@ -1616,7 +1616,7 @@ pub struct CalendarEventQueryArgs {
     /// `expandRecurrences` (default `false`). When `true`, the backend
     /// expands recurring events into one synthetic id per instance within
     /// the filter's `[after, before]` window. The handler validates that
-    /// `filter` is a single FilterCondition with both `before` and `after`
+    /// `filter` is a single `FilterCondition` with both `before` and `after`
     /// before invoking the backend.
     pub expand_recurrences: bool,
     /// `timeZone` (default `Etc/UTC` when `None`). Time zone used by the
@@ -1644,7 +1644,7 @@ pub struct CalendarEventSetArgs {
     /// `sendSchedulingMessages` (draft-ietf-jmap-calendars-34 §5.9, default
     /// `false`). When `true`, the backend MUST send appropriate iTIP
     /// scheduling messages on success per §5.9.2, or return a
-    /// `noSupportedScheduleMethods` SetError when it cannot send to the
+    /// `noSupportedScheduleMethods` `SetError` when it cannot send to the
     /// calendar address of at least one of the recipients
     /// (draft-ietf-jmap-calendars-34 §10.8.2).
     pub send_scheduling_messages: bool,

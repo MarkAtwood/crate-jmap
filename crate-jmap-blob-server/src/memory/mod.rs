@@ -87,7 +87,7 @@ enum Repr {
     Bytes(Vec<u8>),
     /// Ranges of leaf (`Bytes`) blobs of the same account, in order.
     Chunks(Vec<ChunkRef>),
-    /// An ArchiveRecipe result not generated yet (blobext-03 §8): built on
+    /// An `ArchiveRecipe` result not generated yet (blobext-03 §8): built on
     /// first read. `size` is meaningless until then.
     Deferred(Deferred),
 }
@@ -621,7 +621,7 @@ impl<C> MemoryBackend<C> {
 
     /// Run every recipe other than an `application/x-tar` archive or
     /// extract through `converter`, which returns the result's octets or a
-    /// SetError (decision 13). Without one, such a recipe is a
+    /// [`SetError`] (decision 13). Without one, such a recipe is a
     /// `serverFail`: the default capability advertises them as `null`.
     #[cfg(feature = "test-helpers")]
     pub fn stub_converter_for_test(

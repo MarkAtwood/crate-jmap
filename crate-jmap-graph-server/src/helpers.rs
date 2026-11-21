@@ -17,7 +17,7 @@ use jmap_server::{
 };
 use jmap_server::{QueryObject, SetError, SetErrorType};
 
-/// An `invalidProperties` SetError naming `properties` (none when empty).
+/// An `invalidProperties` [`SetError`] naming `properties` (none when empty).
 pub(crate) fn invalid(properties: &[&str], description: &str) -> Value {
     let err = SetError::new(SetErrorType::InvalidProperties).with_description(description);
     serde_json::Value::from(&if properties.is_empty() {
@@ -27,14 +27,14 @@ pub(crate) fn invalid(properties: &[&str], description: &str) -> Value {
     })
 }
 
-/// Check the arguments of a GraphNode (`kind` [`CandidateKind::Node`]) or
-/// GraphEdge `/query` or `/queryChanges` and return whether the filter uses
+/// Check the arguments of a [`GraphNode`] (`kind` [`CandidateKind::Node`]) or
+/// [`GraphEdge`] `/query` or `/queryChanges` and return whether the filter uses
 /// draft-atwood-jmap-graph-search-00.
 ///
-/// "The `filter` argument MUST be a single FilterCondition, not a
-/// FilterOperator, and MUST include `graphId`. A server receiving any other
+/// "The `filter` argument MUST be a single `FilterCondition`, not a
+/// `FilterOperator`, and MUST include `graphId`. A server receiving any other
 /// filter, or no filter, rejects the call with an `unsupportedFilter`
-/// error" (draft-atwood-jmap-graph-00 §GraphNode/query). A FilterOperator
+/// error" (draft-atwood-jmap-graph-00 §GraphNode/query). A `FilterOperator`
 /// or a condition without `graphId` fails the typed decode, which the
 /// generic handler reports as `unsupportedFilter`. The sort is checked with
 /// [`reject_unsupported_sort`].
@@ -99,7 +99,7 @@ async fn graph_query_args<C: serde::de::DeserializeOwned + KnownSort, B: GraphBa
     Ok(true)
 }
 
-/// GraphNode or GraphEdge `/query` (`O`, sorted by `C`, candidates of
+/// [`GraphNode`] or [`GraphEdge`] `/query` (`O`, sorted by `C`, candidates of
 /// `kind`) after [`graph_query_args`]. A search result says
 /// `canCalculateChanges: false`, since its `/queryChanges` is
 /// `cannotCalculateChanges`.
@@ -122,7 +122,7 @@ where
     Ok(out)
 }
 
-/// GraphNode or GraphEdge `/queryChanges` after [`graph_query_args`]: a
+/// [`GraphNode`] or [`GraphEdge`] `/queryChanges` after [`graph_query_args`]: a
 /// filter using draft-atwood-jmap-graph-search-00 is
 /// `cannotCalculateChanges` ("Servers MAY return `cannotCalculateChanges`
 /// for any `/queryChanges` call whose filter uses a property defined in
@@ -144,17 +144,17 @@ where
     jmap_server::handle_query_changes::<O, B>(backend, caller, args).await
 }
 
-/// A `forbidden` SetError.
+/// A `forbidden` [`SetError`].
 pub(crate) fn forbidden(description: &str) -> Value {
     serde_json::Value::from(&SetError::new(SetErrorType::Forbidden).with_description(description))
 }
 
-/// A `notFound` SetError.
+/// A `notFound` [`SetError`].
 pub(crate) fn not_found() -> Value {
     serde_json::Value::from(&SetError::new(SetErrorType::NotFound))
 }
 
-/// An `invalidPatch` SetError.
+/// An `invalidPatch` [`SetError`].
 pub(crate) fn invalid_patch(description: &str) -> Value {
     serde_json::Value::from(
         &SetError::new(SetErrorType::InvalidPatch).with_description(description),
@@ -384,10 +384,10 @@ known_sort!(
     jmap_graph_types::GraphEdgeComparator => jmap_graph_types::GraphEdgeSortProperty::Other,
 );
 
-/// The `annotations` checks of a Graph, GraphNode or GraphEdge as it would
+/// The `annotations` checks of a Graph, [`GraphNode`] or [`GraphEdge`] as it would
 /// be stored: "Annotation keys are non-empty strings" (`invalidProperties`
 /// naming `annotations`), and "A create or update that would exceed the
-/// limit is rejected with a `tooLarge` SetError" for `maxAnnotationSize`,
+/// limit is rejected with a `tooLarge` [`SetError`]" for `maxAnnotationSize`,
 /// "measured as UTF-8 encoded JSON".
 ///
 /// ponytail: the size is that of the compact serialization; a client that
@@ -421,7 +421,7 @@ pub(crate) fn check_annotations(
     Ok(())
 }
 
-/// The top-level properties a PatchObject touches: `annotations/x` touches
+/// The top-level properties a [`PatchObject`] touches: `annotations/x` touches
 /// `annotations`.
 pub(crate) fn patched_properties(patch: &PatchObject) -> Vec<String> {
     let mut keys: Vec<String> = patch
@@ -434,7 +434,7 @@ pub(crate) fn patched_properties(patch: &PatchObject) -> Vec<String> {
     keys
 }
 
-/// Decode a `/set` `update` value as a PatchObject (`invalidPatch`
+/// Decode a `/set` `update` value as a [`PatchObject`] (`invalidPatch`
 /// otherwise).
 pub(crate) fn decode_patch(patch: Value) -> Result<PatchObject, Value> {
     serde_json::from_value(patch).map_err(|e| invalid_patch(&e.to_string()))
@@ -472,7 +472,7 @@ pub(crate) fn string_or_null(v: &Value) -> bool {
 
 /// The `/set` operations of one Graph data type, run by [`handle_set`].
 ///
-/// Each returns the `created` or `updated` entry, or the SetError JSON.
+/// Each returns the `created` or `updated` entry, or the [`SetError`] JSON.
 pub(crate) trait SetOps<B: GraphBackend> {
     /// The data type.
     type Object: JmapObject + Send + Sync;
@@ -517,7 +517,7 @@ pub(crate) trait SetOps<B: GraphBackend> {
 ///
 /// # Errors
 ///
-/// An `invalidProperties` SetError naming the property when a reference
+/// An `invalidProperties` [`SetError`] naming the property when a reference
 /// matches no record created earlier in the request.
 fn resolve_creation_refs(
     obj: &mut Value,

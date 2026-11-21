@@ -1,7 +1,7 @@
-//! Object history for Graph, GraphNode and GraphEdge
+//! Object history for Graph, [`GraphNode`] and [`GraphEdge`]
 //! (draft-ietf-jmap-object-history-03 with the -04 editor's copy changes;
 //! docs/design/object-history.md; docs/design/DECISIONS.md decision 22).
-//! GraphNodeOp keeps none.
+//! `GraphNodeOp` keeps none.
 
 use std::sync::Arc;
 
@@ -19,16 +19,16 @@ use crate::{
 };
 
 /// [`register_graph_handlers`], then history-aware `/get`, `/set`,
-/// `/query` and `/queryChanges` of Graph, GraphNode and GraphEdge, each
+/// `/query` and `/queryChanges` of Graph, [`GraphNode`] and [`GraphEdge`], each
 /// wrapping the unchanged plain handler, through
 /// `Dispatcher::register_history_aware` (docs/design/DECISIONS.md decision
-/// 1). `register_graph_edit_handlers` is unchanged: GraphNodeOp keeps no
+/// 1). `register_graph_edit_handlers` is unchanged: `GraphNodeOp` keeps no
 /// history.
 ///
-/// A restored GraphNode comes back at its final snapshot (`blobId`,
+/// A restored `GraphNode` comes back at its final snapshot (`blobId`,
 /// `snapshotSeq`) with an empty op log whose head is `snapshotSeq`: its
 /// ops died with it (graph-edit §Compaction), so edits after the final
-/// snapshot are not recoverable (decision 22). A GraphEdge restore whose
+/// snapshot are not recoverable (decision 22). A `GraphEdge` restore whose
 /// `fromId` or `toId` node is destroyed is `invalidProperties`: restore the
 /// nodes in an earlier `GraphNode/set`. Nodes of a projected Graph are
 /// derived views; a backend may keep no history for them (§2.1).

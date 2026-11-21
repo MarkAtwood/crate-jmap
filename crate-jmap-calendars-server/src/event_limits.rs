@@ -14,11 +14,11 @@ use crate::CalendarsLimits;
 /// Largest magnitude, in seconds, of any UTC offset a time zone uses.
 ///
 /// Real offsets, historical local mean time included, stay within about
-/// 16 hours, so a LocalDateTime in an unknown named zone that is more than
+/// 16 hours, so a `LocalDateTime` in an unknown named zone that is more than
 /// a day outside a bound is outside it in every zone.
 const MAX_UTC_OFFSET_SECONDS: i64 = 86_400;
 
-/// Top-level CalendarEvent properties a limit check reads. An update whose
+/// Top-level `CalendarEvent` properties a limit check reads. An update whose
 /// patch touches none of them cannot newly break a limit.
 const LIMITED_PROPERTIES: &[&str] = &[
     "calendarIds",
@@ -47,7 +47,7 @@ const RULE_PROPERTIES: &[&str] = &[
     "excludedRecurrenceRules",
 ];
 
-/// Top-level UTCDateTime properties.
+/// Top-level `UTCDateTime` properties.
 const UTC_PROPERTIES: &[&str] = &["created", "updated", "utcStart", "utcEnd"];
 
 /// The top-level properties an update patch changes: the first segment of
@@ -64,10 +64,10 @@ pub(crate) fn touches_limited_property(touched: &BTreeSet<&str>) -> bool {
     LIMITED_PROPERTIES.iter().any(|p| touched.contains(p))
 }
 
-/// Returns the `invalidProperties` SetError for `event` if it breaks one of
+/// Returns the `invalidProperties` `SetError` for `event` if it breaks one of
 /// the per-event caps in `limits`, or `None` if it does not.
 ///
-/// `event` is the CalendarEvent as it would be stored. With
+/// `event` is the `CalendarEvent` as it would be stored. With
 /// `touched: Some(..)` (an update), only those top-level properties are
 /// checked, except that a change to `timeZone` or `recurrenceIdTimeZone`
 /// rechecks every date. A value this check cannot parse is left to the
@@ -193,17 +193,17 @@ struct EventDate<'a> {
 
 #[derive(Clone, Copy)]
 enum DateKind {
-    /// A UTCDateTime.
+    /// A `UTCDateTime`.
     Utc,
-    /// A LocalDateTime with no time zone: compared as though it were UTC
+    /// A `LocalDateTime` with no time zone: compared as though it were UTC
     /// (draft-ietf-jmap-calendars-34 §1.5.1).
     Floating,
-    /// A LocalDateTime in a named time zone, whose offset is unknown here.
+    /// A `LocalDateTime` in a named time zone, whose offset is unknown here.
     Zoned,
 }
 
 impl EventDate<'_> {
-    /// Seconds since the Unix epoch, reading a LocalDateTime as UTC, or
+    /// Seconds since the Unix epoch, reading a `LocalDateTime` as UTC, or
     /// `None` if the text is not a date-time.
     fn epoch_seconds(&self) -> Option<i64> {
         let utc = match self.kind {

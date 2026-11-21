@@ -1,5 +1,5 @@
-//! `/query` filter evaluation and ordering for Graph, GraphNode and
-//! GraphEdge (draft-atwood-jmap-graph-00 §Graph/query, §GraphNode/query,
+//! `/query` filter evaluation and ordering for Graph, [`GraphNode`] and
+//! [`GraphEdge`] (draft-atwood-jmap-graph-00 §Graph/query, §GraphNode/query,
 //! §GraphEdge/query).
 //!
 //! Pure functions a backend's `query_objects` can apply to its stored
@@ -35,7 +35,7 @@ fn filter_matches<C>(filter: &Filter<C>, condition: &impl Fn(&C) -> bool) -> boo
     }
 }
 
-/// The sortable part of a UTCDate: `YYYY-MM-DDTHH:MM:SS`. Fractional
+/// The sortable part of a [`UTCDate`]: `YYYY-MM-DDTHH:MM:SS`. Fractional
 /// seconds are dropped so that values with and without them compare
 /// chronologically.
 fn utc_key(d: &UTCDate) -> &str {

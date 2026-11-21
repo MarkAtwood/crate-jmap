@@ -1,4 +1,4 @@
-//! ContactCard/* method handlers (RFC 9610 §3).
+//! [`ContactCard`]/* method handlers (RFC 9610 §3).
 //!
 //! Provides handlers for:
 //! - `ContactCard/get`
@@ -66,7 +66,7 @@ use jmap_server::{
 /// `/get` response shape (`accountId`, `state`, `list`, `notFound`).
 ///
 /// `using` is the request's capability list (pass
-/// [`jmap_server::CallContext::using`]). When the backend lists ContactCard for
+/// [`jmap_server::CallContext::using`]). When the backend lists [`ContactCard`] for
 /// draft-ietf-jmap-metadata-05 ([`JmapAccounts::metadata_info`](jmap_server::JmapAccounts::metadata_info)),
 /// `metadata` is returned as an object, by default only with
 /// `urn:ietf:params:jmap:metadata` in `using`, and with that capability
@@ -74,6 +74,16 @@ use jmap_server::{
 /// §3.1); see [`jmap_server::handle_get_with_metadata`].
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `ids` or `properties` is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `ids` holds more than `maxObjectsInGet` ids;
+/// - `serverFail` when the backend fails.
 pub async fn handle_contact_card_get<B: ContactsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -101,6 +111,18 @@ pub async fn handle_contact_card_get<B: ContactsBackend>(
 /// without it metadata-only changes are left out (-05 §3).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `sinceState` is missing, `maxChanges` is not a positive integer, or
+///   `ignoreMetadataOnlyChanges` is not a boolean;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `cannotCalculateChanges` when the backend cannot compute the changes
+///   since `sinceState`;
+/// - `serverFail` when the backend fails.
 pub async fn handle_contact_card_changes<B: ContactsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -124,7 +146,7 @@ pub async fn handle_contact_card_changes<B: ContactsBackend>(
 /// maps).
 ///
 /// An `addressBookIds` key, or the id segment of an `addressBookIds/<id>`
-/// patch path, that is a `#creationId` reference names an AddressBook
+/// patch path, that is a `#creationId` reference names an `AddressBook`
 /// created earlier in the request and resolves against `created_ids` (pass
 /// [`jmap_server::CallContext::created_ids`]; RFC 8620 §5.3). An unknown
 /// reference is `invalidProperties` naming `addressBookIds`.
@@ -136,6 +158,21 @@ pub async fn handle_contact_card_changes<B: ContactsBackend>(
 /// either in a create (-05 §3.2). The backend validates the rest.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `create`, `update` or `destroy` is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `create`, `update` and `destroy` together hold
+///   more than `maxObjectsInSet` objects;
+/// - `stateMismatch` when `ifInState` is not the current state;
+/// - `serverFail` when the backend fails.
+///
+/// A create, update or destroy that fails on its own is a [`SetError`](jmap_server::SetError) in
+/// the response, not an `Err`.
 pub async fn handle_contact_card_set<B: ContactsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -492,7 +529,7 @@ async fn set_destroy<B: ContactsBackend>(
 /// the copy keeps the source's `metadata`, and its `privateMetadata` only
 /// with `urn:ietf:params:jmap:metadata` in `using` and when the
 /// destination supports it; neither is copied when the destination does
-/// not list ContactCard ([`JmapAccounts::metadata_info`](jmap_server::JmapAccounts::metadata_info)).
+/// not list [`ContactCard`] ([`JmapAccounts::metadata_info`](jmap_server::JmapAccounts::metadata_info)).
 /// The create object "MAY include metadata and privateMetadata to override
 /// the copied values, with the same rules as a create in Foo/set": the
 /// handler rejects them without the capability and rejects `null`, and
@@ -500,9 +537,25 @@ async fn set_destroy<B: ContactsBackend>(
 ///
 /// Returns `(response_args, extra_invocations)`. Extra invocations are
 /// generated when `onSuccessDestroyOriginal: true`, per RFC 8620 §6.3. If
-/// `destroyFromIfInState` does not match the source account's ContactCard
+/// `destroyFromIfInState` does not match the source account's `ContactCard`
 /// state, the single extra invocation is an `error` of type `stateMismatch`
 /// and the originals are left untouched.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` or `fromAccountId` is missing or not
+///   a valid Id, or `fromAccountId`
+///   equals `accountId`;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `fromAccountNotFound` when the backend does not know `fromAccountId`;
+/// - `stateMismatch` when `ifFromInState` or `ifInState` is not the current
+///   state of its account;
+/// - `serverFail` when the backend fails.
+///
+/// An entry that fails on its own is a
+/// [`SetError`](jmap_server::SetError) in `notCreated`, not an `Err`.
 pub async fn handle_contact_card_copy<B: ContactsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -845,6 +898,20 @@ pub(crate) async fn contact_card_copy<B: ContactsBackend>(
 /// filter condition is `unsupportedFilter` (-05 §3).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `filter`, `sort`, `position`, `anchor`, `anchorOffset` or `limit`
+///   is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `unsupportedFilter` when the filter does not decode as a `ContactCard` filter or uses a metadata
+///   condition without `urn:ietf:params:jmap:metadata` in `using`;
+/// - `unsupportedSort` when `sort` names a property that is not supported;
+/// - `serverFail` when the backend fails, or any other RFC 8620 §5.5 error
+///   the backend returns, such as `anchorNotFound`.
 pub async fn handle_contact_card_query<B: ContactsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -879,6 +946,21 @@ pub async fn handle_contact_card_query<B: ContactsBackend>(
 /// filter condition is `unsupportedFilter` (-05 §3).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `sinceQueryState` is missing, or `filter`, `sort`, `maxChanges` or
+///   `upToId` is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `unsupportedFilter` or `unsupportedSort` as for
+///   [`handle_contact_card_query`];
+/// - `cannotCalculateChanges` when `sinceQueryState` was computed in another
+///   language or the backend cannot compute the changes since it;
+/// - `tooManyChanges` when there are more changes than `maxChanges`;
+/// - `serverFail` when the backend fails.
 pub async fn handle_contact_card_query_changes<B: ContactsBackend>(
     backend: &B,
     caller: &B::CallerCtx,

@@ -1,8 +1,8 @@
-//! CalendarEventNotification/* method handlers (draft-ietf-jmap-calendars-34 §7).
+//! [`CalendarEventNotification`]/* method handlers (draft-ietf-jmap-calendars-34 §7).
 //!
-//! CalendarEventNotifications are server-created records. Clients may only
+//! `CalendarEventNotification`s are server-created records. Clients may only
 //! query and destroy them. Any attempt to create or update a
-//! CalendarEventNotification via `/set` MUST be rejected with `forbidden` at
+//! `CalendarEventNotification` via `/set` MUST be rejected with `forbidden` at
 //! the handler layer — the backend never sees create or update calls for
 //! this type.
 //!
@@ -69,6 +69,16 @@ use jmap_server::{SetError, SetErrorType};
 /// `/get` response shape (`accountId`, `state`, `list`, `notFound`).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `ids` or `properties` is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `ids` holds more than `maxObjectsInGet` ids;
+/// - `serverFail` when the backend fails.
 pub async fn handle_calendar_event_notification_get<B: CalendarsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -90,6 +100,17 @@ pub async fn handle_calendar_event_notification_get<B: CalendarsBackend>(
 /// `hasMoreChanges`, `created`, `updated`, `destroyed`).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `sinceState` is missing, or `maxChanges` is not a positive integer;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `cannotCalculateChanges` when the backend cannot compute the changes
+///   since `sinceState`;
+/// - `serverFail` when the backend fails.
 pub async fn handle_calendar_event_notification_changes<B: CalendarsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -113,10 +134,25 @@ pub async fn handle_calendar_event_notification_changes<B: CalendarsBackend>(
 /// maps).
 ///
 /// **Destroy-only enforcement**: only `destroy` is supported. Any entries in
-/// the `create` or `update` maps receive an immediate `forbidden` SetError
+/// the `create` or `update` maps receive an immediate `forbidden` [`SetError`]
 /// without touching the backend.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `destroy` is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `create`, `update` and `destroy` together hold
+///   more than `maxObjectsInSet` objects;
+/// - `stateMismatch` when `ifInState` is not the current state;
+/// - `serverFail` when the backend fails.
+///
+/// A create or update is a `forbidden` [`SetError`], and a destroy that
+/// fails on its own is a [`SetError`] in `notDestroyed`, not an `Err`.
 pub async fn handle_calendar_event_notification_set<B: CalendarsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -273,6 +309,19 @@ async fn set_destroy<B: CalendarsBackend>(
 /// `total`, optional `limit`).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `filter`, `sort`, `position`, `anchor`, `anchorOffset` or `limit`
+///   is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `unsupportedFilter` when the filter does not decode as a `CalendarEventNotification` filter;
+/// - `unsupportedSort` when `sort` names a property that is not supported;
+/// - `serverFail` when the backend fails, or any other RFC 8620 §5.5 error
+///   the backend returns, such as `anchorNotFound`.
 pub async fn handle_calendar_event_notification_query<B: CalendarsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -297,6 +346,21 @@ pub async fn handle_calendar_event_notification_query<B: CalendarsBackend>(
 /// `removed`, `added`).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `sinceQueryState` is missing, or `filter`, `sort`, `maxChanges` or
+///   `upToId` is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `unsupportedFilter` or `unsupportedSort` as for
+///   [`handle_calendar_event_notification_query`];
+/// - `cannotCalculateChanges` when `sinceQueryState` was computed in another
+///   language or the backend cannot compute the changes since it;
+/// - `tooManyChanges` when there are more changes than `maxChanges`;
+/// - `serverFail` when the backend fails.
 pub async fn handle_calendar_event_notification_query_changes<B: CalendarsBackend>(
     backend: &B,
     caller: &B::CallerCtx,

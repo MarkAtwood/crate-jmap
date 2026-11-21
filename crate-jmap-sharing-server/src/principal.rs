@@ -3,7 +3,7 @@
 //! Principal objects represent users, groups, locations, resources, and other
 //! entities in a collaborative JMAP environment.  `Principal/set` delegates
 //! permission enforcement entirely to the backend — the spec allows any
-//! server to restrict creates/updates/destroys with `forbidden` SetErrors.
+//! server to restrict creates/updates/destroys with `forbidden` `SetError`s.
 //!
 //! # Wire-shape contract
 //!
@@ -67,6 +67,16 @@ use jmap_server::{
 /// §3.1); see [`jmap_server::handle_get_with_metadata`].
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `ids` or `properties` is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `ids` holds more than `maxObjectsInGet` ids;
+/// - `serverFail` when the backend fails.
 pub async fn handle_principal_get<B: SharingBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -98,6 +108,18 @@ pub async fn handle_principal_get<B: SharingBackend>(
 /// without it metadata-only changes are left out (-05 §3).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `sinceState` is missing, `maxChanges` is not a positive integer, or
+///   `ignoreMetadataOnlyChanges` is not a boolean;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `cannotCalculateChanges` when the backend cannot compute the changes
+///   since `sinceState`;
+/// - `serverFail` when the backend fails.
 pub async fn handle_principal_changes<B: SharingBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -121,7 +143,7 @@ pub async fn handle_principal_changes<B: SharingBackend>(
 /// maps).
 ///
 /// All create/update/destroy operations are forwarded to the backend. The
-/// backend is responsible for returning `forbidden` SetErrors for operations
+/// backend is responsible for returning `forbidden` `SetError`s for operations
 /// it does not permit (e.g. a read-only directory backend rejects all writes).
 ///
 /// ## Metadata
@@ -133,6 +155,21 @@ pub async fn handle_principal_changes<B: SharingBackend>(
 /// either in a create (-05 §3.2). The backend validates the rest.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `create`, `update` or `destroy` is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `create`, `update` and `destroy` together hold
+///   more than `maxObjectsInSet` objects;
+/// - `stateMismatch` when `ifInState` is not the current state;
+/// - `serverFail` when the backend fails.
+///
+/// A create, update or destroy that fails on its own is a
+/// [`SetError`](jmap_server::SetError) in the response, not an `Err`.
 pub async fn handle_principal_set<B: SharingBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -249,7 +286,7 @@ async fn set_create<B: SharingBackend>(
 }
 
 /// Check one `Principal/set` create object and parse it into the Principal
-/// to store, or return the SetError value for `notCreated`.
+/// to store, or return the `SetError` value for `notCreated`.
 fn principal_from_create<B: SharingBackend>(
     ctx: &SetCtx<'_, B>,
     obj_val: Value,
@@ -493,6 +530,24 @@ async fn set_destroy<B: SharingBackend>(
 /// filter condition is `unsupportedFilter` (-05 §3).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, when
+///   `filter`, `sort`, `position`, `anchor`, `anchorOffset` or `limit` is
+///   malformed, or when `language` is given without
+///   `urn:ietf:params:jmap:i18n` support or is not a list of language ranges;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `unsupportedFilter` when the filter does not decode as a Principal
+///   filter, uses a metadata condition without
+///   `urn:ietf:params:jmap:metadata` in `using`, or the backend cannot
+///   process it;
+/// - `unsupportedSort` when the backend does not support the sort;
+/// - `anchorNotFound` when `anchor` is not in the results;
+/// - `serverFail` when the backend fails, or any other RFC 8620 §5.5 error
+///   the backend returns.
 pub async fn handle_principal_query<B: SharingBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -531,6 +586,22 @@ pub async fn handle_principal_query<B: SharingBackend>(
 /// filter condition is `unsupportedFilter` (-05 §3).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `sinceQueryState` is missing, `filter`, `sort`, `maxChanges` or
+///   `upToId` is malformed, or `language` is invalid as for
+///   [`handle_principal_query`];
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `unsupportedFilter` or `unsupportedSort` as for
+///   [`handle_principal_query`];
+/// - `cannotCalculateChanges` when `sinceQueryState` was computed in another
+///   language or the backend cannot compute the changes since it;
+/// - `tooManyChanges` when there are more changes than `maxChanges`;
+/// - `serverFail` when the backend fails.
 pub async fn handle_principal_query_changes<B: SharingBackend>(
     backend: &B,
     caller: &B::CallerCtx,

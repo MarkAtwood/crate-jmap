@@ -1,4 +1,4 @@
-//! Object history for FileNode in the memory backend
+//! Object history for [`FileNode`] in the memory backend
 //! (draft-ietf-jmap-object-history-03 with the -04 editor's copy changes;
 //! docs/design/object-history.md §7).
 //!
@@ -109,13 +109,13 @@ impl MemoryState {
 }
 
 impl<C> MemoryBackend<C> {
-    /// Keep object history for FileNode in every account with `retention`;
+    /// Keep object history for [`FileNode`] in every account with `retention`;
     /// `capability` is also what
     /// [`ObjectHistoryBackend::object_history_capability`] advertises.
     ///
     /// # Panics
     ///
-    /// When `supportedTypes` names a type other than FileNode.
+    /// When `supportedTypes` names a type other than `FileNode`.
     #[must_use]
     pub fn with_object_history(
         self,
@@ -150,7 +150,7 @@ impl<C> MemoryBackend<C> {
         }
     }
 
-    /// Set the §8.2 cut for FileNode in `account`. The backend also sets it
+    /// Set the §8.2 cut for [`FileNode`] in `account`. The backend also sets it
     /// whenever an update changes inherited rights (a `shareWith` change or
     /// a move to a parent whose inherited rights differ).
     pub fn set_rights_changed_at_for_test(&self, account: &Id, ms: i64) {

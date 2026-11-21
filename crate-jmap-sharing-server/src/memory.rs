@@ -126,7 +126,7 @@ struct Inner {
     change_log: HashMap<&'static str, HashMap<String, Vec<ChangeEntry>>>,
     /// explicitly registered account ids (accounts may exist with no objects yet)
     known_accounts: HashSet<String>,
-    /// The draft-ietf-jmap-metadata-05 §1.2.1 DataTypeMetadataInfo of
+    /// The draft-ietf-jmap-metadata-05 §1.2.1 [`DataTypeMetadataInfo`] of
     /// Principal, set by [`MemoryBackend::with_metadata_info`]. `None`:
     /// Principal does not have the metadata properties.
     metadata_info: Option<DataTypeMetadataInfo>,
@@ -325,7 +325,7 @@ impl<C: MemoryCaller> MemoryBackend<C> {
     }
 
     /// Give `data_type` the draft-ietf-jmap-metadata-05 `metadata`
-    /// property, configured by `info` (the DataTypeMetadataInfo of -05
+    /// property, configured by `info` (the [`DataTypeMetadataInfo`] of -05
     /// §1.2.1).
     ///
     /// Without this call Principal has no metadata: `Principal/set` rejects
@@ -354,7 +354,7 @@ impl<C: MemoryCaller> MemoryBackend<C> {
     /// Panics if `data_type` is not `"Principal"` or if
     /// `info.supports_private` is true: this backend has no per-user
     /// state to own `privateMetadata` (-05 §2).
-    /// ShareNotification is not supported: RFC 9670 §3.3 rejects every
+    /// `ShareNotification` is not supported: RFC 9670 §3.3 rejects every
     /// create and update of it with `forbidden`, so its metadata could
     /// never be written.
     #[must_use]
@@ -761,7 +761,7 @@ impl<C: MemoryCaller> JmapReads for MemoryBackend<C> {
     /// MUST reject the call with an unsupportedFilter error if it cannot
     /// process the given filter" and "with an unsupportedSort error if it
     /// cannot sort by the given properties". So a Principal filter with an
-    /// RFC 9670 §2.4.1 condition, any non-empty ShareNotification filter,
+    /// RFC 9670 §2.4.1 condition, any non-empty `ShareNotification` filter,
     /// and any non-empty `sort` are rejected rather than ignored.
     ///
     /// Production backends MUST evaluate the filter expression and apply the
@@ -1230,7 +1230,7 @@ fn invalid_metadata_property(property: &str, description: &str) -> BackendSetErr
 }
 
 /// draft-ietf-jmap-metadata-05 §3.2 rules 2 and 3 for a metadata write,
-/// before the write is applied. Returns the DataTypeMetadataInfo for the
+/// before the write is applied. Returns the [`DataTypeMetadataInfo`] for the
 /// rule 4 check after applying, or `None` when `entry` writes no metadata.
 ///
 /// `entry` is the create object or update patch and `stored` the object
@@ -1278,7 +1278,7 @@ fn check_metadata_create(
     Ok(())
 }
 
-/// The six draft-ietf-jmap-metadata-05 §3.6 FilterCondition fields.
+/// The six draft-ietf-jmap-metadata-05 §3.6 `FilterCondition` fields.
 const METADATA_CONDITION_KEYS: [&str; 6] = [
     "metadataExists",
     "privateMetadataExists",
@@ -1295,7 +1295,7 @@ fn unsupported_filter(description: &str) -> BackendQueryError<MemoryError> {
 }
 
 /// Validate the draft-ietf-jmap-metadata-05 §3.6 conditions on every leaf
-/// of `filter`, a FilterCondition or FilterOperator tree (RFC 8620 §5.5),
+/// of `filter`, a `FilterCondition` or `FilterOperator` tree (RFC 8620 §5.5),
 /// before any object is matched.
 ///
 /// Without `info` Principal has no metadata (-05 §1.2.1: it "does not gain
@@ -1413,7 +1413,7 @@ fn metadata_matches(
 
 /// Conditional Foo/set (bd JMAP-y1yu.13): the whole store is one [`ScopedState`],
 /// so a scope isolates every type in every account, and an atomic rollback
-/// restores Principals, ShareNotifications, state strings and change logs together.
+/// restores Principals, `ShareNotification`s, state strings and change logs together.
 ///
 /// Commit checks nothing beyond what the handlers already check (see the
 /// crate README's conditional section).

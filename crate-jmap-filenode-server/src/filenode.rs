@@ -1,6 +1,6 @@
-//! FileNode/* method handlers (draft-ietf-jmap-filenode-20).
+//! [`FileNode`]/* method handlers (draft-ietf-jmap-filenode-20).
 //!
-//! Provides all six JMAP FileNode method handlers:
+//! Provides all six JMAP `FileNode` method handlers:
 //! - [`handle_filenode_get`]
 //! - [`handle_filenode_changes`]
 //! - [`handle_filenode_set`]
@@ -66,7 +66,7 @@ use jmap_server::{
 /// subtree deeper than `max`.
 ///
 /// draft-ietf-jmap-filenode-20 §2.1: `maxFileNodeDepth` is "The maximum
-/// number of levels in the FileNode hierarchy ... A FileNode may have at
+/// number of levels in the [`FileNode`] hierarchy ... A `FileNode` may have at
 /// most one fewer ancestors than this value, so 1 allows only top-level
 /// nodes", so a node directly under `parent_id` is at level
 /// ancestors(parent) + 2.
@@ -135,7 +135,7 @@ fn subtree_height(root: &Id, nodes: &[FileNode]) -> u64 {
     }
 }
 
-/// SetError for a write that would exceed `maxFileNodeDepth`:
+/// `SetError` for a write that would exceed `maxFileNodeDepth`:
 /// draft-ietf-jmap-filenode-20 §3.2.3 "invalidProperties" for "a create or
 /// move that would give the node, or any of its descendants, more
 /// ancestors than maxFileNodeDepth allows", naming `parentId` as
@@ -231,7 +231,7 @@ async fn conflicting_roles<B: FileNodeBackend>(
     Ok(conflicting)
 }
 
-/// The SetError for a create or update that would give `role` to a second
+/// The `SetError` for a create or update that would give `role` to a second
 /// Directory (draft-ietf-jmap-filenode-20 §3.1.4).
 fn role_taken(role: &str) -> Value {
     json!({
@@ -265,7 +265,7 @@ async fn first_with_role<B: FileNodeBackend>(
     Ok(ids.iter().find(|id| with_role.contains(*id)).cloned())
 }
 
-/// The SetError for destroying, renaming or moving the Directory `id`,
+/// The `SetError` for destroying, renaming or moving the Directory `id`,
 /// which has a role (draft-ietf-jmap-filenode-20 §5). A client "first
 /// clears its role".
 fn role_forbidden(id: &Id, action: &str) -> Value {
@@ -300,7 +300,7 @@ async fn discoverable_sibling<B: FileNodeBackend>(
     Ok(nodes.into_iter().find(|n| &n.id == existing_id))
 }
 
-/// The SetError for a name collision with a sibling the caller cannot
+/// The `SetError` for a name collision with a sibling the caller cannot
 /// discover. draft-ietf-jmap-filenode-20 §3.2.3 makes this "forbidden",
 /// and for `onExists` "replace" the server "MUST NOT destroy that node or
 /// reveal its id", so the error carries no `existingId`.
@@ -383,7 +383,7 @@ async fn discoverable_descendants<B: FileNodeBackend>(
     Ok(Some(descendants))
 }
 
-/// The `forbidden` SetError for a destroy, by `what`, that would remove
+/// The `forbidden` `SetError` for a destroy, by `what`, that would remove
 /// nodes the caller cannot discover (draft-ietf-jmap-filenode-20 §5). It
 /// names none of them: "The alternatives would be to reveal the ids of
 /// the hidden nodes, or to destroy data the user cannot see" (§10.4).
@@ -413,7 +413,7 @@ async fn first_refused<B: FileNodeBackend>(
     Ok(None)
 }
 
-/// The `forbidden` SetError for a destroy that
+/// The `forbidden` `SetError` for a destroy that
 /// [`FileNodeBackend::may_destroy`] refuses for node `id`.
 fn destroy_refused(id: &Id) -> Value {
     json!({
@@ -447,7 +447,7 @@ fn destroy_refused(id: &Id) -> Value {
 ///
 /// # Errors
 ///
-/// The SetError to report for the create. A destroy that fails part-way
+/// The `SetError` to report for the create. A destroy that fails part-way
 /// leaves the ids destroyed so far in `destroyed`.
 async fn replace_existing<B: FileNodeBackend>(
     backend: &B,
@@ -614,7 +614,7 @@ async fn ensure_filenode_supported<B: FileNodeBackend>(
 /// Unless `properties` excludes `myRights`, each Directory in `list` whose
 /// [`FileNodeBackend::files_rights`] is `Some` reports that value as its
 /// `myRights`, which draft-ietf-jmap-filenode-20 §3.1.2 makes "server-set".
-/// A File or SymLink has no `myRights` (-20 §5: "The user's rights on it
+/// A File or `SymLink` has no `myRights` (-20 §5: "The user's rights on it
 /// are those in its parent's myRights").
 ///
 /// For a node the caller can discover but not read, every property other
@@ -623,11 +623,11 @@ async fn ensure_filenode_supported<B: FileNodeBackend>(
 /// backend returned (draft-ietf-jmap-filenode-20 §5); the response marks
 /// them with [`HandlerOutput::with_unreadable`]. The node is unreadable
 /// when its rights (a Directory's [`FileNodeBackend::files_rights`] or
-/// returned `myRights`, a File's or SymLink's parent's) lack `mayRead`, or
-/// when it is a File or SymLink whose parent the caller cannot discover.
+/// returned `myRights`, a File's or `SymLink`'s parent's) lack `mayRead`, or
+/// when it is a File or `SymLink` whose parent the caller cannot discover.
 ///
 /// `using` is the request's capability list (pass
-/// [`jmap_server::CallContext::using`]). When the backend lists FileNode for
+/// [`jmap_server::CallContext::using`]). When the backend lists [`FileNode`] for
 /// draft-ietf-jmap-metadata-05 ([`JmapAccounts::metadata_info`](jmap_server::JmapAccounts::metadata_info)),
 /// `metadata` is returned as an object, by default only with
 /// `urn:ietf:params:jmap:metadata` in `using`, and with that capability
@@ -635,6 +635,18 @@ async fn ensure_filenode_supported<B: FileNodeBackend>(
 /// §3.1); see [`jmap_server::handle_get_with_metadata`].
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `ids` or `properties` is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `accountNotSupportedByMethod` when the account does not support
+///   `FileNode`;
+/// - `requestTooLarge` when `ids` holds more than `maxObjectsInGet` ids;
+/// - `serverFail` when the backend fails.
 pub async fn handle_filenode_get<B: FileNodeBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -818,7 +830,7 @@ fn defined_properties(node_type: Option<&NodeType>) -> Vec<&'static str> {
 /// not permit children has no myRights. The user's rights on it are those
 /// in its parent's myRights", and with a null `parentId` it "is
 /// discoverable only by the account owner, who has all rights on it". A
-/// File or SymLink whose parent the caller cannot discover has no ancestor
+/// File or `SymLink` whose parent the caller cannot discover has no ancestor
 /// granting `mayRead` (the first discoverability rule would make the
 /// parent discoverable), so it is unreadable too. Where no rights are
 /// known, the node counts as readable.
@@ -897,7 +909,7 @@ async fn unreadable_nodes<B: FileNodeBackend>(
 /// precondition on one is `forbidden`).
 ///
 /// ponytail: re-reads the listed nodes (and the parents of Files and
-/// SymLinks) with `get_objects`, since `properties` may have stripped the
+/// `SymLink`s) with `get_objects`, since `properties` may have stripped the
 /// `@type` and `parentId` this needs; one extra read per `FileNode/get`.
 async fn withhold_unreadable<B: FileNodeBackend>(
     backend: &B,
@@ -1064,7 +1076,7 @@ async fn report_files_rights<B: FileNodeBackend>(
     Ok(())
 }
 
-/// The SetError for a `parentId` naming `parent`, or `None` when it may be
+/// The `SetError` for a `parentId` naming `parent`, or `None` when it may be
 /// one.
 ///
 /// draft-ietf-jmap-filenode-20 §3.1.1: "The parent MUST be a node whose
@@ -1159,6 +1171,20 @@ async fn report_created_files_rights<B: FileNodeBackend>(
 /// without it metadata-only changes are left out (-05 §3).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `sinceState` is missing, `maxChanges` is not a positive integer, or
+///   `ignoreMetadataOnlyChanges` is not a boolean;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `accountNotSupportedByMethod` when the account does not support
+///   `FileNode`;
+/// - `cannotCalculateChanges` when the backend cannot compute the changes
+///   since `sinceState`;
+/// - `serverFail` when the backend fails.
 pub async fn handle_filenode_changes<B: FileNodeBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -1184,7 +1210,7 @@ enum OnExists {
     Rename,
 }
 
-/// The FileNode properties that hold the id of another record, which a
+/// The [`FileNode`] properties that hold the id of another record, which a
 /// client may set to a `#creationId` reference (RFC 8620 §5.3).
 const FILENODE_ID_PROPERTIES: &[&str] = &["parentId", "spaceId"];
 
@@ -1272,6 +1298,23 @@ const FILENODE_ID_PROPERTIES: &[&str] = &["parentId", "spaceId"];
 /// either in a create (-05 §3.2). The backend validates the rest.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `create`, `update`, `destroy` or `onExists` is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `accountNotSupportedByMethod` when the account does not support
+///   `FileNode`;
+/// - `requestTooLarge` when `create`, `update` and `destroy` together hold
+///   more than `maxObjectsInSet` objects;
+/// - `stateMismatch` when `ifInState` is not the current state;
+/// - `serverFail` when the backend fails.
+///
+/// A create, update or destroy that fails on its own is a
+/// [`SetError`](jmap_server::SetError) in the response, not an `Err`.
 pub async fn handle_filenode_set<B: FileNodeBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -1554,8 +1597,8 @@ async fn create_one<B: FileNodeBackend>(
     Ok(())
 }
 
-/// Check one `FileNode/set` create object and parse it into the FileNode
-/// to store, or return the SetError value for `notCreated`. Needs no
+/// Check one `FileNode/set` create object and parse it into the [`FileNode`]
+/// to store, or return the `SetError` value for `notCreated`. Needs no
 /// backend fact.
 fn node_from_create<B: FileNodeBackend>(
     ctx: &SetCtx<'_, B>,
@@ -1620,7 +1663,7 @@ fn node_from_create<B: FileNodeBackend>(
     Ok(node)
 }
 
-/// The `invalidProperties` SetError for a create entry that is not an
+/// The `invalidProperties` `SetError` for a create entry that is not an
 /// object, or lacks `@type` or `name`.
 fn create_shape_error(obj_with_id: &Value) -> Option<Value> {
     // RFC 8620 §5.3: a create entry that is not an object has no
@@ -1656,7 +1699,7 @@ fn create_shape_error(obj_with_id: &Value) -> Option<Value> {
 }
 
 /// The create checks that need the store: the File's blob (filling
-/// `sha256`), `maxFileNodeDepth` and the parent. Returns the SetError
+/// `sha256`), `maxFileNodeDepth` and the parent. Returns the `SetError`
 /// value for `notCreated`, or `None` to go on. A transient error looking
 /// the blob up is a top-level `serverFail`.
 async fn create_store_error<B: FileNodeBackend>(
@@ -1722,7 +1765,7 @@ async fn create_store_error<B: FileNodeBackend>(
 /// destroyed, or replaced, joins `acc.destroyed`.
 ///
 /// Returns the new name for "rename", `None` to go on unchanged, or the
-/// SetError value.
+/// `SetError` value.
 async fn name_collision<B: FileNodeBackend>(
     ctx: &SetCtx<'_, B>,
     parent: Option<&Id>,
@@ -1953,8 +1996,8 @@ async fn update_one<B: FileNodeBackend>(
     Ok(())
 }
 
-/// Parse one `FileNode/set` update entry into its id and PatchObject,
-/// with the checks that need no backend fact, or return the SetError
+/// Parse one `FileNode/set` update entry into its id and [`PatchObject`],
+/// with the checks that need no backend fact, or return the `SetError`
 /// value for `notUpdated`.
 fn parse_update<B: FileNodeBackend>(
     ctx: &SetCtx<'_, B>,
@@ -2028,7 +2071,7 @@ fn typed_patch_properties(patch: &PatchObject) -> Vec<(&str, NodeType, bool)> {
 
 /// The update checks against the stored node: fetch it when `patch`
 /// needs it, then the role, read-only, per-`@type` and null checks.
-/// Returns the stored node, if fetched and found, or the SetError value
+/// Returns the stored node, if fetched and found, or the `SetError` value
 /// for `notUpdated`. A missing node goes on, so `update_object` reports
 /// `notFound`.
 async fn update_stored_node<B: FileNodeBackend>(
@@ -2105,7 +2148,7 @@ async fn update_stored_node<B: FileNodeBackend>(
     Ok(stored_node)
 }
 
-/// The SetError value for an update of the stored `node` by `patch` that
+/// The `SetError` value for an update of the stored `node` by `patch` that
 /// breaks the role, read-only or per-`@type` rules, or `None`. `typed` is
 /// [`typed_patch_properties`] of `patch`.
 fn stored_node_error(
@@ -2163,12 +2206,12 @@ fn stored_node_error(
     None
 }
 
-/// The SetError value for an update of `id` whose `parentId` is not
+/// The `SetError` value for an update of `id` whose `parentId` is not
 /// `Id|null`, names the node itself or a parent that does not permit
 /// children, would create a cycle, or would break `maxFileNodeDepth`; or
 /// `None`.
 ///
-/// Introspection is on PatchObject's underlying typed map so what the
+/// Introspection is on [`PatchObject`]'s underlying typed map so what the
 /// cycle guard sees is byte-identical to what the backend will see via
 /// `update_object`.
 async fn update_parent_error<B: FileNodeBackend>(
@@ -2232,7 +2275,7 @@ async fn update_parent_error<B: FileNodeBackend>(
 }
 
 /// draft-ietf-jmap-filenode-20 maxFileNodeDepth applies to every node of
-/// the subtree of `id` moved under `new_parent_id`: the SetError value if
+/// the subtree of `id` moved under `new_parent_id`: the `SetError` value if
 /// it would be broken, or `None`. A move to the top level (parentId null)
 /// cannot deepen it, so it never gets here.
 async fn move_depth_error<B: FileNodeBackend>(
@@ -2303,12 +2346,12 @@ async fn update_collision<B: FileNodeBackend>(
     Ok(renamed)
 }
 
-/// draft-atwood-jmap-cid-00 §FileNode Extension: "When a
+/// draft-atwood-jmap-cid-00 §`FileNode` Extension: "When a
 /// `FileNode/set` ({{JMAP-FILENODE}}) create or update changes
 /// the associated blob, the server MUST update `sha256` to
 /// reflect the new blob content before returning the response."
 /// Sets `sha256` in `patch` when it sets `blobId`, and returns the new
-/// digest, or the SetError value for `notUpdated`.
+/// digest, or the `SetError` value for `notUpdated`.
 ///
 /// A null blobId was rejected before, so only a string is left. Without
 /// the capability the patch nulls sha256, so a digest of the old blob
@@ -2488,7 +2531,7 @@ impl DestroyPlan {
 /// `destroy_id_set` is destroyed by the same call.
 ///
 /// Returns the ids destroyed, deepest first and `id` last (a cascade that
-/// fails part-way still reports what it destroyed), and the SetError for
+/// fails part-way still reports what it destroyed), and the `SetError` for
 /// `id` if it was not destroyed.
 async fn destroy_one<B: FileNodeBackend>(
     backend: &B,
@@ -2681,7 +2724,7 @@ async fn destroy_one<B: FileNodeBackend>(
 /// the copy keeps the source's `metadata`, and its `privateMetadata` only
 /// with `urn:ietf:params:jmap:metadata` in `using` and when the
 /// destination supports it; neither is copied when the destination does
-/// not list FileNode ([`JmapAccounts::metadata_info`](jmap_server::JmapAccounts::metadata_info)).
+/// not list [`FileNode`] ([`JmapAccounts::metadata_info`](jmap_server::JmapAccounts::metadata_info)).
 /// The create object "MAY include metadata and privateMetadata to override
 /// the copied values, with the same rules as a create in Foo/set": the
 /// handler rejects them without the capability and rejects `null`, and
@@ -2693,11 +2736,28 @@ async fn destroy_one<B: FileNodeBackend>(
 /// `onSuccessDestroyOriginal` is true the extra list holds the implicit
 /// `FileNode/set` response (RFC 8620 §5.4, §6.3), or an `error` of type
 /// `stateMismatch` if `destroyFromIfInState` does not match the source
-/// account's FileNode state, in which case the originals are left untouched.
+/// account's `FileNode` state, in which case the originals are left untouched.
 /// -20 §3.2.4: the implicit call "has onDestroyRemoveChildren true", so it
 /// removes each original with its subtree and lists every removed id in
 /// `destroyed`; an original that is, or holds, a Directory with a role is
 /// left in place with `forbidden` (-20 §5).
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` or `fromAccountId` is missing or not
+///   a valid Id, or `create` or `onExists` is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `fromAccountNotFound` when the backend does not know `fromAccountId`;
+/// - `accountNotSupportedByMethod` or `fromAccountNotSupportedByMethod` when
+///   that account does not support `FileNode`;
+/// - `stateMismatch` when `ifFromInState` or `ifInState` is not the current
+///   state of its account;
+/// - `serverFail` when the backend fails.
+///
+/// An entry that fails on its own is a
+/// [`SetError`](jmap_server::SetError) in `notCreated`, not an `Err`.
 pub async fn handle_filenode_copy<B: FileNodeBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -3588,7 +3648,7 @@ fn parents_first_below(root: &Id, nodes: Vec<FileNode>) -> Vec<FileNode> {
 }
 
 /// Give the File copy `node` a blob in the destination account `to`, and
-/// the `sha256` of that blob (draft-atwood-jmap-cid-00 §FileNode
+/// the `sha256` of that blob (draft-atwood-jmap-cid-00 §`FileNode`
 /// Extension). Other nodes only lose any `sha256`.
 ///
 /// draft-ietf-jmap-filenode-20 §3.2.4: "For a File, the server copies the
@@ -3599,7 +3659,7 @@ fn parents_first_below(root: &Id, nodes: Vec<FileNode>) -> Vec<FileNode> {
 /// so it names a blob of the destination, which must exist there, as for a
 /// `FileNode/set` create.
 ///
-/// Returns the SetError for the copy on failure.
+/// Returns the `SetError` for the copy on failure.
 async fn copy_file_blob<B: FileNodeBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -3683,7 +3743,7 @@ async fn park<B: FileNodeBackend>(
 }
 
 /// Give a [`Parked`] node its name back after the copy failed, and return
-/// the SetError to report: `failure`, or a `serverFail` when the name
+/// the `SetError` to report: `failure`, or a `serverFail` when the name
 /// cannot be restored.
 async fn unpark<B: FileNodeBackend>(
     backend: &B,
@@ -3715,7 +3775,7 @@ fn name_patch(name: String) -> PatchObject {
 }
 
 /// Destroy a stored copy, `root_copy` and its descendants, after a later
-/// step of its entry failed, and return the SetError to report.
+/// step of its entry failed, and return the `SetError` to report.
 async fn remove_copy<B: FileNodeBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -3740,7 +3800,7 @@ async fn remove_copy<B: FileNodeBackend>(
 }
 
 /// Destroy `made` (the copies of one entry, parents first, `root_copy`
-/// first of all), deepest first, and return the SetError to report:
+/// first of all), deepest first, and return the `SetError` to report:
 /// `failure`, or a `serverFail` when some copies remain.
 async fn remove_copies<B: FileNodeBackend>(
     backend: &B,
@@ -3792,7 +3852,7 @@ async fn remove_copies<B: FileNodeBackend>(
 /// descendants succeeds or fails as a whole". [`FileNodeBackend`] stores one
 /// node per [`FileNodeBackend::copy_object`] call, so on a failure this
 /// destroys every copy made for the entry, the root's included, deepest
-/// first, and returns the SetError for the entry. Readers of the
+/// first, and returns the `SetError` for the entry. Readers of the
 /// destination can see the partial subtree until then, and the state
 /// advances even for a copy that is undone. The caller gives back the
 /// name of a node an `onExists` "replace" moved aside ([`unpark`]).
@@ -3858,7 +3918,7 @@ async fn copy_subtree<B: FileNodeBackend>(
 /// absent here; the caller then sets it to its default, the current server
 /// time (-20 §3.1).
 ///
-/// Returns the merged FileNode on success. On a malformed override
+/// Returns the merged [`FileNode`] on success. On a malformed override
 /// (e.g. wrong-shape `role`, malformed `nodeType`), returns an
 /// `invalidProperties`-shaped error Value suitable for `notCreated`; a
 /// serializer failure on `source` returns a `serverFail` Value instead.
@@ -3921,7 +3981,7 @@ fn merge_filenode_overrides(source: FileNode, override_val: &Value) -> Result<Fi
 /// `FileNode/set` create and `FileNode/copy` (draft-ietf-jmap-filenode-20
 /// §3.2.4: "the same additional errors as FileNode/set apply").
 ///
-/// Returns an `invalidProperties` SetError value naming the offending
+/// Returns an `invalidProperties` `SetError` value naming the offending
 /// property, or `None` if the node is acceptable for creation.
 fn create_type_error(node: &FileNode) -> Option<Value> {
     let (field, description) = match node.node_type.as_ref() {
@@ -3986,7 +4046,7 @@ fn create_type_error(node: &FileNode) -> Option<Value> {
 /// The `@type` that defines a type-specific property
 /// (draft-ietf-jmap-filenode-20 §3.1.2-§3.1.5), or `None` for a common or
 /// unknown property. The §3.1.2 container properties `isSubscribed` and
-/// `shareWith` are "defined for every FileNode whose @type permits
+/// `shareWith` are "defined for every [`FileNode`] whose @type permits
 /// children; of the types defined in this document, only \"Directory\"
 /// does" (`myRights` is server-set and rejected before this check).
 fn property_owner(property: &str) -> Option<NodeType> {
@@ -4017,7 +4077,7 @@ fn property_owner(property: &str) -> Option<NodeType> {
 /// their children at depth 1, and so on. [...] If null, there is no
 /// limit." (-20 §3.2.5). Absent or `null` delegates to
 /// [`jmap_server::handle_query`]; any other value that is not an
-/// UnsignedInt is `invalidArguments`.
+/// `UnsignedInt` is `invalidArguments`.
 ///
 /// With a `depth`, the handler queries without the window arguments, drops
 /// the ids deeper than `depth` (reading their ancestors with
@@ -4036,6 +4096,25 @@ fn property_owner(property: &str) -> Option<NodeType> {
 /// filter condition is `unsupportedFilter` (-05 §3).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `filter`, `sort`, `position`, `anchor`, `anchorOffset`, `limit` or
+///   `depth` is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `accountNotSupportedByMethod` when the account does not support
+///   `FileNode`;
+/// - `unsupportedFilter` when the filter does not decode as a `FileNode`
+///   filter, uses a metadata condition without
+///   `urn:ietf:params:jmap:metadata` in `using`, or the backend cannot
+///   process it;
+/// - `unsupportedSort` when the backend does not support the sort;
+/// - `anchorNotFound` when `anchor` is not in the results;
+/// - `serverFail` when the backend fails, or any other RFC 8620 §5.5 error
+///   the backend returns.
 pub async fn handle_filenode_query<B: FileNodeBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -4194,7 +4273,7 @@ async fn node_depths<B: FileNodeBackend>(
 /// FileNode/query, with the same meaning". A non-null `depth` is
 /// `cannotCalculateChanges` (RFC 8620 §5.6), matching the
 /// `canCalculateChanges: false` that [`handle_filenode_query`] returns for
-/// it; one that is not an UnsignedInt or null is `invalidArguments`.
+/// it; one that is not an `UnsignedInt` or null is `invalidArguments`.
 ///
 /// `using` is the request's capability list (pass
 /// [`jmap_server::CallContext::using`]); without
@@ -4202,6 +4281,23 @@ async fn node_depths<B: FileNodeBackend>(
 /// filter condition is `unsupportedFilter` (-05 §3).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `sinceQueryState` is missing, or `filter`, `sort`, `maxChanges`,
+///   `upToId` or `depth` is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `accountNotSupportedByMethod` when the account does not support
+///   `FileNode`;
+/// - `unsupportedFilter` or `unsupportedSort` as for
+///   [`handle_filenode_query`];
+/// - `cannotCalculateChanges` when `depth` is set or the backend cannot
+///   compute the changes since `sinceQueryState`;
+/// - `tooManyChanges` when there are more changes than `maxChanges`;
+/// - `serverFail` when the backend fails.
 pub async fn handle_filenode_query_changes<B: FileNodeBackend>(
     backend: &B,
     caller: &B::CallerCtx,

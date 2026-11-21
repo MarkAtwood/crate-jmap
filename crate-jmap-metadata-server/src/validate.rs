@@ -107,7 +107,7 @@ fn contains_malformed_binary(value: &Value) -> bool {
 /// draft-ietf-jmap-metadata-05 §2.1.
 ///
 /// Servers MUST reject writes that would exceed `maxDepth` with an
-/// `invalidProperties` SetError. `max_depth` is `u64` to match
+/// `invalidProperties` `SetError`. `max_depth` is `u64` to match
 /// [`DataTypeMetadataInfo::max_depth`], so a `Some(d)` passes straight
 /// through without a narrowing cast. A non-object value has depth 0 and
 /// never exceeds a `maxDepth` (which §1.2.1 requires to be at least 1),
@@ -176,12 +176,12 @@ pub fn is_namespace_supported(namespace: &str, info: &DataTypeMetadataInfo) -> b
 pub enum SetKind {
     /// A `create` entry: a complete object.
     Create,
-    /// An `update` entry: a PatchObject (RFC 8620 §5.3).
+    /// An `update` entry: a `PatchObject` (RFC 8620 §5.3).
     Update,
 }
 
 /// A metadata write that `Foo/set` rejects with an `invalidProperties`
-/// SetError (draft-ietf-jmap-metadata-05 §2.1, §3.2 rules 2 to 5).
+/// `SetError` (draft-ietf-jmap-metadata-05 §2.1, §3.2 rules 2 to 5).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InvalidMetadataWrite {
     property: String,
@@ -196,13 +196,13 @@ impl InvalidMetadataWrite {
         }
     }
 
-    /// The request key to list in the SetError's `properties`, such as
+    /// The request key to list in the `SetError`'s `properties`, such as
     /// `metadata` or `privateMetadata/acme.example.com`.
     pub fn property(&self) -> &str {
         &self.property
     }
 
-    /// A human-readable reason for the SetError's `description`.
+    /// A human-readable reason for the `SetError`'s `description`.
     pub fn description(&self) -> &str {
         &self.description
     }
@@ -232,10 +232,10 @@ fn metadata_target(key: &str) -> Option<(&str, Option<&str>)> {
 /// Check the metadata keys of one `Foo/set` entry against §3.2 rules 2
 /// and 3, before the backend applies the write.
 ///
-/// `entry` is the create object or the update PatchObject; keys for
+/// `entry` is the create object or the update `PatchObject`; keys for
 /// other properties are ignored. A create entry with a
 /// `metadata/...` or `privateMetadata/...` patch path is rejected: only an
-/// update is a PatchObject (RFC 8620 §5.3). `stored` is the object as stored
+/// update is a `PatchObject` (RFC 8620 §5.3). `stored` is the object as stored
 /// before an update, used for the §2.1.2 migration case, and [`None`]
 /// for a create. The checks, in the order -05 §3.2 requires:
 ///
@@ -389,19 +389,19 @@ fn json_equal(a: &Value, b: &Value) -> bool {
 /// Check §3.2 rules 4 and 5 and the §2.1 object rule for every namespace a
 /// `Foo/set` entry wrote, after the backend has applied the write.
 ///
-/// `entry` is the same create object or PatchObject passed to
+/// `entry` is the same create object or `PatchObject` passed to
 /// [`check_metadata_write`], and `written` is the object as it would be
 /// stored. For each supported namespace a metadata key of `entry`
 /// targets that is still present in `written`, the value must be a JSON
 /// object (§2.1: "The value associated with each namespace key MUST be
 /// a JSON object") whose depth does not exceed `info.max_depth` (§2.1:
 /// "servers MUST reject writes that would exceed it with an
-/// "invalidProperties" SetError"). Then, as §3.2 rule 5 of
+/// "invalidProperties" `SetError`"). Then, as §3.2 rule 5 of
 /// draft-ietf-jmap-metadata-05, no namespace value may contain a
 /// malformed Binary value (§2.1.1: "A Binary value that has any other
 /// member, or whose base64 member is not valid base64 with padding, is
 /// malformed"). Rule 4 is checked for every namespace before rule 5, as
-/// §3.2 requires ("the first matching rule determines the SetError").
+/// §3.2 requires ("the first matching rule determines the `SetError`").
 /// Unsupported namespaces are skipped: [`check_metadata_write`] has
 /// already limited them to removal or the stored value.
 ///

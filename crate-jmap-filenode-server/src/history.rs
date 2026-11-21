@@ -1,4 +1,4 @@
-//! Object history for FileNode (draft-ietf-jmap-object-history-03 with the
+//! Object history for [`FileNode`] (draft-ietf-jmap-object-history-03 with the
 //! -04 editor's copy changes; docs/design/object-history.md), in the shape
 //! of the canonical `jmap-mail-server` opt-in: each handler wraps the plain
 //! handler, which runs unchanged when no history argument is set.
@@ -115,7 +115,7 @@ async fn filenode_set_with_history<B: FileNodeBackend + ObjectHistoryBackend>(
     .await
 }
 
-/// [`register_filenode_handlers`], then the history-aware FileNode `/get`,
+/// [`register_filenode_handlers`], then the history-aware [`FileNode`] `/get`,
 /// `/set`, `/query` and `/queryChanges`, through
 /// `Dispatcher::register_history_aware` (docs/design/DECISIONS.md decision
 /// 1). Call `register_filenode_conditional` after it, if used.

@@ -1,4 +1,4 @@
-//! Object history for Calendar, CalendarEvent and ParticipantIdentity
+//! Object history for Calendar, [`CalendarEvent`] and [`ParticipantIdentity`]
 //! (draft-ietf-jmap-object-history-03 with the -04 editor's copy changes;
 //! docs/design/object-history.md), in the shape of the canonical
 //! `jmap-mail-server` opt-in: each handler wraps the type's plain handler,
@@ -185,10 +185,10 @@ pub async fn handle_participant_identity_set_with_history<
 }
 
 /// [`register_calendars_handlers`], then the history-aware `/get` and
-/// `/set` of Calendar, CalendarEvent and ParticipantIdentity and
-/// CalendarEvent `/query` and `/queryChanges`, through
+/// `/set` of Calendar, [`CalendarEvent`] and [`ParticipantIdentity`] and
+/// `CalendarEvent` `/query` and `/queryChanges`, through
 /// `Dispatcher::register_history_aware` (docs/design/DECISIONS.md decision
-/// 1). ParticipantIdentity's handlers are bound to the request's `using`,
+/// 1). `ParticipantIdentity`'s handlers are bound to the request's `using`,
 /// which the plain ones do not take. Call `register_calendars_conditional`
 /// after it, if used.
 pub fn register_calendars_handlers_with_history<B>(

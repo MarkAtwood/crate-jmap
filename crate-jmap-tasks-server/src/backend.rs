@@ -1,4 +1,4 @@
-//! TasksBackend trait and supporting types for JMAP Tasks method handlers.
+//! [`TasksBackend`] trait and supporting types for JMAP Tasks method handlers.
 //!
 //! Consumers implement [`TasksBackend`] for their storage system. The method
 //! handlers in sibling modules call into the backend through this trait.
@@ -29,7 +29,7 @@ use jmap_types::PatchObject;
 /// This trait is not object-safe by design (generic methods). Use
 /// `Arc<impl TasksBackend>` when sharing across tasks.
 pub trait TasksBackend: JmapBackend {
-    /// Create a new object (TaskList or Task).
+    /// Create a new object (`TaskList` or Task).
     ///
     /// # Authorisation contract
     ///
@@ -38,7 +38,7 @@ pub trait TasksBackend: JmapBackend {
     /// AGENTS.md "Permission enforcement: backend canonical". Implementors MUST
     /// verify that the principal identified by
     /// [`JmapAccounts::principal_id(caller)`](jmap_server::JmapAccounts::principal_id) has write
-    /// access to the target account / TaskList / Task before performing the
+    /// access to the target account / `TaskList` / Task before performing the
     /// mutation, and MUST return
     /// [`BackendSetError::SetError`] carrying
     /// [`SetErrorType::Forbidden`](jmap_server::SetErrorType::Forbidden) otherwise. Handlers in this crate do NO
@@ -46,19 +46,19 @@ pub trait TasksBackend: JmapBackend {
     /// only and the backend MUST re-verify atomically with the mutation. A
     /// backend that trusts the handler is a bug. A backend whose
     /// `principal_id` returns `None` permits every write (fail-open,
-    /// bd:JMAP-bghk) and CANNOT correctly implement TaskList ACLs or
+    /// bd:JMAP-bghk) and CANNOT correctly implement `TaskList` ACLs or
     /// per-user scoping.
     ///
     /// ## `mayWriteOwn` and task owners
     ///
-    /// For a Task, write access is the TaskList's `mayWriteAll` right, or
+    /// For a Task, write access is the `TaskList`'s `mayWriteAll` right, or
     /// its `mayWriteOwn` right when the caller is an owner of the task or
     /// the task has no owner (draft-ietf-jmap-tasks-06 §3 `mayWriteOwn`).
     /// Who the owner is follows JMAP Calendars (jmapio/jmap #461, PR #462;
     /// draft-ietf-jmap-calendars-34 §4), not -06's "participant"/"chair"
     /// text: decide it with [`jmap_tasks_types::is_task_owner`] and
     /// [`jmap_tasks_types::task_has_owner`], passing the `calendarAddress`
-    /// of each of the caller's ParticipantIdentity objects in the account.
+    /// of each of the caller's `ParticipantIdentity` objects in the account.
     /// A participant with the `"owner"` role whose `calendarAddress` is one
     /// of those makes the caller an owner; a task whose `participants` is
     /// null or omitted, or has no `"owner"` participant, has no owner.
@@ -76,7 +76,7 @@ pub trait TasksBackend: JmapBackend {
     /// For create these are `forbidden`, `overQuota`, `tooLarge`,
     /// `rateLimit` and `invalidProperties`. An `invalidProperties` error
     /// SHOULD name in `properties` "*all* the properties that were
-    /// invalid", for example `taskListId` when a Task names a TaskList that
+    /// invalid", for example `taskListId` when a Task names a `TaskList` that
     /// does not exist.
     ///
     /// Return [`BackendSetError::Other`] only for unexpected storage
@@ -177,7 +177,7 @@ pub trait TasksBackend: JmapBackend {
     ///
     /// # Patch format
     ///
-    /// `patch` is an RFC 8620 §5.3 PatchObject, not an RFC 7396 JSON
+    /// `patch` is an RFC 8620 §5.3 [`PatchObject`], not an RFC 7396 JSON
     /// Merge Patch: "The keys are a path in JSON Pointer format
     /// \[RFC6901\], with an implicit leading "/"". So `{"a/b": null}`
     /// removes member `b` of property `a`; it does not touch a top-level
@@ -317,7 +317,7 @@ pub trait TasksBackend: JmapBackend {
     ///
     /// This is a read-side probe that informs a destroy decision the caller is
     /// already authorised to attempt; implementors MAY assume the caller has at
-    /// least read access to the target TaskList (the surrounding `/set` flow
+    /// least read access to the target `TaskList` (the surrounding `/set` flow
     /// re-validates write access in [`Self::destroy_object`]). Backends that
     /// scope task visibility per-principal MUST filter by the caller's effective
     /// access — a counter that includes tasks the caller cannot see leaks
@@ -348,7 +348,7 @@ pub trait TasksBackend: JmapBackend {
     ///
     /// Implementors MUST verify that the caller may modify per-user properties
     /// on the target Task and MUST return [`BackendSetError::SetError`] with
-    /// [`SetErrorType::Forbidden`](jmap_server::SetErrorType::Forbidden) otherwise. That is the TaskList's
+    /// [`SetErrorType::Forbidden`](jmap_server::SetErrorType::Forbidden) otherwise. That is the `TaskList`'s
     /// `mayUpdatePrivate` right, which covers exactly the per-user properties
     /// of draft-ietf-jmap-tasks-06 §4.5.1
     /// ([`jmap_tasks_types::PER_USER_TASK_PROPERTIES`]), as jmapio/jmap
@@ -435,7 +435,7 @@ pub trait TasksBackend: JmapBackend {
     ///
     /// When `args.expand_recurrences` is `true`, return one id per
     /// instance of a recurring task inside the filter's `after` / `before`
-    /// window; the handler has checked the filter is one FilterCondition
+    /// window; the handler has checked the filter is one `FilterCondition`
     /// with both. A synthetic instance id is opaque to the client and must
     /// resolve in `Task/get` and `Task/set` (calendars-34 §5.11). With
     /// `expand_recurrences` `false`, a recurring task is one id.
@@ -493,7 +493,7 @@ pub trait TasksBackend: JmapBackend {
 pub struct TaskQueryArgs {
     /// `expandRecurrences` (default `false`): return one id per instance
     /// of a recurring task. The handler has checked that the filter is one
-    /// FilterCondition with both `before` and `after`.
+    /// `FilterCondition` with both `before` and `after`.
     pub expand_recurrences: bool,
     /// `timeZone` (default `"Etc/UTC"` when `None`): the zone for the
     /// `after` / `before` conditions and for floating tasks when filtering

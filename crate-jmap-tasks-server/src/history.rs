@@ -1,4 +1,4 @@
-//! Object history for TaskList and Task (TaskNotification has no history, decision 22)
+//! Object history for [`TaskList`] and Task (`TaskNotification` has no history, decision 22)
 //! (draft-ietf-jmap-object-history-03 with the -04 editor's copy changes;
 //! docs/design/object-history.md), in the shape of the canonical
 //! `jmap-mail-server` opt-in: each handler wraps the type's plain handler,
@@ -114,8 +114,8 @@ pub async fn handle_task_query_changes_with_history<B: TasksBackend + ObjectHist
 
 /// `Task/set` with `restore` (§5.1), then
 /// [`handle_task_set`]. A restore whose `taskListId` names a
-/// destroyed TaskList fails as an update would; restore the
-/// TaskList in an earlier call (§5.2). Task/copy mints fresh ids, never
+/// destroyed [`TaskList`] fails as an update would; restore the
+/// `TaskList` in an earlier call (§5.2). Task/copy mints fresh ids, never
 /// one of a destroyed Task with history (§5.1).
 ///
 /// # Errors
@@ -135,7 +135,7 @@ pub async fn handle_task_set_with_history<B: TasksBackend + ObjectHistoryBackend
 }
 
 /// [`register_tasks_handlers`], then the history-aware `/get` and `/set`
-/// of TaskList and Task (TaskNotification has no history, decision 22) and Task `/query` and
+/// of [`TaskList`] and Task (`TaskNotification` has no history, decision 22) and Task `/query` and
 /// `/queryChanges`, through `Dispatcher::register_history_aware`
 /// (docs/design/DECISIONS.md decision 1). Call
 /// `register_tasks_conditional` after it, if used.

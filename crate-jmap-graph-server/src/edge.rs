@@ -1,9 +1,9 @@
-//! GraphEdge/* method handlers (draft-atwood-jmap-graph-00 §GraphEdge
+//! [`GraphEdge`]/* method handlers (draft-atwood-jmap-graph-00 §`GraphEdge`
 //! Methods).
 //!
 //! `/get` hides the edges of a Graph the caller may not read; `/changes` is
 //! the standard RFC 8620 §5.2 method; `/query` and `/queryChanges` require
-//! a single FilterCondition with `graphId`. `/set` requires `mayWrite` on
+//! a single `FilterCondition` with `graphId`. `/set` requires `mayWrite` on
 //! the edge's Graph and checks that `fromId` and `toId` name nodes of that
 //! Graph.
 
@@ -48,8 +48,8 @@ fn validate(m: &Map<String, Value>, cap: &GraphCapability) -> Result<(), Value> 
 }
 
 /// "The server MUST verify that each of `fromId` and `toId` identifies an
-/// existing GraphNode in the edge's Graph. If either does not, the server
-/// MUST reject the operation with an `invalidProperties` SetError naming
+/// existing [`GraphNode`] in the edge's Graph. If either does not, the server
+/// MUST reject the operation with an `invalidProperties` `SetError` naming
 /// the failing property. The server SHOULD NOT distinguish a node that does
 /// not exist from a node in another Graph in this error." Checks the
 /// properties of `which` in edge `m`.
@@ -88,6 +88,16 @@ async fn check_endpoints<B: GraphBackend>(
 
 /// Handle `GraphEdge/get`: standard RFC 8620 §5.1 `/get`, with the edges of
 /// a Graph the caller may not read reported in `notFound`.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `ids` or `properties` is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `ids` holds more than `maxObjectsInGet` ids;
+/// - `serverFail` when the backend fails.
 pub async fn handle_graph_edge_get<B: GraphBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -97,6 +107,17 @@ pub async fn handle_graph_edge_get<B: GraphBackend>(
 }
 
 /// Handle `GraphEdge/changes`: standard RFC 8620 §5.2 `/changes`.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `sinceState` is missing, or `maxChanges` is not a positive integer;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `cannotCalculateChanges` when the backend cannot compute the changes
+///   since `sinceState`;
+/// - `serverFail` when the backend fails.
 pub async fn handle_graph_edge_changes<B: GraphBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -112,6 +133,24 @@ pub async fn handle_graph_edge_changes<B: GraphBackend>(
 /// ([`crate::query::edge_matches`]) and omits the edges of a Graph the
 /// caller may not read. The draft-atwood-jmap-graph-search-00 properties
 /// are handled as for [`crate::handle_graph_node_query`].
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, when
+///   `filter`, `sort`, `position`, `anchor`, `anchorOffset` or `limit` is
+///   malformed, or when a search `where` is not well-formed or only one of
+///   `language` and `expression` is present;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `unsupportedFilter` when there is no filter, the filter is a
+///   `FilterOperator` or lacks `graphId`, or it uses provenance or search
+///   properties the account does not support or values the search
+///   capability rejects;
+/// - `unsupportedSort` when `sort` names a property other than `created` and
+///   `updated`;
+/// - `serverFail` when the backend fails, or any other RFC 8620 §5.5 error
+///   the backend returns.
 pub async fn handle_graph_edge_query<B: GraphBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -130,6 +169,22 @@ pub async fn handle_graph_edge_query<B: GraphBackend>(
 /// `/query` filter and sort rules; a search filter is
 /// `cannotCalculateChanges` (draft-atwood-jmap-graph-search-00 §Query
 /// Changes).
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `sinceQueryState` is missing, or `filter`, `sort`, `maxChanges` or
+///   `upToId` is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `unsupportedFilter` or `unsupportedSort` as for
+///   [`handle_graph_edge_query`];
+/// - `cannotCalculateChanges` when the filter uses
+///   draft-atwood-jmap-graph-search-00 or the backend cannot compute the
+///   changes since `sinceQueryState`;
+/// - `tooManyChanges` when there are more changes than `maxChanges`;
+/// - `serverFail` when the backend fails.
 pub async fn handle_graph_edge_query_changes<B: GraphBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -149,7 +204,7 @@ pub async fn handle_graph_edge_query_changes<B: GraphBackend>(
 /// "Creating, updating, or destroying an edge requires `mayWrite` on its
 /// Graph." On create "`graphId`, `fromId`, and `toId` are required, with
 /// `graphId` validated as for GraphNode/set"; the create, and an update
-/// that changes `fromId` or `toId`, checks that each names a GraphNode of
+/// that changes `fromId` or `toId`, checks that each names a [`GraphNode`] of
 /// the edge's Graph. `graphId` is immutable. "Destroying an edge does not
 /// affect its nodes."
 ///
@@ -158,6 +213,21 @@ pub async fn handle_graph_edge_query_changes<B: GraphBackend>(
 /// [`jmap_server::CallContext::created_ids`]; draft-atwood-jmap-graph-00
 /// §GraphEdge/set, RFC 8620 §5.3); an unknown reference is `invalidProperties`
 /// naming the property.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `destroy` is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `create`, `update` and `destroy` together hold
+///   more than `maxObjectsInSet` objects;
+/// - `stateMismatch` when `ifInState` is not the current state;
+/// - `serverFail` when the backend fails.
+///
+/// A create, update or destroy that fails on its own is a
+/// [`SetError`](jmap_server::SetError) in the response, not an `Err`.
 pub async fn handle_graph_edge_set<B: GraphBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -170,7 +240,7 @@ pub async fn handle_graph_edge_set<B: GraphBackend>(
 struct EdgeSet;
 
 /// draft-atwood-jmap-graph-provenance-00 §Retraction: "The server rejects,
-/// with a `forbidden` SetError, a `GraphEdge/set` that would create,
+/// with a `forbidden` `SetError`, a `GraphEdge/set` that would create,
 /// update, or destroy an edge whose `fromId` is, or would become, a
 /// retracted record". `from_ids` are the edge's `fromId` before and after;
 /// one that names no node the caller can fetch is left to the endpoint

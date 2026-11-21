@@ -1,4 +1,4 @@
-//! GraphNodeOp/* and GraphNode/cursor method handlers
+//! [`GraphNodeOp`]/* and GraphNode/cursor method handlers
 //! (draft-atwood-jmap-graph-edit-00 §Methods, §GraphNode/cursor).
 //!
 //! Every handler here answers `accountNotSupportedByMethod` for an account
@@ -7,7 +7,7 @@
 //!
 //! `/get` and `/changes` are standard and need `mayRead` on the op's
 //! Graph; `/set` is create-only and leaves sequencing to the backend;
-//! `/query` and `/queryChanges` take a single FilterCondition with
+//! `/query` and `/queryChanges` take a single `FilterCondition` with
 //! `nodeId` and sort by `seq` ascending only; `/query` answers
 //! `opsCompacted` when the result would not be contiguous with `afterSeq`.
 
@@ -80,6 +80,18 @@ async fn editable_node<B: GraphBackend>(
 /// Handle `GraphNodeOp/get`: standard RFC 8620 §5.1 `/get`; "Both require
 /// `mayRead` on the op's Graph", so an op of a Graph the caller may not
 /// read is in `notFound`.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `ids` or `properties` is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `accountNotSupportedByMethod` when the account lacks the
+///   `urn:ietf:params:jmap:graph:edit` capability;
+/// - `requestTooLarge` when `ids` holds more than `maxObjectsInGet` ids;
+/// - `serverFail` when the backend fails.
 pub async fn handle_graph_node_op_get<B: GraphBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -92,6 +104,19 @@ pub async fn handle_graph_node_op_get<B: GraphBackend>(
 /// Handle `GraphNodeOp/changes`: standard RFC 8620 §5.2 `/changes`.
 /// Compacted ops and the ops of a destroyed node or Graph are reported
 /// as destroyed.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `sinceState` is missing, or `maxChanges` is not a positive integer;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `accountNotSupportedByMethod` when the account lacks the
+///   `urn:ietf:params:jmap:graph:edit` capability;
+/// - `cannotCalculateChanges` when the backend cannot compute the changes
+///   since `sinceState`;
+/// - `serverFail` when the backend fails.
 pub async fn handle_graph_node_op_changes<B: GraphBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -102,7 +127,7 @@ pub async fn handle_graph_node_op_changes<B: GraphBackend>(
 }
 
 /// The `/query` and `/queryChanges` filter and sort checks: "The `filter`
-/// argument MUST be a single FilterCondition, not a FilterOperator, and
+/// argument MUST be a single `FilterCondition`, not a `FilterOperator`, and
 /// MUST include `nodeId`; a server receiving any other filter, or no
 /// filter, rejects the call with an `unsupportedFilter` error", and "The
 /// only supported sort is `seq` ascending" (`unsupportedSort` otherwise).
@@ -135,6 +160,24 @@ fn op_filter(args: &Value) -> Result<GraphNodeOpFilterCondition, JmapError> {
 /// `afterSeq` then means no op the query could return had been destroyed.
 /// A node the caller may not read gets no `opsCompacted`, so the error
 /// does not reveal it; the backend omits its ops.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `sort`, `position`, `anchor`, `anchorOffset` or `limit` is
+///   malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `accountNotSupportedByMethod` when the account lacks the
+///   `urn:ietf:params:jmap:graph:edit` capability;
+/// - `unsupportedFilter` when there is no filter, or it is not a single
+///   condition with `nodeId`;
+/// - `unsupportedSort` when `sort` is anything but `seq` ascending;
+/// - `opsCompacted` when the node is readable and ops after `afterSeq` have
+///   been compacted;
+/// - `serverFail` when the backend fails, or any other RFC 8620 §5.5 error
+///   the backend returns.
 pub async fn handle_graph_node_op_query<B: GraphBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -174,6 +217,23 @@ pub async fn handle_graph_node_op_query<B: GraphBackend>(
 
 /// Handle `GraphNodeOp/queryChanges`: standard RFC 8620 §5.6, with the
 /// `/query` filter and sort rules.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `sinceQueryState` is missing, or `sort`, `maxChanges` or `upToId` is
+///   malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `accountNotSupportedByMethod` when the account lacks the
+///   `urn:ietf:params:jmap:graph:edit` capability;
+/// - `unsupportedFilter` or `unsupportedSort` as for
+///   [`handle_graph_node_op_query`];
+/// - `cannotCalculateChanges` when the backend cannot compute the changes
+///   since `sinceQueryState`;
+/// - `tooManyChanges` when there are more changes than `maxChanges`;
+/// - `serverFail` when the backend fails.
 pub async fn handle_graph_node_op_query_changes<B: GraphBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -186,7 +246,7 @@ pub async fn handle_graph_node_op_query_changes<B: GraphBackend>(
 
 /// Handle `GraphNodeOp/set` (draft-atwood-jmap-graph-edit-00
 /// §GraphNodeOp/set): "a standard `/set` method ..., restricted to
-/// create". "An update or destroy is rejected with a `forbidden` SetError".
+/// create". "An update or destroy is rejected with a `forbidden` [`SetError`]".
 ///
 /// A create needs `nodeId`, `baseSeq` and `data`. It is `invalidProperties`
 /// naming `nodeId` "if `nodeId` does not identify a node the user may read
@@ -198,10 +258,27 @@ pub async fn handle_graph_node_op_query_changes<B: GraphBackend>(
 /// old." The backend assigns the `seq` ([`GraphBackend::create_object`]);
 /// the `created` entry carries every server-set property.
 ///
-/// `nodeId` may be a `#creationId` reference to a GraphNode created earlier
+/// `nodeId` may be a `#creationId` reference to a [`GraphNode`] created earlier
 /// in the request, resolved against `created_ids` (pass
 /// [`jmap_server::CallContext::created_ids`]; RFC 8620 §5.3); an unknown
 /// reference is `invalidProperties` naming `nodeId`.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `destroy` is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `accountNotSupportedByMethod` when the account lacks the
+///   `urn:ietf:params:jmap:graph:edit` capability;
+/// - `requestTooLarge` when `create`, `update` and `destroy` together hold
+///   more than `maxObjectsInSet` objects;
+/// - `stateMismatch` when `ifInState` is not the current state;
+/// - `serverFail` when the backend fails.
+///
+/// A create, update or destroy that fails on its own is a [`SetError`] in
+/// the response, not an `Err`.
 pub async fn handle_graph_node_op_set<B: GraphBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -362,6 +439,19 @@ fn immutable() -> Value {
 /// [`JmapAccounts::principal_id`], handed to
 /// [`GraphBackend::publish_cursor`]. "The response has the arguments
 /// `accountId` and `nodeId` only."
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId`, `nodeId` or `data` is missing,
+///   `nodeId` does not identify a readable node whose `editFormat` is not
+///   `null`, or `data` is not base64url or decodes to more than
+///   `maxCursorSize` octets;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `accountNotSupportedByMethod` when the account lacks the
+///   `urn:ietf:params:jmap:graph:edit` capability;
+/// - `serverFail` when the backend fails.
 pub async fn handle_graph_node_cursor<B: GraphBackend>(
     backend: &B,
     caller: &B::CallerCtx,

@@ -4,7 +4,7 @@
 //! `MemoryBackend`s call from their `query_objects` matchers to evaluate
 //! the six metadata filter conditions:
 //!
-//! | FilterCondition field          | Helper                                            |
+//! | `FilterCondition` field          | Helper                                            |
 //! |-------------------------------|---------------------------------------------------|
 //! | `metadataExists`              | [`metadata_path_exists`]`(&obj.metadata, path)`   |
 //! | `privateMetadataExists`       | [`metadata_path_exists`]`(&obj.private, path)`    |
@@ -169,7 +169,7 @@ pub fn metadata_path_exists(map: &Map<String, Value>, path: &str) -> bool {
 /// `privateMetadataTextContains`).
 ///
 /// Both strings are prepared as RFC 5051 §2 describes, then compared as
-/// octets: each code point is replaced by its UnicodeData titlecase
+/// octets: each code point is replaced by its `UnicodeData` titlecase
 /// mapping, then by its full compatibility decomposition. Characters are
 /// not re-cased after decomposition, so U+FB01 LATIN SMALL LIGATURE FI
 /// prepares to lowercase `fi` and does not contain `fi`, which prepares
@@ -216,7 +216,7 @@ pub fn metadata_text_contains(map: &Map<String, Value>, text_match: &MetadataTex
 /// two strings are equal under the collation exactly when their prepared
 /// forms are equal. Besides [`metadata_text_contains`], draft-ietf-jmap-
 /// filenode-20 §1.1 uses this collation for every case-insensitive name
-/// comparison, so FileNode backends share this function.
+/// comparison, so `FileNode` backends share this function.
 ///
 /// # Examples
 ///

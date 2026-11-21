@@ -1,10 +1,10 @@
 //! Hand-rolled POSIX ustar (`application/x-tar`) for the memory backend
 //! (decision 13: archive and extract only, no new dependencies).
 //!
-//! An ArchiveRecipe is checked and planned when `Blob/convert` runs
+//! An [`ArchiveRecipe`] is checked and planned when `Blob/convert` runs
 //! ([`plan_archive`]), so every per-entry error is reported then; the
 //! octets are built later, when the deferred result is first read
-//! ([`build_tar`]). [`parse_tar`] lists an archive for an ExtractRecipe.
+//! ([`build_tar`]). [`parse_tar`] lists an archive for an `ExtractRecipe`.
 //!
 //! Format: POSIX.1-1988 ustar (IEEE Std 1003.1, `pax` "ustar Interchange
 //! Format"): 512-octet header blocks, content padded to 512 octets, two
@@ -292,7 +292,7 @@ pub(super) fn build_tar(
 }
 
 /// `true` when `bytes` starts with a ustar header (magic `ustar` at
-/// offset 257): the auto-detection of an ExtractRecipe with a null `type`.
+/// offset 257): the auto-detection of an `ExtractRecipe` with a null `type`.
 pub(super) fn looks_like_tar(bytes: &[u8]) -> bool {
     bytes.get(257..262) == Some(b"ustar")
 }

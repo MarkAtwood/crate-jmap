@@ -1,4 +1,4 @@
-//! SharingBackend trait and supporting types for JMAP Sharing method handlers.
+//! [`SharingBackend`] trait and supporting types for JMAP Sharing method handlers.
 //!
 //! Consumers implement [`SharingBackend`] for your storage system. The method
 //! handlers in sibling modules call into the backend through this trait.
@@ -43,7 +43,7 @@ use jmap_server::{BackendSetError, JmapBackend, JmapObject, SetObject};
 /// supertrait impl returns `None`, which signals "this deployment does
 /// not honor identity-dependent JMAP semantics". A backend that leaves
 /// the default in place CANNOT correctly implement RFC 9670 `myRights`
-/// semantics: every Principal / ShareNotification read SHOULD be
+/// semantics: every Principal / `ShareNotification` read SHOULD be
 /// authorized against the caller's effective rights on the target
 /// principal, and a `None` caller removes the authorization input.
 ///
@@ -80,7 +80,7 @@ pub trait SharingBackend: JmapBackend {
     /// AGENTS.md "Permission enforcement: backend canonical". Implementors MUST
     /// check that the principal identified by
     /// [`JmapAccounts::principal_id(caller)`](jmap_server::JmapAccounts::principal_id) has write access to the target
-    /// account / Principal / ShareNotification
+    /// account / Principal / `ShareNotification`
     /// inside the same atomic boundary as the write, and MUST return
     /// [`BackendSetError::SetError`] carrying
     /// [`SetErrorType::Forbidden`](jmap_server::SetErrorType::Forbidden) otherwise. Handlers in this crate do NO
@@ -124,13 +124,13 @@ pub trait SharingBackend: JmapBackend {
     ///   compatibility.
     /// - **Other storage failure**: return
     ///   `BackendSetError::Other(your_error_type)`; the handler maps
-    ///   this to a `serverFail` SetError on the wire.
+    ///   this to a `serverFail` `SetError` on the wire.
     ///
     /// # State-mutation contract
     ///
     /// - The state counter (`get_state::<O>`) MUST advance only if the
-    ///   create commits. A failure path (Forbidden, InvalidProperties,
-    ///   OverQuota, storage error) MUST leave the state unchanged.
+    ///   create commits. A failure path (`Forbidden`, `InvalidProperties`,
+    ///   `OverQuota`, storage error) MUST leave the state unchanged.
     /// - The change log (`get_changes::<O>`) MUST record a `created`
     ///   entry for the assigned id atomically with the state advance.
     ///   A reader calling `/changes` after a successful create MUST
@@ -174,12 +174,11 @@ pub trait SharingBackend: JmapBackend {
     ///    deduplication key. This is OPTIONAL; the handler does NOT
     ///    enforce idempotency.
     ///
-    /// `create_id` is NOT used for `#cid` ResultReference resolution
+    /// `create_id` is NOT used for `#cid` `ResultReference` resolution
     /// (RFC 8620 §3.7). That resolution operates on the `/set` response's
     /// `created` map (keyed by `create_id`) inside the
     /// [`jmap_server::Dispatcher`], not on the backend's input. Backends
     /// have no need to participate in `#cid` resolution.
-    /// [`jmap_server::Dispatcher`]: jmap_server::Dispatcher
     ///
     /// # Id assignment
     ///
@@ -273,13 +272,13 @@ pub trait SharingBackend: JmapBackend {
     ///   detect this race may surface it here.
     /// - **Other storage failure**: return
     ///   `BackendSetError::Other(your_error_type)`; the handler maps
-    ///   this to a `serverFail` SetError on the wire.
+    ///   this to a `serverFail` `SetError` on the wire.
     ///
     /// # State-mutation contract
     ///
     /// - The state counter (`get_state::<O>`) MUST advance only if
-    ///   the update commits. A failure path (NotFound, Forbidden,
-    ///   InvalidPatch, InvalidProperties, OverQuota, storage error)
+    ///   the update commits. A failure path (`NotFound`, `Forbidden`,
+    ///   `InvalidPatch`, `InvalidProperties`, `OverQuota`, storage error)
     ///   MUST leave the state unchanged.
     /// - The change log (`get_changes::<O>`) MUST record an
     ///   `updated` entry for the id atomically with the state
@@ -301,7 +300,7 @@ pub trait SharingBackend: JmapBackend {
     ///
     /// # Patch format
     ///
-    /// `patch` is an RFC 8620 §5.3 PatchObject, not an RFC 7396 JSON
+    /// `patch` is an RFC 8620 §5.3 `PatchObject`, not an RFC 7396 JSON
     /// Merge Patch: "The keys are a path in JSON Pointer format
     /// \[RFC6901\], with an implicit leading "/"". So `{"a/b": null}`
     /// removes member `b` of property `a`; it does not touch a top-level
@@ -331,7 +330,7 @@ pub trait SharingBackend: JmapBackend {
         patch: O::Patch,
     ) -> impl std::future::Future<Output = Result<Option<O>, BackendSetError<Self::Error>>> + Send;
 
-    /// Destroy a Principal or ShareNotification by id.
+    /// Destroy a Principal or `ShareNotification` by id.
     ///
     /// # Authorisation contract
     ///
@@ -365,12 +364,12 @@ pub trait SharingBackend: JmapBackend {
     ///   reference `memory::MemoryBackend` does) is RECOMMENDED.
     /// - **Other storage failure**: return
     ///   `BackendSetError::Other(your_error_type)`; the handler maps
-    ///   this to a `serverFail` SetError on the wire.
+    ///   this to a `serverFail` `SetError` on the wire.
     ///
     /// # State-mutation contract
     ///
     /// - The state counter (`get_state::<O>`) MUST advance only if the
-    ///   destroy commits. A failure path (NotFound, Forbidden, storage
+    ///   destroy commits. A failure path (`NotFound`, `Forbidden`, storage
     ///   error) MUST leave the state unchanged.
     /// - The change log (`get_changes::<O>`) MUST record a `destroyed`
     ///   entry for the id atomically with the state advance. A reader

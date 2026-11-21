@@ -1,4 +1,4 @@
-//! GraphBackend trait for the JMAP Graph method handlers.
+//! [`GraphBackend`] trait for the JMAP Graph method handlers.
 //!
 //! Read-side operations (`get_objects`, `get_state`, `get_changes`,
 //! `query_objects`, `query_changes`) are defined on the
@@ -15,7 +15,7 @@ use jmap_graph_types::GraphSearchCapability;
 use jmap_graph_types::{GraphCapability, GraphEditCapability};
 
 /// The internal bounds of one node's edit log
-/// (draft-atwood-jmap-graph-edit-00 §GraphNode Extensions): "The server
+/// (draft-atwood-jmap-graph-edit-00 §`GraphNode` Extensions): "The server
 /// tracks the head of each node's edit log, and the lowest `seq` it still
 /// holds, internally."
 ///
@@ -49,7 +49,7 @@ impl EditLog {
 /// # Rights (draft §Graph, §Security Considerations)
 ///
 /// "The Graph is the unit of access": a user's rights on a Graph cover
-/// every GraphNode and GraphEdge in it. [`JmapReads::get_objects`](jmap_server::JmapReads::get_objects) for
+/// every `GraphNode` and `GraphEdge` in it. [`JmapReads::get_objects`](jmap_server::JmapReads::get_objects) for
 /// `Graph` MUST return each Graph with `myRights` and `isSubscribed` as
 /// they are for this caller ("The owner of the account that holds the
 /// Graph implicitly has all rights"; `isSubscribed` is per user, RFC 9670
@@ -63,7 +63,7 @@ impl EditLog {
 /// from [`JmapAccounts::principal_id`](jmap_server::JmapAccounts::principal_id).
 ///
 /// `query_objects` SHOULD omit every Graph the caller may not read and
-/// every GraphNode and GraphEdge in one: "A Graph the user may not read
+/// every `GraphNode` and `GraphEdge` in one: "A Graph the user may not read
 /// SHOULD be indistinguishable from one that does not exist: ...
 /// absence from `/query` results" (draft §Security Considerations).
 /// `query_changes` is filtered for the same caller, not per account:
@@ -87,17 +87,17 @@ impl EditLog {
 ///
 /// # Sharing
 ///
-/// `shareWith` follows RFC 9670, whose Principal and ShareNotification
+/// `shareWith` follows RFC 9670, whose Principal and `ShareNotification`
 /// methods live in `jmap-sharing-server`. A backend that supports sharing
 /// validates `shareWith` (each Principal's `mayShareWith`) and creates the
-/// ShareNotifications of a change; "the `name` of each resulting
-/// ShareNotification ... is the Graph's `name`", and its `objectType` is
+/// `ShareNotification`s of a change; "the `name` of each resulting
+/// `ShareNotification` ... is the Graph's `name`", and its `objectType` is
 /// `"Graph"`.
 ///
 /// # Live editing (draft-atwood-jmap-graph-edit-00)
 ///
 /// A backend that returns `Some` from [`Self::graph_edit_capability`]
-/// stores GraphNodeOp objects through the generic methods:
+/// stores `GraphNodeOp` objects through the generic methods:
 ///
 /// - [`Self::create_object`] of a `GraphNodeOp` sequences it. In one
 ///   atomic step the backend re-verifies `mayWrite` on the node's Graph
@@ -106,19 +106,19 @@ impl EditLog {
 ///   that `baseSeq` is at most the head (`invalidProperties` naming
 ///   `baseSeq`), then assigns the `id` and "the next `seq` of the node",
 ///   replacing the handler's placeholder 0. Creating an op advances the
-///   GraphNodeOp state only, never the GraphNode's. When the WebSocket
+///   `GraphNodeOp` state only, never the `GraphNode`'s. When the WebSocket
 ///   stream is served, the same step hands a `GraphNodeOpEvent` to the
 ///   transport, so "a node's op events" leave "in `seq` order"; the
 ///   transport filters it per connection with [`crate::should_deliver`].
 /// - [`Self::update_object`] of a `GraphNode` of an edit-enabled account
-///   re-verifies the §GraphNode Extensions and §Snapshots rules atomically
+///   re-verifies the §`GraphNode` Extensions and §Snapshots rules atomically
 ///   (`editFormat` never changes once set, `snapshotSeq` never decreases
 ///   and is at most the head), "so that two clients writing snapshots
 ///   concurrently cannot move the node back to an older one".
 /// - [`Self::destroy_object`] of a node destroys its ops, and of a Graph
 ///   the ops of all its nodes: "When a node is destroyed, its ops are
 ///   destroyed with it; when a Graph is destroyed, so are the ops of all
-///   its nodes." Each is a destroyed GraphNodeOp change.
+///   its nodes." Each is a destroyed `GraphNodeOp` change.
 /// - Compaction is the backend's policy (§Compaction and History): it
 ///   "MAY destroy ops whose `seq` is less than or equal to the node's
 ///   `snapshotSeq`, but only from the start of the log", never one younger
@@ -133,7 +133,7 @@ pub trait GraphBackend: JmapBackend {
     /// consumer advertises for `account_id` to this caller.
     ///
     /// `/set` reads `maxAnnotationSize` from it: "A create or update that
-    /// would exceed the limit is rejected with a `tooLarge` SetError".
+    /// would exceed the limit is rejected with a `tooLarge` `SetError`".
     /// There is no default: return the value the Session object carries,
     /// or the handlers contradict the advertised capability.
     fn graph_capability(
@@ -161,7 +161,7 @@ pub trait GraphBackend: JmapBackend {
     /// Graph"): `forbidden` when the caller may read the Graph but lacks
     /// it, and `invalidProperties` naming `graphId` when the Graph does not
     /// exist or the caller may not read it. A `GraphEdge` whose `fromId` or
-    /// `toId` does not name a GraphNode of the edge's Graph is
+    /// `toId` does not name a `GraphNode` of the edge's Graph is
     /// `invalidProperties` naming the failing property ("The server SHOULD
     /// NOT distinguish a node that does not exist from a node in another
     /// Graph"). A backend MAY refuse with `overQuota` past a limit on nodes
@@ -169,8 +169,8 @@ pub trait GraphBackend: JmapBackend {
     ///
     /// For an account with `urn:ietf:params:jmap:graph:provenance`
     /// ([`Self::has_capability`]), also re-check, with the stored state:
-    /// a GraphNode against [`crate::provenance::check_record_create`] with
-    /// the caller's `mayCurate`; a GraphEdge whose `fromId` is a retracted
+    /// a `GraphNode` against [`crate::provenance::check_record_create`] with
+    /// the caller's `mayCurate`; a `GraphEdge` whose `fromId` is a retracted
     /// record is `forbidden`, and an evidence edge that would give its
     /// record more than [`MAX_EVIDENCE_EDGES`](crate::provenance::MAX_EVIDENCE_EDGES)
     /// is `overQuota` (draft-atwood-jmap-graph-provenance-00 §Retraction,
@@ -188,7 +188,7 @@ pub trait GraphBackend: JmapBackend {
         O: SetObject + Send + Sync,
         F: FnOnce(&jmap_types::Id) -> O + Send;
 
-    /// Apply an RFC 8620 §5.3 PatchObject to an existing object.
+    /// Apply an RFC 8620 §5.3 `PatchObject` to an existing object.
     ///
     /// `Ok(Some(o))` echoes server-changed properties; `Ok(None)` means the
     /// patch applied verbatim. Both MUST advance the state and record an
@@ -202,15 +202,15 @@ pub trait GraphBackend: JmapBackend {
     /// property `mayWrite`; on a `GraphNode` or `GraphEdge`, `mayWrite` on
     /// its Graph. A Graph the caller may not read is `notFound`, a missing
     /// right `forbidden`. A `GraphEdge` patch that changes `fromId` or
-    /// `toId` re-verifies that each names a GraphNode of the edge's Graph,
+    /// `toId` re-verifies that each names a `GraphNode` of the edge's Graph,
     /// as on create.
     ///
-    /// With provenance, a GraphNode update is judged by
+    /// With provenance, a `GraphNode` update is judged by
     /// [`crate::provenance::check_record_update`] on the stored record
     /// instead of the plain `mayWrite` rule, and a retraction clears the
     /// content ([`crate::provenance::retraction_patch`]), so an update
     /// cannot slip past a concurrent retraction; a retracted record's
-    /// prior history versions are removed (§Retraction). A GraphEdge update
+    /// prior history versions are removed (§Retraction). A `GraphEdge` update
     /// follows the create rules for its old and new `fromId`. On a Graph,
     /// `retention` needs `mayAdmin`, not `mayWrite`.
     fn update_object<O: SetObject + Send + Sync>(
@@ -225,16 +225,16 @@ pub trait GraphBackend: JmapBackend {
     /// advances only when the destroy commits. The backend re-verifies the
     /// right atomically: `mayAdmin` for a `Graph` ("Destroying a Graph
     /// requires `mayAdmin`"), `mayWrite` on its Graph for a `GraphNode` or
-    /// `GraphEdge`. With provenance, a GraphNode needs `mayCurate`
+    /// `GraphEdge`. With provenance, a `GraphNode` needs `mayCurate`
     /// ([`crate::provenance::require_curate`]) in place of `mayWrite`, and a
-    /// GraphEdge whose `fromId` is a retracted record is `forbidden`.
+    /// `GraphEdge` whose `fromId` is a retracted record is `forbidden`.
     ///
-    /// Destroying a `Graph` MUST "also destroy every GraphNode and
-    /// GraphEdge in it. These objects are reported as destroyed by
+    /// Destroying a `Graph` MUST "also destroy every `GraphNode` and
+    /// `GraphEdge` in it. These objects are reported as destroyed by
     /// subsequent `GraphNode/changes` and `GraphEdge/changes` calls."
-    /// Destroying a `GraphNode` MUST "also destroy every GraphEdge whose
+    /// Destroying a `GraphNode` MUST "also destroy every `GraphEdge` whose
     /// `fromId` or `toId` is that node", each reported as a destroyed
-    /// GraphEdge change. Both cascades happen in the same atomic step.
+    /// `GraphEdge` change. Both cascades happen in the same atomic step.
     /// "Destroying an edge does not affect its nodes."
     fn destroy_object<O: SetObject + Send + Sync>(
         &self,
@@ -248,8 +248,8 @@ pub trait GraphBackend: JmapBackend {
     /// Object) the consumer advertises for `account_id`, or `None` when it
     /// does not advertise the capability.
     ///
-    /// With `Some`, `GraphNode/set` applies the §GraphNode Extensions rules
-    /// to `editFormat` and `snapshotSeq`, and the GraphNodeOp and
+    /// With `Some`, `GraphNode/set` applies the §`GraphNode` Extensions rules
+    /// to `editFormat` and `snapshotSeq`, and the `GraphNodeOp` and
     /// `GraphNode/cursor` handlers read `maxOpSize` and `maxCursorSize`
     /// from it. With `None` those handlers answer
     /// `accountNotSupportedByMethod` and `GraphNode/set` treats both
@@ -273,7 +273,7 @@ pub trait GraphBackend: JmapBackend {
     /// Object) the consumer advertises for `account_id`, or `None` when it
     /// does not advertise the capability.
     ///
-    /// With `None`, a GraphNode or GraphEdge `/query` or `/queryChanges`
+    /// With `None`, a `GraphNode` or `GraphEdge` `/query` or `/queryChanges`
     /// filter that sets `where`, `language` or `expression` is
     /// `unsupportedFilter`. With `Some`, the handlers check those properties
     /// against it ([`crate::search::check_search_filter`]), answer
@@ -331,8 +331,8 @@ pub trait GraphBackend: JmapBackend {
     /// Object: "An account has at most one projected Graph"), or `None`.
     ///
     /// "The server rejects a `GraphNode/set` that sets `editFormat` on such
-    /// a node with a `forbidden` SetError" (draft-atwood-jmap-graph-edit-00
-    /// §GraphNode Extensions).
+    /// a node with a `forbidden` `SetError`" (draft-atwood-jmap-graph-edit-00
+    /// §`GraphNode` Extensions).
     ///
     /// # Default implementation
     ///
@@ -348,7 +348,7 @@ pub trait GraphBackend: JmapBackend {
 
     /// Hand a `GraphCursorEvent` from an accepted `GraphNode/cursor` call to
     /// the WebSocket transport (draft-atwood-jmap-graph-edit-00
-    /// §GraphCursorEvent), which sends it to the connections for which
+    /// §`GraphCursorEvent`), which sends it to the connections for which
     /// [`crate::should_deliver`] holds.
     ///
     /// "Servers SHOULD rate-limit the method per user per node, and MAY

@@ -80,7 +80,7 @@ use jmap_server::{
 /// again before the response, so only the requested properties are
 /// returned (RFC 8620 §5.1).
 ///
-/// The `timeZone` argument (TimeZoneId, default `"Etc/UTC"`; jmapio/jmap
+/// The `timeZone` argument (`TimeZoneId`, default `"Etc/UTC"`; jmapio/jmap
 /// #456, as CalendarEvent/get, draft-ietf-jmap-calendars-34 §5.7) is the
 /// zone for floating tasks: "Floating tasks will be interpreted as per the
 /// time zone given as a Task/get argument" (draft-tasks-06 §4). It is
@@ -96,6 +96,17 @@ use jmap_server::{
 /// §3.1); see [`jmap_server::handle_get_with_metadata`].
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `ids` or `properties` is malformed, or
+///   `timeZone` is not a string;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `ids` holds more than `maxObjectsInGet` ids;
+/// - `serverFail` when the backend fails.
 pub async fn handle_task_get<B: TasksBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -212,6 +223,18 @@ pub async fn handle_task_get<B: TasksBackend>(
 /// without it metadata-only changes are left out (-05 §3).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `sinceState` is missing, `maxChanges` is not a positive integer, or
+///   `ignoreMetadataOnlyChanges` is not a boolean;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `cannotCalculateChanges` when the backend cannot compute the changes
+///   since `sinceState`;
+/// - `serverFail` when the backend fails.
 pub async fn handle_task_changes<B: TasksBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -243,7 +266,7 @@ const TASK_ID_PROPERTIES: &[&str] = &["taskListId"];
 /// in `notUpdated`.
 ///
 /// **`taskListId` references**: a `#creationId` value on create or update
-/// names a TaskList created earlier in the request and resolves against
+/// names a `TaskList` created earlier in the request and resolves against
 /// `created_ids` (pass [`jmap_server::CallContext::created_ids`]; RFC 8620
 /// §5.3). An unknown reference is `invalidProperties` naming `taskListId`.
 ///
@@ -254,6 +277,21 @@ const TASK_ID_PROPERTIES: &[&str] = &["taskListId"];
 /// either in a create (-05 §3.2). The backend validates the rest.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `create`, `update` or `destroy` is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `create`, `update` and `destroy` together hold
+///   more than `maxObjectsInSet` objects;
+/// - `stateMismatch` when `ifInState` is not the current state;
+/// - `serverFail` when the backend fails.
+///
+/// A create, update or destroy that fails on its own is a [`SetError`](jmap_server::SetError) in
+/// the response, not an `Err`.
 pub async fn handle_task_set<B: TasksBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -519,7 +557,7 @@ async fn update_one<B: TasksBackend>(
 /// property, so the update goes to the per-user path
 /// (draft-tasks-06 §4.5.1).
 ///
-/// PatchObject keys are RFC 6901 JSON Pointers (RFC 8620 §5.3), so a
+/// [`PatchObject`] keys are RFC 6901 JSON Pointers (RFC 8620 §5.3), so a
 /// per-user keyword toggle is sent as `keywords/done`, not bare
 /// `keywords`. Classify on the FIRST pointer segment (the substring
 /// before the first '/'), not the whole key.
@@ -602,6 +640,45 @@ async fn set_destroy<B: TasksBackend>(
 // Task/copy
 // ---------------------------------------------------------------------------
 
+/// `true` when `value` holds, at any depth, a Person object
+/// (draft-ietf-jmap-tasks §4.2.3 `CheckItem` `assignee`, §4.2.4 Comment
+/// `author`) whose `uri` is a string that is not an RFC 3986 URI
+/// (draft-atwood-jmap-updates-00 §7.1).
+fn has_bad_person_uri(value: &Value) -> bool {
+    match value {
+        Value::Object(m) => {
+            let bad_here = m.get("@type").and_then(Value::as_str) == Some("Person")
+                && m.get("uri")
+                    .and_then(Value::as_str)
+                    .is_some_and(|u| jmap_types::uri::check_uri(u).is_err());
+            bad_here || m.values().any(has_bad_person_uri)
+        }
+        Value::Array(a) => a.iter().any(has_bad_person_uri),
+        _ => false,
+    }
+}
+
+/// The top-level property of the first patch entry that writes a Person
+/// `uri` that is not an RFC 3986 URI: a value holding such a Person, or a
+/// pointer ending in `assignee/uri` or `author/uri` to a non-URI string.
+fn bad_person_uri_in_patch(patch: &serde_json::Map<String, Value>) -> Option<String> {
+    patch.iter().find_map(|(path, v)| {
+        let direct = (path.ends_with("/assignee/uri") || path.ends_with("/author/uri"))
+            && v.as_str()
+                .is_some_and(|u| jmap_types::uri::check_uri(u).is_err());
+        (direct || has_bad_person_uri(v)).then(|| path.split('/').next().unwrap_or(path).to_owned())
+    })
+}
+
+/// The `invalidProperties` `SetError` for a Person `uri` under `property`.
+fn person_uri_error(property: &str) -> Value {
+    json!({
+        "type": "invalidProperties",
+        "properties": [property],
+        "description": "a Person uri is not an RFC 3986 URI",
+    })
+}
+
 /// Handle a `Task/copy` method call (draft-tasks-06 §4.8).
 ///
 /// `args` is the RFC 8620 §5.4 `/copy` request shape (`fromAccountId`,
@@ -636,45 +713,22 @@ async fn set_destroy<B: TasksBackend>(
 /// is populated with a follow-up `Task/set` invocation when
 /// `onSuccessDestroyOriginal` is true (RFC 8620 §5.4); otherwise it is
 /// empty.
-/// `true` when `value` holds, at any depth, a Person object
-/// (draft-ietf-jmap-tasks §4.2.3 CheckItem `assignee`, §4.2.4 Comment
-/// `author`) whose `uri` is a string that is not an RFC 3986 URI
-/// (draft-atwood-jmap-updates-00 §7.1).
-fn has_bad_person_uri(value: &Value) -> bool {
-    match value {
-        Value::Object(m) => {
-            let bad_here = m.get("@type").and_then(Value::as_str) == Some("Person")
-                && m.get("uri")
-                    .and_then(Value::as_str)
-                    .is_some_and(|u| jmap_types::uri::check_uri(u).is_err());
-            bad_here || m.values().any(has_bad_person_uri)
-        }
-        Value::Array(a) => a.iter().any(has_bad_person_uri),
-        _ => false,
-    }
-}
-
-/// The top-level property of the first patch entry that writes a Person
-/// `uri` that is not an RFC 3986 URI: a value holding such a Person, or a
-/// pointer ending in `assignee/uri` or `author/uri` to a non-URI string.
-fn bad_person_uri_in_patch(patch: &serde_json::Map<String, Value>) -> Option<String> {
-    patch.iter().find_map(|(path, v)| {
-        let direct = (path.ends_with("/assignee/uri") || path.ends_with("/author/uri"))
-            && v.as_str()
-                .is_some_and(|u| jmap_types::uri::check_uri(u).is_err());
-        (direct || has_bad_person_uri(v)).then(|| path.split('/').next().unwrap_or(path).to_owned())
-    })
-}
-
-/// The `invalidProperties` SetError for a Person `uri` under `property`.
-fn person_uri_error(property: &str) -> Value {
-    json!({
-        "type": "invalidProperties",
-        "properties": [property],
-        "description": "a Person uri is not an RFC 3986 URI",
-    })
-}
-
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` or `fromAccountId` is missing or not
+///   a valid Id, or `fromAccountId`
+///   equals `accountId`;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `fromAccountNotFound` when the backend does not know `fromAccountId`;
+/// - `stateMismatch` when `ifFromInState` or `ifInState` is not the current
+///   state of its account;
+/// - `serverFail` when the backend fails.
+///
+/// An entry that fails on its own is a
+/// [`SetError`](jmap_server::SetError) in `notCreated`, not an `Err`.
 pub async fn handle_task_copy<B: TasksBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -1016,14 +1070,14 @@ pub async fn handle_task_copy<B: TasksBackend>(
 /// (draft-ietf-jmap-calendars-34 §5.11):
 ///
 /// - `expandRecurrences`: Boolean (default `false`). "If true, the filter
-///   MUST be just a FilterCondition (not a FilterOperator) and MUST include
+///   MUST be just a `FilterCondition` (not a `FilterOperator`) and MUST include
 ///   both a "before" and "after" property; otherwise, the server MUST
 ///   reject the call with an invalidArguments error." A window longer
 ///   than [`TasksLimits::max_expanded_query_duration_seconds`](crate::TasksLimits::max_expanded_query_duration_seconds)
 ///   (`maxExpandedQueryDuration`, draft-tasks-06 §1.6.2) is the
 ///   `expandDurationTooLarge` method error, checked here and again by the
 ///   backend.
-/// - `timeZone`: TimeZoneId (default `"Etc/UTC"`), the zone for the
+/// - `timeZone`: `TimeZoneId` (default `"Etc/UTC"`), the zone for the
 ///   `after` / `before` conditions and for floating tasks. A value that is
 ///   neither a string nor `null` is `invalidArguments`.
 ///
@@ -1037,6 +1091,24 @@ pub async fn handle_task_copy<B: TasksBackend>(
 /// filter condition is `unsupportedFilter` (-05 §3).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `filter`, `sort`, `position`, `anchor`, `anchorOffset` or `limit`
+///   is malformed, `timeZone` is not a string, or
+///   `expandRecurrences` is set without a filter condition that has both
+///   `before` and `after`;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `unsupportedFilter` when the filter does not decode as a `Task` filter or uses a metadata
+///   condition without `urn:ietf:params:jmap:metadata` in `using`;
+/// - `unsupportedSort` when `sort` names a property that is not supported;
+/// - `expandDurationTooLarge` when `expandRecurrences` spans more than the
+///   account's `maxExpandedQueryDuration`;
+/// - `serverFail` when the backend fails, or any other RFC 8620 §5.5 error
+///   the backend returns, such as `anchorNotFound`.
 pub async fn handle_task_query<B: TasksBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -1185,6 +1257,21 @@ pub(crate) fn expand_duration_seconds(condition: &TaskFilterCondition) -> Option
 /// filter condition is `unsupportedFilter` (-05 §3).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `sinceQueryState` is missing, or `filter`, `sort`, `maxChanges` or
+///   `upToId` is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `unsupportedFilter` or `unsupportedSort` as for
+///   [`handle_task_query`];
+/// - `cannotCalculateChanges` when `sinceQueryState` was computed in another
+///   language or the backend cannot compute the changes since it;
+/// - `tooManyChanges` when there are more changes than `maxChanges`;
+/// - `serverFail` when the backend fails.
 pub async fn handle_task_query_changes<B: TasksBackend>(
     backend: &B,
     caller: &B::CallerCtx,

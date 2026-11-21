@@ -35,8 +35,8 @@ use crate::start::{Start, start};
 ///
 /// Entries run in dependency order, so a recipe may read the result of
 /// another entry of the same call; a reference to a failed entry is
-/// `notFound`. Every created BlobObject carries `expires`. An
-/// ExtractRecipe creates no blob: its result has the archive's id, type
+/// `notFound`. Every created `BlobObject` carries `expires`. An
+/// `ExtractRecipe` creates no blob: its result has the archive's id, type
 /// and size plus `entries`, `noPersist` has no effect on it, and a
 /// reference to its creation id names the archive. A `noPersist` result
 /// the backend leaves out of the response stays usable within the call.
@@ -216,7 +216,7 @@ enum Kind {
     OptUInt,
     OptBool,
     OptDate,
-    /// A list of ArchiveEntry objects, required.
+    /// A list of [`ArchiveEntry`] objects, required.
     Entries,
 }
 

@@ -20,7 +20,7 @@ use jmap_server::{
 
 /// Case-folding mode for [`FileNodeBackend::find_sibling_by_name`].
 ///
-/// JMAP FileNode (draft-ietf-jmap-filenode-20 §3.2.3
+/// JMAP [`FileNode`] (draft-ietf-jmap-filenode-20 §3.2.3
 /// `compareCaseInsensitively`) is a Boolean on the wire, but the backend
 /// trait uses a typed enum so call sites are self-documenting and the
 /// algorithm space is open for future variants without a SemVer break.
@@ -56,7 +56,7 @@ impl CaseFolding {
 // FileNodeBackend trait
 // ---------------------------------------------------------------------------
 
-/// Storage backend for JMAP FileNode method handlers
+/// Storage backend for JMAP [`FileNode`] method handlers
 /// (draft-ietf-jmap-filenode-20).
 ///
 /// Implementors provide the actual data access; the handler module
@@ -124,7 +124,7 @@ impl CaseFolding {
 ///   these checks before any destroy: a node or descendant that
 ///   [`JmapReads::get_objects`](jmap_server::JmapReads::get_objects) leaves out is undiscoverable, and the
 ///   rights are [`files_rights`](Self::files_rights) where it is `Some`,
-///   else the stored `myRights` (a parent's, for a File or SymLink). When
+///   else the stored `myRights` (a parent's, for a File or `SymLink`). When
 ///   neither states rights the handler proceeds, and
 ///   [`destroy_object`](Self::destroy_object) stays the atomic check.
 /// - Copy: `mayRead` on the source in `fromAccountId` (-20 §3.2.4; a node
@@ -165,11 +165,11 @@ impl CaseFolding {
 /// discover, which "MUST return notFound errors if fetched with
 /// FileNode/get and MUST NOT be returned in response to FileNode/query".
 ///
-/// `jmap-sharing-server` serves the RFC 9670 Principal and ShareNotification
+/// `jmap-sharing-server` serves the RFC 9670 Principal and `ShareNotification`
 /// methods and owns the `myRights` contract that this trait applies to
-/// FileNodes; it enforces nothing on this crate's behalf.
+/// `FileNode`s; it enforces nothing on this crate's behalf.
 pub trait FileNodeBackend: JmapBackend {
-    /// Create a new FileNode.
+    /// Create a new [`FileNode`].
     ///
     /// Returns `(assigned_id, created_object)` on success.  `create_id` is
     /// the client-side creation id from the `/set` request.
@@ -188,7 +188,7 @@ pub trait FileNodeBackend: JmapBackend {
     /// permission checking; any handler-layer pre-check is defense-in-depth
     /// only, and a backend that trusts the handler is a bug. A backend whose
     /// `principal_id` returns `None` permits every write (fail-open,
-    /// bd:JMAP-bghk) and CANNOT correctly implement FileNode ACLs or per-user visibility scoping.
+    /// bd:JMAP-bghk) and CANNOT correctly implement `FileNode` ACLs or per-user visibility scoping.
     ///
     /// # Invariants the backend MUST re-verify atomically with the insert
     ///
@@ -222,8 +222,8 @@ pub trait FileNodeBackend: JmapBackend {
     ///
     /// A backend that follows the docstring literally — "if create
     /// succeeds, return Ok" — and skips the atomic re-verification will
-    /// silently corrupt the FileNode invariants under concurrent writes.
-    /// MemoryBackend gets this right because the single in-memory lock
+    /// silently corrupt the `FileNode` invariants under concurrent writes.
+    /// `MemoryBackend` gets this right because the single in-memory lock
     /// covers both the read pre-check and the insert; production SQL
     /// backends MUST use explicit row locks or unique constraints.
     ///
@@ -264,7 +264,7 @@ pub trait FileNodeBackend: JmapBackend {
     /// one transaction. A call that returns `Err` MUST leave the stored
     /// data, the state and the change log unchanged.
     ///
-    /// draft-ietf-jmap-filenode-20 adds FileNode rules to that log:
+    /// draft-ietf-jmap-filenode-20 adds `FileNode` rules to that log:
     ///
     /// - `changed` is server-set (§3.1.1): the backend sets it on every
     ///   create and copy ("a new changed value", §3.2.4), and on an update
@@ -373,7 +373,7 @@ pub trait FileNodeBackend: JmapBackend {
     ) -> impl std::future::Future<Output = Result<(jmap_types::Id, O), BackendSetError<Self::Error>>>
     + Send;
 
-    /// Apply a partial update (patch) to an existing FileNode.
+    /// Apply a partial update (patch) to an existing [`FileNode`].
     ///
     /// Returns `Some(updated_object)` if the backend modified properties
     /// beyond what the client requested (RFC 8620 §5.3 server-set field echo),
@@ -418,7 +418,7 @@ pub trait FileNodeBackend: JmapBackend {
     ///
     /// # Patch format
     ///
-    /// `patch` is an RFC 8620 §5.3 PatchObject, not an RFC 7396 JSON
+    /// `patch` is an RFC 8620 §5.3 `PatchObject`, not an RFC 7396 JSON
     /// Merge Patch: "The keys are a path in JSON Pointer format
     /// \[RFC6901\], with an implicit leading "/"". So `{"a/b": null}`
     /// removes member `b` of property `a`; it does not touch a top-level
@@ -464,7 +464,7 @@ pub trait FileNodeBackend: JmapBackend {
         patch: O::Patch,
     ) -> impl std::future::Future<Output = Result<Option<O>, BackendSetError<Self::Error>>> + Send;
 
-    /// Destroy a FileNode by id.
+    /// Destroy a [`FileNode`] by id.
     ///
     /// # Authorisation contract
     ///
@@ -475,7 +475,7 @@ pub trait FileNodeBackend: JmapBackend {
     ///
     /// # Invariants the backend MUST re-verify atomically with the destroy
     ///
-    /// - **`nodeHasChildren` guard**: when the FileNode has descendants
+    /// - **`nodeHasChildren` guard**: when the `FileNode` has descendants
     ///   AND the handler's `onDestroyRemoveChildren` flag is `false`,
     ///   the destroy MUST be refused. The handler does a pre-check via
     ///   [`Self::get_descendant_ids`] and returns the wire-level
@@ -552,7 +552,7 @@ pub trait FileNodeBackend: JmapBackend {
     ///   not a contract; production backends may use any order. If a
     ///   caller needs the per-id chain (the path from a specific input id
     ///   up to root), it must reconstruct that walk itself using each
-    ///   FileNode's `parentId` field.
+    ///   [`FileNode`]'s `parentId` field.
     /// - **Empty input.** An empty `ids` slice returns `Ok(vec![])`.
     /// - **Unknown ids.** Ids in the input that do not exist in the account
     ///   are silently skipped (no error, no entry in the result). Detection
@@ -666,8 +666,8 @@ pub trait FileNodeBackend: JmapBackend {
         }
     }
 
-    /// SHA-256 digest of a stored blob, for the `sha256` FileNode
-    /// property of draft-atwood-jmap-cid-00 §FileNode Extension.
+    /// SHA-256 digest of a stored blob, for the `sha256` [`FileNode`]
+    /// property of draft-atwood-jmap-cid-00 §`FileNode` Extension.
     ///
     /// The draft defines the property only "When a server advertises both
     /// `urn:ietf:params:jmap:cid` and the {{JMAP-FILENODE}} capability",
@@ -694,7 +694,7 @@ pub trait FileNodeBackend: JmapBackend {
     /// - `Err(e)`: that create or update fails with `serverFail`. A backend
     ///   that advertises the capability returns `Err` rather than `None`
     ///   when it cannot compute a digest, since the draft says a server
-    ///   "MUST NOT return `null` for any file FileNode created or updated
+    ///   "MUST NOT return `null` for any file `FileNode` created or updated
     ///   while this capability is active".
     ///
     /// # Default implementation
@@ -712,11 +712,11 @@ pub trait FileNodeBackend: JmapBackend {
     }
 
     /// Whether the server advertises `urn:ietf:params:jmap:cid` for this
-    /// account, so that every FileNode carries the `sha256` property.
+    /// account, so that every [`FileNode`] carries the `sha256` property.
     ///
-    /// draft-atwood-jmap-cid-00 §FileNode Extension: when both capabilities
-    /// are advertised, "FileNode objects MUST include" `sha256`, which "MUST
-    /// be `null` for directory FileNodes". A stored node without a digest
+    /// draft-atwood-jmap-cid-00 §`FileNode` Extension: when both capabilities
+    /// are advertised, "`FileNode` objects MUST include" `sha256`, which "MUST
+    /// be `null` for directory `FileNode`s". A stored node without a digest
     /// (a directory, or a file created before the capability was enabled)
     /// has no `sha256` field, so `handle_filenode_get`,
     /// `handle_filenode_set` and `handle_filenode_copy` ask this method
@@ -749,7 +749,7 @@ pub trait FileNodeBackend: JmapBackend {
     /// The `maxFileNodeDepth` this account advertises, or `None` for `null`.
     ///
     /// draft-ietf-jmap-filenode-20 §2.1: "The maximum number of levels in
-    /// the FileNode hierarchy, or null for no limit. A FileNode may have at
+    /// the [`FileNode`] hierarchy, or null for no limit. A `FileNode` may have at
     /// most one fewer ancestors than this value, so 1 allows only top-level
     /// nodes." Return the value the session advertises for `account_id`.
     ///
@@ -841,7 +841,7 @@ pub trait FileNodeBackend: JmapBackend {
     /// destroy that removes more than one node starts.
     ///
     /// RFC 8620 §5.3: "Each creation, modification, or destruction of an
-    /// object is considered an atomic unit." A FileNode destroy with
+    /// object is considered an atomic unit." A [`FileNode`] destroy with
     /// `onDestroyRemoveChildren`, an `onExists` "replace" and the implicit
     /// destroy of `onSuccessDestroyOriginal` remove a subtree, one
     /// [`Self::destroy_object`] call per node, deepest first. The handlers
@@ -949,7 +949,7 @@ pub trait FileNodeBackend: JmapBackend {
         }
     }
 
-    /// Return all FileNode IDs in the subtree rooted at any node in `root_ids`,
+    /// Return all [`FileNode`] IDs in the subtree rooted at any node in `root_ids`,
     /// up to `max_depth` levels deep.
     ///
     /// # `max_depth` semantics
@@ -974,7 +974,7 @@ pub trait FileNodeBackend: JmapBackend {
     /// # Default impl
     ///
     /// The default implementation calls `query_objects` with a `parentId` filter
-    /// once per level — O(max_depth) backend calls.  Backends with a nested-sets
+    /// once per level — `O(max_depth)` backend calls.  Backends with a nested-sets
     /// model, closure table, or recursive CTE SHOULD override this to a single query.
     ///
     /// Returned IDs are deduplicated; ordering is unspecified.

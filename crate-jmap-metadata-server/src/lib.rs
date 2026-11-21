@@ -29,7 +29,7 @@
 //!   [`MetadataCondition`], which takes the six fields off a decoded
 //!   `FilterCondition` and evaluates them.
 //! - The RFC 5051 `i;unicode-casemap` preparation those text conditions
-//!   use, [`unicode_casemap_prepare`], which FileNode backends also use
+//!   use, [`unicode_casemap_prepare`], which `FileNode` backends also use
 //!   for case-insensitive names (draft-ietf-jmap-filenode-20 §1.1).
 //!
 //! Everything operates on `serde_json` values and

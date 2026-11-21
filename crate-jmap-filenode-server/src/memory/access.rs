@@ -5,7 +5,7 @@
 //! every node and can discover all of them. Every other user's rights come
 //! from `shareWith`: "a node's myRights is the union of the rights granted
 //! to the user by the shareWith entries on the node and on all its
-//! ancestors", and a File or SymLink takes "those in its parent's
+//! ancestors", and a File or `SymLink` takes "those in its parent's
 //! myRights". A node is discoverable when it or an ancestor grants
 //! `mayRead`, or when it or a descendant "has a shareWith entry that grants
 //! the user any right".
@@ -19,7 +19,7 @@ use jmap_types::Id;
 #[derive(Clone, Debug, PartialEq)]
 pub(super) struct Sight {
     /// The user's rights on the node: its own for a Directory, its
-    /// parent's for a File or SymLink (-20 §5).
+    /// parent's for a File or `SymLink` (-20 §5).
     pub(super) rights: FilesRights,
 }
 
@@ -42,7 +42,7 @@ pub(super) struct Viewer<'a> {
     pub(super) user: Option<&'a Id>,
     /// The account owner.
     pub(super) owner: &'a Id,
-    /// Whether FileNode has the draft-ietf-jmap-metadata-05 properties, so
+    /// Whether [`FileNode`] has the draft-ietf-jmap-metadata-05 properties, so
     /// that `maySetMetadata` is present in `myRights` (-05 §4.1).
     pub(super) metadata: bool,
 }

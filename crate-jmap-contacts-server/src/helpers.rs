@@ -233,9 +233,9 @@ known_sort!(
 ///
 /// - -05 §3: for a request whose `using` lacks
 ///   `urn:ietf:params:jmap:metadata`, "Foo/set MUST reject any write to
-///   them with an "invalidProperties" SetError".
+///   them with an "invalidProperties" `SetError`".
 /// - -05 §3.2: on create, "A value of null for either property MUST be
-///   rejected with an "invalidProperties" SetError".
+///   rejected with an "invalidProperties" `SetError`".
 ///
 /// The backend validates the rest (-05 §3.2 rules 1 to 4). Mirrors the
 /// canonical `jmap-mail-server` helper (bd JMAP-s4kp.1).
@@ -279,7 +279,7 @@ pub(crate) fn is_metadata_key(key: &str) -> bool {
     root == "metadata" || root == "privateMetadata"
 }
 
-/// RFC 9553 maps whose members are Resource objects or OnlineService
+/// RFC 9553 maps whose members are Resource objects or `OnlineService`
 /// objects, whose `uri` "MUST be a URI as defined in Section 3 of
 /// [RFC3986]" (§1.4.4, §2.3.2).
 const JSCONTACT_URI_MAPS: &[&str] = &[
@@ -292,9 +292,9 @@ const JSCONTACT_URI_MAPS: &[&str] = &[
     "schedulingAddresses",
 ];
 
-/// The `invalidProperties` SetError for the first top-level ContactCard
+/// The `invalidProperties` `SetError` for the first top-level `ContactCard`
 /// property that holds a `uri` that is not an RFC 3986 URI (RFC 9553
-/// §1.4.4 Resource, §2.3.2 OnlineService, §2.8.3 Note `author`;
+/// §1.4.4 Resource, §2.3.2 `OnlineService`, §2.8.3 Note `author`;
 /// draft-atwood-jmap-updates-00 §7.1), or `None`. `card` is a create
 /// object or [`jmap_server::patch_values_as_object`] of an update patch.
 pub(crate) fn jscontact_uri_error(card: &Map<String, Value>) -> Option<Value> {

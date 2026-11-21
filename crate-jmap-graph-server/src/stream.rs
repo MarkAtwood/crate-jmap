@@ -7,7 +7,7 @@
 //! [`GraphEditSubscription::replace_with`], which validates the frame and
 //! replaces the whole subscription. A `GraphEditStreamDisable` frame resets
 //! it to the default: it "succeeds silently whether or not a subscription
-//! is active" (§GraphEditStreamDisable).
+//! is active" (§`GraphEditStreamDisable`).
 //!
 //! # Rights are checked at delivery
 //!
@@ -25,7 +25,7 @@
 //! Ops sent upstream are ordinary `GraphNodeOp/set` requests: "No other
 //! upstream message is defined for ops."
 //!
-//! The §GraphCursorEvent rate limits are SHOULD rules for the transport or
+//! The §`GraphCursorEvent` rate limits are SHOULD rules for the transport or
 //! deployment; nothing here counts or times events.
 
 use jmap_graph_types::{DATA_TYPE_CURSORS, DATA_TYPE_OPS, GraphEditEvent, GraphEditStreamEnable};

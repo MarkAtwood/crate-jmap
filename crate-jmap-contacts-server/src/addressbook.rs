@@ -1,4 +1,4 @@
-//! AddressBook/* method handlers (RFC 9610 §2).
+//! [`AddressBook`]/* method handlers (RFC 9610 §2).
 //!
 //! Provides handlers for:
 //! - `AddressBook/get`
@@ -6,7 +6,7 @@
 //! - `AddressBook/set` (with `onDestroyRemoveContents` and `onSuccessSetIsDefault`)
 //!
 //! **No `AddressBook/query` or `AddressBook/queryChanges`** — the spec does
-//! not define these methods for AddressBook.
+//! not define these methods for `AddressBook`.
 //!
 //! # Wire-shape contract
 //!
@@ -51,7 +51,7 @@ use jmap_server::{
 use jmap_server::{SetError, SetErrorType};
 
 /// RFC 9610 §7.4.1 — IANA-registered JMAP error type for AddressBook/set
-/// destroy attempts that target a non-empty AddressBook while
+/// destroy attempts that target a non-empty [`AddressBook`] while
 /// `onDestroyRemoveContents` is absent or false.
 ///
 /// Defined as a `pub(crate) const` (mirroring the canonical
@@ -76,7 +76,7 @@ pub(crate) const ADDRESS_BOOK_HAS_CONTENTS: &str = "addressBookHasContents";
 /// `/get` response shape (`accountId`, `state`, `list`, `notFound`).
 ///
 /// `using` is the request's capability list (pass
-/// [`jmap_server::CallContext::using`]). When the backend lists AddressBook for
+/// [`jmap_server::CallContext::using`]). When the backend lists [`AddressBook`] for
 /// draft-ietf-jmap-metadata-05 ([`JmapAccounts::metadata_info`](jmap_server::JmapAccounts::metadata_info)),
 /// `metadata` is returned as an object, by default only with
 /// `urn:ietf:params:jmap:metadata` in `using`, and with that capability
@@ -84,6 +84,16 @@ pub(crate) const ADDRESS_BOOK_HAS_CONTENTS: &str = "addressBookHasContents";
 /// §3.1); see [`jmap_server::handle_get_with_metadata`].
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `ids` or `properties` is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `ids` holds more than `maxObjectsInGet` ids;
+/// - `serverFail` when the backend fails.
 pub async fn handle_address_book_get<B: ContactsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -111,6 +121,18 @@ pub async fn handle_address_book_get<B: ContactsBackend>(
 /// without it metadata-only changes are left out (-05 §3).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `sinceState` is missing, `maxChanges` is not a positive integer, or
+///   `ignoreMetadataOnlyChanges` is not a boolean;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `cannotCalculateChanges` when the backend cannot compute the changes
+///   since `sinceState`;
+/// - `serverFail` when the backend fails.
 pub async fn handle_address_book_changes<B: ContactsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -137,7 +159,7 @@ pub async fn handle_address_book_changes<B: ContactsBackend>(
 /// Contacts-specific extensions:
 ///
 /// - **`onDestroyRemoveContents`** (bool, default `false`): if `false` and
-///   the address book still contains ContactCards, the destroy is rejected with
+///   the address book still contains [`ContactCard`]s, the destroy is rejected with
 ///   `SetError { type: "addressBookHasContents" }`. If `true`, the backend
 ///   must remove the contents itself.
 ///
@@ -154,6 +176,21 @@ pub async fn handle_address_book_changes<B: ContactsBackend>(
 /// either in a create (-05 §3.2). The backend validates the rest.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `create`, `update`, `destroy` or `onSuccessSetIsDefault` is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `create`, `update` and `destroy` together hold
+///   more than `maxObjectsInSet` objects;
+/// - `stateMismatch` when `ifInState` is not the current state;
+/// - `serverFail` when the backend fails.
+///
+/// A create, update or destroy that fails on its own is a [`SetError`] in
+/// the response, not an `Err`.
 pub async fn handle_address_book_set<B: ContactsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -270,7 +307,7 @@ fn take_on_success_set_is_default(
     }
 }
 
-/// The ids of the AddressBooks that are the default before any write
+/// The ids of the [`AddressBook`]s that are the default before any write
 /// (bd:JMAP-qz9v.57), for [`set_report_demotions`].
 ///
 /// A best-effort error from this fetch is treated as "no previously-default
@@ -338,7 +375,7 @@ async fn set_create<B: ContactsBackend>(
 }
 
 /// Check one `AddressBook/set` create object, fill in the server-set and
-/// defaulted properties, and parse it, or return the SetError value for
+/// defaulted properties, and parse it, or return the [`SetError`] value for
 /// `notCreated`.
 fn address_book_from_create<B: ContactsBackend>(
     ctx: &SetCtx<'_, B>,
@@ -579,8 +616,8 @@ async fn set_destroy<B: ContactsBackend>(
     Ok(mutated)
 }
 
-/// The RFC 9610 §2.3 `onDestroyRemoveContents` step before an AddressBook
-/// destroy: the SetError value for `notDestroyed` when the book still has
+/// The RFC 9610 §2.3 `onDestroyRemoveContents` step before an [`AddressBook`]
+/// destroy: the [`SetError`] value for `notDestroyed` when the book still has
 /// contents or their cascade failed, or `None` to go on with the destroy.
 async fn destroy_contents_error<B: ContactsBackend>(ctx: &SetCtx<'_, B>, id: &Id) -> Option<Value> {
     // RFC 9610 §2.3 onDestroyRemoveContents:
@@ -736,10 +773,10 @@ async fn set_report_demotions<B: ContactsBackend>(
 // AddressBook/set destroy cascade (RFC 9610 §2.3 onDestroyRemoveContents)
 // ---------------------------------------------------------------------------
 
-/// Cascade-clean the ContactCards belonging to an AddressBook before
+/// Cascade-clean the [`ContactCard`]s belonging to an [`AddressBook`] before
 /// destroying the book itself (bd:JMAP-qz9v.1).
 ///
-/// For every ContactCard whose `addressBookIds` set contains `book_id`:
+/// For every `ContactCard` whose `addressBookIds` set contains `book_id`:
 /// - If `book_id` is the card's only entry, destroy the card.
 /// - Otherwise, patch the card to remove the entry from
 ///   `addressBookIds` (RFC 7396 merge patch via the workspace's standard

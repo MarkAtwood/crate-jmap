@@ -1,5 +1,5 @@
 //! The draft-atwood-jmap-graph-edit-00 rules that are not method handlers:
-//! the GraphNode `editFormat` and `snapshotSeq` checks (§GraphNode
+//! the `GraphNode` `editFormat` and `snapshotSeq` checks (§`GraphNode`
 //! Extensions, §Snapshots) and base64url `data` decoding.
 //!
 //! [`check_node_edit`] is a pure function so that `GraphNode/set` and a
@@ -32,8 +32,8 @@ fn prop<'a>(m: Option<&'a Map<String, Value>>, key: &str) -> &'a Value {
     m.and_then(|m| m.get(key)).unwrap_or(&Value::Null)
 }
 
-/// Check a GraphNode as it would be stored, `next`, against
-/// draft-atwood-jmap-graph-edit-00 §GraphNode Extensions and §Snapshots.
+/// Check a `GraphNode` as it would be stored, `next`, against
+/// draft-atwood-jmap-graph-edit-00 §`GraphNode` Extensions and §Snapshots.
 ///
 /// `current` is the stored node of an update and `None` for a create;
 /// `sets_snapshot_seq` is whether the create or patch names `snapshotSeq`;
@@ -42,10 +42,10 @@ fn prop<'a>(m: Option<&'a Map<String, Value>>, key: &str) -> &'a Value {
 ///
 /// # Errors
 ///
-/// The SetError of the first rule `next` breaks:
+/// The [`SetError`] of the first rule `next` breaks:
 ///
 /// - `editFormat` not String|null, or changed once non-null ("the server
-///   rejects any other change with an `invalidProperties` SetError naming
+///   rejects any other change with an `invalidProperties` `SetError` naming
 ///   `editFormat`"); `snapshotSeq` not UnsignedInt|null.
 /// - A non-null `snapshotSeq` while `editFormat` is `null` (naming
 ///   `snapshotSeq`).
@@ -54,7 +54,7 @@ fn prop<'a>(m: Option<&'a Map<String, Value>>, key: &str) -> &'a Value {
 ///   `blobId` and a `null` `snapshotSeq`" (naming `editFormat`).
 /// - On a node whose `editFormat` was already set, "A `GraphNode/set`
 ///   update changes `blobId` if and only if it sets `snapshotSeq`.
-///   Otherwise the server rejects it with an `invalidProperties` SetError
+///   Otherwise the server rejects it with an `invalidProperties` `SetError`
 ///   naming the property that is missing."
 /// - "a value of 0, a value greater than the head of the edit log, a value
 ///   less than the current `snapshotSeq`, or `null` when the current

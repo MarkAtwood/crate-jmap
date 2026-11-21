@@ -1,4 +1,4 @@
-//! ContactsBackend trait and supporting types for JMAP Contacts method handlers.
+//! [`ContactsBackend`] trait and supporting types for JMAP Contacts method handlers.
 //!
 //! Consumers implement [`ContactsBackend`] for their storage system. The method
 //! handlers in sibling modules call into the backend through this trait.
@@ -42,7 +42,7 @@ use jmap_server::{BackendSetError, JmapBackend, JmapObject, SetObject};
 /// servers — including the in-crate `memory::MemoryBackend`, gated behind
 /// `feature = "memory"`) return `None` from `principal_id`. Such
 /// backends CANNOT correctly
-/// implement AddressBook ACLs or any other identity-sensitive contacts
+/// implement `AddressBook` ACLs or any other identity-sensitive contacts
 /// surface; the workspace AGENTS.md per-extension implication for
 /// contacts is recorded in `crate-jmap-contacts-server/AGENTS.md`
 /// "Permission enforcement: backend canonical":
@@ -65,11 +65,11 @@ use jmap_server::{BackendSetError, JmapBackend, JmapObject, SetObject};
 /// [`SetError`](jmap_server::SetError) / [`BackendSetError`].
 ///
 /// The canonical consumer pattern is `ChatSpaces::apply_space_patch`
-/// in jmap-chat-server (bd:JMAP-g7wu.2.4). Future AddressBook ACL
+/// in jmap-chat-server (bd:JMAP-g7wu.2.4). Future `AddressBook` ACL
 /// enforcement work in contacts SHOULD mirror that pattern.
 /// bd:JMAP-qz9v.19 tracks the trait-doc-vs-implementation gap.
 pub trait ContactsBackend: JmapBackend {
-    /// Create a new AddressBook or ContactCard.
+    /// Create a new `AddressBook` or `ContactCard`.
     ///
     /// Returns `(assigned_id, created_object)` on success. `create_id` is the
     /// client-side creation id used in the `/set` request. Per-request auth
@@ -84,14 +84,14 @@ pub trait ContactsBackend: JmapBackend {
     /// AGENTS.md "Permission enforcement: backend canonical". Implementors MUST
     /// check that the principal identified by
     /// [`JmapAccounts::principal_id(caller)`](jmap_server::JmapAccounts::principal_id) has write access to the target
-    /// account / AddressBook / ContactCard
+    /// account / `AddressBook` / `ContactCard`
     /// inside the same atomic boundary as the write, and MUST return
     /// [`BackendSetError::SetError`] carrying
     /// [`SetErrorType::Forbidden`](jmap_server::SetErrorType::Forbidden) otherwise. Handlers in this crate do NO
     /// permission checking; any handler-layer pre-check is defense-in-depth
     /// only, and a backend that trusts the handler is a bug. A backend whose
     /// `principal_id` returns `None` permits every write (fail-open,
-    /// bd:JMAP-bghk) and CANNOT correctly implement AddressBook ACLs or per-user scoping.
+    /// bd:JMAP-bghk) and CANNOT correctly implement `AddressBook` ACLs or per-user scoping.
     ///
     /// # Id assignment
     ///
@@ -108,7 +108,7 @@ pub trait ContactsBackend: JmapBackend {
     /// added to the returned `O` and the handler will surface them on the
     /// wire per RFC 8620 §5.3 server-set-field echo. For example, when
     /// `AddressBook/set { create: { c0: { isDefault: true } } }` would
-    /// demote a previously-default AddressBook, the backend MAY return the
+    /// demote a previously-default `AddressBook`, the backend MAY return the
     /// new `AddressBook` reflecting any server-set computed fields beyond
     /// what the client requested.
     ///
@@ -123,8 +123,8 @@ pub trait ContactsBackend: JmapBackend {
     /// For create these are `forbidden`, `overQuota`, `tooLarge`,
     /// `rateLimit` and `invalidProperties`. An `invalidProperties` error
     /// SHOULD name in `properties` "*all* the properties that were
-    /// invalid", for example `addressBookIds` when a ContactCard names an
-    /// AddressBook that does not exist.
+    /// invalid", for example `addressBookIds` when a `ContactCard` names an
+    /// `AddressBook` that does not exist.
     ///
     /// Return [`BackendSetError::Other`] only for unexpected storage
     /// failures. The handler reports it as `serverFail` without the
@@ -164,7 +164,7 @@ pub trait ContactsBackend: JmapBackend {
         O: SetObject + Send + Sync,
         F: FnOnce(&jmap_types::Id) -> O + Send;
 
-    /// Apply a partial update (patch) to an existing AddressBook or ContactCard.
+    /// Apply a partial update (patch) to an existing `AddressBook` or `ContactCard`.
     ///
     /// Returns `Some(updated_object)` if the backend modified any properties
     /// beyond what the client requested (RFC 8620 §5.3 server-set field echo),
@@ -182,7 +182,7 @@ pub trait ContactsBackend: JmapBackend {
     ///
     /// # Patch format
     ///
-    /// `patch` is an RFC 8620 §5.3 PatchObject, not an RFC 7396 JSON
+    /// `patch` is an RFC 8620 §5.3 `PatchObject`, not an RFC 7396 JSON
     /// Merge Patch: "The keys are a path in JSON Pointer format
     /// \[RFC6901\], with an implicit leading "/"". So `{"a/b": null}`
     /// removes member `b` of property `a`; it does not touch a top-level
@@ -228,7 +228,7 @@ pub trait ContactsBackend: JmapBackend {
         patch: O::Patch,
     ) -> impl std::future::Future<Output = Result<Option<O>, BackendSetError<Self::Error>>> + Send;
 
-    /// Destroy an AddressBook or ContactCard by id.
+    /// Destroy an `AddressBook` or `ContactCard` by id.
     ///
     /// # Authorisation contract
     ///
@@ -249,9 +249,9 @@ pub trait ContactsBackend: JmapBackend {
     /// The handlers perform the cross-record effects the client chooses,
     /// through explicit backend calls, and the backend does not repeat
     /// them. `AddressBook/set` (RFC 9610 §2.3) rejects a non-empty
-    /// AddressBook with `addressBookHasContents`, or with
-    /// `onDestroyRemoveContents` destroys the ContactCards only in that
-    /// AddressBook and removes it from the other cards'
+    /// `AddressBook` with `addressBookHasContents`, or with
+    /// `onDestroyRemoveContents` destroys the `ContactCard`s only in that
+    /// `AddressBook` and removes it from the other cards'
     /// `addressBookIds`, before it calls
     /// `destroy_object::<AddressBook>`.
     ///
@@ -341,13 +341,13 @@ pub trait ContactsBackend: JmapBackend {
     + Send;
 
     /// Return `Ok(true)` if `address_book_id` (in `account_id`)
-    /// currently references one or more ContactCards.
+    /// currently references one or more `ContactCard`s.
     ///
     /// "References" is defined by `ContactCard.addressBookIds[id] =
     /// true` per RFC 9610 §3 (a JMAP addition over the bare RFC 9553
-    /// JSContact schema). Cards that reference this AddressBook in
+    /// JSContact schema). Cards that reference this `AddressBook` in
     /// addition to others still count — emptiness is a property of
-    /// the AddressBook, not of card ownership.
+    /// the `AddressBook`, not of card ownership.
     ///
     /// Backends SHOULD NOT inspect the caller's permissions here.
     /// Visibility and authorization checks happen in
@@ -359,21 +359,21 @@ pub trait ContactsBackend: JmapBackend {
     /// processing when `onDestroyRemoveContents` is false (the default);
     /// see [`crate::addressbook::handle_address_book_set`] for the full
     /// RFC 9610 §2.3 destroy semantics. The wire-format consequence of
-    /// returning `Ok(true)` is an `addressBookHasContents` SetError in
+    /// returning `Ok(true)` is an `addressBookHasContents` `SetError` in
     /// the response — that mapping is the handler's responsibility,
     /// not the backend's.
     ///
     /// # Error contract
     ///
     /// Returning `Err(Self::Error)` signals that the backend could not
-    /// determine whether the AddressBook has contents — typically a
+    /// determine whether the `AddressBook` has contents — typically a
     /// transient storage failure (DB unreachable, replica timeout, etc.).
     /// The handler maps `Err` to a method-level `serverFail` rather than
     /// proceeding with the destroy. Backends MUST NOT fail open by
     /// returning `Ok(false)` when the underlying storage is degraded —
-    /// returning `Ok(false)` is a positive claim that the AddressBook is
+    /// returning `Ok(false)` is a positive claim that the `AddressBook` is
     /// empty, and the destroy will proceed unconditionally, silently
-    /// discarding any ContactCards the storage layer was unable to
+    /// discarding any `ContactCard`s the storage layer was unable to
     /// enumerate. Surface the storage error via `Err` instead.
     fn address_book_has_contents(
         &self,

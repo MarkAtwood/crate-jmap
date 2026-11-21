@@ -20,9 +20,9 @@ use crate::start::{Start, start};
 /// refused). Like Blob/set and Blob/convert, it runs whichever blob
 /// capability the request names.
 ///
-/// Each UploadObject (`data` and `type` only) is created exactly like a
+/// Each `UploadObject` (`data` and `type` only) is created exactly like a
 /// `Blob/set` create: entries run in `#creationId` dependency order, with
-/// the same source checks and SetErrors (`invalidProperties` `["data"]`,
+/// the same source checks and [`SetError`]s (`invalidProperties` `["data"]`,
 /// `notFound`, `tooLarge`). Uploads persist, and every one appears in
 /// `created` with its `id`, `type`, `size` and `expires`, so the
 /// dispatcher adds each to `createdIds` (§4.1: servers "MUST add an entry
@@ -30,7 +30,7 @@ use crate::start::{Start, start};
 /// `notCreated` only: blobs have no state (decision 21(iii)).
 ///
 /// Per-entry failures go to `notCreated`: `invalidProperties` naming a
-/// property other than `data` and `type` (an RFC 9404 UploadObject has no
+/// property other than `data` and `type` (an RFC 9404 `UploadObject` has no
 /// `size`, `digest:*` or `noPersist`), an invalid creation id (`["id"]`)
 /// or a creation cycle (`["data"]`), plus the Blob/set create errors.
 ///
@@ -104,7 +104,7 @@ pub async fn handle_blob_upload<B: BlobBackend>(
     Ok(HandlerOutput::new(primary))
 }
 
-/// RFC 9404 §4.1: an UploadObject has `data` and `type` only; the blobext
+/// RFC 9404 §4.1: an `UploadObject` has `data` and `type` only; the blobext
 /// create properties (`size`, `digest:*`, `noPersist`) and anything else
 /// are unknown.
 fn upload_object_only(entry: &Map<String, Value>) -> Result<(), Box<SetError>> {

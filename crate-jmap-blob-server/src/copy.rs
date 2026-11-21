@@ -15,7 +15,7 @@ use crate::set::backend_set_error;
 ///
 /// Copies each of `blobIds` from `fromAccountId` to `accountId` through
 /// [`BlobBackend::copy_blob`]. `copied` maps each blobId, as sent, to its
-/// id in `accountId`; `notCopied` maps it to the SetError, `notFound` when
+/// id in `accountId`; `notCopied` maps it to the [`SetError`], `notFound` when
 /// "the blobId to be copied cannot be found". A blobId may be a
 /// `#creationId` of a blob created earlier in the request (RFC 8620
 /// §5.3), resolved against `created_ids`; an unknown reference, like any

@@ -214,7 +214,7 @@ impl ChangeEntry {
 /// Per-account auxiliary state that is not keyed by object type.
 #[derive(Default, Clone)]
 struct AccountAux {
-    /// Refcount of TaskList ids by the number of Tasks attached to each
+    /// Refcount of [`TaskList`] ids by the number of Tasks attached to each
     /// (drives `TaskList/set` destroy rejection with `taskListHasTask`
     /// per draft-ietf-jmap-tasks-06 §3.4 when `onDestroyRemoveTasks` is
     /// `false`). Maintained incrementally: `inc_task_ref` on Task create,
@@ -240,7 +240,7 @@ struct Inner {
     /// Explicitly registered account ids (accounts may exist with no objects yet).
     known_accounts: HashSet<String>,
     /// `type_name` → the draft-ietf-jmap-metadata-05 §1.2.1
-    /// DataTypeMetadataInfo set by [`MemoryBackend::with_metadata_info`].
+    /// [`DataTypeMetadataInfo`] set by [`MemoryBackend::with_metadata_info`].
     /// A type without an entry does not have the metadata properties.
     metadata_info: HashMap<&'static str, DataTypeMetadataInfo>,
     /// Object history, once `MemoryBackend::with_object_history` turns it
@@ -495,7 +495,7 @@ impl<C: MemoryCaller> MemoryBackend<C> {
     }
 
     /// Give `data_type` the draft-ietf-jmap-metadata-05 `metadata`
-    /// property, configured by `info` (the DataTypeMetadataInfo of -05
+    /// property, configured by `info` (the [`DataTypeMetadataInfo`] of -05
     /// §1.2.1).
     ///
     /// Without this call a type has no metadata: `Foo/set` rejects a
@@ -508,8 +508,8 @@ impl<C: MemoryCaller> MemoryBackend<C> {
     /// session is the server's job: list `info` under `data_type` in the
     /// account's `urn:ietf:params:jmap:metadata` `dataTypes`.
     ///
-    /// TaskList writes need `myRights.maySetMetadata` on the TaskList, and
-    /// Task writes need it on the Task's TaskList before and after the
+    /// [`TaskList`] writes need `myRights.maySetMetadata` on the `TaskList`, and
+    /// Task writes need it on the Task's `TaskList` before and after the
     /// update, or on the `taskListId` of a create (-05 §4.1). An absent
     /// `maySetMetadata` allows the write (fail-open, JMAP-bghk). This
     /// backend never sets Task `updated`, so a metadata-only change leaves
@@ -568,7 +568,7 @@ impl<C: MemoryCaller> MemoryBackend<C> {
     ///
     /// `type_name` is the `TYPE_NAME` of a type this backend stores:
     /// `"TaskList"`, `"Task"`, or `"TaskNotification"`. A seeded Task's
-    /// `taskListId` is counted in the TaskList reference index.
+    /// `taskListId` is counted in the [`TaskList`] reference index.
     ///
     /// # Panics
     ///
@@ -1035,7 +1035,7 @@ impl<C: MemoryCaller> JmapReads for MemoryBackend<C> {
 }
 
 /// The `TYPE_NAME` of the type named `data_type` if it is one this backend
-/// can give draft-ietf-jmap-metadata-05 properties: TaskList, which has a
+/// can give draft-ietf-jmap-metadata-05 properties: [`TaskList`], which has a
 /// rights object (draft-ietf-jmap-tasks-06 §3 `myRights`), and Task, which
 /// "takes the right from its containers" (-05 §4.1).
 fn metadata_type_name(data_type: &str) -> Option<&'static str> {
@@ -1055,11 +1055,11 @@ fn invalid_metadata_property(property: &str, description: &str) -> BackendSetErr
 impl Inner {
     /// draft-ietf-jmap-metadata-05 §3.2 rules 1 to 3 for a metadata write
     /// on a `type_name` object, before the write is applied. Returns the
-    /// type's DataTypeMetadataInfo for the rule 4 check after applying,
+    /// type's [`DataTypeMetadataInfo`] for the rule 4 check after applying,
     /// or `None` when `entry` writes no metadata.
     ///
     /// `entry` is the create object or update patch, `stored` the object
-    /// before an update (`None` on create), and `containers` the TaskList
+    /// before an update (`None` on create), and `containers` the [`TaskList`]
     /// ids whose `maySetMetadata` a Task write needs (-05 §4.1). Rule 1's
     /// `notFound` is the caller's: this backend has no read rights, so
     /// only a missing object is unreadable.
@@ -1123,11 +1123,11 @@ impl Inner {
     }
 }
 
-/// The TaskList ids a Task update's metadata write needs `maySetMetadata`
-/// on: the TaskList the Task is in before the update and the one `patch`
+/// The [`TaskList`] ids a Task update's metadata write needs `maySetMetadata`
+/// on: the `TaskList` the Task is in before the update and the one `patch`
 /// moves it to (-05 §4.1: "on every container both before and after the
 /// change"). draft-ietf-jmap-tasks-06 §4: a Task belongs to exactly one
-/// TaskList, named by the string `taskListId`.
+/// `TaskList`, named by the string `taskListId`.
 fn task_update_containers<'a>(
     stored: &'a serde_json::Map<String, serde_json::Value>,
     patch: &'a serde_json::Map<String, serde_json::Value>,
@@ -1145,7 +1145,7 @@ fn task_update_containers<'a>(
 /// stored in `val`. A `Foo/set` create passes `val` as both; a `/copy`
 /// passes its create object, so the copied values are not revalidated
 /// (-05 §3.4: "maxDepth applies only to values supplied in the create
-/// object"). A Task needs `maySetMetadata` on the TaskList of
+/// object"). A Task needs `maySetMetadata` on the [`TaskList`] of
 /// its `taskListId` (-05 §4.1: "on create, on the containers given in the
 /// create"). Types without the -05 properties pass unchecked.
 fn check_metadata_create(
@@ -1189,7 +1189,7 @@ fn check_metadata_create(
     Ok(())
 }
 
-/// The six draft-ietf-jmap-metadata-05 §3.6 FilterCondition fields.
+/// The six draft-ietf-jmap-metadata-05 §3.6 `FilterCondition` fields.
 const METADATA_CONDITION_KEYS: [&str; 6] = [
     "metadataExists",
     "privateMetadataExists",
@@ -1208,7 +1208,7 @@ const SHARED_METADATA_CONDITION_KEYS: [&str; 3] = [
     "metadataTextEquals",
 ];
 
-/// The Task FilterCondition properties this backend evaluates (jmapio/jmap
+/// The Task `FilterCondition` properties this backend evaluates (jmapio/jmap
 /// #456), besides the shared-metadata ones; any other set property is
 /// `unsupportedFilter`.
 const TASK_CONDITION_KEYS: [&str; 5] = [
@@ -1356,7 +1356,7 @@ fn check_one_start_zone(
 /// property comes after every task with it in ascending order (the spec
 /// leaves this open). `start` compares as a `LocalDateTime` string, which
 /// [`check_one_start_zone`] made safe; `created` and `updated` compare as
-/// UTCDates with the trailing `Z` (RFC 8620 §1.4) dropped, so a
+/// `UTCDate`s with the trailing `Z` (RFC 8620 §1.4) dropped, so a
 /// fractional-second value sorts after the whole second.
 fn compare_tasks(
     comparators: &[TaskComparator],
@@ -1412,7 +1412,7 @@ fn is_recurring(task: &serde_json::Value) -> bool {
 }
 
 /// Validate the draft-ietf-jmap-metadata-05 §3.6 conditions on every leaf
-/// of `filter`, a FilterCondition or FilterOperator tree (RFC 8620 §5.5),
+/// of `filter`, a `FilterCondition` or `FilterOperator` tree (RFC 8620 §5.5),
 /// before any object is matched.
 ///
 /// A type without `info` has no metadata (-05 §1.2.1: it "does not gain
@@ -1972,7 +1972,7 @@ impl<C: MemoryCaller> TasksBackend for MemoryBackend<C> {
     /// `Task/query` over the stored tasks.
     ///
     /// Evaluates `inTaskLists`, `workflowStatus`, `progress`, `after`,
-    /// `before` and the shared-metadata conditions in one FilterCondition;
+    /// `before` and the shared-metadata conditions in one `FilterCondition`;
     /// anything else, and any operator tree, is `unsupportedFilter`, as is
     /// `after` / `before` on a task whose `timeZone` is not the query's
     /// (there is no time-zone database). With `expandRecurrences` the
@@ -2074,7 +2074,7 @@ impl<C: MemoryCaller> TasksBackend for MemoryBackend<C> {
 ///
 /// Commit checks nothing beyond what the handlers already check:
 /// `taskListHasTask` is judged within one TaskList/set, which moves no
-/// Tasks; draft-ietf-jmap-tasks-06 sets no uniqueness rule for TaskList
+/// Tasks; draft-ietf-jmap-tasks-06 sets no uniqueness rule for [`TaskList`]
 /// `role`; and this backend has no cross-object caps.
 impl<C: MemoryCaller> ConditionalBackend for MemoryBackend<C> {
     async fn begin_set(

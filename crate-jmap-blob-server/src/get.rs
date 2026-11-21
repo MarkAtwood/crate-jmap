@@ -115,7 +115,7 @@ struct Plan {
     chunk_props: ChunkPlan,
 }
 
-/// Which DataSourceObject properties each `chunks` entry carries.
+/// Which [`DataSourceObject`] properties each `chunks` entry carries.
 #[derive(Debug, Default)]
 struct ChunkPlan {
     blob_id: bool,
@@ -309,7 +309,7 @@ async fn get_one<B: BlobBackend>(
 }
 
 /// The `chunks` array: each stored chunk projected to the requested
-/// DataSourceObject properties, with `position` the running sum of the
+/// [`DataSourceObject`] properties, with `position` the running sum of the
 /// preceding lengths and each digest over the octets the chunk contributes.
 async fn project_chunks<B: BlobBackend>(
     backend: &B,

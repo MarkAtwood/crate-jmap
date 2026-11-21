@@ -533,9 +533,9 @@ fn rights_props(
 #[derive(Clone)]
 struct MemoryState {
     accounts: HashMap<String, AccountStore>,
-    /// The draft-ietf-jmap-metadata-05 §1.2.1 DataTypeMetadataInfo of
-    /// FileNode, set by [`MemoryBackend::with_metadata_info`]. `None`:
-    /// FileNode does not have the metadata properties.
+    /// The draft-ietf-jmap-metadata-05 §1.2.1 [`DataTypeMetadataInfo`] of
+    /// [`FileNode`], set by [`MemoryBackend::with_metadata_info`]. `None`:
+    /// `FileNode` does not have the metadata properties.
     metadata_info: Option<DataTypeMetadataInfo>,
     /// The `maxFileNodeDepth` of every account, set by
     /// [`MemoryBackend::with_max_file_node_depth`]. `None`: no limit.
@@ -554,7 +554,7 @@ impl MemoryState {
         self.accounts.get_mut(account_id.as_ref())
     }
 
-    /// Whether FileNode has the draft-ietf-jmap-metadata-05 properties.
+    /// Whether [`FileNode`] has the draft-ietf-jmap-metadata-05 properties.
     fn has_metadata(&self) -> bool {
         self.metadata_info.is_some()
     }
@@ -689,10 +689,10 @@ impl<C> MemoryBackend<C> {
     }
 
     /// Give `data_type` the draft-ietf-jmap-metadata-05 `metadata`
-    /// property, configured by `info` (the DataTypeMetadataInfo of -05
+    /// property, configured by `info` (the [`DataTypeMetadataInfo`] of -05
     /// §1.2.1).
     ///
-    /// Without this call FileNode has no metadata: `FileNode/set` rejects a
+    /// Without this call [`FileNode`] has no metadata: `FileNode/set` rejects a
     /// write to `metadata` or `privateMetadata` with `invalidProperties`
     /// and `FileNode/query` rejects a metadata filter condition with
     /// `unsupportedFilter`. With it, `FileNode/set` validates metadata
@@ -703,7 +703,7 @@ impl<C> MemoryBackend<C> {
     /// job: list `info` under `"FileNode"` in the account's
     /// `urn:ietf:params:jmap:metadata` `dataTypes`.
     ///
-    /// -05 §4.1 names FileNode among the types with `myRights`, so an
+    /// -05 §4.1 names `FileNode` among the types with `myRights`, so an
     /// update that writes `metadata` needs `myRights.maySetMetadata`: on
     /// the node itself, or for a `File` or `SymLink`, which has no
     /// `myRights`, on its parent (draft-ietf-jmap-filenode-20 §5). The
@@ -766,7 +766,7 @@ impl<C> MemoryBackend<C> {
     ///   the `get_ancestors` short-circuit. Tests that rely on a
     ///   complete tree must seed the full chain themselves.
     /// - **Duplicate ids overwrite**: seeding the same id twice keeps
-    ///   the second value (HashMap::insert semantics).
+    ///   the second value ([`HashMap::insert`] semantics).
     /// - **No cycle check**: seeding A with parent=B and B with
     ///   parent=A produces a 2-cycle. [`FileNodeBackend::get_ancestors`]
     ///   uses a visited-set fallback so the walk terminates, but the
@@ -851,7 +851,7 @@ impl<C> MemoryBackend<C> {
 
     /// Record the SHA-256 digest of blob `blob_id` in an account, as a
     /// server advertising `urn:ietf:params:jmap:cid` would know it
-    /// (draft-atwood-jmap-cid-00 §FileNode Extension).
+    /// (draft-atwood-jmap-cid-00 §`FileNode` Extension).
     ///
     /// [`FileNodeBackend::blob_sha256`] returns `Some(digest)` for a seeded
     /// blob and `None` (capability not advertised) for any other, so tests
@@ -886,7 +886,7 @@ impl<C: MemoryCaller> JmapAccounts for MemoryBackend<C> {
         caller.principal()
     }
 
-    /// The info set by [`MemoryBackend::with_metadata_info`] for FileNode,
+    /// The info set by [`MemoryBackend::with_metadata_info`] for [`FileNode`],
     /// the same for every account; `None` for any other type.
     fn metadata_info<O: JmapObject>(
         &self,
@@ -1278,7 +1278,7 @@ impl<C: MemoryCaller> JmapReads for MemoryBackend<C> {
 /// among the properties that do, but draft-ietf-jmap-metadata-05 §2.2 says
 /// "Changes to metadata or privateMetadata alone MUST NOT update
 /// server-maintained modification timestamps of the related object, such
-/// as the changed property of FileNode ... This overrides any requirement
+/// as the changed property of [`FileNode`] ... This overrides any requirement
 /// of those specifications", so `metadata` does not either.
 fn updates_changed(property: &str) -> bool {
     !matches!(property, "changed" | "isSubscribed") && !is_metadata_property(property)
@@ -1326,7 +1326,7 @@ fn sharing_ancestors(nodes: &HashMap<Id, FileNode>, parent: Option<&Id>) -> Vec<
     found
 }
 
-/// The `forbidden` SetError for destroying, renaming or moving a Directory
+/// The `forbidden` [`SetError`] for destroying, renaming or moving a Directory
 /// with a role (draft-ietf-jmap-filenode-20 §5).
 fn role_forbidden() -> BackendSetError<MemoryError> {
     BackendSetError::SetError(Box::new(
@@ -1350,7 +1350,7 @@ fn with_id<O: SetObject>(obj: &O, id: &Id) -> Result<O, BackendSetError<MemoryEr
         .map_err(|e| BackendSetError::Other(MemoryError::serde("deserialize copied object", &e)))
 }
 
-/// A `forbidden` SetError: a write "would violate an ACL or other
+/// A `forbidden` [`SetError`]: a write "would violate an ACL or other
 /// permissions policy" (RFC 8620 §5.3).
 fn forbidden(description: &str) -> BackendSetError<MemoryError> {
     BackendSetError::SetError(Box::new(
@@ -1358,7 +1358,7 @@ fn forbidden(description: &str) -> BackendSetError<MemoryError> {
     ))
 }
 
-/// The `notFound` SetError, also for a node the caller cannot discover
+/// The `notFound` [`SetError`], also for a node the caller cannot discover
 /// (draft-ietf-jmap-filenode-20 §5).
 fn not_found() -> BackendSetError<MemoryError> {
     BackendSetError::SetError(Box::new(SetError::new(SetErrorType::NotFound)))
@@ -1455,7 +1455,7 @@ struct CopySource<'a> {
 }
 
 impl<C: MemoryCaller> MemoryBackend<C> {
-    /// Store the FileNode `build` returns for a new id in `account_id`: the
+    /// Store the [`FileNode`] `build` returns for a new id in `account_id`: the
     /// body of [`FileNodeBackend::create_object`] and
     /// [`FileNodeBackend::copy_object`]. `supplied` is the `/copy` create
     /// object whose metadata is validated (-05 §3.4); `None` validates the
@@ -2198,15 +2198,15 @@ fn node_matches_tree(
 /// does not support.
 ///
 /// Implemented fields (all simple equality / inequality semantics):
-/// - `parentId` — exact match on parent_id
-/// - `isTopLevel` — parent_id is null
+/// - `parentId` — exact match on `parent_id`
+/// - `isTopLevel` — `parent_id` is null
 /// - `ancestorId` — `node` has the given id somewhere on its parent chain
 /// - `descendantId` — `node` is an ancestor of the node with the given id
 /// - `nodeType` — exact match on the `@type` string
 /// - `role` — exact match on the role string
 /// - `hasAnyRole` — node has a non-null role (or null role if false)
-/// - `blobId` — exact match on blob_id
-/// - `mediaType` — exact match on media_type
+/// - `blobId` — exact match on `blob_id`
+/// - `mediaType` — exact match on `media_type`
 /// - `name` — exact byte match on name
 /// - `nameMatch` / `mediaTypeMatch` — glob match (`*`, `?`, `[...]`),
 ///   case-insensitive under `i;unicode-casemap`
@@ -2462,7 +2462,7 @@ fn invalid_metadata_property(property: &str, description: &str) -> BackendSetErr
 }
 
 /// draft-ietf-jmap-metadata-05 §3.2 rules 1 to 3 for a metadata write on a
-/// FileNode, before the write is applied. Returns the DataTypeMetadataInfo
+/// [`FileNode`], before the write is applied. Returns the [`DataTypeMetadataInfo`]
 /// for the rule 4 check after applying, or `None` when `entry` writes no
 /// metadata.
 ///
@@ -2508,7 +2508,7 @@ fn check_metadata_set<'a>(
     Ok(Some(info))
 }
 
-/// draft-ietf-jmap-metadata-05 §3.2 checks for a created FileNode `obj`:
+/// draft-ietf-jmap-metadata-05 §3.2 checks for a created [`FileNode`] `obj`:
 /// rules 1 to 3 on the metadata properties of `supplied`, the create
 /// object, then rule 4 on the values it supplied as stored in `obj`. A
 /// `FileNode/set` create passes `obj` as both; a `/copy` passes its create
@@ -2531,7 +2531,7 @@ fn check_metadata_create(
     Ok(())
 }
 
-/// The six draft-ietf-jmap-metadata-05 §3.6 FilterCondition fields.
+/// The six draft-ietf-jmap-metadata-05 §3.6 `FilterCondition` fields.
 const METADATA_CONDITION_KEYS: [&str; 6] = [
     "metadataExists",
     "privateMetadataExists",
@@ -2542,10 +2542,10 @@ const METADATA_CONDITION_KEYS: [&str; 6] = [
 ];
 
 /// Validate the draft-ietf-jmap-metadata-05 §3.6 conditions on every leaf
-/// of `filter`, a FilterCondition or FilterOperator tree (RFC 8620 §5.5),
+/// of `filter`, a `FilterCondition` or `FilterOperator` tree (RFC 8620 §5.5),
 /// before any node is matched.
 ///
-/// Without `info` FileNode has no metadata (-05 §1.2.1: it "does not gain
+/// Without `info` [`FileNode`] has no metadata (-05 §1.2.1: it "does not gain
 /// the metadata or privateMetadata properties"), so a metadata leaf is
 /// `unsupportedFilter` (RFC 8620 §5.5: "The filter is syntactically valid,
 /// but the server cannot process it"). Otherwise
@@ -2711,7 +2711,7 @@ impl<C: MemoryCaller> ConditionalBackend for MemoryBackend<C> {
     }
 }
 
-/// The changes an atomic scope made that break a FileNode tree constraint
+/// The changes an atomic scope made that break a [`FileNode`] tree constraint
 /// in the state it would commit (conditional-02 §4.2;
 /// draft-ietf-jmap-filenode-20 §3.1.1, §3.2.3):
 ///

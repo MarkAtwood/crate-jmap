@@ -38,6 +38,18 @@ use crate::QuotasBackend;
 ///   selects by RFC 4647 Lookup, falling back to the stored base value, as
 ///   RFC 9425 §4.1 requires; `name` is the base value, and `locale`,
 ///   `localizations` and `language` are not available.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, when
+///   `ids` or `properties` is malformed, or when `language` is given without
+///   `urn:ietf:params:jmap:i18n` in `using` or is not a list of language
+///   ranges;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `ids` holds more than `maxObjectsInGet` ids;
+/// - `serverFail` when the backend fails.
 pub async fn handle_quota_get<B: QuotasBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -137,6 +149,18 @@ fn visible_types(types: Option<&Value>, recognized: &[String]) -> Vec<String> {
 /// `updatedProperties` is the backend's
 /// [`ChangesResult::updated_properties`](jmap_server::ChangesResult::updated_properties):
 /// `["used"]` when only usage changed.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `sinceState` is missing, `maxChanges` is not a positive integer, or
+///   `ignoreMetadataOnlyChanges` is not a boolean;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `cannotCalculateChanges` when the backend cannot compute the changes
+///   since `sinceState`;
+/// - `serverFail` when the backend fails.
 pub async fn handle_quota_changes<B: QuotasBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -151,6 +175,22 @@ pub async fn handle_quota_changes<B: QuotasBackend>(
 /// With `urn:ietf:params:jmap:i18n` in `using`, `language` makes the
 /// `name` condition and sort use the localized `name`
 /// (draft-atwood-jmap-updates-00 §4.2.2); Accept-Language never does.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, when
+///   `filter`, `sort`, `position`, `anchor`, `anchorOffset` or `limit` is
+///   malformed, or when `language` is given without
+///   `urn:ietf:params:jmap:i18n` support or is not a list of language ranges;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `unsupportedFilter` when the filter does not decode as a Quota filter
+///   or the backend cannot process it;
+/// - `unsupportedSort` when the backend does not support the sort;
+/// - `anchorNotFound` when `anchor` is not in the results;
+/// - `serverFail` when the backend fails, or any other RFC 8620 §5.5 error
+///   the backend returns.
 pub async fn handle_quota_query<B: QuotasBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -165,6 +205,21 @@ pub async fn handle_quota_query<B: QuotasBackend>(
 ///
 /// The filter is restricted exactly as in [`handle_quota_query`], so the
 /// changes are to the query the client actually ran.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `sinceQueryState` is missing, `filter`, `sort`, `maxChanges` or
+///   `upToId` is malformed, or `language` is invalid as for
+///   [`handle_quota_query`];
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `unsupportedFilter` or `unsupportedSort` as for [`handle_quota_query`];
+/// - `cannotCalculateChanges` when `sinceQueryState` was computed in another
+///   language or the backend cannot compute the changes since it;
+/// - `tooManyChanges` when there are more changes than `maxChanges`;
+/// - `serverFail` when the backend fails.
 pub async fn handle_quota_query_changes<B: QuotasBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -183,7 +238,7 @@ fn never() -> Value {
 
 /// Rewrite `args.filter` to `AND(client filter, OR(type = t for each
 /// recognized t))`, with each client condition on an unrecognized `type`
-/// replaced by [`never`]: the client cannot see that type in `types`.
+/// replaced by `never`: the client cannot see that type in `types`.
 fn restrict_filter(mut args: Value, recognized: &[String]) -> Value {
     let visible = json!({
         "operator": "OR",

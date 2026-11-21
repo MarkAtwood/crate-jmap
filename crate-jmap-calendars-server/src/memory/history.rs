@@ -1,6 +1,6 @@
 //! Object history for the memory backend (draft-ietf-jmap-object-history-03
 //! with the -04 editor's copy changes; docs/design/object-history.md §7),
-//! for Calendar, CalendarEvent and ParticipantIdentity.
+//! for Calendar, [`CalendarEvent`] and `ParticipantIdentity`.
 //!
 //! Off until [`MemoryBackend::with_object_history`]. Versions live in a
 //! `jmap_object_history_server::HistoryStore` inside the scoped state, so a
@@ -65,7 +65,7 @@ impl Inner {
     }
 
     /// Destroyed objects in result order: the window, then for
-    /// CalendarEvent the `inCalendar` and metadata conditions this
+    /// [`CalendarEvent`] the `inCalendar` and metadata conditions this
     /// backend's CalendarEvent/query evaluates, over final versions; most
     /// recently destroyed first (§4). This backend sorts no query, so an
     /// explicit sort is `unsupportedSort` (§4: "The server need not support
@@ -123,7 +123,7 @@ impl Inner {
 
 impl<C: MemoryCaller> MemoryBackend<C> {
     /// Keep object history for the types `capability.supportedTypes` lists
-    /// (Calendar, CalendarEvent, ParticipantIdentity), in every account, with `retention`;
+    /// (Calendar, [`CalendarEvent`], `ParticipantIdentity`), in every account, with `retention`;
     /// `capability` is also what
     /// [`ObjectHistoryBackend::object_history_capability`] advertises.
     ///

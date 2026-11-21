@@ -1,7 +1,7 @@
-//! Object history for Graph, GraphNode and GraphEdge in the memory backend
+//! Object history for Graph, [`GraphNode`] and [`GraphEdge`] in the memory backend
 //! (draft-ietf-jmap-object-history-03 with the -04 editor's copy changes;
 //! docs/design/object-history.md §7; docs/design/DECISIONS.md decision 22).
-//! GraphNodeOp keeps none: "When a node is destroyed, its ops are destroyed
+//! `GraphNodeOp` keeps none: "When a node is destroyed, its ops are destroyed
 //! with it" (graph-edit §Compaction).
 //!
 //! Off until [`MemoryBackend::with_object_history`]. Versions live in a
@@ -62,7 +62,7 @@ impl Inner {
     }
 
     /// Record the destruction of `id` with `last` as its final state; every
-    /// route counts (§3), so the Graph and GraphNode cascades too.
+    /// route counts (§3), so the Graph and [`GraphNode`] cascades too.
     pub(super) fn record_destroy(&mut self, type_name: &str, account: &Id, id: &Id, last: Value) {
         if let Some(h) = self.history.as_mut() {
             h.record_destroy(type_name, account, id, last);
@@ -123,7 +123,7 @@ impl Inner {
 
 impl<C> MemoryBackend<C> {
     /// Keep object history for the types `capability.supportedTypes` lists
-    /// (Graph, GraphNode, GraphEdge) in every account, with `retention`;
+    /// (Graph, [`GraphNode`], [`GraphEdge`]) in every account, with `retention`;
     /// `capability` is also what
     /// [`ObjectHistoryBackend::object_history_capability`] advertises.
     ///

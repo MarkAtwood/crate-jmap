@@ -119,7 +119,7 @@ pub trait BlobBackend: JmapBackend {
     ///
     /// Default: one chunk covering the whole blob, from
     /// [`blob_info`](Self::blob_info): "A server that does not store the
-    /// blob in chunks returns a single DataSourceObject covering the entire
+    /// blob in chunks returns a single `DataSourceObject` covering the entire
     /// blob, with blobId set to the blob's own id, offset 0, length and
     /// size equal to the size of the blob, and position 0" (§5).
     fn blob_chunks(
@@ -159,7 +159,7 @@ pub trait BlobBackend: JmapBackend {
     /// re-checks that every source blob still exists for the caller
     /// (`notFound`), applies its quota (`overQuota`), may scan the content
     /// (§10.5), mints the id, and stores the octets (it may store a chunk
-    /// list instead of copying). Return SetErrors as
+    /// list instead of copying). Return `SetError`s as
     /// [`BackendSetError::SetError`].
     ///
     /// [`CreatedBlob::omit_from_response`] may be true only for a
@@ -178,7 +178,7 @@ pub trait BlobBackend: JmapBackend {
     ///
     /// Return [`TouchOutcome::Honoured`] when the requested value was
     /// applied, or [`TouchOutcome::Applied`] with the value actually
-    /// applied. A missing or invisible blob is a `notFound` SetError.
+    /// applied. A missing or invisible blob is a `notFound` `SetError`.
     ///
     /// No default.
     fn touch_blob(
@@ -191,7 +191,7 @@ pub trait BlobBackend: JmapBackend {
 
     /// Destroy `blob_id` (blobext-03 §4 destroy).
     ///
-    /// SetErrors: `notFound` when missing or invisible; `blobHasReference`
+    /// `SetError`s: `notFound` when missing or invisible; `blobHasReference`
     /// ([`jmap_blob_types::errors::BLOB_HAS_REFERENCE`]) when a current
     /// object still references it ("The server MUST reject any blob that is
     /// still referenced by another object"); non-current object-history
@@ -215,9 +215,9 @@ pub trait BlobBackend: JmapBackend {
     /// (it may share them). The copy keeps the source's media type and
     /// starts unreferenced, so it expires as any new blob does.
     ///
-    /// SetErrors, as [`BackendSetError::SetError`]: `notFound` when the
+    /// `SetError`s, as [`BackendSetError::SetError`]: `notFound` when the
     /// blob is missing or the caller may not see it ("the "notFound"
-    /// SetError error may be returned if the blobId to be copied cannot be
+    /// `SetError` error may be returned if the blobId to be copied cannot be
     /// found"), and "any of the standard set errors that may be returned
     /// for a create" (`forbidden`, `overQuota`, `tooLarge`, ...).
     ///

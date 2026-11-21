@@ -353,9 +353,9 @@ known_sort!(
 ///
 /// - -05 §3: for a request whose `using` lacks
 ///   `urn:ietf:params:jmap:metadata`, "Foo/set MUST reject any write to
-///   them with an "invalidProperties" SetError".
+///   them with an "invalidProperties" `SetError`".
 /// - -05 §3.2: on create, "A value of null for either property MUST be
-///   rejected with an "invalidProperties" SetError".
+///   rejected with an "invalidProperties" `SetError`".
 ///
 /// The backend validates the rest (-05 §3.2 rules 1 to 4). Mirrors the
 /// canonical `jmap-mail-server` helper (bd JMAP-s4kp.1).
@@ -401,10 +401,10 @@ pub(crate) fn is_metadata_key(key: &str) -> bool {
 
 /// `true` when `value`, the member named `key` of a JSCalendar object, is
 /// or contains a URI-valued member that is not an RFC 3986 URI: a Link
-/// `href` (RFC 8984 §1.4.11) in any `links` map, a VirtualLocation `uri`
+/// `href` (RFC 8984 §1.4.11) in any `links` map, a `VirtualLocation` `uri`
 /// (§4.2.6) in any `virtualLocations` map, or a Participant `sendTo` value
 /// (§4.4.6) in any `participants` map, at any depth, including inside the
-/// PatchObjects of `recurrenceOverrides` (§4.3.5).
+/// `PatchObject`s of `recurrenceOverrides` (§4.3.5).
 fn jscalendar_bad_uri(key: &str, value: &Value) -> bool {
     let not_uri = |v: Option<&Value>| {
         v.and_then(Value::as_str)
@@ -437,7 +437,7 @@ fn jscalendar_bad_uri(key: &str, value: &Value) -> bool {
     }
 }
 
-/// The `invalidProperties` SetError for the first top-level CalendarEvent
+/// The `invalidProperties` `SetError` for the first top-level `CalendarEvent`
 /// property that holds a JSCalendar URI that is not an RFC 3986 URI
 /// (RFC 8984 requires them to be URIs; draft-atwood-jmap-updates-00 §7.1),
 /// or `None`. `event` is a create object or

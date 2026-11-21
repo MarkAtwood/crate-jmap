@@ -1,7 +1,7 @@
-//! ShareNotification/* method handlers (RFC 9670 §3).
+//! [`ShareNotification`]/* method handlers (RFC 9670 §3).
 //!
-//! ShareNotifications are server-created immutable records.  Clients may only
-//! query and destroy them.  Any attempt to create or update a ShareNotification
+//! `ShareNotification`s are server-created immutable records.  Clients may only
+//! query and destroy them.  Any attempt to create or update a `ShareNotification`
 //! via `/set` MUST be rejected with `forbidden` at the handler layer — the
 //! backend never sees create or update calls for this type.
 //!
@@ -57,6 +57,16 @@ use jmap_server::{SetError, SetErrorType};
 /// `/get` response shape (`accountId`, `state`, `list`, `notFound`).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `ids` or `properties` is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `ids` holds more than `maxObjectsInGet` ids;
+/// - `serverFail` when the backend fails.
 pub async fn handle_share_notification_get<B: SharingBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -77,6 +87,17 @@ pub async fn handle_share_notification_get<B: SharingBackend>(
 /// `hasMoreChanges`, `created`, `updated`, `destroyed`).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `sinceState` is missing, or `maxChanges` is not a positive integer;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `cannotCalculateChanges` when the backend cannot compute the changes
+///   since `sinceState`;
+/// - `serverFail` when the backend fails.
 pub async fn handle_share_notification_changes<B: SharingBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -100,10 +121,25 @@ pub async fn handle_share_notification_changes<B: SharingBackend>(
 ///
 /// **Destroy-only enforcement**: RFC 9670 §3.3 states that only `destroy` is
 /// supported.  Any entries in the `create` or `update` maps receive an
-/// immediate `forbidden` SetError without touching the backend. The `destroy`
+/// immediate `forbidden` [`SetError`] without touching the backend. The `destroy`
 /// list is forwarded to the backend normally.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `destroy` is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `create`, `update` and `destroy` together hold
+///   more than `maxObjectsInSet` objects;
+/// - `stateMismatch` when `ifInState` is not the current state;
+/// - `serverFail` when the backend fails.
+///
+/// A create, update or destroy that fails on its own is a [`SetError`] in
+/// the response, not an `Err`.
 pub async fn handle_share_notification_set<B: SharingBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -169,7 +205,7 @@ struct SetCtx<'a, B: SharingBackend> {
 }
 
 /// The `create` part of `ShareNotification/set`: forbidden, because a
-/// ShareNotification is server-created only.
+/// [`ShareNotification`] is server-created only.
 fn set_create(args: &mut serde_json::Map<String, Value>, acc: &mut SetAccumulators) {
     if let Some(Value::Object(create_map)) = args.remove("create") {
         for (create_id, _) in create_map {
@@ -182,7 +218,7 @@ fn set_create(args: &mut serde_json::Map<String, Value>, acc: &mut SetAccumulato
 }
 
 /// The `update` part of `ShareNotification/set`: forbidden, because a
-/// ShareNotification is immutable.
+/// [`ShareNotification`] is immutable.
 fn set_update(args: &mut serde_json::Map<String, Value>, acc: &mut SetAccumulators) {
     if let Some(Value::Object(update_map)) = args.remove("update") {
         for (id_str, _) in update_map {
@@ -266,6 +302,21 @@ async fn set_destroy<B: SharingBackend>(
 /// `total`, optional `limit`).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `filter`, `sort`, `position`, `anchor`, `anchorOffset` or `limit`
+///   is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `unsupportedFilter` when the filter does not decode as a
+///   `ShareNotification` filter or the backend cannot process it;
+/// - `unsupportedSort` when the backend does not support the sort;
+/// - `anchorNotFound` when `anchor` is not in the results;
+/// - `serverFail` when the backend fails, or any other RFC 8620 §5.5 error
+///   the backend returns.
 pub async fn handle_share_notification_query<B: SharingBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -288,6 +339,21 @@ pub async fn handle_share_notification_query<B: SharingBackend>(
 /// `removed`, `added`).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `sinceQueryState` is missing, or `filter`, `sort`, `maxChanges` or
+///   `upToId` is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `unsupportedFilter` or `unsupportedSort` as for
+///   [`handle_share_notification_query`];
+/// - `cannotCalculateChanges` when the backend cannot compute the changes
+///   since `sinceQueryState`;
+/// - `tooManyChanges` when there are more changes than `maxChanges`;
+/// - `serverFail` when the backend fails.
 pub async fn handle_share_notification_query_changes<B: SharingBackend>(
     backend: &B,
     caller: &B::CallerCtx,

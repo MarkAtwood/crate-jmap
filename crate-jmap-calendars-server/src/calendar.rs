@@ -2,7 +2,7 @@
 //!
 //! `Calendar/set` has special logic: if `onDestroyRemoveEvents` is absent or
 //! `false`, destroying a Calendar that still has events is rejected with a
-//! `calendarHasEvent` SetError (not a top-level error).
+//! `calendarHasEvent` [`SetError`] (not a top-level error).
 //!
 //! A calendar on which the caller holds only `mayReadFreeBusy` MUST NOT be
 //! returned by the backend's caller-scoped `Calendar/get` or
@@ -69,6 +69,16 @@ use jmap_server::{SetError, SetErrorType};
 /// §3.1); see [`jmap_server::handle_get_with_metadata`].
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `ids` or `properties` is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `ids` holds more than `maxObjectsInGet` ids;
+/// - `serverFail` when the backend fails.
 pub async fn handle_calendar_get<B: CalendarsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -96,6 +106,18 @@ pub async fn handle_calendar_get<B: CalendarsBackend>(
 /// without it metadata-only changes are left out (-05 §3).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `sinceState` is missing, `maxChanges` is not a positive integer, or
+///   `ignoreMetadataOnlyChanges` is not a boolean;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `cannotCalculateChanges` when the backend cannot compute the changes
+///   since `sinceState`;
+/// - `serverFail` when the backend fails.
 pub async fn handle_calendar_changes<B: CalendarsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -122,7 +144,7 @@ pub async fn handle_calendar_changes<B: CalendarsBackend>(
 /// Special behaviour:
 /// - Parses `onDestroyRemoveEvents` (default `false`) from the request args.
 /// - If `false`, any calendar in the `destroy` list that still has events is
-///   rejected with a `calendarHasEvent` SetError (draft §4.4.1).
+///   rejected with a `calendarHasEvent` [`SetError`] (draft §4.4.1).
 /// - Create and update are forwarded to the backend normally.
 /// - draft-ietf-jmap-metadata-05 §3 and §3.2: a write to `metadata` or
 ///   `privateMetadata` is `invalidProperties` without
@@ -131,6 +153,21 @@ pub async fn handle_calendar_changes<B: CalendarsBackend>(
 ///   create; the backend validates the rest.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `create`, `update` or `destroy` is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `create`, `update` and `destroy` together hold
+///   more than `maxObjectsInSet` objects;
+/// - `stateMismatch` when `ifInState` is not the current state;
+/// - `serverFail` when the backend fails.
+///
+/// A create, update or destroy that fails on its own is a [`SetError`] in
+/// the response, not an `Err`.
 pub async fn handle_calendar_set<B: CalendarsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -259,7 +296,7 @@ async fn set_create<B: CalendarsBackend>(
 }
 
 /// Check one `Calendar/set` create object, fill in the server-set and
-/// defaulted properties, and parse it, or return the SetError value for
+/// defaulted properties, and parse it, or return the [`SetError`] value for
 /// `notCreated`.
 fn calendar_from_create<B: CalendarsBackend>(
     ctx: &SetCtx<'_, B>,
@@ -514,7 +551,7 @@ async fn set_destroy<B: CalendarsBackend>(
 }
 
 /// The `onDestroyRemoveEvents` step before a Calendar destroy
-/// (draft-ietf-jmap-calendars-34 §4.4): the SetError value for
+/// (draft-ietf-jmap-calendars-34 §4.4): the [`SetError`] value for
 /// `notDestroyed` when the calendar still has events or their cleanup
 /// failed, or `None` to go on with the destroy.
 async fn destroy_events_error<B: CalendarsBackend>(ctx: &SetCtx<'_, B>, id: &Id) -> Option<Value> {
@@ -617,14 +654,14 @@ async fn set_on_success_default<B: CalendarsBackend>(
     false
 }
 
-/// Clean up CalendarEvents in a Calendar before destroying the Calendar.
+/// Clean up [`CalendarEvent`]s in a Calendar before destroying the Calendar.
 ///
 /// Implements PLAN.md §5 (draft-ietf-jmap-calendars-34 §4.4 onDestroyRemoveEvents):
 ///   - Events whose `calendarIds` is just this calendar are destroyed.
 ///   - Events with multiple calendarIds are patched to remove this calendar id.
 ///
 /// Returns `Err(value)` on the first sub-step failure where `value` is the
-/// already-redacted wire-format SetError [`Value`] for the calendar's
+/// already-redacted wire-format [`SetError`] [`Value`] for the calendar's
 /// `notDestroyed` entry (bd:JMAP-ic0j.68). Partial cleanup is not acceptable:
 /// failing fast keeps the data store consistent.
 ///

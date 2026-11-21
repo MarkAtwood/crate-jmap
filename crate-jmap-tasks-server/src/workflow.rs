@@ -1,7 +1,7 @@
 //! The Task `workflowStatus` and `progress` rule (docs/design/DECISIONS.md
 //! decision 42; jmapio/jmap #465 against draft-ietf-jmap-tasks-06 §4).
 //!
-//! -06 says only "Must be one of the TaskList's `workflowStatuses`. If set,
+//! -06 says only "Must be one of the `TaskList`'s `workflowStatuses`. If set,
 //! `progress` MUST null", which leaves a task completed through
 //! `workflowStatus` looking unfinished to a JSCalendar or iCalendar reader.
 //! Decision 42 replaces it:
@@ -28,7 +28,7 @@
 use jmap_types::{SetError, SetErrorType};
 use serde_json::{Map, Value};
 
-/// draft-ietf-jmap-tasks-06 §3: a TaskList's `workflowStatuses` default,
+/// draft-ietf-jmap-tasks-06 §3: a `TaskList`'s `workflowStatuses` default,
 /// used when the list has none.
 pub const DEFAULT_WORKFLOW_STATUSES: &[&str] = &[
     "completed",
@@ -74,7 +74,7 @@ pub enum WorkflowWrite<'a> {
 /// Apply decision 42 to `task`, the Task as it would be stored, in a list
 /// whose `workflowStatuses` is `list_statuses` (`None`: the list has none,
 /// or none is stored, so [`DEFAULT_WORKFLOW_STATUSES`]). `now` is the
-/// UTCDate a server-changed `progress` gives `progressUpdated`.
+/// `UTCDate` a server-changed `progress` gives `progressUpdated`.
 ///
 /// Returns whether the server changed `task` (`progress` or
 /// `progressUpdated`), so an update can echo it (RFC 8620 §5.3).

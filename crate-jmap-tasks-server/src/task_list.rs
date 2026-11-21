@@ -1,4 +1,4 @@
-//! TaskList/* method handlers (draft-tasks-06 §3).
+//! [`TaskList`]/* method handlers (draft-tasks-06 §3).
 //!
 //! TaskList/set has a special `onDestroyRemoveTasks` argument: if false
 //! (default) and the list contains tasks, the destroy is rejected with
@@ -57,7 +57,7 @@ use jmap_server::{
 /// `/get` response shape (`accountId`, `state`, `list`, `notFound`).
 ///
 /// `using` is the request's capability list (pass
-/// [`jmap_server::CallContext::using`]). When the backend lists TaskList for
+/// [`jmap_server::CallContext::using`]). When the backend lists [`TaskList`] for
 /// draft-ietf-jmap-metadata-05 ([`JmapAccounts::metadata_info`](jmap_server::JmapAccounts::metadata_info)),
 /// `metadata` is returned as an object, by default only with
 /// `urn:ietf:params:jmap:metadata` in `using`, and with that capability
@@ -65,6 +65,16 @@ use jmap_server::{
 /// §3.1); see [`jmap_server::handle_get_with_metadata`].
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `ids` or `properties` is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `ids` holds more than `maxObjectsInGet` ids;
+/// - `serverFail` when the backend fails.
 pub async fn handle_task_list_get<B: TasksBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -92,6 +102,18 @@ pub async fn handle_task_list_get<B: TasksBackend>(
 /// without it metadata-only changes are left out (-05 §3).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `sinceState` is missing, `maxChanges` is not a positive integer, or
+///   `ignoreMetadataOnlyChanges` is not a boolean;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `cannotCalculateChanges` when the backend cannot compute the changes
+///   since `sinceState`;
+/// - `serverFail` when the backend fails.
 pub async fn handle_task_list_changes<B: TasksBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -117,7 +139,7 @@ pub async fn handle_task_list_changes<B: TasksBackend>(
 /// The `onDestroyRemoveTasks` argument (default: `false`) controls whether
 /// tasks in a task list are cascade-destroyed when the list is destroyed.
 /// If `false` and the list has tasks, the destroy is rejected with a
-/// `taskListHasTask` SetError.
+/// `taskListHasTask` `SetError`.
 ///
 /// `using` is the request's capability list (pass
 /// [`jmap_server::CallContext::using`]): a write to `metadata` or
@@ -126,6 +148,21 @@ pub async fn handle_task_list_changes<B: TasksBackend>(
 /// either in a create (-05 §3.2). The backend validates the rest.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `create`, `update` or `destroy` is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `create`, `update` and `destroy` together hold
+///   more than `maxObjectsInSet` objects;
+/// - `stateMismatch` when `ifInState` is not the current state;
+/// - `serverFail` when the backend fails.
+///
+/// A create, update or destroy that fails on its own is a [`SetError`](jmap_server::SetError) in
+/// the response, not an `Err`.
 pub async fn handle_task_list_set<B: TasksBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -236,7 +273,7 @@ async fn set_create<B: TasksBackend>(
 }
 
 /// Check one `TaskList/set` create object, fill in the server-set and
-/// defaulted properties, and parse it, or return the SetError value for
+/// defaulted properties, and parse it, or return the `SetError` value for
 /// `notCreated`.
 fn task_list_from_create(obj_val: Value, using: &[String]) -> Result<TaskList, Value> {
     if let Some(err) = obj_val.as_object().and_then(reject_server_set::<TaskList>) {
@@ -512,15 +549,15 @@ async fn set_destroy<B: TasksBackend>(
 /// Destroy every Task whose `taskListId` is `task_list_id`
 /// (draft-tasks-06 §3.4 `onDestroyRemoveTasks: true`).
 ///
-/// A Task belongs to exactly one TaskList, so each one is destroyed
+/// A Task belongs to exactly one [`TaskList`], so each one is destroyed
 /// outright; there is no membership to patch out as in the Calendar and
 /// Mailbox cascades.
 ///
 /// # Errors
 ///
-/// Returns the redacted wire-format SetError [`Value`] for the TaskList's
+/// Returns the redacted wire-format `SetError` [`Value`] for the `TaskList`'s
 /// `notDestroyed` entry on the first failed query, fetch or destroy. A
-/// typed [`BackendSetError::SetError`] keeps its JMAP type; every other
+/// typed `BackendSetError::SetError` keeps its JMAP type; every other
 /// failure becomes `serverFail`.
 async fn destroy_task_list_tasks<B: TasksBackend>(
     backend: &B,
