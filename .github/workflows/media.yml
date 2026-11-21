@@ -1,0 +1,34 @@
+# Real-media tests for jmap-vtc-ffmpeg (decision 62).
+#
+# The default CI (ci.yml) stays free of media tools (decision 57), so the
+# tests that spawn a real ffmpeg are behind the `real-ffmpeg` feature and
+# `#[ignore]`. This workflow installs ffmpeg and runs them. It runs only
+# on demand and weekly, never on push, so it never blocks a change.
+
+name: media
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Mondays 06:17 UTC.
+    - cron: "17 6 * * 1"
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: short
+
+jobs:
+  vtc-ffmpeg:
+    name: jmap-vtc-ffmpeg (real ffmpeg)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      # Ubuntu's ffmpeg is built with libx264, which the recording test
+      # needs. The WHIP push path needs ffmpeg 8 and is not exercised here.
+      - name: install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+      - run: ffmpeg -hide_banner -version | head -1
+      - name: cargo test (real ffmpeg)
+        run: cargo test -p jmap-vtc-ffmpeg --features real-ffmpeg -- --ignored

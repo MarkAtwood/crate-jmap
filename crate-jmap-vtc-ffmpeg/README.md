@@ -174,6 +174,8 @@ and built with `Default` plus `with_*` methods.
   real-process tests need the `real-ffmpeg` feature and `--ignored`, and
   ffmpeg with libx264 on `PATH`:
   `cargo test -p jmap-vtc-ffmpeg --features real-ffmpeg -- --ignored`.
+  The repository's `media` workflow (`.github/workflows/media.yml`) runs
+  them weekly and on demand; it never gates a push.
 
 ## References
 
