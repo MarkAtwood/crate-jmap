@@ -54,6 +54,18 @@ async fn create_call(&self, caller: &Ctx, account_id: &Id, call: VtcCall, target
 
 `tests/common/mod.rs` wires the two reference `MemoryBackend`s this way.
 
+With the `websocket` feature, `link_vtc_stream` connects a connection's
+`jmap_chat_server::websocket::ChatStreamHandler` to its
+`jmap_vtc_server::websocket::VtcStreamHandler`: `"vtc"` in `dataTypes`
+is recognized and switches the VTC handler's alias, which then decides
+each event once over both paths, as `should_deliver_vtc` does.
+
+```rust,ignore
+let vtc = VtcStreamHandler::new(vtc_backend, caller.clone(), account.clone(), &vtc_hub);
+let chat = link_vtc_stream(ChatStreamHandler::new(chat_backend, caller, [account], &chat_hub), &vtc);
+let connection = connection.with_extension(chat).with_extension(vtc);
+```
+
 ## How it works
 
 Each function takes only the backend it reads or writes, so the VTC and

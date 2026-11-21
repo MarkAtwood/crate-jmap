@@ -11,6 +11,11 @@ keywords = ["jmap", "vtc", "chat", "server"]
 categories = ["network-programming", "web-programming::http-server"]
 exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
 
+[features]
+# `link_vtc_stream`: the ChatStreamEnable "vtc" alias between the
+# jmap-chat-server and jmap-vtc-server WebSocket extension handlers.
+websocket = ["jmap-chat-server/websocket", "jmap-vtc-server/websocket"]
+
 [dependencies]
 jmap-types = { workspace = true }
 jmap-chat-types = { workspace = true }
@@ -21,9 +26,14 @@ jmap-server = { workspace = true }
 serde_json = { workspace = true }
 
 [dev-dependencies]
-tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "net", "time"] }
 jmap-chat-server = { workspace = true, features = ["memory", "test-helpers"] }
-jmap-vtc-server = { workspace = true, features = ["memory", "test-helpers"] }
+jmap-vtc-server = { workspace = true, features = ["memory", "test-helpers", "websocket"] }
+# tests/stream_union_ws.rs: the union over a real loopback WebSocket.
+jmap-chat-vtc-server = { path = ".", features = ["websocket"] }
+jmap-websocket = { workspace = true, features = ["server", "tungstenite"] }
+tokio-tungstenite = { workspace = true }
+futures = { workspace = true }
 
 [package.metadata.docs.rs]
 all-features = true

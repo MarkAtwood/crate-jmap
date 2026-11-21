@@ -18,6 +18,7 @@
 //! | `ChatEvents::on_space_destroyed` | [`clear_space_references`] |
 //! | `ChatEvents::on_space_ban_created` | [`contact_identity`], then [`eject_banned_user`] |
 //! | WebSocket transport, before sending a VTC event | [`should_deliver_vtc`] |
+//! | `websocket` feature: per connection, after building both stream handlers | `link_vtc_stream` |
 //!
 //! Each function takes only the backend it reads or writes, so the two
 //! backends may have different caller contexts and error types.
@@ -580,6 +581,59 @@ pub async fn should_deliver_vtc<V: VtcBackend>(
         event,
     )
     .await
+}
+
+/// Connect a connection's `ChatStreamEnable` handler to its
+/// `VTCStreamEnable` handler, so that `"vtc"` in `dataTypes` turns on the
+/// VTC events through `vtc` (draft-atwood-jmap-vtc-wss-00
+/// §Interoperability with JMAP Chat WebSocket).
+///
+/// Returns `chat` with `"vtc"` recognized (its
+/// [`CompanionStreams`](jmap_chat_server::CompanionStreams) `vtc` set: a
+/// server that registers `vtc` advertises
+/// `urn:ietf:params:jmap:vtc:websocket`) and an observer that sets
+/// `vtc`'s [`VtcChatAlias`](jmap_vtc_server::websocket::VtcChatAlias)
+/// from every new Chat subscription. Register both handlers on the
+/// connection.
+///
+/// `vtc` then decides each VTC event once over both paths, as
+/// [`should_deliver_vtc`] does: the union is delivered and "if an event
+/// matches both subscriptions, it is delivered exactly once"
+/// (§Subscription Union). `VTCStreamDisable` leaves the `"vtc"` path on,
+/// and `ChatStreamDisable` turns it off and leaves the `VTCStreamEnable`
+/// subscription in place (§Subscription Independence).
+///
+/// ```
+/// use std::sync::Arc;
+/// use jmap_chat_server::ChatBackend;
+/// use jmap_chat_server::websocket::{ChatEventHub, ChatStreamHandler};
+/// use jmap_chat_vtc_server::link_vtc_stream;
+/// use jmap_types::Id;
+/// use jmap_vtc_server::VtcBackend;
+/// use jmap_vtc_server::websocket::{VtcEventHub, VtcStreamHandler};
+/// use jmap_websocket::server::{Connection, DispatcherHandler};
+///
+/// fn wire<C: ChatBackend<CallerCtx = ()>, V: VtcBackend<CallerCtx = ()>>(
+///     (chat, chat_hub): (Arc<C>, &ChatEventHub),
+///     (vtc, vtc_hub): (Arc<V>, &VtcEventHub),
+///     connection: Connection<DispatcherHandler<()>>,
+/// ) -> Connection<DispatcherHandler<()>> {
+///     let account = Id::from("acct-alice");
+///     let vtc = VtcStreamHandler::new(vtc, (), account.clone(), vtc_hub);
+///     let chat = link_vtc_stream(ChatStreamHandler::new(chat, (), [account], chat_hub), &vtc);
+///     connection.with_extension(chat).with_extension(vtc)
+/// }
+/// ```
+#[cfg(feature = "websocket")]
+pub fn link_vtc_stream<C: ChatBackend, V: VtcBackend>(
+    chat: jmap_chat_server::websocket::ChatStreamHandler<C>,
+    vtc: &jmap_vtc_server::websocket::VtcStreamHandler<V>,
+) -> jmap_chat_server::websocket::ChatStreamHandler<C> {
+    let mut companions = chat.companions();
+    companions.vtc = true;
+    let alias = vtc.chat_alias();
+    chat.with_companions(companions)
+        .on_subscription_change(move |subscription| alias.set(subscription.vtc()))
 }
 
 /// The Id in a `T|null` binding property, if it is set.
