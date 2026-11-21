@@ -98,8 +98,8 @@ pub fn check_where_filter(
     using: &[String],
     cap: Option<&SearchCapability>,
 ) -> Result<bool, JmapError> {
-    let wheres = filter.map(where_values).unwrap_or_default();
-    if wheres.is_empty() {
+    let where_conditions = filter.map(where_values).unwrap_or_default();
+    if where_conditions.is_empty() {
         return Ok(false);
     }
     if !using.iter().any(|u| u == JMAP_SEARCH_URI) {
@@ -112,7 +112,7 @@ pub fn check_where_filter(
             "the account does not advertise {JMAP_SEARCH_URI}"
         )));
     };
-    for w in wheres {
+    for w in where_conditions {
         check_where(w, data_type, cap)?;
     }
     Ok(true)

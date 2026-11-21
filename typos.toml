@@ -15,6 +15,9 @@ extend-exclude = [
     # signatures.
     "crate-jmap-did-types/tests/fixtures/webvh/",
     "crate-jmap-did-resolver/tests/fixtures/webvh/",
+    # Stored spec patches: git cuts hunk headers off mid-word, and the
+    # text itself is checked in jmap-chat-spec.
+    "docs/upstream/**/*.patch",
 ]
 
 [default]
@@ -49,6 +52,13 @@ extend-ignore-re = [
     # RFC 9404-style blob ids: `G` followed by a 40-hex-digit SHA-1 (e.g.
     # docs/upstream/2026-11-13/rfc9404-erratum-upload.md). Hex, not words.
     "G[0-9a-f]{40}",
+    # Verbatim quotes of upstream typos: "UnignedInt" in
+    # draft-ietf-jmap-tasks (#471), and Apple's "maxiumum" in the APNs
+    # payload-size documentation (crate-jmap-platform-push/src/apns.rs).
+    "UnignedInt",
+    "The maxiumum size",
+    # WNS channel token in crate-jmap-platform-push/tests/wns.rs.
+    "AwYAAABa5cJ3",
 ]
 
 [default.extend-words]

@@ -15,7 +15,6 @@ jmap-chat-types = { path = "@WORKSPACE@/crate-jmap-chat-types" }
 jmap-scene-client = { path = "@WORKSPACE@/crate-jmap-scene-client" }
 jmap-scene-types = { path = "@WORKSPACE@/crate-jmap-scene-types" }
 jmap-graph-client = { path = "@WORKSPACE@/crate-jmap-graph-client" }
-jmap-graph-types = { path = "@WORKSPACE@/crate-jmap-graph-types" }
 jmap-tasks-client = { path = "@WORKSPACE@/crate-jmap-tasks-client" }
 jmap-tasks-types = { path = "@WORKSPACE@/crate-jmap-tasks-types" }
 jmap-platform-push = { path = "@WORKSPACE@/crate-jmap-platform-push" }
