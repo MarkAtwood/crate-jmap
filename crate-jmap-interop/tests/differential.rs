@@ -36,6 +36,7 @@ enum Verdict {
     Allowed(&'static str),
     /// The testjig (this workspace's code) contradicts the cited RFC text
     /// and the external server does not; tracked until fixed.
+    #[allow(dead_code, reason = "no testjig bug is known at present")]
     TestjigBug(&'static str),
 }
 
@@ -92,14 +93,6 @@ const KNOWN: &[(&str, Verdict)] = &[
         ),
     ),
     (
-        "email/errors.notCreated",
-        Verdict::TestjigBug(UNKNOWN_MAILBOX_IDS),
-    ),
-    (
-        "email/errors.notUpdated",
-        Verdict::TestjigBug(UNKNOWN_MAILBOX_IDS),
-    ),
-    (
         "mailbox/get[P].isSubscribed",
         Verdict::Deviation(IS_SUBSCRIBED),
     ),
@@ -125,10 +118,6 @@ const KNOWN: &[(&str, Verdict)] = &[
     ),
 ];
 
-const UNKNOWN_MAILBOX_IDS: &str = "RFC 8621 §4.1.1: mailboxIds is \"the set of Mailbox ids \
-                                   this Email belongs to\"; the jmap-mail-server MemoryBackend \
-                                   accepts an Email/set create or update naming a Mailbox the \
-                                   account does not have (bd:JMAP-cyub.5)";
 const IS_SUBSCRIBED: &str = "RFC 8621 §2: isSubscribed \"SHOULD default to ... true for any \
                              new Mailboxes created by the user themself\"";
 const MAY_SET_METADATA: &str = "draft-ietf-jmap-metadata-05 §4.1: maySetMetadata is in myRights \

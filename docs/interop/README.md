@@ -139,11 +139,6 @@ Differences the RFCs allow, found by the differential tests:
 | RFC 8620 §5.3 | a child created in the same `Mailbox/set` that destroys its parent is created, the destroy fails with `mailboxHasChild` | the create fails with `willDestroy` (a SetError §5.3 lists for updates) |
 | draft-ietf-jmap-metadata-05 §4.1 | no `maySetMetadata` (Mailbox not a listed metadata type) | `maySetMetadata` in `myRights` |
 
-Known testjig bug: the `jmap-mail-server` `MemoryBackend` accepts an
-Email `/set` create or update whose `mailboxIds` names a Mailbox the
-account does not have (RFC 8621 §4.1.1); Stalwart answers
-`invalidProperties`.
-
 The clients tolerate the missing `newState` (decision 67 in
 `docs/design/DECISIONS.md`): `jmap_types::SetResponse` decodes it as the
 empty state, so `jmap-mail-client`'s `email_submission_set` succeeds, and
