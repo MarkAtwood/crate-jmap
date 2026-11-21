@@ -776,6 +776,10 @@ impl<H: RequestHandler, P: PushSource> Connection<H, P> {
                     return Ok(());
                 }
                 tokio::select! {
+                    // Polled in order, close first: when the loop was
+                    // already waiting here and a Close request and another
+                    // branch become ready together, the Close must win.
+                    biased;
                     // Only wakes the loop; the check above sends the Close.
                     _ = close.requested() => {}
                     done = in_flight.next(), if !in_flight.is_empty() => {
