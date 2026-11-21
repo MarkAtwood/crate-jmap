@@ -58,7 +58,8 @@ use jmap_server::{HandlerOutput, bool_arg, server_fail_from_backend};
 ///   Id, `utcStart` or `utcEnd` is missing or not a `UTCDate`, or `utcEnd`
 ///   is not after `utcStart`;
 /// - `accountNotFound` when the backend does not know `accountId`;
-/// - `serverFail` when the backend fails, or any other draft §2.2 error the
+/// - `serverFail` when the backend fails or the busy periods it returns
+///   cannot be serialized to JSON, or any other draft §2.2 error the
 ///   backend returns (`notFound`, `forbidden`, `tooLarge`, `rateLimit`).
 pub async fn handle_principal_get_availability<B: CalendarsBackend>(
     backend: &B,
@@ -149,7 +150,7 @@ pub async fn handle_principal_get_availability<B: CalendarsBackend>(
         )
         .await
         .map_err(JmapError::from)?;
-    let mut list_json = serde_json::to_value(&busy_list).unwrap_or(Value::Array(vec![]));
+    let mut list_json = jmap_server::serialize_value(&busy_list)?;
     // §2.2: "event" is null when showDetails is false, and accountId is
     // null when event is; enforce it whatever the backend returned.
     if !show_details && let Value::Array(items) = &mut list_json {

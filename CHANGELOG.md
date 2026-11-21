@@ -147,6 +147,10 @@ wire behaviour that a conforming peer can observe.
   `create_space_file_tree` returns an `invalidProperties` `SetError`
   naming `spaceId` for an invalid `space_id`, before anything is stored.
   Valid ids give the same objects as before (bd:JMAP-x3s1).
+- **jmap-calendars-server**: `Principal/getAvailability` answers
+  `serverFail` when the backend's busy periods cannot be serialized,
+  instead of an empty `list` that reported the principal as free
+  (bd:JMAP-qyrh).
 
 ## [0.6.0] - 2026-11-20
 
