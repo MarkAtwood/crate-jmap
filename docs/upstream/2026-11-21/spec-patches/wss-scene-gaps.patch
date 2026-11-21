@@ -1,0 +1,375 @@
+diff --git a/draft-atwood-jmap-chat-wss-00.md b/draft-atwood-jmap-chat-wss-00.md
+--- a/draft-atwood-jmap-chat-wss-00.md
++++ b/draft-atwood-jmap-chat-wss-00.md
+@@ -131,7 +131,7 @@
+ 
+ The credential-expiry rules of {{RFC8887}} Section 4.2 apply. If the server closes the connection when credentials expire, it SHOULD use Close frame status code 1008 (Policy Violation), which {{RFC8887}} leaves optional, so that clients can reliably detect and recover from credential expiry on a long-lived chat connection.
+ 
+-Ephemeral events are pushed, not requested, so treating subsequent requests as unauthenticated does not by itself stop them. A server that does not close the connection when credentials expire SHOULD NOT deliver further ephemeral events on that connection.
++Ephemeral events are pushed, not requested, so treating subsequent requests as unauthenticated does not by itself stop them. A server that does not close the connection when credentials expire SHOULD NOT deliver further ephemeral events on that connection. Keeping the connection open therefore requires a check of the connection's credentials before each ephemeral event is delivered; a server that does not make that check closes the connection when credentials expire.
+ 
+ Because a single authenticated WebSocket connection authorizes a continuous stream of JMAP Chat operations, credential theft has broader impact than in the per-request HTTP model. Implementations SHOULD use short-lived credentials (e.g., OAuth 2.0 Bearer tokens with short expiry) and SHOULD support credential refresh by closing and re-establishing the connection with fresh credentials.
+ 
+@@ -231,7 +231,7 @@
+ : MUST be `"ChatTypingEvent"`.
+ 
+ `accountId` (String):
+-: The id of the account that contains the Chat.
++: The id of the recipient's account that contains the Chat. The server generates a separate `ChatTypingEvent` for each recipient account, with `chatId` and `senderId` as they are in that account, and delivers it only on connections of users with access to that account.
+ 
+ `chatId` (String):
+ : The `id` of the Chat in which the typing event occurred.
+@@ -252,7 +252,7 @@
+ }
+ ~~~
+ 
+-As for all typing events in {{JMAP-CHAT}} (see Chat/typing Server Behavior), servers do not persist `ChatTypingEvent` messages. Servers SHOULD rate-limit outbound typing events per sender per chat: no more than one `ChatTypingEvent` per sender per chat per 3 seconds SHOULD be delivered; events above this rate MAY be silently dropped. This rate limit is consistent with the `Chat/typing` inbound rate limit defined in {{JMAP-CHAT}} and the `Peer/typing` rate limit defined in {{JMAP-CHAT-FED}}.
++As for all typing events in {{JMAP-CHAT}} (see Chat/typing Server Behavior), servers do not persist `ChatTypingEvent` messages. Servers SHOULD rate-limit outbound typing events per sender per chat, counting the events delivered on each recipient connection: no more than one `ChatTypingEvent` per sender per chat per 3 seconds SHOULD be delivered on a connection; events above this rate MAY be silently dropped. A `ChatTypingEvent` with `typing: false` is exempt from this limit: the server does not drop it for rate and does not count it, so that a recipient does not go on showing a sender who has stopped typing. This rate limit is consistent with the `Chat/typing` inbound rate limit defined in {{JMAP-CHAT}} and the `Peer/typing` rate limit defined in {{JMAP-CHAT-FED}}.
+ 
+ For direct and group Chats, the `receiveTypingIndicators` check of {{JMAP-CHAT}} (see Chat/typing Server Behavior) applies before delivery: if the recipient's `receiveTypingIndicators` is `false`, the `ChatTypingEvent` is silently dropped and is not delivered to any of that owner's WebSocket connections. The sender is not notified. This check does not apply to channel Chats.
+ 
+@@ -268,7 +268,7 @@
+ : MUST be `"ChatPresenceEvent"`.
+ 
+ `accountId` (String):
+-: The id of the account that contains the ChatContact.
++: The id of the recipient's account that contains the ChatContact. As for `ChatTypingEvent`, the server generates a separate event for each recipient account, with `contactId` as it is in that account.
+ 
+ `contactId` (String):
+ : The ChatContact.id whose presence state changed.
+@@ -299,7 +299,7 @@
+ }
+ ~~~
+ 
+-Servers SHOULD rate-limit outbound `ChatPresenceEvent` messages per contact: no more than one `ChatPresenceEvent` per contact per 30 seconds SHOULD be delivered; events above this rate MAY be silently dropped, but the most recent presence state SHOULD be delivered when the rate window reopens, so that a dropped transition does not leave the recipient with stale presence. This rate limit is consistent with the `Peer/subscribePresence` delivery rate defined in {{JMAP-CHAT-FED}}.
++Servers SHOULD rate-limit outbound `ChatPresenceEvent` messages per contact, counting the events delivered on each recipient connection: no more than one `ChatPresenceEvent` per contact per 30 seconds SHOULD be delivered on a connection; events above this rate MAY be silently dropped, but the most recent presence state SHOULD be delivered when the rate window reopens, so that a dropped transition does not leave the recipient with stale presence. This rate limit is consistent with the `Peer/subscribePresence` delivery rate defined in {{JMAP-CHAT-FED}}.
+ 
+ As for the presence push event in {{JMAP-CHAT}}, a `ChatPresenceEvent` is not delivered for a contact whose `blocked` field is `true` on the owner's ChatContact record for that contact.
+ 
+diff --git a/draft-atwood-jmap-vtc-wss-00.md b/draft-atwood-jmap-vtc-wss-00.md
+--- a/draft-atwood-jmap-vtc-wss-00.md
++++ b/draft-atwood-jmap-vtc-wss-00.md
+@@ -311,6 +311,13 @@
+ including when `callIds` is an empty array or names only calls in
+ which the user is not a current participant.
+ 
++Neither per-user event names its recipient; the server addresses
++it.  It delivers a `VTCRingEvent` only to the connections of the
++ringed user, the user identified by the `userId` of the target's
++VTCParticipant record ({{JMAP-VTC}}), and a `VTCCallEndEvent` only
++to the connections of users who have a VTCParticipant record in the
++call, as {{JMAP-VTC}} directs for each `endReason`.
++
+ Per-call events are delivered only for calls that match the active
+ subscription's `callIds` filter (or all calls if `callIds` is
+ `null`) and for which the user is a current participant.
+@@ -333,6 +340,10 @@
+ 
+ Servers MAY apply additional rate limits to other event types.
+ 
++The limits on `VTCMediaStateEvent` and `VTCActiveSpeakerEvent`
++count the events delivered on each recipient connection, so each
++connection has its own budget.
++
+ ## Event Ordering
+ 
+ Events are delivered in best-effort order.  The server SHOULD
+@@ -631,7 +642,10 @@
+ events are pushed, not requested, so treating subsequent requests
+ as unauthenticated does not by itself stop them: a server that does
+ not close the connection SHOULD NOT deliver further VTC ephemeral
+-events on that connection.
++events on that connection.  Keeping the connection open therefore
++requires a check of the connection's credentials before each
++ephemeral event is delivered; a server that does not make that
++check closes the connection when credentials expire.
+ 
+ ## Rate Limiting {#security-rate-limiting}
+ 
+diff --git a/draft-atwood-jmap-scene-00.md b/draft-atwood-jmap-scene-00.md
+--- a/draft-atwood-jmap-scene-00.md
++++ b/draft-atwood-jmap-scene-00.md
+@@ -436,7 +436,7 @@
+ : Number of avatars currently present in the region.
+ 
+ `allowObservers` (Boolean):
+-: Present only when the server advertises `supportsObserve` in the `urn:ietf:params:jmap:scene:websocket` capability ({{JMAP-SCENE-WSS}}). `true` if users with access to the region may follow its events through an observer subscription, without an avatar. Default: `true`. The region owner and users with deployment-defined administrative privileges may update it, as for any other region property. A default of `true` matches what entering the region already allows: an observer needs the same access as a participant and learns nothing that an avatar would not, and participants see in `observerCount` how many users are watching. An owner who wants the avatars present to be everyone receiving the region's events sets it to `false`. Setting it to `false` stops event delivery to the region's current observers.
++: Present only when the server advertises `supportsObserve` in the `urn:ietf:params:jmap:scene:websocket` capability ({{JMAP-SCENE-WSS}}). `true` if users with access to the region may follow its events through an observer subscription, without an avatar. Default: `true`. The region owner and users with deployment-defined administrative privileges may update it, as for any other region property. A default of `true` matches what entering the region already allows: an observer needs the same access as a participant and learns nothing that an avatar would not, and participants see in `observerCount` how many users are watching. An owner who wants the avatars present to be everyone receiving the region's events sets it to `false`. Setting it to `false` stops event delivery to the region's current observers; setting it back to `true` resumes delivery to the observer subscriptions that still list the region ({{JMAP-SCENE-WSS}}).
+ 
+ `observerCount` (UnsignedInt, server-set):
+ : Present when `allowObservers` is present. The number of users currently observing the region through an observer subscription ({{JMAP-SCENE-WSS}}) who do not have an active avatar in it. A user with several observing connections counts once. Every user with access to the region sees it, so participants can tell that they are being watched, though not by whom. Like `activeAvatarCount`, a change to it is a change to the SceneRegion: the server reports the region in `updated` of `SceneRegion/changes` and advances the SceneRegion state string, which produces a `StateChange` ({{push-state-change}}); the coalescing allowed for SceneRegion in {{push-state-change}} applies.
+@@ -1601,7 +1601,7 @@
+ | `notFound` | The region does not exist or the caller has no access to it ({{access-control}}). |
+ | `forbidden` | The caller is not the region owner and does not have administrative privileges. |
+ | `rateLimit` | The caller has exceeded a deployment-defined rate for region events. |
+-| `invalidProperties` | A property is missing or has the wrong type, or `data` exceeds a deployment-defined size; `properties` names it. |
++| `invalidProperties` | A property is missing or has the wrong type, `event` is the empty string, or `data` exceeds a deployment-defined size; `properties` names it. |
+ 
+ For each accepted event, when {{JMAP-SCENE-WSS}} is supported, the server delivers a `SceneRegionEvent` to the WebSocket subscribers of the region, as {{JMAP-SCENE-WSS}} specifies. Every subscriber of the region receives the same event, so a region event carries only information that every user with access to the region may see.
+ 
+@@ -2762,7 +2762,7 @@
+ 
+ ### Avatar Visibility {#avatar-visibility}
+ 
+-A server MAY also limit which SceneAvatar records, and which of their properties, each caller sees: for example, to keep opponents' positions from players during a competitive round, or to show each team the state of its own members only. The rule is deployment-defined; it can depend on the caller's avatar, the region's `worldState`, or the avatars' `regionState`. The suppression for regions bound to end-to-end encrypted calls ({{spatial-metadata-exposure}}) and for blocked contacts ({{blocked-contact-spatial}}) are instances of it. A caller always sees their own avatar in full. The server SHOULD NOT hide avatars, or withhold their properties, from the region owner and administrators, who eject avatars and maintain `regionState` ({{avatar-permissions}}).
++A server MAY also limit which SceneAvatar records, and which of their properties, each caller sees: for example, to keep opponents' positions from players during a competitive round, or to show each team the state of its own members only. The rule is deployment-defined; it can depend on the caller's avatar, the region's `worldState`, or the avatars' `regionState`. The suppression for regions bound to end-to-end encrypted calls ({{spatial-metadata-exposure}}) and for blocked contacts ({{blocked-contact-spatial}}) are instances of it. A caller always sees their own avatar in full. The server SHOULD NOT hide avatars, or withhold their properties, from the region owner and administrators, who eject avatars and maintain `regionState` ({{avatar-permissions}}). This recommendation applies to the deployment's rule; no protocol mechanism exempts the region owner and administrators from it, so a rule that hides an avatar from them hides it as it would from any other caller.
+ 
+ The server hides an avatar from a caller as a whole, or withholds some of its properties:
+ 
+diff --git a/draft-atwood-jmap-scene-wss-00.md b/draft-atwood-jmap-scene-wss-00.md
+--- a/draft-atwood-jmap-scene-wss-00.md
++++ b/draft-atwood-jmap-scene-wss-00.md
+@@ -124,6 +124,15 @@
+ {{event-types}}.  Except as updated here, all {{RFC8887}}
+ requirements apply unchanged.
+ 
++This document also makes one exception to {{RFC8887}} Section
++4.3.1, under which a server returns a `RequestError` for any
++request-level error: the server returns no `RequestError` for a
++message whose `@type` is `"SceneInteractionEvent"`
++({{scene-interaction-event}}), even one whose other members are
++malformed.  A message that is not a JSON object, or that exceeds
++`maxSizeRequest` ({{RFC8620}} Section 2), is handled as {{RFC8887}}
++specifies.
++
+ # Conventions Used in This Document
+ 
+ The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL
+@@ -419,7 +428,9 @@
+   giving the reason.  A client that needs confirmation or errors
+   uses this path.
+ 
+-A frame carries the properties defined above.  The server sets
++A frame carries the properties defined above.  The server relays
++only those: any other member of the frame, an `id` included, is not
++relayed, and an absent `data` is read as `null`.  The server sets
+ `userId` on the relayed event to the authenticated user's userId
+ ({{JMAP-SCENE}}); a `userId` supplied in the frame is ignored.  The
+ server SHOULD also verify, as `SceneObject/interact` does, that:
+@@ -429,8 +440,10 @@
+ 2. The `objectId` references a SceneObject in that region with
+    `interactable: true`.
+ 
+-If any check fails, the server discards the frame and returns no
+-error to the sender.
++If any check fails, or the frame is malformed (for example,
++`objectId` is missing or `data` is neither an object nor `null`),
++the server discards the frame and returns no error to the sender
++({{rfc8887-update}}).
+ 
+ An interaction accepted through either path, a frame that passes
+ these checks or an interaction listed in `accepted` in a
+@@ -462,7 +475,7 @@
+ `data` (Object|null):
+ : Event-specific payload.  Opaque to this specification; the server
+   relays it without interpretation.  `null` when no additional data
+-  is needed.
++  is needed.  An absent `data` is equivalent to `null`.
+ 
+ Every subscriber of the region receives the same event, without
+ per-recipient filtering beyond that of {{event-delivery}}, so a
+@@ -612,7 +625,10 @@
+ SceneRegion ids are unique only within an account.  An id listed in
+ `regionIds` matches that id in every account the authenticated user
+ can access; clients use the `accountId` of each event to tell the
+-accounts apart.
++accounts apart.  When an observer subscription is enabled, the
++server makes the checks below in the accounts it chooses from those
++the user can access, typically the user's own account; delivery is
++not limited to those accounts.
+ 
+ An observer subscription delivers the events of each region in
+ `regionIds` that the user has access to ({{JMAP-SCENE}}, Region
+@@ -626,7 +642,8 @@
+ interactions ({{interaction-submission}}), which still require an
+ active avatar.  A server MAY also decline observers of a region for
+ deployment-defined policy reasons even when `allowObservers` is
+-`true`.
++`true`.  Like `allowObservers`, a decline applies both when the
++subscription is enabled and when each event is delivered.
+ 
+ When `observe` is `true` and a listed region that the user has
+ access to has `allowObservers` set to `false`, or the server
+@@ -638,16 +655,23 @@
+ access to, or that does not exist, is not refused: the entry is
+ retained and produces no events, so the response does not reveal
+ whether the region exists ({{JMAP-SCENE}}, Region Access).  If the
+-region owner later sets `allowObservers` to `false`, or the user
+-loses access, events for that region stop; the client learns of the
+-change from the SceneRegion record.
++region owner later sets `allowObservers` to `false`, the server
++starts declining observers of the region, or the user loses access,
++events for that region stop, but the entry stays in the
++subscription: events resume without a new `SceneStreamEnable` once
++the region admits the observer again.  The client learns of a
++change to `allowObservers`, or of losing access, from the
++SceneRegion record.
+ 
+ While an observer subscription delivers events for a region to a
+ user without an active avatar there, the user counts toward the
+-region's `observerCount` ({{JMAP-SCENE}}).  The count drops when the
+-subscription stops covering the region, through a new
+-`SceneStreamEnable`, `SceneStreamDisable`, the connection closing,
+-or the user entering the region with an avatar.
++region's `observerCount` ({{JMAP-SCENE}}).  The server recomputes the
++count when a subscription starts or stops covering the region
++(through `SceneStreamEnable`, `SceneStreamDisable`, or the
++connection closing), when an avatar enters or leaves the region, and
++when the region is updated, for example its `allowObservers` or
++access policy.  While the region does not admit observers, the count
++is `0`.
+ 
+ If `observe` is
+ `true` and `regionIds` is `null`, the server MUST respond with a
+@@ -736,8 +760,9 @@
+ leaves a listed region, events for that region stop.  If the user
+ later re-enters the same region, events resume without a new
+ `SceneStreamEnable`.  For an observer subscription, events for a
+-listed region continue while the user has access to the region,
+-whether or not the user is present in it.
++listed region continue while the user has access to the region and
++the region admits observers, whether or not the user is present in
++it.
+ 
+ ## SceneStreamDisable {#scene-stream-disable}
+ 
+@@ -804,17 +829,18 @@
+ exhaustion:
+ 
+ - **`SceneObjectEvent`** with `event: "updated"`: no more than
+-  two events per object per second.  Events above this rate MAY be
+-  silently dropped; the most recent state SHOULD be delivered when
+-  the rate window reopens.  Object updates at higher frequency
+-  (e.g., physics simulation) belong on the simulation layer, not
+-  the JMAP WebSocket.
++  two events per object per second on each recipient connection.
++  Events above this rate MAY be silently dropped; the most recent
++  state SHOULD be delivered when the rate window reopens.  Object
++  updates at higher frequency (e.g., physics simulation) belong on
++  the simulation layer, not the JMAP WebSocket.
+ 
+ - **`SceneInteractionEvent`**: no more than five events per user
+-  per region per second.  Frames above this rate MAY be silently
+-  dropped.  An interaction above this rate submitted with
+-  `SceneObject/interact` is reported in `notAccepted` with a
+-  `rateLimit` SetError ({{JMAP-SCENE}}).
++  per region per second, counted per sending user over all of that
++  user's connections rather than per recipient.  Frames above this
++  rate MAY be silently dropped.  An interaction above this rate
++  submitted with `SceneObject/interact` is reported in `notAccepted`
++  with a `rateLimit` SetError ({{JMAP-SCENE}}).
+ 
+ Servers MAY apply additional rate limits to other event types.
+ 
+@@ -1298,8 +1324,8 @@
+ 
+ - Scene ephemeral events go only to users with an active avatar in
+   the region at delivery time, or, for an observer subscription, to
+-  users with access to the region at delivery time
+-  ({{event-summary}}).
++  users with access to the region at delivery time whose observation
++  the region still admits ({{event-summary}}, {{scene-stream-enable}}).
+ 
+ - `SceneObjectEvent` and `SceneInteractionEvent` delivery follows
+   the visibility contract ({{visibility}}).
+@@ -1318,7 +1344,10 @@
+ events are pushed, not requested, so treating subsequent requests
+ as unauthenticated does not by itself stop them: a server that does
+ not close the connection SHOULD NOT deliver further Scene ephemeral
+-events on that connection.
++events on that connection.  Keeping the connection open therefore
++requires a check of the connection's credentials before each
++ephemeral event is delivered; a server that does not make that
++check closes the connection when credentials expire.
+ 
+ ## Rate Limiting {#security-rate-limiting}
+ 
+diff --git a/jmap-chat-wss-guide.md b/jmap-chat-wss-guide.md
+--- a/jmap-chat-wss-guide.md
++++ b/jmap-chat-wss-guide.md
+@@ -264,8 +264,9 @@
+ `ChatTypingEvent` with `typing: false` and can clear immediately. When the sender's
+ client crashes or loses connectivity, no stop signal reaches the server and no
+ `typing: false` arrives. The server rate-limits typing events to one per sender per chat
+-per 3 seconds; if no further event for a (chatId, senderId) pair arrives within 10
+-seconds, clients SHOULD hide the indicator automatically.
++per 3 seconds on each connection, and never drops a `typing: false` for rate; if no
++further event for a (chatId, senderId) pair arrives within 10 seconds, clients SHOULD
++hide the indicator automatically.
+ 
+ To signal typing state to the server, a sender calls `Chat/typing` (defined in the main
+ JMAP Chat spec) with `chatId` and `typing: true` when the user begins typing, and
+@@ -368,13 +369,16 @@
+ and presence events to one per contact per 30 seconds. These limits are per outbound
+ connection: each connected client has its own independent rate-limit budget, so two
+ simultaneously connected clients can each receive the same event at the full rate.
++A `ChatTypingEvent` with `typing: false` is exempt from the typing limit: it is never
++dropped for rate and does not count toward the window.
+ 
+ Servers SHOULD track the last delivery timestamp in a structure keyed by
+ `(connectionId, chatId, senderId)` for typing and `(connectionId, contactId)` for
+ presence, where `connectionId` is a server-internal identifier for the WebSocket
+ connection. Before sending a frame, the server checks the elapsed time and MAY drop
+-silently if within the rate window. For presence, the most recent state SHOULD be
+-delivered when the window reopens, so a dropped transition does not leave stale presence.
++silently if within the rate window (never a `typing: false`). For presence, the most
++recent state SHOULD be delivered when the window reopens, so a dropped transition does
++not leave stale presence.
+ 
+ These structures are per-connection and in-memory — they need not be durable or shared
+ across nodes. When a connection closes, servers SHOULD discard its rate-limit state.
+diff --git a/jmap-scene-wss-guide.md b/jmap-scene-wss-guide.md
+--- a/jmap-scene-wss-guide.md
++++ b/jmap-scene-wss-guide.md
+@@ -76,9 +76,11 @@
+ 
+ - The recipient does not have an active avatar in the event's region at delivery time
+   (for an observer subscription: does not have access to the region, or the region's
+-  `allowObservers` has since been set to `false`). A `SceneStreamEnable` that asks to
+-  observe a region whose `allowObservers` is `false`, or that the server declines by
+-  policy, fails with a `forbidden` `RequestError` naming the refused `regionIds`.
++  `allowObservers` is `false` or the server declines observers of it, checked at delivery
++  time; delivery resumes when the region admits observers again). A `SceneStreamEnable`
++  that asks to observe a region whose `allowObservers` is `false`, or that the server
++  declines by policy, fails with a `forbidden` `RequestError` naming the refused
++  `regionIds`.
+ - The recipient's subscription does not include the event's region (explicit `regionIds`
+   that do not contain this region).
+ - The recipient's subscription does not include `"SceneAvatarEvent"` in `eventTypes`.
+@@ -108,8 +110,9 @@
+ The server silently drops a `SceneInteractionEvent` for a recipient when:
+ 
+ - The interacted object is not visible to the recipient per the visibility contract.
+-- The event exceeds the server's rate limit (SHOULD be no more than 5 per user per region
+-  per second per the spec's recommendation).
++- The interaction exceeded the sending user's rate limit (SHOULD be no more than 5 per user
++  per region per second, counted per sending user, not per recipient). The server drops
++  such a frame before relaying it, so no subscriber receives it.
+ - The event's `userId` is on the recipient's blocked list (`ChatContact.blocked: true`)
+   when the Chat capability is present.
+ 
+@@ -613,8 +616,9 @@
+ 
+ The spec recommends (SHOULD-level) two rate limits for outbound ephemeral events. These
+ are not hard requirements — a server MAY choose different thresholds — but the
+-recommended values are sensible defaults. Both are per outbound connection; each
+-connected client has its own independent budget.
++recommended values are sensible defaults. The object-update limit is per outbound
++connection: each connected client has its own independent budget. The interaction limit
++is per sending user, over all of that user's connections.
+ 
+ **SceneObjectEvent** with `event: "updated"`: the spec recommends no more than 2 events
+ per object per second. Events above this rate MAY be silently dropped. Track the last
+@@ -626,9 +630,10 @@
+ **SceneInteractionEvent**: the spec recommends no more than 5 events per user per region
+ per second. Frames above this rate MAY be silently dropped; an interaction over the limit
+ submitted with `SceneObject/interact` is reported in `notAccepted` with a `rateLimit`
+-SetError. Track with a structure keyed by `(connectionId, regionId, userId)`.
++SetError. Track with a structure keyed by `(accountId, regionId, userId)`, shared by all
++of the user's connections.
+ 
+-These structures are per-connection and in-memory. When a connection closes, discard them.
++These structures are in-memory. When a connection closes, discard its object-update state.
+ The spec also notes that servers MAY apply additional rate limits to other event types
+ beyond these two.
+ 

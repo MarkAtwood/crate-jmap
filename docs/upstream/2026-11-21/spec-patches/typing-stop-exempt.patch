@@ -1,0 +1,28 @@
+diff --git a/draft-atwood-jmap-chat-00.md b/draft-atwood-jmap-chat-00.md
+index 850d13d..22106c9 100644
+--- a/draft-atwood-jmap-chat-00.md
++++ b/draft-atwood-jmap-chat-00.md
+@@ -1204,7 +1204,7 @@ Method name: `Chat/typing`
+ 
+ Before delivering a typing push event to each potential recipient, the server applies that recipient's `receiveTypingIndicators` field for this Chat as {{chat}} specifies. For channel chats, `receiveTypingIndicators` has no effect. The server SHOULD also check whether the requesting account corresponds to a ChatContact whose `blocked` field is `true` on the recipient's contact list; if so, the server SHOULD silently drop the event for that recipient and not deliver it to any of that recipient's connected clients. The sender is not informed. On success, the server SHOULD deliver a `typing` push event (see {{push}}) to all connected clients of each local participant in the Chat other than the requesting account, subject to the `receiveTypingIndicators` and blocked-sender checks above. For federated Chats, the server SHOULD invoke `Peer/typing` ({{JMAP-CHAT-FED}}) on each remote participant's home server.
+ 
+-Servers SHOULD rate-limit `Chat/typing` calls per account per chat. Servers MAY accept no more than one call per account per chat per 3 seconds; calls that exceed this rate MAY be silently discarded without error.
++Servers SHOULD rate-limit `Chat/typing` calls per account per chat. Servers MAY accept no more than one call per account per chat per 3 seconds; calls that exceed this rate MAY be silently discarded without error. A call with `typing` set to `false` is exempt: it is always accepted and does not count against the rate, so that a stop is never lost and receivers do not show the sender typing until their decay timer expires.
+ 
+ The recommended 3-second value pairs with the 10-second client-side decay timer described later in this section: with one accepted event per 3 seconds while a sender is actively typing, the receiver's decay timer sees at least three events before deciding the sender has stopped. Servers using a significantly lower rate impose unnecessary load on themselves and on federated peers; servers using a significantly higher rate risk receivers clearing the typing indicator while the sender is still active.
+ 
+diff --git a/draft-atwood-jmap-chat-federation-00.md b/draft-atwood-jmap-chat-federation-00.md
+index c5fa1d7..8ca089b 100644
+--- a/draft-atwood-jmap-chat-federation-00.md
++++ b/draft-atwood-jmap-chat-federation-00.md
+@@ -789,7 +789,9 @@ defined in {{JMAP-CHAT}}) to the owner's connected clients.
+ Servers SHOULD rate-limit inbound `Peer/typing` calls per peer to prevent
+ abuse. Servers MAY accept no more than one `Peer/typing` call per
+ peer per chat per 3 seconds; calls received above this rate MAY be
+-silently discarded without error.
++silently discarded without error. A call with `typing` set to `false`
++is exempt: it is always accepted and does not count against the rate,
++as for `Chat/typing` ({{JMAP-CHAT}}).
+ 
+ ### Example
+ 
