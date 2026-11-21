@@ -16,14 +16,19 @@ Test-only: `publish = false`, never released.
   `jmap-mail-client` against the server and assert RFC 8620 and RFC 8621
   facts: Session discovery and auth, `Core/echo`, error shapes, Mailbox,
   Email, Thread, Identity, EmailSubmission and `/changes`.
+- `tests/differential.rs`: sends the same requests to `jmap-testjig`
+  (spawned in-process) and to the server and compares the responses on
+  RFC facts, with ids, states and server-chosen values normalized out.
 
 ## What it's for
 
 Finding where the client crates and a real, independently written server
 disagree, which the wiremock tests in the client crates and the
 `jmap-testjig` tests (both built from this workspace's own reading of the
-RFCs) cannot. Depends on `jmap-base-client`; its tests also use
-`jmap-mail-client`. Nothing depends on it.
+RFCs) cannot, and where the testjig and that server answer the same
+request differently. Depends on `jmap-base-client`; its tests also use
+`jmap-mail-client`, `jmap-testjig` and `reqwest`. Nothing depends on
+it.
 
 ## How to use
 

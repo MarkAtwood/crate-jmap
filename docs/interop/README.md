@@ -77,6 +77,42 @@ Tests run one at a time within each test binary
 (`jmap_interop::exclusive`): Stalwart advertises
 `maxConcurrentRequests: 4` and answers the `limit` problem above it.
 
+## Differential tests
+
+`tests/differential.rs` (bd:JMAP-cyub.4) sends the same requests to
+`jmap-testjig`, the workspace's reference server, and to the configured
+server, then compares the responses. The testjig runs in the test
+process (`jmap_testjig::spawn_in_process`, a fresh in-memory jig per
+test on a free loopback port, bearer token), so only the external server
+needs starting. Both are seeded the same way through the API: each test
+creates its own Mailboxes and Emails under unique names.
+
+Each scenario turns the responses into named facts with the
+server-specific values normalized out: ids become the aliases the test
+gave the objects, states are only compared with each other on the same
+server, capability limits are reduced to their JSON types, and keywords
+the server sets itself (`$hasnoattachment`) are dropped. Compared:
+
+- the Session shape (RFC 8620 §2, RFC 8621 §1.3);
+- request-level errors (`notJSON`, `notRequest`, `unknownCapability`),
+  `Core/echo` and `createdIds` (RFC 8620 §3.4, §3.6.1, §4);
+- method-level errors for the same invalid calls (`unknownMethod`,
+  `accountNotFound`, `invalidArguments`, `invalidResultReference`,
+  `unsupportedSort`, `unsupportedFilter`, a never-issued `sinceState`);
+- Mailbox `/set` create, update and destroy, the `created` contents,
+  `/get` properties, `/changes` after each `/set`, `/query` order and
+  filters, and SetErrors (`invalidProperties`, `notFound`,
+  `mailboxHasChild`, `mailboxHasEmail`);
+- Email `/set`, `/get`, `/query` order, filters, `position` and
+  `anchor`, result references (`/ids`, `/list/*/threadId` into
+  `Thread/get`), creation ids across calls, Email and Mailbox `/changes`
+  after `/set` (with `updatedProperties`), and SetErrors.
+
+A fact that differs fails the test unless `KNOWN` in the test file
+classifies it: an RFC deviation of the external server or a known
+testjig bug (both reported with `known_divergence`), or a difference the
+RFCs allow (printed only).
+
 ## Known divergences
 
 A server behaviour that contradicts an RFC and is already tracked
@@ -89,6 +125,24 @@ run). Known for Stalwart v1.1.1:
 |---|---|---|
 | RFC 8620 §3.6.1 | an unsupported `using` capability is `unknownCapability` | `notRequest` (400, problem details) |
 | RFC 8620 §5.3 | every `/set` response has `oldState` (`String\|null`) and `newState` | `Identity/set` has no `oldState`; `Identity/set` and `EmailSubmission/set` without a change omit both; a successful `EmailSubmission/set` create has no `oldState` |
+| RFC 8620 §3.6.1 | a body that does not parse as I-JSON is `notJSON` | `notRequest` |
+| RFC 8620 §3.4 | `createdIds` given in the Request is returned, with every creation id passed in | no `createdIds` in the Response |
+| RFC 8621 §2 | `isSubscribed` SHOULD default to `true` for a Mailbox the user creates | `false` |
+
+Differences the RFCs allow, found by the differential tests:
+
+| RFC | testjig | Stalwart v1.1.1 |
+|---|---|---|
+| RFC 8620 §3.3 | a method whose capability is not in `using` runs | `unknownMethod` |
+| RFC 8620 §5.2, §3.6.2 | a `sinceState` it never issued is `cannotCalculateChanges` | `invalidArguments` |
+| RFC 8620 §5.3 | `created` also echoes the sent `name` and `parentId` | only the properties not sent |
+| RFC 8620 §5.3 | a child created in the same `Mailbox/set` that destroys its parent is created, the destroy fails with `mailboxHasChild` | the create fails with `willDestroy` (a SetError §5.3 lists for updates) |
+| draft-ietf-jmap-metadata-05 §4.1 | no `maySetMetadata` (Mailbox not a listed metadata type) | `maySetMetadata` in `myRights` |
+
+Known testjig bug: the `jmap-mail-server` `MemoryBackend` accepts an
+Email `/set` create or update whose `mailboxIds` names a Mailbox the
+account does not have (RFC 8621 §4.1.1); Stalwart answers
+`invalidProperties`.
 
 The clients tolerate the missing `newState` (decision 67 in
 `docs/design/DECISIONS.md`): `jmap_types::SetResponse` decodes it as the

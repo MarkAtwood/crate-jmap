@@ -2402,7 +2402,9 @@ dependencies = [
  "jmap-base-client",
  "jmap-mail-client",
  "jmap-mail-types",
+ "jmap-testjig",
  "jmap-types",
+ "reqwest",
  "serde_json",
  "tokio",
 ]

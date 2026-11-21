@@ -22,6 +22,11 @@ jmap-mail-client = { workspace = true }
 jmap-mail-types = { workspace = true }
 jmap-types = { workspace = true }
 serde_json = { workspace = true }
+# Differential tests (tests/differential.rs): the workspace's reference
+# server, spawned in-process, and a raw HTTP client so request-level
+# errors and whole responses can be compared.
+jmap-testjig = { path = "../crate-jmap-testjig" }
+reqwest = { workspace = true }
 # Blob upload bodies for Email/import (jmap-base-client takes bytes::Bytes).
 bytes = "1"
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time"] }
