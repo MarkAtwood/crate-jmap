@@ -2,13 +2,15 @@
   "id": "JMAP-24aw",
   "title": "scene: implement the cordite requests (jmap-chat-spec 93f2258)",
   "description": "Implement in jmap-scene-types/-server/-client what jmap-chat-spec 93f2258 added to scene-00 and scene-wss-00 (decision 60): SceneRegion/broadcast + SceneRegionEvent (supportsRegionBroadcast); observer subscriptions (SceneStreamEnable.observe, supportsObserve, SceneRegion.allowObservers default true, observerCount, forbidden with regionIds); Avatar Visibility (hide avatars / withhold properties per caller, /changes created/destroyed on view change, suppress SceneAvatarEvent); worldStateEquals on SceneRegion/query; SceneAvatar.regionState (supportsAvatarRegionState, owner/admin/server writes). Implementation list: docs/upstream/2026-11-20/spec-patches/README-scene.md. Start after the scene-server /set split (eedw) lands.",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "feature",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-20T23:17:15.916796112Z",
   "created_by": "Mark Atwood",
-  "updated_at": "2026-11-20T23:17:15.916796112Z",
+  "updated_at": "2026-11-21T03:41:50.672009069Z",
+  "closed_at": "2026-11-21T03:41:50.672009069Z",
+  "close_reason": "All five spec 93f2258 features in the scene crates (broadcast, observers + allowObservers/observerCount + union fix, avatar visibility, worldStateEquals, regionState); 533 tests; public-api.sh exit 0",
   "dependencies": [
     {
       "issue_id": "JMAP-24aw",

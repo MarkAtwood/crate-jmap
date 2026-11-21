@@ -1,1 +1,2 @@
 {"id":"01a1fb3f-f835-7e11-90b4-ca501b569b22","issue_id":"JMAP-24aw","event_type":"created","actor":"Mark Atwood","old_value":"","new_value":"","created_at":"2026-11-20T23:17:15.95792337Z"}
+{"id":"01a1fc32-32dc-7a4e-b40c-d03a03f6648d","issue_id":"JMAP-24aw","event_type":"closed","actor":"Mark Atwood","old_value":"","new_value":"All five spec 93f2258 features in the scene crates (broadcast, observers + allowObservers/observerCount + union fix, avatar visibility, worldStateEquals, regionState); 533 tests; public-api.sh exit 0","created_at":"2026-11-21T03:41:50.684676203Z"}
