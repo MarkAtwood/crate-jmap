@@ -195,7 +195,7 @@ impl<'a, B: VtcBackend> MediaReporter<'a, B> {
     /// livestream is `"starting"`"), or the endpoint set or a
     /// `timeReference` changed while `"live"` ("The server updates
     /// `timeReference` when the mapping changes ...; this is an ordinary
-    /// change to the VTCLivestream"). Replaces the stored list.
+    /// change to the `VTCLivestream`"). Replaces the stored list.
     ///
     /// # Errors
     ///
@@ -512,7 +512,7 @@ impl<'a, B: VtcBackend> MediaReporter<'a, B> {
     }
 }
 
-/// §VTCLivestream `playbackEndpoints`: "Always empty in push mode".
+/// §`VTCLivestream` `playbackEndpoints`: "Always empty in push mode".
 fn check_endpoints<E>(
     livestream: &VtcLivestream,
     endpoints: &[VtcPlaybackEndpoint],

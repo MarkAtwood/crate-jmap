@@ -1,9 +1,9 @@
-//! VtcBackend trait and supporting types for the JMAP VTC method handlers.
+//! [`VtcBackend`] trait and supporting types for the JMAP VTC method handlers.
 //!
 //! Read-side operations (`get_objects`, `get_state`, `get_changes`,
 //! `query_objects`, `query_changes`) are defined on the
 //! [`jmap_server::JmapBackend`] supertrait. This module adds the write
-//! operations and the deployment facts the VTCCall handlers consult.
+//! operations and the deployment facts the `VTCCall` handlers consult.
 //!
 //! The crate root re-exports this module's public items and the
 //! [`jmap_server`] backend types a downstream impl needs.
@@ -53,13 +53,13 @@ impl StatefulObject for VtcLivestream {
     }
 }
 
-/// The `invalidProperties` SetError that
+/// The `invalidProperties` [`SetError`] that
 /// draft-atwood-jmap-vtc-00 §VTCCall/set requires for a second active call
 /// on one Chat.
 ///
-/// "When creating a VTCCall with a `chatId` that is already referenced by
-/// another VTCCall in `"active"` or `"ringing"` state, the server MUST
-/// return an `invalidProperties` SetError naming `chatId`, with
+/// "When creating a `VTCCall` with a `chatId` that is already referenced by
+/// another `VTCCall` in `"active"` or `"ringing"` state, the server MUST
+/// return an `invalidProperties` `SetError` naming `chatId`, with
 /// description "A call is already active on this Chat.""
 ///
 /// [`VtcBackend::create_call`] returns this. The check is a uniqueness
@@ -200,7 +200,7 @@ pub trait VtcBackend: JmapBackend {
     /// `true` if the consumer advertises the capability `uri` (for example
     /// `urn:ietf:params:jmap:chat`) for `account_id`.
     ///
-    /// The draft makes several VTCCall rules depend on a companion
+    /// The draft makes several `VTCCall` rules depend on a companion
     /// capability: a `chatId` on create without
     /// `urn:ietf:params:jmap:chat` is `invalidProperties`, and the
     /// `chatId` / `spaceId` query filters are `unsupportedFilter`.
@@ -212,7 +212,7 @@ pub trait VtcBackend: JmapBackend {
     ) -> bool;
 
     /// The caller's userId: "The authenticated user identity string"
-    /// (draft-atwood-jmap-vtc-00 §VTCParticipant `userId`).
+    /// (draft-atwood-jmap-vtc-00 §`VTCParticipant` `userId`).
     ///
     /// `VTCCall/set` create stores it as `initiatorId` ("The userId of the
     /// participant who created the call"), and ending a ring call compares
@@ -230,7 +230,7 @@ pub trait VtcBackend: JmapBackend {
     /// which `build` sets to the id it is given, and `joinUri`, which is
     /// empty. The backend MUST, in one atomic step:
     ///
-    /// - mint a ULID `id` ("VTCCall IDs are ULIDs ... assigned by the
+    /// - mint a ULID `id` ("`VTCCall` IDs are ULIDs ... assigned by the
     ///   server at the time the call is created"), call `build(&id)` once
     ///   for the call carrying it, and assign a `joinUri` ("The server
     ///   generates `joinUri` pointing to the deployment's media stack"), which
@@ -249,7 +249,7 @@ pub trait VtcBackend: JmapBackend {
     ///   `parentCallId` whose call already has `maxBreakoutRooms` breakout
     ///   rooms: `overQuota`" (§VTCCall/set);
     /// - for a ring call (`call.state` is `"creating"`), create a
-    ///   VTCParticipant record for each of `ring_targets` (`joinedAt`
+    ///   `VTCParticipant` record for each of `ring_targets` (`joinedAt`
     ///   `null`, `callResponse` `"pending"`) and one for the initiator
     ///   with `role` `"moderator"` ("The call initiator receives
     ///   `"moderator"` by default") and `joinedAt` equal to
@@ -308,7 +308,7 @@ pub trait VtcBackend: JmapBackend {
     /// - for a participant with a non-null `userId`, refuse with
     ///   `alreadyExists` whose `existingId` names that user's record when
     ///   the call already has one ("A `create` for a user who already has a
-    ///   record in the call fails with an `alreadyExists` SetError ...
+    ///   record in the call fails with an `alreadyExists` [`SetError`] ...
     ///   whose `existingId` names that record", §Reconnecting);
     /// - for a participant, keep the call's `activeParticipantCount` equal
     ///   to its participants with `joinedAt` set and `leftAt` `null`, and
@@ -349,7 +349,7 @@ pub trait VtcBackend: JmapBackend {
         F: FnOnce(&jmap_types::Id) -> O + Send;
 
     /// Deliver `event` to every participant in `event.call_id`
-    /// (draft-atwood-jmap-vtc-00 §VTCRecordingStateEvent: "Delivered to all
+    /// (draft-atwood-jmap-vtc-00 §`VTCRecordingStateEvent`: "Delivered to all
     /// participants when recording state changes. This is the consent
     /// signal").
     ///
@@ -368,7 +368,7 @@ pub trait VtcBackend: JmapBackend {
         event: VtcRecordingStateEvent,
     ) -> impl std::future::Future<Output = ()> + Send;
 
-    /// Apply an RFC 8620 §5.3 PatchObject to an existing object.
+    /// Apply an RFC 8620 §5.3 `PatchObject` to an existing object.
     ///
     /// `Ok(Some(o))` echoes server-changed properties; `Ok(None)` means the
     /// patch applied verbatim. Both MUST advance the state and record an
@@ -471,7 +471,7 @@ pub trait VtcBackend: JmapBackend {
     /// - [`VtcEvent::GatewaySignal`] with `direction` `"outbound"` to the
     ///   gateway carrying the participant ("The server extracts the
     ///   signal, delivers it to the gateway, and removes the key",
-    ///   §VTCGatewaySignal). The backend relays `signal` and `data` without
+    ///   §`VTCGatewaySignal`). The backend relays `signal` and `data` without
     ///   interpreting them (§Gateway Signal Injection);
     /// - [`VtcEvent::CallEnd`] with `endReason` `"answered_elsewhere"`,
     ///   after a target answers a ring, to that user's other devices that
@@ -486,7 +486,7 @@ pub trait VtcBackend: JmapBackend {
     ///   received the ring ("When a ring call is answered or declined on
     ///   one device, the server SHOULD deliver a silent push notification
     ///   ... to all other devices that received the original
-    ///   `VTCCallPush`", §VTCCallEndEvent). `caller` is the declining
+    ///   `VTCCallPush`", §`VTCCallEndEvent`). `caller` is the declining
     ///   request's context, which identifies the device that declined.
     ///
     /// [`crate::call::expire_ring`] also delivers [`VtcEvent::CallEnd`],
@@ -498,7 +498,7 @@ pub trait VtcBackend: JmapBackend {
     /// the devices of the targets whose `callResponse` is still
     /// `"pending"` ("When a ringing call is answered, declined, cancelled,
     /// or times out, the server delivers a `VTCCallEndEvent` to all
-    /// devices that received the ring", §VTCCallEndEvent).
+    /// devices that received the ring", §`VTCCallEndEvent`).
     ///
     /// There is no default: each delivery is the effect the update
     /// requests. Delivery failures are the backend's to log or retry.
@@ -511,7 +511,7 @@ pub trait VtcBackend: JmapBackend {
 
     /// `true` if the caller is a moderator on `call`
     /// (draft-atwood-jmap-vtc-00 §Moderator Actions on VTCCall): its
-    /// VTCParticipant record has `role` `"moderator"`, or the deployment
+    /// `VTCParticipant` record has `role` `"moderator"`, or the deployment
     /// grants moderator status by policy.
     ///
     /// `VTCCall/set` returns `forbidden` to a non-moderator who ends a
@@ -561,7 +561,7 @@ pub trait VtcBackend: JmapBackend {
     ///
     /// Ending a call reads its breakout rooms, and the recordings and
     /// livestreams of each ended call, through this: "when a parent call
-    /// ends, its child breakout-room VTCCalls MUST also be ended"
+    /// ends, its child breakout-room `VTCCall`s MUST also be ended"
     /// (jmap-vtc-implementer-guide §Breakout room cleanup), and "the server
     /// MUST stop every recording for that call" (jmap-vtc-recording-guide
     /// §Auto-stop on call end), including a room the ending moderator
@@ -574,7 +574,7 @@ pub trait VtcBackend: JmapBackend {
         ids: Option<&[jmap_types::Id]>,
     ) -> impl std::future::Future<Output = Result<(Vec<O>, Vec<jmap_types::Id>), Self::Error>> + Send;
     /// `true` if `user_id` is blocked by the caller: the caller's
-    /// ChatContact for `user_id` has `blocked` set to `true` (when
+    /// `ChatContact` for `user_id` has `blocked` set to `true` (when
     /// `urn:ietf:params:jmap:chat` is present), or the user is on an
     /// equivalent deployment-defined block list
     /// (draft-atwood-jmap-vtc-wss-00 §Blocked-Sender Suppression).
@@ -676,7 +676,7 @@ pub trait VtcBackend: JmapBackend {
     /// "The server computes `playbackEndpoints` for each requesting user:
     /// `url`, `credential`, and `expiresAt` can differ between users and
     /// between requests. Minting a new credential does not change the
-    /// VTCLivestream state string." A backend that restricts playback mints
+    /// `VTCLivestream` state string." A backend that restricts playback mints
     /// the per-user `url`/`credential`/`expiresAt` here. "The server MAY
     /// return an empty `playbackEndpoints` list to a user it does not
     /// authorize to view, even when that user may retrieve the livestream."

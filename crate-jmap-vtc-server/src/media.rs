@@ -1,11 +1,11 @@
-//! VTCRecording/* and VTCLivestream/* method handlers
-//! (draft-atwood-jmap-vtc-00 §VTCRecording Methods, §VTCLivestream Methods).
+//! `VTCRecording`/* and `VTCLivestream`/* method handlers
+//! (draft-atwood-jmap-vtc-00 §`VTCRecording` Methods, §`VTCLivestream` Methods).
 //!
 //! `/changes` is the standard RFC 8620 §5.2 method. `/get` is RFC 8620
 //! §5.1; `VTCLivestream/get` blanks `streamKey` and `streamUri` for callers
 //! who are not moderators on the livestream's call (§Livestream Key
 //! Exposure). `/set` enforces "Only participants with `role: "moderator"`
-//! on the associated VTCCall MAY create, update, or destroy", the
+//! on the associated `VTCCall` MAY create, update, or destroy", the
 //! capability, E2EE and `"active"` gates on create, and each type's state
 //! machine. `VTCRecording/set` delivers the `VTCRecordingStateEvent`
 //! consent signal through [`VtcBackend::deliver_recording_state_event`].
@@ -44,11 +44,11 @@ use jmap_server::{
     server_fail_from_backend, server_fail_value_from_backend, strip_read_only_patch,
 };
 
-/// The push-mode stream configuration. §VTCLivestream: each is
+/// The push-mode stream configuration. §`VTCLivestream`: each is
 /// "immutable" and "Always `null` in hosted mode".
 const STREAM_CONFIG: &[&str] = &["streamUri", "streamKey", "platform"];
 
-/// The description of the `invalidProperties` SetError naming `layout` for
+/// The description of the `invalidProperties` `SetError` naming `layout` for
 /// a layout change outside the states that allow one.
 const LAYOUT_STATE_REFUSED: &str = "the layout can change only while recording or paused, or while a livestream is starting or live";
 
@@ -61,6 +61,16 @@ enum Kind {
 
 /// Handle `VTCRecording/get` (draft-atwood-jmap-vtc-00 §VTCRecording/get):
 /// standard RFC 8620 §5.1 `/get`.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `ids` or `properties` is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `ids` holds more than `maxObjectsInGet` ids;
+/// - `serverFail` when the backend fails.
 pub async fn handle_vtc_recording_get<B: VtcBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -71,6 +81,17 @@ pub async fn handle_vtc_recording_get<B: VtcBackend>(
 
 /// Handle `VTCRecording/changes` (draft-atwood-jmap-vtc-00
 /// §VTCRecording/changes): standard RFC 8620 §5.2 `/changes`.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `sinceState` is missing, or `maxChanges` is not a positive integer;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `cannotCalculateChanges` when the backend cannot compute the changes
+///   since `sinceState`;
+/// - `serverFail` when the backend fails.
 pub async fn handle_vtc_recording_changes<B: VtcBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -90,10 +111,26 @@ pub async fn handle_vtc_recording_changes<B: VtcBackend>(
 /// §Destroying a Recording. Every operation
 /// requires [`VtcBackend::is_moderator`] on the recording's call.
 ///
-/// A `callId` that is a `#creationId` reference names a VTCCall created
+/// A `callId` that is a `#creationId` reference names a `VTCCall` created
 /// earlier in the request and resolves against `created_ids` (pass
 /// [`jmap_server::CallContext::created_ids`]; RFC 8620 §5.3); an unknown
 /// reference is `invalidProperties` naming `callId`.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   an element of `destroy` is not a string;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `create`, `update` and `destroy` together hold
+///   more than `maxObjectsInSet` objects;
+/// - `stateMismatch` when `ifInState` is not the current state;
+/// - `serverFail` when the backend fails.
+///
+/// A create, update or destroy that fails on its own, including one by a
+/// caller who is not a moderator on the call, is a
+/// [`SetError`](jmap_server::SetError) in the response, not an `Err`.
 pub async fn handle_vtc_recording_set<B: VtcBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -110,6 +147,21 @@ pub async fn handle_vtc_recording_set<B: VtcBackend>(
 /// other sort property with `unsupportedSort`. The backend evaluates the
 /// filter; [`crate::query::recording_matches`] and
 /// [`crate::query::compare_recordings`] implement it.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `filter`, `sort`, `position`, `anchor`, `anchorOffset` or `limit`
+///   is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `unsupportedFilter` when the filter does not decode as a `VTCRecording` filter;
+/// - `unsupportedSort` when `sort` names a property this server does not
+///   define;
+/// - `anchorNotFound` when `anchor` is not in the results;
+/// - `serverFail` when the backend fails, or any other RFC 8620 §5.5 error
+///   the backend returns.
 pub async fn handle_vtc_recording_query<B: VtcBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -121,6 +173,22 @@ pub async fn handle_vtc_recording_query<B: VtcBackend>(
 /// Handle `VTCRecording/queryChanges` (draft-atwood-jmap-vtc-00
 /// §VTCRecording/queryChanges). RFC 8620 §5.6: the `filter` and `sort` are
 /// those of the original query, so the `/query` rules apply here too.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `sinceQueryState` is missing, or `filter`, `sort`, `maxChanges` or
+///   `upToId` is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `unsupportedFilter` when the filter does not decode as a `VTCRecording` filter;
+/// - `unsupportedSort` when `sort` names a property this server does not
+///   define;
+/// - `cannotCalculateChanges` when the backend cannot compute the changes
+///   since `sinceQueryState`;
+/// - `serverFail` when the backend fails, or any other RFC 8620 §5.6 error
+///   the backend returns.
 pub async fn handle_vtc_recording_query_changes<B: VtcBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -136,10 +204,20 @@ pub async fn handle_vtc_recording_query_changes<B: VtcBackend>(
 /// Standard RFC 8620 §5.1 `/get`, except that for each livestream whose
 /// call the caller is not a moderator on, `streamKey` is `""` ("the server
 /// SHOULD return an empty string in `VTCLivestream/get` responses for
-/// participants whose role is not `"moderator"`", §VTCLivestream) and so is
+/// participants whose role is not `"moderator"`", §`VTCLivestream`) and so is
 /// `streamUri` ("the server SHOULD return `streamUri` as an empty string for
 /// non-moderator participants", §Livestream Key Exposure). A livestream
 /// whose call no longer exists is redacted.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `ids` or `properties` is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `ids` holds more than `maxObjectsInGet` ids;
+/// - `serverFail` when the backend fails.
 pub async fn handle_vtc_livestream_get<B: VtcBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -254,6 +332,17 @@ where
 
 /// Handle `VTCLivestream/changes` (draft-atwood-jmap-vtc-00
 /// §VTCLivestream/changes): standard RFC 8620 §5.2 `/changes`.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `sinceState` is missing, or `maxChanges` is not a positive integer;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `cannotCalculateChanges` when the backend cannot compute the changes
+///   since `sinceState`;
+/// - `serverFail` when the backend fails.
 pub async fn handle_vtc_livestream_changes<B: VtcBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -274,6 +363,22 @@ pub async fn handle_vtc_livestream_changes<B: VtcBackend>(
 ///
 /// `callId` resolves `#creationId` references as for
 /// [`handle_vtc_recording_set`].
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   an element of `destroy` is not a string;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `create`, `update` and `destroy` together hold
+///   more than `maxObjectsInSet` objects;
+/// - `stateMismatch` when `ifInState` is not the current state;
+/// - `serverFail` when the backend fails.
+///
+/// A create, update or destroy that fails on its own, including one by a
+/// caller who is not a moderator on the call, is a
+/// [`SetError`](jmap_server::SetError) in the response, not an `Err`.
 pub async fn handle_vtc_livestream_set<B: VtcBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -290,6 +395,21 @@ pub async fn handle_vtc_livestream_set<B: VtcBackend>(
 /// other sort property with `unsupportedSort`. The backend evaluates the
 /// filter; [`crate::query::livestream_matches`] and
 /// [`crate::query::compare_livestreams`] implement it.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `filter`, `sort`, `position`, `anchor`, `anchorOffset` or `limit`
+///   is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `unsupportedFilter` when the filter does not decode as a `VTCLivestream` filter;
+/// - `unsupportedSort` when `sort` names a property this server does not
+///   define;
+/// - `anchorNotFound` when `anchor` is not in the results;
+/// - `serverFail` when the backend fails, or any other RFC 8620 §5.5 error
+///   the backend returns.
 pub async fn handle_vtc_livestream_query<B: VtcBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -300,6 +420,22 @@ pub async fn handle_vtc_livestream_query<B: VtcBackend>(
 
 /// Handle `VTCLivestream/queryChanges` (draft-atwood-jmap-vtc-00
 /// §VTCLivestream/queryChanges). RFC 8620 §5.6: the `/query` rules apply.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `sinceQueryState` is missing, or `filter`, `sort`, `maxChanges` or
+///   `upToId` is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `unsupportedFilter` when the filter does not decode as a `VTCLivestream` filter;
+/// - `unsupportedSort` when `sort` names a property this server does not
+///   define;
+/// - `cannotCalculateChanges` when the backend cannot compute the changes
+///   since `sinceQueryState`;
+/// - `serverFail` when the backend fails, or any other RFC 8620 §5.6 error
+///   the backend returns.
 pub async fn handle_vtc_livestream_query_changes<B: VtcBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -792,8 +928,8 @@ async fn create_recording<B: VtcBackend>(
 
 /// Stop every recording of `call_id` in state `"recording"` or
 /// `"paused"`, the jmap-vtc-recording-guide §Auto-stop on call end
-/// cascade: "When a VTCCall transitions to `"ended"`, the server MUST stop
-/// every recording for that call ... Any VTCRecording in `"recording"`
+/// cascade: "When a `VTCCall` transitions to `"ended"`, the server MUST stop
+/// every recording for that call ... Any `VTCRecording` in `"recording"`
 /// or `"paused"` state is transitioned to `"stopped"`, with `stoppedAt` set
 /// and `VTCRecordingStateEvent` delivered."
 ///
@@ -805,7 +941,7 @@ async fn create_recording<B: VtcBackend>(
 /// a breakout room the caller cannot access still has its recordings
 /// stopped.
 ///
-/// ponytail: loads every VTCRecording of the account to find the call's,
+/// ponytail: loads every `VTCRecording` of the account to find the call's,
 /// so each call end is O(recordings). Upgrade path: an unscoped read
 /// filtered by `callId`; the caller-scoped `query_objects` would skip the
 /// recordings of a room the caller cannot access.
@@ -896,11 +1032,11 @@ async fn stop_recording<B: VtcBackend>(
 
 /// Stop every livestream of `call_id` in state `"starting"` or `"live"`,
 /// §Ending a Call: "When a call ends, the server stops ... every
-/// VTCLivestream in state `"starting"` or `"live"`, as if a moderator had
+/// `VTCLivestream` in state `"starting"` or `"live"`, as if a moderator had
 /// set each to `"stopped"`." As for a moderator's stop, the server sets
 /// `stoppedAt`; no event is delivered.
 ///
-/// ponytail: loads every VTCLivestream of the account, so each call end is
+/// ponytail: loads every `VTCLivestream` of the account, so each call end is
 /// O(livestreams); the upgrade path is [`stop_recordings`]'s.
 ///
 /// # Errors
@@ -1149,7 +1285,7 @@ async fn start_livestream<B: VtcBackend>(
     Ok(created)
 }
 
-/// The `overQuota` SetError for a livestream create over the account's
+/// The `overQuota` `SetError` for a livestream create over the account's
 /// limit of livestreams in `"starting"` or `"live"` (§Livestream States).
 #[cfg(feature = "memory")]
 pub(crate) fn livestream_over_quota() -> jmap_server::SetError {
@@ -1173,7 +1309,7 @@ fn parse_patch(patch: Value) -> Result<PatchObject, Value> {
 /// RFC 8620 §5.3: "Any server-set properties MAY be included in the patch
 /// if their value is identical to the current server value (before
 /// applying the patches to the object).  Otherwise, the update MUST be
-/// rejected with an "invalidProperties" SetError." A changed value is
+/// rejected with an "invalidProperties" `SetError`." A changed value is
 /// rejected and an identical one dropped. No keys left, for `{}` or a
 /// patch of identical values only, is a no-op update (decision on
 /// JMAP-t8ej.25/.27).
@@ -1205,7 +1341,7 @@ fn requested_state<S: DeserializeOwned>(patch: &PatchObject) -> Option<Result<S,
 /// Apply `patch` (plus `echo`, the server-set changes) and return the
 /// `updated` echo. With `from`, the patch applies only while the stored
 /// `state` is one of `from.0` ([`VtcBackend::update_object_if`]);
-/// otherwise the `invalidProperties` SetError naming `from.1` (`state` or
+/// otherwise the `invalidProperties` `SetError` naming `from.1` (`state` or
 /// `layout`, the property whose rule the stored state broke) is returned.
 async fn apply<O, B>(
     backend: &B,
@@ -1246,7 +1382,7 @@ where
     }
 }
 
-/// The account-level capability, or a `serverFail` SetError.
+/// The account-level capability, or a `serverFail` `SetError`.
 async fn capability<B: VtcBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -1429,7 +1565,7 @@ async fn update_recording<B: VtcBackend>(
 
 /// §Stopping a Livestream. `Ok` is the `updated` echo.
 ///
-/// §VTCLivestream: `mode`, `platform`, `streamUri` and `streamKey` are
+/// §`VTCLivestream`: `mode`, `platform`, `streamUri` and `streamKey` are
 /// "immutable", and "`"stopped"` and `"failed"` are final", so the updates
 /// are `state: "stopped"` and a new `layout`, each only from `"starting"`
 /// or `"live"`: "`update` may also set `layout` while the livestream is
@@ -1530,7 +1666,7 @@ async fn update_livestream<B: VtcBackend>(
 }
 
 /// §VTCRecording/set and §VTCLivestream/set: "Only participants with
-/// `role: "moderator"` on the associated VTCCall MAY create, update, or
+/// `role: "moderator"` on the associated `VTCCall` MAY create, update, or
 /// destroy" these objects; "Non-moderators SHOULD receive `forbidden`."
 /// §Destroying a Recording: "If the recording is in state `"recording"` or `"paused"`,
 /// the server first stops it and delivers the `VTCRecordingStateEvent`

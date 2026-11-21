@@ -96,7 +96,7 @@ pub(crate) fn parents_first(
     }
 }
 
-/// An `invalidProperties` SetError naming `properties` (none when empty).
+/// An `invalidProperties` [`SetError`] naming `properties` (none when empty).
 pub(crate) fn invalid(properties: &[&str], description: &str) -> Value {
     let err = SetError::new(SetErrorType::InvalidProperties).with_description(description);
     serde_json::Value::from(&if properties.is_empty() {
@@ -106,7 +106,7 @@ pub(crate) fn invalid(properties: &[&str], description: &str) -> Value {
     })
 }
 
-/// The `invalidProperties` SetError naming `state` for a transition that
+/// The `invalidProperties` [`SetError`] naming `state` for a transition that
 /// [`VtcBackend::update_object_if`] refused: the stored state changed
 /// after the handler read it, and the draft does not list the transition
 /// from the new state.
@@ -116,12 +116,12 @@ pub(crate) fn state_refused() -> SetError {
         .with_description("this state transition is not permitted from the current state")
 }
 
-/// A `forbidden` SetError.
+/// A `forbidden` `SetError`.
 pub(crate) fn forbidden(description: &str) -> Value {
     serde_json::Value::from(&SetError::new(SetErrorType::Forbidden).with_description(description))
 }
 
-/// A `notFound` SetError.
+/// A `notFound` `SetError`.
 pub(crate) fn not_found() -> Value {
     serde_json::Value::from(&SetError::new(SetErrorType::NotFound))
 }
@@ -140,7 +140,7 @@ pub(crate) async fn fetch_one<O: GetObject + Send + Sync, B: VtcBackend>(
         .map_err(|e| server_fail_value_from_backend(&e))
 }
 
-/// The sortable part of a UTCDate: `YYYY-MM-DDTHH:MM:SS`.
+/// The sortable part of a [`UTCDate`]: `YYYY-MM-DDTHH:MM:SS`.
 ///
 /// Fractional seconds are dropped so that values with and without them
 /// compare chronologically; for well-formed UTC timestamps the ASCII

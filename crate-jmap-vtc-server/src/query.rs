@@ -1,5 +1,5 @@
-//! `/query` filter evaluation and ordering for VTCCall, VTCParticipant,
-//! VTCRecording and VTCLivestream (draft-atwood-jmap-vtc-00 §VTCCall/query,
+//! `/query` filter evaluation and ordering for `VTCCall`, `VTCParticipant`,
+//! `VTCRecording` and `VTCLivestream` (draft-atwood-jmap-vtc-00 §VTCCall/query,
 //! §VTCParticipant/query, §VTCRecording/query, §VTCLivestream/query).
 //!
 //! Pure functions a backend's `query_objects` can apply to its stored

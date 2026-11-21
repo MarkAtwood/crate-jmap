@@ -1,5 +1,5 @@
-//! VTCParticipant/* method handlers (draft-atwood-jmap-vtc-00
-//! §VTCParticipant Methods).
+//! `VTCParticipant`/* method handlers (draft-atwood-jmap-vtc-00
+//! §`VTCParticipant` Methods).
 //!
 //! `/get` and `/changes` are the standard RFC 8620 §5.1 and §5.2 methods.
 //! `/set` create joins a room or scheduled call (§Joining a Room or
@@ -7,7 +7,7 @@
 //! (§Gateway Dial-Out). `/set` update answers or declines a ring, updates
 //! media state under the call policy, leaves, reconnects, carries the
 //! participant-level moderator actions and relays `gatewayData/pendingSignal`
-//! (§VTCGatewaySignal). `/query` and `/queryChanges` supply the draft's
+//! (§`VTCGatewaySignal`). `/query` and `/queryChanges` supply the draft's
 //! default sort and require a `callId` or `userId` scope.
 //!
 //! The call transitions a participant causes (§State Machine) run after the
@@ -18,7 +18,7 @@
 //! An answer or a decline also delivers a `VTCCallEndEvent`, with
 //! `endReason` `"answered_elsewhere"` or `"declined"`, through
 //! [`VtcBackend::deliver_event`], for the backend to route to that user's
-//! other ringing devices (§Multi-Device Forking, §VTCCallEndEvent).
+//! other ringing devices (§Multi-Device Forking, §`VTCCallEndEvent`).
 //!
 //! Not here: the per-call access and E2EE visibility rules, which the
 //! backend's reads apply ([`VtcBackend`] §Per-call access).
@@ -62,11 +62,21 @@ const SET_BY_SERVER_ON_CREATE: &[&str] = &[
     "breakoutCallId",
 ];
 
-/// The patch path of an outbound gateway signal (§VTCGatewaySignal).
+/// The patch path of an outbound gateway signal (§`VTCGatewaySignal`).
 const PENDING_SIGNAL: &str = "gatewayData/pendingSignal";
 
 /// Handle `VTCParticipant/get` (draft-atwood-jmap-vtc-00
 /// §VTCParticipant/get): standard RFC 8620 §5.1 `/get`.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `ids` or `properties` is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `ids` holds more than `maxObjectsInGet` ids;
+/// - `serverFail` when the backend fails.
 pub async fn handle_vtc_participant_get<B: VtcBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -77,6 +87,17 @@ pub async fn handle_vtc_participant_get<B: VtcBackend>(
 
 /// Handle `VTCParticipant/changes` (draft-atwood-jmap-vtc-00
 /// §VTCParticipant/changes): standard RFC 8620 §5.2 `/changes`.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `sinceState` is missing, or `maxChanges` is not a positive integer;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `cannotCalculateChanges` when the backend cannot compute the changes
+///   since `sinceState`;
+/// - `serverFail` when the backend fails.
 pub async fn handle_vtc_participant_changes<B: VtcBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -96,6 +117,23 @@ pub async fn handle_vtc_participant_changes<B: VtcBackend>(
 /// requires it by choice). The backend evaluates the
 /// filter; [`crate::query::participant_matches`] and
 /// [`crate::query::compare_participants`] implement it.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `filter`, `sort`, `position`, `anchor`, `anchorOffset` or `limit`
+///   is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `unsupportedFilter` when the filter does not decode as a `VTCParticipant` filter;
+/// - `unsupportedFilter`, too, when the filter is scoped by neither `callId`
+///   nor `userId`;
+/// - `unsupportedSort` when `sort` names a property this server does not
+///   define;
+/// - `anchorNotFound` when `anchor` is not in the results;
+/// - `serverFail` when the backend fails, or any other RFC 8620 §5.5 error
+///   the backend returns.
 pub async fn handle_vtc_participant_query<B: VtcBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -108,6 +146,24 @@ pub async fn handle_vtc_participant_query<B: VtcBackend>(
 /// Handle `VTCParticipant/queryChanges` (draft-atwood-jmap-vtc-00
 /// §VTCParticipant/queryChanges). RFC 8620 §5.6: the `filter` and `sort`
 /// are those of the original query, so the `/query` rules apply here too.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `sinceQueryState` is missing, or `filter`, `sort`, `maxChanges` or
+///   `upToId` is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `unsupportedFilter` when the filter does not decode as a `VTCParticipant` filter;
+/// - `unsupportedFilter`, too, when the filter is scoped by neither `callId`
+///   nor `userId`;
+/// - `unsupportedSort` when `sort` names a property this server does not
+///   define;
+/// - `cannotCalculateChanges` when the backend cannot compute the changes
+///   since `sinceQueryState`;
+/// - `serverFail` when the backend fails, or any other RFC 8620 §5.6 error
+///   the backend returns.
 pub async fn handle_vtc_participant_query_changes<B: VtcBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -164,7 +220,7 @@ fn is_scoped(filter: &VtcParticipantFilter) -> bool {
     }
 }
 
-/// The VTCParticipant properties that hold the id of another record, which
+/// The `VTCParticipant` properties that hold the id of another record, which
 /// a client may set to a `#creationId` reference (RFC 8620 §5.3).
 const PARTICIPANT_ID_PROPERTIES: &[&str] = &["callId", "breakoutCallId"];
 
@@ -175,15 +231,30 @@ const PARTICIPANT_ID_PROPERTIES: &[&str] = &["callId", "breakoutCallId"];
 /// create carries `gatewayData`, then [`VtcBackend::create_object`].
 /// Update: §Answering a Ring Call, §Declining a Ring Call, §Updating Media
 /// State, §Leaving a Call, §Reconnecting, §Participant-Level Moderator
-/// Actions and the `gatewayData/pendingSignal` relay of §VTCGatewaySignal.
+/// Actions and the `gatewayData/pendingSignal` relay of §`VTCGatewaySignal`.
 /// Destroy is `forbidden`: the draft defines no destroy, and a record is
 /// the user's "single continuous participant identity" in the call, kept
 /// after they leave.
 ///
 /// A `callId` or `breakoutCallId` that is a `#creationId` reference names
-/// a VTCCall created earlier in the request and resolves against
+/// a `VTCCall` created earlier in the request and resolves against
 /// `created_ids` (pass [`jmap_server::CallContext::created_ids`]; RFC 8620
 /// §5.3); an unknown reference is `invalidProperties` naming the property.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   an element of `destroy` is not a string;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `create`, `update` and `destroy` together hold
+///   more than `maxObjectsInSet` objects;
+/// - `stateMismatch` when `ifInState` is not the current state;
+/// - `serverFail` when the backend fails.
+///
+/// A create or update that fails on its own, and every destroy, is a
+/// [`SetError`] in the response, not an `Err`.
 pub async fn handle_vtc_participant_set<B: VtcBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -375,7 +446,7 @@ fn build<T: serde::de::DeserializeOwned>(v: Value) -> T {
 
 /// Validate one `create` entry, fill the server-set properties and hand it
 /// to [`VtcBackend::create_object`]. `Ok` is the `created` entry: "The
-/// server responds with the complete VTCParticipant record".
+/// server responds with the complete `VTCParticipant` record".
 async fn create_participant<B: VtcBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -578,7 +649,7 @@ async fn join_fields<B: VtcBackend>(
 /// §Joining example response (`audio` and `video` on, `screen` and
 /// `raisedHand` off), less any field the policy keeps a non-moderator from
 /// turning on. A requested value that turns such a field on is `forbidden`
-/// (§VTCCallPolicy). Either way, "When `policy.muteOnEntry` is `true`, the
+/// (§`VTCCallPolicy`). Either way, "When `policy.muteOnEntry` is `true`, the
 /// server sets `mediaState.audio` to `false` ... regardless of the
 /// client's requested value. Similarly for `policy.videoOffOnEntry`".
 fn join_media_state(
@@ -641,7 +712,7 @@ async fn check_concurrent_calls<B: VtcBackend>(
 }
 
 /// The checks and server-set properties of §Gateway Dial-Out. "The server
-/// creates a VTCParticipant with `joinedAt: null` and initiates the
+/// creates a `VTCParticipant` with `joinedAt: null` and initiates the
 /// outbound call via the gateway"; the backend places the call.
 async fn dial_out_fields<B: VtcBackend>(
     backend: &B,
@@ -1084,7 +1155,7 @@ fn gateway_signal(
 
 /// Every participant record of `call_id`.
 ///
-/// ponytail: loads every VTCParticipant of the account, O(participants)
+/// ponytail: loads every `VTCParticipant` of the account, O(participants)
 /// per leave or decline. Upgrade path: a `callId` filtered
 /// [`jmap_server::JmapReads::query_objects`].
 async fn call_participants<B: VtcBackend>(
@@ -1104,7 +1175,7 @@ async fn call_participants<B: VtcBackend>(
 /// committed. `old` is the participant before it.
 ///
 /// Best-effort: the update is already stored, so a failed transition is
-/// not the update's failure and is not reported as its SetError (RFC 8620
+/// not the update's failure and is not reported as its [`SetError`] (RFC 8620
 /// §5.3: `newState` must reflect the committed change). The call is
 /// reloaded first, and a call that has ended since the request began (for
 /// example a moderator's `VTCCall/set` `"ended"`) takes no transition: a
@@ -1161,7 +1232,7 @@ async fn run_effects<B: VtcBackend>(
 
 /// The call transitions of [`run_effects`] on `call`, which has not
 /// ended. A failed activation does not stop the decline and leave
-/// transitions; the `Err` value is the SetError JSON of the decline or
+/// transitions; the `Err` value is the [`SetError`] JSON of the decline or
 /// leave failure, else of the activation failure.
 async fn call_transitions<B: VtcBackend>(
     backend: &B,
@@ -1227,7 +1298,7 @@ async fn call_transitions<B: VtcBackend>(
 /// it.
 ///
 /// - "When the last active participant leaves a ring or scheduled call,
-///   the server transitions the VTCCall to `"ended"` with `endReason:
+///   the server transitions the `VTCCall` to `"ended"` with `endReason:
 ///   "completed"`, or `"cancelled"` if the call was still `"ringing"`. A
 ///   room call stays `"active"` when it empties". The end goes through
 ///   [`end_call`], which delivers the `"cancelled"` `VTCCallEndEvent`.

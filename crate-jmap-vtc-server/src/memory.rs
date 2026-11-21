@@ -314,7 +314,7 @@ impl Inner {
     }
 
     /// Store `count` as `call_id`'s `activeParticipantCount`, advancing the
-    /// VTCCall state only when it changes.
+    /// `VTCCall` state only when it changes.
     fn set_active_count(&mut self, account_id: &Id, call_id: &Id, count: u64) {
         let Some(call) = self
             .objects_mut(VtcCall::TYPE_NAME, account_id)
@@ -691,7 +691,7 @@ fn not_found<E>() -> BackendSetError<E> {
     BackendSetError::SetError(Box::new(SetError::new(SetErrorType::NotFound)))
 }
 
-/// "joined and not yet left" (§VTCCall `activeParticipantCount`).
+/// "joined and not yet left" (§`VTCCall` `activeParticipantCount`).
 fn is_active(p: &VtcParticipant) -> bool {
     p.joined_at.is_some() && p.left_at.is_none()
 }
@@ -711,13 +711,13 @@ fn is_live_call(c: &VtcCall) -> bool {
     )
 }
 
-/// The `overQuota` SetError for a call create over `maxConcurrentCalls`.
+/// The `overQuota` [`SetError`] for a call create over `maxConcurrentCalls`.
 fn concurrent_calls_over_quota() -> SetError {
     SetError::new(SetErrorType::OverQuota)
         .with_description("the account has reached maxConcurrentCalls")
 }
 
-/// The `overQuota` SetError for a breakout room create over
+/// The `overQuota` [`SetError`] for a breakout room create over
 /// `maxBreakoutRooms`.
 fn breakout_rooms_over_quota() -> SetError {
     SetError::new(SetErrorType::OverQuota)
@@ -728,7 +728,7 @@ fn decode<O: JmapObject>(v: &Value) -> Result<O, MemoryError> {
     O::deserialize(v).map_err(|e| MemoryError::serde(format_args!("decode {}", O::TYPE_NAME), &e))
 }
 
-/// A VTCParticipant record for a ring call, joined at `joined_at`.
+/// A `VTCParticipant` record for a ring call, joined at `joined_at`.
 fn ring_participant(
     call_id: &Id,
     user_id: &str,
@@ -1445,7 +1445,7 @@ impl<C: MemoryCaller> ConditionalBackend for MemoryBackend<C> {
 ///   (§VTCCall/set): `overQuota` on each room the scope created under it;
 /// - more livestreams in `"starting"` or `"live"` than the deployment's
 ///   limit: `overQuota` on each one the scope created;
-/// - two VTCParticipant records for one user in one call (§Reconnecting):
+/// - two `VTCParticipant` records for one user in one call (§Reconnecting):
 ///   `alreadyExists` with `existingId` on the create;
 /// - more active participants in a call than the account's
 ///   `maxParticipantsPerCall`: `overQuota` on each active participant the

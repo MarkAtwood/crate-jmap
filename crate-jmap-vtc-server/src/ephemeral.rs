@@ -1,5 +1,5 @@
 //! Ephemeral VTC event subscription state (draft-atwood-jmap-vtc-wss-00
-//! §VTCStreamEnable).
+//! §`VTCStreamEnable`).
 //!
 //! A WebSocket transport keeps one [`VtcEphemeralSubscription`] per
 //! connection, starting from [`VtcEphemeralSubscription::default`]
@@ -15,7 +15,7 @@
 //!
 //! `callIds` is kept as sent. An entry naming a call the user is not a
 //! current participant in "produces no events but is retained in the
-//! subscription record" (draft-atwood-jmap-vtc-wss-00 §VTCStreamEnable)
+//! subscription record" (draft-atwood-jmap-vtc-wss-00 §`VTCStreamEnable`)
 //! because delivery checks participation: "Servers SHOULD verify
 //! authorization at the time of each ephemeral event delivery, not only at
 //! the time `VTCStreamEnable` is received" (§Event Authorization). The same
@@ -81,7 +81,7 @@ impl VtcEphemeralSubscription {
     /// The new frame replaces the old subscription "in its entirety";
     /// nothing is merged from it. Unrecognized `eventTypes` values next to
     /// recognized ones are dropped (draft-atwood-jmap-vtc-wss-00
-    /// §VTCStreamEnable).
+    /// §`VTCStreamEnable`).
     ///
     /// # Errors
     ///
@@ -130,7 +130,7 @@ impl VtcEphemeralSubscription {
 enum Origin<'a> {
     /// No check: `VTCRecordingStateEvent` and `VTCGatewaySignal`.
     Exempt,
-    /// The user behind this VTCParticipant id in the event's call.
+    /// The user behind this `VTCParticipant` id in the event's call.
     Participant(&'a Id),
     /// This userId.
     User(&'a str),
@@ -151,7 +151,7 @@ enum Origin<'a> {
 /// event's `@type`, except for `VTCRecordingStateEvent`: it "is the
 /// recording consent signal ({{JMAP-VTC}}), so the server delivers it for
 /// every call the subscription covers whether or not `eventTypes` lists
-/// it" (§VTCStreamEnable). An event with an unrecognized `@type` is never
+/// it" (§`VTCStreamEnable`). An event with an unrecognized `@type` is never
 /// delivered. Then:
 ///
 /// - `VTCRingEvent` and `VTCCallEndEvent` are per-user and ignore
@@ -163,7 +163,7 @@ enum Origin<'a> {
 ///   and is delivered.
 /// - Every other event is per-call. It needs a call in the
 ///   subscription's [`CallScope`] that the backend returns, and the
-///   recipient must be a current participant in it: a VTCParticipant
+///   recipient must be a current participant in it: a `VTCParticipant`
 ///   record with the recipient's userId, `joinedAt` set and `leftAt`
 ///   `null` (draft-atwood-jmap-vtc-00 §VTCParticipant/query `isActive`).
 /// - `VTCGatewaySignal` goes only to moderators, per
@@ -181,8 +181,8 @@ enum Origin<'a> {
 ///   {{JMAP-VTC}} delivers to all participants regardless of block status".
 ///
 /// `hosting_account_id` is the event's `accountId`: "the id of the call's
-/// hosting account, the account that contains the VTCCall and its
-/// VTCParticipant records ... This is usually not the recipient's personal
+/// hosting account, the account that contains the `VTCCall` and its
+/// `VTCParticipant` records ... This is usually not the recipient's personal
 /// account" (draft-atwood-jmap-vtc-wss-00 L296-301). The call, its
 /// participants, the recipient's userId and moderator status are read
 /// there. `recipient_account_id` is the recipient's own account: the

@@ -1,7 +1,7 @@
-//! Object history for VTCCall, VTCRecording and VTCLivestream
+//! Object history for `VTCCall`, `VTCRecording` and `VTCLivestream`
 //! (draft-ietf-jmap-object-history-03 with the -04 editor's copy changes;
 //! docs/design/object-history.md; docs/design/DECISIONS.md decision 22).
-//! VTCParticipant keeps none.
+//! `VTCParticipant` keeps none.
 
 use std::sync::Arc;
 
@@ -20,10 +20,10 @@ use crate::{
 };
 
 /// [`register_vtc_handlers`], then history-aware `/get`, `/set`, `/query`
-/// and `/queryChanges` of VTCCall, VTCRecording and VTCLivestream, each
+/// and `/queryChanges` of `VTCCall`, `VTCRecording` and `VTCLivestream`, each
 /// wrapping the unchanged plain handler, through
 /// `Dispatcher::register_history_aware` (docs/design/DECISIONS.md decision
-/// 1). Every VTCLivestream version gets the same `streamKey`/`streamUri`
+/// 1). Every `VTCLivestream` version gets the same `streamKey`/`streamUri`
 /// blanking as the current one (§8.2). History reads emit no VTC events;
 /// a restore emits what an update would. A restored recording or
 /// livestream needs a current call.

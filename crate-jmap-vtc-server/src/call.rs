@@ -1,4 +1,4 @@
-//! VTCCall/* method handlers (draft-atwood-jmap-vtc-00 §VTCCall Methods).
+//! `VTCCall`/* method handlers (draft-atwood-jmap-vtc-00 §`VTCCall` Methods).
 //!
 //! `/get` and `/changes` are the standard RFC 8620 §5.1 and §5.2 methods.
 //! `/set` validates call creation, the state machine (§State Machine), ending
@@ -52,7 +52,7 @@ use jmap_server::{
 pub(crate) const JMAP_CHAT_URI: &str = "urn:ietf:params:jmap:chat";
 
 /// Properties only a moderator may patch: ending the call (§Ending a Call),
-/// "Toggle lobby" (§Moderator Actions on VTCCall), `policy` ("Mutable by
+/// "Toggle lobby" (§Moderator Actions on `VTCCall`), `policy` ("Mutable by
 /// moderators only") and `e2eeEnabled` ("The server SHOULD return
 /// `forbidden` if a non-moderator attempts to update `e2eeEnabled`", which
 /// this crate enforces by choice).
@@ -60,6 +60,16 @@ const MODERATOR_ONLY: &[&str] = &["state", "lobbyEnabled", "policy", "e2eeEnable
 
 /// Handle `VTCCall/get` (draft-atwood-jmap-vtc-00 §VTCCall/get): standard
 /// RFC 8620 §5.1 `/get`.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `ids` or `properties` is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `ids` holds more than `maxObjectsInGet` ids;
+/// - `serverFail` when the backend fails.
 pub async fn handle_vtc_call_get<B: VtcBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -70,6 +80,17 @@ pub async fn handle_vtc_call_get<B: VtcBackend>(
 
 /// Handle `VTCCall/changes` (draft-atwood-jmap-vtc-00 §VTCCall/changes):
 /// standard RFC 8620 §5.2 `/changes`.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `sinceState` is missing, or `maxChanges` is not a positive integer;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `cannotCalculateChanges` when the backend cannot compute the changes
+///   since `sinceState`;
+/// - `serverFail` when the backend fails.
 pub async fn handle_vtc_call_changes<B: VtcBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -86,6 +107,23 @@ pub async fn handle_vtc_call_changes<B: VtcBackend>(
 /// the account advertises `urn:ietf:params:jmap:chat`. The backend
 /// evaluates the filter; [`crate::query::call_matches`] and
 /// [`crate::query::compare_calls`] implement it.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `filter`, `sort`, `position`, `anchor`, `anchorOffset` or `limit`
+///   is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `unsupportedFilter` when the filter does not decode as a `VTCCall` filter;
+/// - `unsupportedFilter`, too, when the filter sets `chatId` or `spaceId`
+///   and the account does not advertise `urn:ietf:params:jmap:chat`;
+/// - `unsupportedSort` when `sort` names a property this server does not
+///   define;
+/// - `anchorNotFound` when `anchor` is not in the results;
+/// - `serverFail` when the backend fails, or any other RFC 8620 §5.5 error
+///   the backend returns.
 pub async fn handle_vtc_call_query<B: VtcBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -98,6 +136,24 @@ pub async fn handle_vtc_call_query<B: VtcBackend>(
 /// Handle `VTCCall/queryChanges` (draft-atwood-jmap-vtc-00
 /// §VTCCall/queryChanges). RFC 8620 §5.6: the `filter` and `sort` are
 /// those of the original query, so the `/query` rules apply here too.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `sinceQueryState` is missing, or `filter`, `sort`, `maxChanges` or
+///   `upToId` is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `unsupportedFilter` when the filter does not decode as a `VTCCall` filter;
+/// - `unsupportedFilter`, too, when the filter sets `chatId` or `spaceId`
+///   and the account does not advertise `urn:ietf:params:jmap:chat`;
+/// - `unsupportedSort` when `sort` names a property this server does not
+///   define;
+/// - `cannotCalculateChanges` when the backend cannot compute the changes
+///   since `sinceQueryState`;
+/// - `serverFail` when the backend fails, or any other RFC 8620 §5.6 error
+///   the backend returns.
 pub async fn handle_vtc_call_query_changes<B: VtcBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -152,7 +208,7 @@ fn uses_chat_binding(filter: &VtcCallFilter) -> bool {
     }
 }
 
-/// The VTCCall properties that hold the id of another record, which a
+/// The `VTCCall` properties that hold the id of another record, which a
 /// client may set to a `#creationId` reference (RFC 8620 §5.3).
 const CALL_ID_PROPERTIES: &[&str] = &[
     "parentCallId",
@@ -179,6 +235,21 @@ const CALL_ID_PROPERTIES: &[&str] = &[
 /// [`jmap_server::CallContext::created_ids`]) or against a create of this
 /// call, which runs parent calls first (RFC 8620 §5.3). An unknown
 /// reference is `invalidProperties` naming the property.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   an element of `destroy` is not a string;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `create`, `update` and `destroy` together hold
+///   more than `maxObjectsInSet` objects;
+/// - `stateMismatch` when `ifInState` is not the current state;
+/// - `serverFail` when the backend fails.
+///
+/// A create, update or destroy that fails on its own is a [`SetError`] in
+/// the response, not an `Err`.
 pub async fn handle_vtc_call_set<B: VtcBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -350,7 +421,7 @@ async fn set_destroy<B: VtcBackend>(
 }
 
 /// Validate one `create` entry, fill the server-set properties and hand it
-/// to [`VtcBackend::create_call`]. The `Err` value is the SetError JSON.
+/// to [`VtcBackend::create_call`]. The `Err` value is the [`SetError`] JSON.
 async fn create_call<B: VtcBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -531,7 +602,7 @@ async fn create_call<B: VtcBackend>(
         .map_err(backend_set_error_value)
 }
 
-/// The `invalidProperties` SetError for `lobbyEnabled: true` on an account
+/// The `invalidProperties` [`SetError`] for `lobbyEnabled: true` on an account
 /// whose `supportsLobby` is `false` (§VTCCall/set).
 fn lobby_unsupported() -> Value {
     invalid(&["lobbyEnabled"], "the lobby requires supportsLobby")
@@ -563,7 +634,7 @@ async fn may_end_call<B: VtcBackend>(
 /// Check one `destroy` entry and hand it to the backend.
 ///
 /// Destroying a call removes it as surely as ending it, so it takes the
-/// same permission. Crate choice; the draft does not address VTCCall
+/// same permission. Crate choice; the draft does not address `VTCCall`
 /// destroy. §Moderator Privilege Escalation: "Each moderation action
 /// carries its own role check: call-level actions in {{moderator-actions}}
 /// and {{ending-a-call}}".
@@ -748,7 +819,7 @@ async fn update_call<B: VtcBackend>(
 /// The `endReason` for ending a call in `state` (§Ending a Call):
 /// "`"completed"`: The call was in state `"active"` when ended" and
 /// "`"cancelled"`" for a ringing call, or a pending one ("The initiator
-/// withdrew a ringing or pending call", §VTCCall `endReason`). `None` when
+/// withdrew a ringing or pending call", §`VTCCall` `endReason`). `None` when
 /// the state machine has no transition from `state` to `"ended"` that a
 /// caller can request.
 fn end_reason_for(state: &CallState) -> Option<CallEndReason> {
@@ -763,7 +834,7 @@ fn end_reason_for(state: &CallState) -> Option<CallEndReason> {
 /// participant's join or answer causes (§State Machine). A call no longer
 /// in one of `from`, for example one a moderator ended since the caller
 /// read it, is left as it is: "The server MUST NOT transition a call out
-/// of `"ended"`". The `Err` value is the SetError JSON.
+/// of `"ended"`". The `Err` value is the [`SetError`] JSON.
 pub(crate) async fn set_call_state<B: VtcBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -804,7 +875,7 @@ fn ended_patch(end_reason: CallEndReason) -> PatchObject {
 /// timeout" (§State Machine).
 ///
 /// The kit runs no timer. A deployment calls this when its own timeout
-/// fires, with the `end_reason` the draft assigns (§VTCCall `endReason`,
+/// fires, with the `end_reason` the draft assigns (§`VTCCall` `endReason`,
 /// for example [`CallEndReason::Timeout`]: "A deployment-defined
 /// inactivity timeout fired on an active call with no participants").
 /// The last participant leaving needs no call here: `VTCParticipant/set`
@@ -814,7 +885,7 @@ fn ended_patch(end_reason: CallEndReason) -> PatchObject {
 /// the same cascade as a moderator's `VTCCall/set`:
 ///
 /// - every breakout room under it that has not ended is ended first
-///   ("when a parent call ends, its child breakout-room VTCCalls MUST also
+///   ("when a parent call ends, its child breakout-room `VTCCall`s MUST also
 ///   be ended", jmap-vtc-implementer-guide §Breakout room cleanup; crate
 ///   choice, as the draft does not address it), with the
 ///   `endReason` §Ending a Call gives for its own state, and leaves the
@@ -827,7 +898,7 @@ fn ended_patch(end_reason: CallEndReason) -> PatchObject {
 ///   [`VtcBackend::deliver_event`]: "When a ringing call is answered,
 ///   declined, cancelled, or times out, the server delivers a
 ///   `VTCCallEndEvent` to all devices that received the ring"
-///   (§VTCCallEndEvent). `VTCCall/set` does the same when the initiator
+///   (§`VTCCallEndEvent`). `VTCCall/set` does the same when the initiator
 ///   ends a ringing call.
 ///
 /// `from` lists the states `end_reason` applies to, for example
@@ -990,7 +1061,7 @@ pub async fn expire_ring<B: VtcBackend>(
 
 /// Deliver a `VTCCallEndEvent` for call `call_id` with `end_reason`
 /// through [`VtcBackend::deliver_event`], which routes it to the devices
-/// that received the ring (§VTCCallEndEvent).
+/// that received the ring (§`VTCCallEndEvent`).
 pub(crate) async fn deliver_call_end<B: VtcBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -1042,7 +1113,7 @@ pub(crate) fn ring_deadline(
 /// beneath it, and stop each ended call's active recordings and
 /// livestreams (§Ending a Call). Returns
 /// [`VtcBackend::update_object_if`]'s result for `call`, and the
-/// `invalidProperties` SetError naming `state` when the stored `call` is
+/// `invalidProperties` [`SetError`] naming `state` when the stored `call` is
 /// not in one of `from`, the states `patch`'s `endReason` was chosen for.
 ///
 /// jmap-vtc-implementer-guide §Breakout room cleanup: "implement

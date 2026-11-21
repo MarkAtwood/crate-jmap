@@ -334,6 +334,12 @@ impl<B: VtcBackend> VtcStreamHandler<B> {
     /// [`should_deliver`] takes it), receiving events from `hub`.
     ///
     /// The default [`VtcStreamLimits`] apply.
+    ///
+    /// # Panics
+    ///
+    /// Does not panic: the `expect` guards subscribing to every event type
+    /// with a default `VTCStreamEnable`, whose `null` `eventTypes` is always
+    /// valid.
     pub fn new(
         backend: Arc<B>,
         caller: B::CallerCtx,
