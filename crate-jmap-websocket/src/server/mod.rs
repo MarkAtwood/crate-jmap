@@ -232,7 +232,7 @@ impl ConnectionConfig {
 // Parsing client messages
 // ---------------------------------------------------------------------------
 
-/// The RFC 8887 §4.3.4 RequestError for a request-level `err`: its RFC
+/// The RFC 8887 §4.3.4 `RequestError` for a request-level `err`: its RFC
 /// 8620 §3.6.1 problem details (status from [`jmap_server::error_status`])
 /// with `requestId` set to `request_id`.
 pub fn request_error(err: &JmapError, request_id: Option<String>) -> WsRequestError {
@@ -372,13 +372,13 @@ fn not_request(detail: &str, request_id: Option<String>) -> WsRequestError {
 pub trait RequestHandler: Send + Sync + 'static {
     /// Process one parsed Request. `Err` is a request-level error (RFC
     /// 8620 §3.6.1, e.g. `unknownCapability`) and is sent as a
-    /// RequestError; method-level errors belong in the Response.
+    /// `RequestError`; method-level errors belong in the Response.
     fn handle(
         &self,
         request: JmapRequest,
     ) -> impl Future<Output = Result<JmapResponse, JmapError>> + Send;
 
-    /// Called on every RequestError before it is sent, including those
+    /// Called on every `RequestError` before it is sent, including those
     /// the driver makes itself. Set a localized `title` here (RFC 9457
     /// §3.1.3); the default leaves the problem as it is.
     fn prepare_problem(&self, problem: &mut ProblemDetails) {
@@ -576,9 +576,9 @@ impl PushSource for NoPush {
     }
 }
 
-/// Cuts `change` to `data_types` (RFC 8887 §4.3.5.2: "A StateChange
+/// Cuts `change` to `data_types` (RFC 8887 §4.3.5.2: "A `StateChange`
 /// notification will only be sent if the data for one of these types
-/// changes. Other types are omitted from the TypeState object.").
+/// changes. Other types are omitted from the `TypeState` object.").
 ///
 /// `None` keeps every type. Accounts left with no types are dropped;
 /// `None` is returned when nothing is left. An empty list therefore

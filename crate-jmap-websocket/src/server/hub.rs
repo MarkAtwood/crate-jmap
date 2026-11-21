@@ -14,7 +14,7 @@ use tokio::sync::watch;
 use super::PushSource;
 use crate::{WebSocketPushEnable, WsStateChange};
 
-/// The `changed` map of a StateChange (RFC 8620 §7.1).
+/// The `changed` map of a [`StateChange`] (RFC 8620 §7.1).
 type Changed = BTreeMap<Id, BTreeMap<String, State>>;
 
 /// Distinguishes hubs made in the same clock tick.

@@ -73,7 +73,7 @@ pub struct ExtensionMessage {
     /// The message's `@type`.
     pub message_type: String,
     /// The message's `id` when it is a string: the `requestId` of a
-    /// RequestError the message causes (RFC 8887 §4.3.4). It also stays
+    /// `RequestError` the message causes (RFC 8887 §4.3.4). It also stays
     /// in [`body`](Self::body).
     pub id: Option<String>,
     /// Every member of the message except `@type`.
@@ -132,7 +132,7 @@ pub enum ExtensionSendError {
 /// Queues server-to-client messages of one connection's extensions.
 ///
 /// The driver writes them in the order they were queued, interleaved
-/// with Responses and StateChanges in no set order (the drafts guarantee
+/// with Responses and `StateChange`s in no set order (the drafts guarantee
 /// none: "No ordering relationship is guaranteed between ephemeral event
 /// frames and `Response` or `StateChange` frames",
 /// draft-atwood-jmap-chat-wss-00 §Ephemeral Chat Events). The queue is
@@ -231,7 +231,7 @@ fn extension_text<T: Serialize + ?Sized>(message: &T) -> Result<String, Extensio
 ///    time in the order the client sent them. Until `handle` returns the
 ///    driver reads no further client message, so a Request sent after a
 ///    `…StreamEnable` runs after the subscription is in place; Responses,
-///    StateChanges and queued extension messages keep flowing meanwhile.
+///    `StateChange`s and queued extension messages keep flowing meanwhile.
 ///    Keep it short: start long work on a task of your own.
 /// 3. [`close`](Self::close) once when [`Connection::run`](super::Connection::run)
 ///    ends, however it ends, after the connection's queue is closed and
@@ -298,7 +298,7 @@ pub trait ExtensionHandler: Send + 'static {
     /// Process one message. Success sends nothing (the drafts' control
     /// messages are not acknowledged: "success is silent and failure
     /// produces a `RequestError`"). `Err` is sent as an RFC 8887 §4.3.4
-    /// RequestError with the message's [`id`](ExtensionMessage::id) as
+    /// `RequestError` with the message's [`id`](ExtensionMessage::id) as
     /// `requestId`, through
     /// [`RequestHandler::prepare_problem`](super::RequestHandler::prepare_problem);
     /// its `extra` members become problem-details members (for example

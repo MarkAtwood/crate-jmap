@@ -260,7 +260,7 @@ impl<'de> Deserialize<'de> for WsRequestError {
 // ---------------------------------------------------------------------------
 
 /// A push notification sent over the WebSocket (RFC 8887 §4.3.5.1): an
-/// RFC 8620 §7.1 StateChange plus an optional `pushState`.
+/// RFC 8620 §7.1 [`StateChange`] plus an optional `pushState`.
 ///
 /// `pushState` "encodes the entire server state visible to the user"; a
 /// client echoes the last one it got in [`WebSocketPushEnable`] after a
@@ -270,7 +270,7 @@ impl<'de> Deserialize<'de> for WsRequestError {
 pub struct WsStateChange {
     /// `pushState`.
     pub push_state: Option<String>,
-    /// The RFC 8620 StateChange (`changed` and extension members).
+    /// The RFC 8620 [`StateChange`] (`changed` and extension members).
     pub state_change: StateChange,
 }
 
@@ -335,7 +335,7 @@ impl<'de> Deserialize<'de> for WsStateChange {
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct WebSocketPushEnable {
     /// `dataTypes`: the data type names whose changes the client wants;
-    /// "Other types are omitted from the TypeState object." `None` is
+    /// "Other types are omitted from the `TypeState` object." `None` is
     /// every type.
     pub data_types: Option<Vec<String>>,
     /// `pushState`: the last token the client got; "the server SHOULD
@@ -474,8 +474,8 @@ fn take_tag<E: de::Error>(obj: &Map<String, Value>) -> Result<String, E> {
 }
 
 /// A message a client sends (RFC 8887 §4.3): "a single JMAP Request
-/// object ..., JMAP WebSocketPushEnable object ..., or JMAP
-/// WebSocketPushDisable object".
+/// object ..., JMAP [`WebSocketPushEnable`] object ..., or JMAP
+/// [`WebSocketPushDisable`] object".
 ///
 /// Deserialize requires `@type` and fails on any other value; a server
 /// that must answer bad input with the right problem type uses
@@ -517,7 +517,7 @@ impl<'de> Deserialize<'de> for ClientMessage {
 }
 
 /// A message a server sends (RFC 8887 §4.3): "a single JMAP Response
-/// object, JSON Problem Details object, or JMAP StateChange object".
+/// object, JSON Problem Details object, or JMAP [`StateChange`] object".
 ///
 /// Deserialize requires `@type` and fails on any other value; RFC 8887
 /// §4.3.1 lets a client ignore such a message or close the connection.
