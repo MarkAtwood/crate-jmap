@@ -1474,6 +1474,18 @@ rm -rf directory        cp -rf source dest
 
 Other commands that may prompt: `scp`/`ssh` — use `-o BatchMode=yes`; `apt-get` — use `-y`.
 
+## Interop posture (decision 68)
+
+Be strict in what you send, lenient in what you receive, log deviations,
+and upstream fixes. Everything crate-jmap emits follows the RFCs and drafts
+exactly. When a peer's input deviates but can be read unambiguously, accept
+it, emit a structured `tracing` warning (method, account, which deviation; no
+object contents), and report the deviation to that peer's project. Do not
+accept input whose meaning is ambiguous or security-relevant. The model is
+the missing-`newState` handling in `jmap-types` `SetResponse` and
+`jmap-base-client` `extract_response` (decision 67); the interop crate
+records each known deviation with `known_divergence`.
+
 ## Email and mailing lists
 
 - **`fm`** is the Fastmail CLI for Mark's mail, as in the IETF and mimid
