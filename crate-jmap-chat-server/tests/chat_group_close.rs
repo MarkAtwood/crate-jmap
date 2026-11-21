@@ -16,6 +16,23 @@ use jmap_server::HandlerOutput;
 use jmap_types::Id;
 use serde_json::{Value, json};
 
+/// A UTCDate as (epoch seconds, nanoseconds), for ordering. Comparing the
+/// strings is wrong when only one has a fraction: "...56.001Z" sorts
+/// before "...56Z".
+fn instant(s: &str) -> (i64, u32) {
+    let secs = jmap_types::UTCDate::from(s)
+        .to_epoch_seconds()
+        .unwrap_or_else(|e| panic!("{s}: {e}"));
+    let nanos = s
+        .split_once('.')
+        .map(|(_, frac)| {
+            let digits = frac.trim_end_matches('Z');
+            format!("{digits:0<9}")[..9].parse().unwrap()
+        })
+        .unwrap_or(0);
+    (secs, nanos)
+}
+
 /// Create a group Chat as the owner (admin) with `bob` and `carol` as
 /// members and return its id.
 async fn group_of_three(backend: &IdentityBackend) -> String {
@@ -149,7 +166,10 @@ async fn last_admin_leaving_with_members_remaining_sets_closed_at() {
     let closed_at = chat["closedAt"].as_str().expect("closedAt set on close");
     let created_at = chat["createdAt"].as_str().expect("createdAt");
     assert!(closed_at.ends_with('Z'), "{closed_at}");
-    assert!(closed_at >= created_at, "{closed_at} < {created_at}");
+    assert!(
+        instant(closed_at) >= instant(created_at),
+        "{closed_at} < {created_at}"
+    );
     let mut members: Vec<&str> = chat["members"]
         .as_array()
         .expect("members")

@@ -2,11 +2,13 @@
   "id": "JMAP-eltq",
   "title": "chat-server test: chat_group_close compares RFC 3339 timestamps as strings (flaky)",
   "description": "tests/chat_group_close.rs last_admin_leaving_with_members_remaining_sets_closed_at compares timestamps as strings; '...56.001Z' sorts before '...56Z' when both fall in the same second. Seen once during the eedw chat split; rerun passed. Compare parsed UTCDateTime values instead.",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-21T00:04:29.283180071Z",
   "created_by": "Mark Atwood",
-  "updated_at": "2026-11-21T00:04:29.283180071Z"
+  "updated_at": "2026-11-21T01:59:49.53682737Z",
+  "closed_at": "2026-11-21T01:59:49.53682737Z",
+  "close_reason": "chat_group_close now compares (epoch seconds, nanos) via UTCDate::to_epoch_seconds plus the fraction, not strings; no other string timestamp comparisons found in tests"
 }

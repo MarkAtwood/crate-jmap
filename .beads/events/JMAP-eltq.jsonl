@@ -1,1 +1,2 @@
 {"id":"01a1fb6b-33e7-7ce2-b5c7-88989436144d","issue_id":"JMAP-eltq","event_type":"created","actor":"Mark Atwood","old_value":"","new_value":"","created_at":"2026-11-21T00:04:29.287845366Z"}
+{"id":"01a1fbd4-cc26-7d3a-9522-f798e3bf079c","issue_id":"JMAP-eltq","event_type":"closed","actor":"Mark Atwood","old_value":"","new_value":"chat_group_close now compares (epoch seconds, nanos) via UTCDate::to_epoch_seconds plus the fraction, not strings; no other string timestamp comparisons found in tests","created_at":"2026-11-21T01:59:49.542868203Z"}
