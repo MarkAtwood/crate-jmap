@@ -52,6 +52,35 @@ register_vtc_handlers(&mut dispatcher, backend);
 Advertise `urn:ietf:params:jmap:vtc` in your Session with the same
 account-level object that `VtcBackend::vtc_capability` returns.
 
+### WebSocket ephemeral events (`websocket` feature)
+
+`websocket::VtcStreamHandler` is a `jmap-websocket` extension handler for
+`VTCStreamEnable` and `VTCStreamDisable` (draft-atwood-jmap-vtc-wss-00).
+Keep one `VtcEventHub`, publish every VTC event to it, and register one
+handler per connection next to advertising
+`urn:ietf:params:jmap:vtc:websocket`:
+
+```rust,ignore
+use jmap_vtc_server::websocket::{VtcEventHub, VtcStreamHandler};
+
+let hub = VtcEventHub::new(256); // server-wide
+let vtc = VtcStreamHandler::new(Arc::clone(&backend), caller, own_account_id, &hub);
+let connection = connection.with_extension(vtc);
+
+hub.publish(participant_event);             // per-call: accountId = hosting account
+hub.publish_to_user(callee_user_id, ring);  // per-user: VTCRingEvent, VTCCallEndEvent
+```
+
+- Each event goes through `should_deliver` with its `accountId` as the
+  hosting account. A per-user event published without a user reaches no
+  one.
+- `VtcStreamLimits` (default: the draft's) keeps one
+  `VTCMediaStateEvent` per participant per call per second, sending the
+  latest held one when the window reopens, and two
+  `VTCActiveSpeakerEvent`s per call per second.
+- `chat_alias()` is the `ChatStreamEnable` `"vtc"` switch;
+  `jmap-chat-vtc-server::link_vtc_stream` drives it.
+
 ## How it works
 
 The handlers do the draft's validation, then call the backend. A create is

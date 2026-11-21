@@ -116,6 +116,58 @@ pub fn jmap_vtc_server::query::compare_recordings(&jmap_vtc_types::recording::Vt
 pub fn jmap_vtc_server::query::livestream_matches(&jmap_vtc_types::query::VtcLivestreamFilter, &jmap_vtc_types::recording::VtcLivestream) -> bool
 pub fn jmap_vtc_server::query::participant_matches(&jmap_vtc_types::query::VtcParticipantFilter, &jmap_vtc_types::participant::VtcParticipant) -> bool
 pub fn jmap_vtc_server::query::recording_matches(&jmap_vtc_types::query::VtcRecordingFilter, &jmap_vtc_types::recording::VtcRecording) -> bool
+pub mod jmap_vtc_server::websocket
+pub struct jmap_vtc_server::websocket::VtcChatAlias
+impl jmap_vtc_server::websocket::VtcChatAlias
+pub fn jmap_vtc_server::websocket::VtcChatAlias::is_on(&self) -> bool
+pub fn jmap_vtc_server::websocket::VtcChatAlias::set(&self, bool)
+impl core::clone::Clone for jmap_vtc_server::websocket::VtcChatAlias
+pub fn jmap_vtc_server::websocket::VtcChatAlias::clone(&self) -> jmap_vtc_server::websocket::VtcChatAlias
+impl core::default::Default for jmap_vtc_server::websocket::VtcChatAlias
+pub fn jmap_vtc_server::websocket::VtcChatAlias::default() -> jmap_vtc_server::websocket::VtcChatAlias
+impl core::fmt::Debug for jmap_vtc_server::websocket::VtcChatAlias
+pub fn jmap_vtc_server::websocket::VtcChatAlias::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct jmap_vtc_server::websocket::VtcEventHub
+impl jmap_vtc_server::websocket::VtcEventHub
+pub fn jmap_vtc_server::websocket::VtcEventHub::new(usize) -> Self
+pub fn jmap_vtc_server::websocket::VtcEventHub::publish(&self, jmap_vtc_types::event::VtcEvent)
+pub fn jmap_vtc_server::websocket::VtcEventHub::publish_to_user(&self, impl core::convert::Into<alloc::string::String>, jmap_vtc_types::event::VtcEvent)
+impl core::clone::Clone for jmap_vtc_server::websocket::VtcEventHub
+pub fn jmap_vtc_server::websocket::VtcEventHub::clone(&self) -> jmap_vtc_server::websocket::VtcEventHub
+impl core::fmt::Debug for jmap_vtc_server::websocket::VtcEventHub
+pub fn jmap_vtc_server::websocket::VtcEventHub::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct jmap_vtc_server::websocket::VtcStreamHandler<B: jmap_vtc_server::VtcBackend>
+impl<B: jmap_vtc_server::VtcBackend> jmap_vtc_server::websocket::VtcStreamHandler<B>
+pub fn jmap_vtc_server::websocket::VtcStreamHandler<B>::chat_alias(&self) -> jmap_vtc_server::websocket::VtcChatAlias
+pub fn jmap_vtc_server::websocket::VtcStreamHandler<B>::new(alloc::sync::Arc<B>, <B as jmap_server::backend::JmapAccounts>::CallerCtx, jmap_types::id::Id, &jmap_vtc_server::websocket::VtcEventHub) -> Self
+pub fn jmap_vtc_server::websocket::VtcStreamHandler<B>::subscription(&self) -> jmap_vtc_server::VtcEphemeralSubscription
+pub fn jmap_vtc_server::websocket::VtcStreamHandler<B>::with_limits(self, jmap_vtc_server::websocket::VtcStreamLimits) -> Self
+impl<B: jmap_vtc_server::VtcBackend> core::fmt::Debug for jmap_vtc_server::websocket::VtcStreamHandler<B>
+pub fn jmap_vtc_server::websocket::VtcStreamHandler<B>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<B: jmap_vtc_server::VtcBackend> core::ops::drop::Drop for jmap_vtc_server::websocket::VtcStreamHandler<B>
+pub fn jmap_vtc_server::websocket::VtcStreamHandler<B>::drop(&mut self)
+impl<B: jmap_vtc_server::VtcBackend> jmap_websocket::server::extension::ExtensionHandler for jmap_vtc_server::websocket::VtcStreamHandler<B>
+pub async fn jmap_vtc_server::websocket::VtcStreamHandler<B>::close(&mut self)
+pub async fn jmap_vtc_server::websocket::VtcStreamHandler<B>::handle(&mut self, jmap_websocket::server::extension::ExtensionMessage) -> core::result::Result<(), jmap_types::error::JmapError>
+pub fn jmap_vtc_server::websocket::VtcStreamHandler<B>::message_types(&self) -> &[&str]
+pub fn jmap_vtc_server::websocket::VtcStreamHandler<B>::start(&mut self, jmap_websocket::server::extension::ExtensionSender)
+pub struct jmap_vtc_server::websocket::VtcStreamLimits
+impl jmap_vtc_server::websocket::VtcStreamLimits
+pub fn jmap_vtc_server::websocket::VtcStreamLimits::active_speaker_window(self, core::option::Option<core::time::Duration>) -> Self
+pub fn jmap_vtc_server::websocket::VtcStreamLimits::active_speaker_window_value(&self) -> core::option::Option<core::time::Duration>
+pub fn jmap_vtc_server::websocket::VtcStreamLimits::media_state_window(self, core::option::Option<core::time::Duration>) -> Self
+pub fn jmap_vtc_server::websocket::VtcStreamLimits::media_state_window_value(&self) -> core::option::Option<core::time::Duration>
+impl core::clone::Clone for jmap_vtc_server::websocket::VtcStreamLimits
+pub fn jmap_vtc_server::websocket::VtcStreamLimits::clone(&self) -> jmap_vtc_server::websocket::VtcStreamLimits
+impl core::cmp::Eq for jmap_vtc_server::websocket::VtcStreamLimits
+impl core::cmp::PartialEq for jmap_vtc_server::websocket::VtcStreamLimits
+pub fn jmap_vtc_server::websocket::VtcStreamLimits::eq(&self, &jmap_vtc_server::websocket::VtcStreamLimits) -> bool
+impl core::default::Default for jmap_vtc_server::websocket::VtcStreamLimits
+pub fn jmap_vtc_server::websocket::VtcStreamLimits::default() -> Self
+impl core::fmt::Debug for jmap_vtc_server::websocket::VtcStreamLimits
+pub fn jmap_vtc_server::websocket::VtcStreamLimits::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for jmap_vtc_server::websocket::VtcStreamLimits
+impl core::marker::StructuralPartialEq for jmap_vtc_server::websocket::VtcStreamLimits
 #[non_exhaustive] pub enum jmap_vtc_server::CallScope
 pub jmap_vtc_server::CallScope::All
 pub jmap_vtc_server::CallScope::Only(alloc::vec::Vec<jmap_types::id::Id>)

@@ -46,6 +46,14 @@
 //! The crate depends on RFC 8620 only; the Chat binding (membership,
 //! `start_call`, `Chat.activeCallId`) lives in a separate binding crate.
 //!
+//! # `websocket` feature (ephemeral events over RFC 8887)
+//!
+//! Enable `websocket` for the `websocket` module: the `jmap-websocket`
+//! extension handler for `VTCStreamEnable` / `VTCStreamDisable`
+//! (draft-atwood-jmap-vtc-wss-00) and the server-wide hub the deployment
+//! publishes events to. Off by default, so a deployment without the WebSocket
+//! transport does not pull in `jmap-websocket`.
+//!
 //! # `memory` feature (reference implementation)
 //!
 //! Enable the `memory` feature to expose `memory::MemoryBackend`, the
@@ -77,6 +85,8 @@ pub mod media_report;
 pub mod memory;
 mod participant;
 pub mod query;
+#[cfg(feature = "websocket")]
+pub mod websocket;
 
 pub use backend::{MediaEffect, StatefulObject, VtcBackend, call_already_active_on_chat};
 pub use call::{
