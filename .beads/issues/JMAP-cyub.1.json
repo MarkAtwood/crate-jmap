@@ -2,14 +2,14 @@
   "id": "JMAP-cyub.1",
   "title": "Stalwart unattended bootstrap scripts",
   "description": "scripts/stalwart-up.sh / stalwart-down.sh: podman run the image pinned by digest, 127.0.0.1 only, ephemeral volume; pin admin via STALWART_RECOVERY_ADMIN; config enabling a local internal directory; create two test accounts via the management API; wait until /.well-known/jmap answers; print URL and credentials. Research Stalwart 0.16 config and management API first.",
-  "notes": "2026-11-19: blocked on tooling. Neither podman nor docker is installed on this machine (the 2026-10-18 epic note's rootless podman 4.9.3 is not present now); installing it needs root. Scripts could be written blind but not verified, so left until podman is available.",
+  "notes": "2026-11-19: blocked on tooling. Neither podman nor docker is installed on this machine (the 2026-10-18 epic note's rootless podman 4.9.3 is not present now); installing it needs root. Scripts could be written blind but not verified, so left until podman is available.\n2026-11-21: unblocked: podman 4.3.1 installed (Debian 12 apt, with uidmap and slirp4netns) on Mark's instruction; rootless verified (alpine container ran as mark). dbus-launch warning is harmless.",
   "status": "open",
   "priority": 2,
   "issue_type": "task",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-18T20:10:18.297253918Z",
   "created_by": "agent",
-  "updated_at": "2026-11-19T23:36:16.243032484Z",
+  "updated_at": "2026-11-21T18:48:13.444815162Z",
   "dependencies": [
     {
       "issue_id": "JMAP-cyub.1",
