@@ -1,0 +1,12 @@
+# Workspace clippy configuration (bd JMAP-ibyi).
+#
+# doc-valid-idents: product and specification-family names that read as
+# words in prose and need no backticks. JMAP data types, method names,
+# property names and Rust items are not listed: those take backticks.
+# ".." keeps clippy's default list.
+doc-valid-idents = [
+    "..",
+    "JSCalendar", "JSContact", "LiveKit", "MediaMTX", "OpenMLS",
+    "MediaLive", "MediaPackage", "CloudFront", "FreeSWITCH", "GStreamer",
+    "IDs", "URIs", "URLs", "UUIDs",
+]
