@@ -1,13 +1,13 @@
 //! JMAP Email Delivery Push (draft-ietf-jmap-emailpush-05), server side.
 //!
-//! EmailPush adds an `emailPush` map (account id to
+//! `EmailPush` adds an `emailPush` map (account id to
 //! [`EmailPushConfig`](jmap_mail_types::EmailPushConfig)) to the RFC 8620
-//! PushSubscription. When a message is delivered to an account in that map,
+//! `PushSubscription`. When a message is delivered to an account in that map,
 //! the server pushes an [`EmailPush`](jmap_mail_types::EmailPush) to the
 //! subscription's URL, holding the matching Emails with the requested
 //! properties.
 //!
-//! This module adds no methods and no `register_*` function: EmailPush
+//! This module adds no methods and no `register_*` function: `EmailPush`
 //! rides on `PushSubscription/get` and `/set`, registered with
 //! [`jmap_server::register_push_subscription_handlers`]. A deployment
 //! implements [`EmailPushBackend`] on top of its
@@ -17,7 +17,7 @@
 //! and owns transport and delivery.
 //!
 //! [`EmailPushBackend`] does not extend [`MailBackend`](crate::MailBackend):
-//! -05 §2.1 lets an account support EmailPush without
+//! -05 §2.1 lets an account support `EmailPush` without
 //! `urn:ietf:params:jmap:mail`, so an IMAP-only deployment implements only
 //! the push traits.
 //!
@@ -38,11 +38,11 @@ pub use validate::{
     InvalidEmailPushConfig, check_email_push_change, check_email_push_config, prune_email_push,
 };
 
-/// What one account supports for EmailPush, as the deployment reports it
+/// What one account supports for `EmailPush`, as the deployment reports it
 /// from [`EmailPushBackend::email_push_accounts`].
 ///
 /// The flags decide which `filter` conditions and `properties` an
-/// EmailPushConfig for the account may use (-05 §4):
+/// `EmailPushConfig` for the account may use (-05 §4):
 ///
 /// - with [`mail`](Self::mail), every condition Email/query supports and
 ///   every property Email/get supports;
@@ -57,7 +57,7 @@ pub struct EmailPushAccount {
     /// The account supports `urn:ietf:params:jmap:mail`. Without it the
     /// pushed `state` is `null` (-05 §3).
     pub mail: bool,
-    /// The deployment offers IMAP access to the account with the ObjectID
+    /// The deployment offers IMAP access to the account with the OBJECTID
     /// extension (RFC 8474), so Email, Thread and Mailbox ids exist.
     pub object_ids: bool,
     /// The account's object-history capability lists `Email` in
@@ -76,7 +76,7 @@ pub struct EmailPushAccount {
 
 impl EmailPushAccount {
     /// An account with the given `urn:ietf:params:jmap:mail` support,
-    /// without ObjectID, without Email history and with no extra
+    /// without OBJECTID, without Email history and with no extra
     /// conditions or properties.
     pub fn new(mail: bool) -> Self {
         Self {
@@ -121,12 +121,12 @@ impl EmailPushAccount {
     }
 }
 
-/// Why EmailPush objects could not be built for a delivery.
+/// Why `EmailPush` objects could not be built for a delivery.
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EmailPushError {
-    /// An EmailPush holding one empty Email does not fit in the size limit,
-    /// so no EmailPush can be sent without exceeding it (-05 §3: "The server
+    /// An `EmailPush` holding one empty Email does not fit in the size limit,
+    /// so no `EmailPush` can be sent without exceeding it (-05 §3: "The server
     /// MUST NOT exceed the size limit of the push service").
     LimitTooSmall,
     /// The filter has a thread condition (`allInThreadHaveKeyword`,
@@ -146,33 +146,33 @@ impl std::fmt::Display for EmailPushError {
 
 impl std::error::Error for EmailPushError {}
 
-/// A [`PushSubscriptionBackend`] whose accounts support EmailPush.
+/// A [`PushSubscriptionBackend`] whose accounts support `EmailPush`.
 ///
 /// # Consumer MUSTs
 ///
 /// - `create_push_subscription` and `update_push_subscription` MUST call
 ///   [`check_email_push_change`] before storing, and store the normalized
-///   result. PushSubscriptionBackend has no validation hook, so the backend
+///   result. [`PushSubscriptionBackend`] has no validation hook, so the backend
 ///   does this itself, in the same call as the store.
 /// - Each delivered Email is built from a full
 ///   [`Email`](jmap_mail_types::Email), after delivery-time processing such
 ///   as Sieve (-05 §4: the filter "is evaluated against the message as it is
-///   immediately after delivery"). A deployment without ObjectID (RFC 8474)
+///   immediately after delivery"). A deployment without OBJECTID (RFC 8474)
 ///   has no JMAP `id`, `blobId`, `threadId` or `mailboxIds`; it fills them
 ///   with any valid placeholder. For such an account (`mail` and
 ///   `object_ids` both false) those properties and `inMailbox` /
 ///   `inMailboxOtherThan` are rejected, so a placeholder is never pushed or
 ///   matched.
-/// - EmailPush objects are built only for SMTP/LMTP-style deliveries (-05
+/// - `EmailPush` objects are built only for SMTP/LMTP-style deliveries (-05
 ///   §3: not for an Email "created as the result of a JMAP method call or
 ///   the equivalent in another protocol"), with the live
 ///   [`EmailPushAccount`].
-/// - Each EmailPush is sent only to the subscription's URL, never over an
-///   EventSource or WebSocket push channel (-05 §4), and within the push
+/// - Each `EmailPush` is sent only to the subscription's URL, never over an
+///   `EventSource` or WebSocket push channel (-05 §4), and within the push
 ///   service's size limit (Web Push without padding allows
 ///   `jmap_web_push::MAX_PLAINTEXT` = 3993 octets).
 /// - When the user loses access to an account, or the account loses the
-///   emailpush capability, the backend MUST stop sending EmailPush objects
+///   emailpush capability, the backend MUST stop sending `EmailPush` objects
 ///   for it and remove it from every affected `emailPush` map (-05 §4):
 ///   its revocation path calls [`prune_email_push`] on each affected
 ///   subscription and persists the result, and `list_push_subscriptions`

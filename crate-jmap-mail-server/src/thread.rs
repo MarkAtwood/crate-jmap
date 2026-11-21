@@ -39,6 +39,17 @@ use jmap_server::{HandlerOutput, server_fail_from_backend};
 /// `/get` response shape (`accountId`, `state`, `list`, `notFound`).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `ids` or `properties` is malformed or names a property other than
+///   `id` and `emailIds`;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `ids` holds more than `maxObjectsInGet` ids;
+/// - `serverFail` when the backend fails.
 pub async fn handle_thread_get<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -136,6 +147,18 @@ pub async fn handle_thread_get<B: MailBackend>(
 /// `hasMoreChanges`, `created`, `updated`, `destroyed`).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `sinceState` is missing, `maxChanges` is not a positive integer, or
+///   `ignoreMetadataOnlyChanges` is not a boolean;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `cannotCalculateChanges` when the backend cannot compute the changes
+///   since `sinceState`;
+/// - `serverFail` when the backend fails.
 pub async fn handle_thread_changes<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,

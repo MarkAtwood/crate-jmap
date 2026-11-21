@@ -1,6 +1,6 @@
 //! RFC 8621 §8 VacationResponse/get and VacationResponse/set handlers.
 //!
-//! VacationResponse is a **singleton**: there is exactly one per account and
+//! [`VacationResponse`] is a **singleton**: there is exactly one per account and
 //! its `id` is always the string `"singleton"`.  Create and destroy are
 //! forbidden; only update of `"singleton"` is permitted.
 //!
@@ -59,6 +59,16 @@ const SINGLETON_ID: &str = "singleton";
 /// other than `"singleton"` is placed in `notFound`.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   `ids` is not a string array;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `ids` holds more than `maxObjectsInGet` ids;
+/// - `serverFail` when the backend fails.
 pub async fn handle_vacation_get<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -154,10 +164,25 @@ pub async fn handle_vacation_get<B: MailBackend>(
 /// - `create` is always rejected with `SetErrorType::Singleton`.
 /// - `destroy` is always rejected with `SetErrorType::Singleton`.
 /// - `update "singleton"` is the only permitted mutation.  If no
-///   VacationResponse exists yet the handler creates it (upsert semantics).
+///   [`VacationResponse`] exists yet the handler creates it (upsert semantics).
 /// - Any update id other than `"singleton"` is rejected with `NotFound`.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `create`, `update` or `destroy` is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `create`, `update` and `destroy` together hold
+///   more than `maxObjectsInSet` objects;
+/// - `stateMismatch` when `ifInState` is not the current state;
+/// - `serverFail` when the backend fails.
+///
+/// A create, update or destroy that fails on its own is a [`SetError`] in
+/// the response, not an `Err`.
 pub async fn handle_vacation_set<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -326,7 +351,7 @@ async fn update_one<B: MailBackend>(
 ///
 /// Concurrency note: two concurrent requests can both reach this function
 /// and attempt to create the singleton. Backends that receive concurrent
-/// requests MUST make create_object idempotent for the singleton key (e.g.
+/// requests MUST make `create_object` idempotent for the singleton key (e.g.
 /// via a unique constraint or a compare-and-swap) to avoid duplicate
 /// creation. The handler layer cannot add locking here because it holds no
 /// shared state.
@@ -418,8 +443,8 @@ fn set_destroy(
     Ok(())
 }
 
-/// The default VacationResponse (RFC 8621 §8: disabled, every other
-/// property null) with `patch` applied, or the SetError for the update
+/// The default [`VacationResponse`] (RFC 8621 §8: disabled, every other
+/// property null) with `patch` applied, or the [`SetError`] for the update
 /// (checked before the default is stored):
 /// `invalidPatch` for a bad path, `invalidProperties` for a value of the
 /// wrong type.

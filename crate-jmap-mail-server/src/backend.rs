@@ -81,7 +81,7 @@ use jmap_server::{BackendSetError, JmapBackend, JmapObject, SetObject};
 /// the others, and `Email/copy` treats an unreadable source Email in
 /// `fromAccountId` as not found.
 ///
-/// `jmap-sharing-server` serves the RFC 9670 Principal and ShareNotification
+/// `jmap-sharing-server` serves the RFC 9670 Principal and `ShareNotification`
 /// methods and owns the `myRights` contract that this trait applies to
 /// Mailboxes; it enforces nothing on this crate's behalf.
 pub trait MailBackend: JmapBackend {
@@ -119,7 +119,7 @@ pub trait MailBackend: JmapBackend {
     /// RFC 8620 §5.3 lists `id` among the "server-set properties".
     ///
     /// For `VacationResponse` the backend mints `"singleton"`: RFC 8621
-    /// §8 says the one VacationResponse in an account "MUST have the id
+    /// §8 says the one `VacationResponse` in an account "MUST have the id
     /// \"singleton\"".
     ///
     /// The `Email/set` create handler does not call this method for
@@ -220,7 +220,7 @@ pub trait MailBackend: JmapBackend {
     /// and the `SieveScript` handlers call it as well. The `Email/set` create
     /// handler reads the blobs that body parts
     /// reference by `blobId` and reports the missing ones in a
-    /// `blobNotFound` SetError (RFC 8621 §4.6). Return `Err` only for a
+    /// `blobNotFound` `SetError` (RFC 8621 §4.6). Return `Err` only for a
     /// storage failure; the handler reports it as `serverFail`.
     fn read_blob(
         &self,
@@ -253,7 +253,7 @@ pub trait MailBackend: JmapBackend {
     ///
     /// # Patch format
     ///
-    /// `patch` is an RFC 8620 §5.3 PatchObject, not an RFC 7396 JSON
+    /// `patch` is an RFC 8620 §5.3 `PatchObject`, not an RFC 7396 JSON
     /// Merge Patch: "The keys are a path in JSON Pointer format
     /// \[RFC6901\], with an implicit leading "/"". So `{"a/b": null}`
     /// removes member `b` of property `a`; it does not touch a top-level

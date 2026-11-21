@@ -59,7 +59,7 @@ impl std::fmt::Debug for BlobStore {
 }
 
 /// Whether `v` holds `"blobId": blob_id` anywhere (an Email's own blob,
-/// a body part's, a SieveScript's).
+/// a body part's, a `SieveScript`'s).
 fn mentions_blob(v: &Value, blob_id: &str) -> bool {
     match v {
         Value::Object(m) => m.iter().any(|(k, v)| {
@@ -131,7 +131,7 @@ impl<C: MemoryCaller> MemoryBackend<C> {
     /// For each of `blob_ids`, the current `type_name` objects of
     /// `account_id` that reference it (blobext-03 §6): an Email whose own
     /// blob or a body part's blob it is, the Mailboxes and the Thread of
-    /// such Emails, and a SieveScript's script blob. Current objects only
+    /// such Emails, and a `SieveScript`'s script blob. Current objects only
     /// (object-history-03 §3.1). For a shared blob store's reference hook;
     /// does not wait on the scope gate.
     pub fn current_blob_references(

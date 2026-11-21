@@ -61,6 +61,20 @@ use jmap_server::{HandlerOutput, filter_arg, server_fail_from_backend};
 /// backend.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `emailIds` is missing or not an Id array, or `filter` is not an object;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `accountNotSupportedByMethod` when the account does not support
+///   `SearchSnippet`;
+/// - `requestTooLarge` when `emailIds` holds more than `maxObjectsInGet`
+///   ids;
+/// - `unsupportedFilter` when the filter does not decode as an Email filter;
+/// - `serverFail` when the backend fails.
 pub async fn handle_search_snippet_get<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,

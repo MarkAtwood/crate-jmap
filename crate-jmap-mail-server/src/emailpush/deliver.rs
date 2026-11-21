@@ -1,4 +1,4 @@
-//! Building EmailPush objects for a delivery
+//! Building [`EmailPush`] objects for a delivery
 //! (draft-ietf-jmap-emailpush-05 §3, §4).
 
 use std::collections::BTreeMap;
@@ -21,10 +21,10 @@ use crate::project::project_email;
 /// Sieve" (-05 §4). It carries `preview`, and decoded text `bodyValues`
 /// when a `text` or `body` condition may run.
 ///
-/// A deployment without ObjectID (RFC 8474) has no JMAP `id`, `blobId`,
+/// A deployment without OBJECTID (RFC 8474) has no JMAP `id`, `blobId`,
 /// `threadId` or `mailboxIds`. It fills those four required fields of
 /// [`Email`] with any valid placeholder: for an account without mail and
-/// without ObjectID, validation rejects those properties and the
+/// without OBJECTID, validation rejects those properties and the
 /// `inMailbox` / `inMailboxOtherThan` conditions, and
 /// [`email_pushes_for`] skips a stored config that uses them, so a
 /// placeholder is never pushed or matched.
@@ -58,7 +58,7 @@ impl<'a> DeliveredEmail<'a> {
 }
 
 /// The messages of one delivery batch to one account, and what the
-/// EmailPush objects for them may hold.
+/// [`EmailPush`] objects for them may hold.
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy)]
 pub struct EmailPushBatch<'a> {
@@ -66,7 +66,7 @@ pub struct EmailPushBatch<'a> {
     pub account_id: &'a Id,
     /// The account as [`EmailPushBackend::email_push_accounts`] returns it
     /// now for the subscription's owner; a revoked account has none, and
-    /// gets no EmailPush (-05 §4: the server "MUST stop sending").
+    /// gets no [`EmailPush`] (-05 §4: the server "MUST stop sending").
     ///
     /// [`EmailPushBackend::email_push_accounts`]: super::EmailPushBackend::email_push_accounts
     pub account: &'a EmailPushAccount,
@@ -102,25 +102,25 @@ impl<'a> EmailPushBatch<'a> {
     }
 }
 
-/// One EmailPush to send to a subscription's URL, with the Web Push
+/// One [`EmailPush`] to send to a subscription's URL, with the Web Push
 /// urgency its config asks for.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
 pub struct OutboundEmailPush {
-    /// The EmailPush object.
+    /// The [`EmailPush`] object.
     pub push: EmailPush,
     /// The RFC 8030 §5.3 `Urgency` to send it with
     /// (`jmap_web_push::PushOptions::urgency`).
     pub urgency: Urgency,
 }
 
-/// The EmailPush objects to send to `stored` for one delivery batch.
+/// The [`EmailPush`] objects to send to `stored` for one delivery batch.
 ///
-/// Returns no EmailPush when:
+/// Returns no `EmailPush` when:
 ///
 /// - the subscription is not verified, or has expired
-///   ([`jmap_server::is_deliverable`]; -05 §4: "MUST NOT send any EmailPush
-///   objects until the PushSubscription has been verified");
+///   ([`jmap_server::is_deliverable`]; -05 §4: "MUST NOT send any `EmailPush`
+///   objects until the `PushSubscription` has been verified");
 /// - it has no `keys` (-05 §6: the payload holds user data and must be
 ///   encrypted);
 /// - its `emailPush` has no config for `batch.account_id`, or that config
@@ -137,10 +137,10 @@ pub struct OutboundEmailPush {
 ///
 /// # Size limit
 ///
-/// No EmailPush is longer than `batch.max_bytes` (-05 §3: "MUST NOT exceed
+/// No `EmailPush` is longer than `batch.max_bytes` (-05 §3: "MUST NOT exceed
 /// the size limit of the push service"). Emails are packed in delivery
-/// order, starting a new EmailPush whenever the next would not fit ("MUST
-/// split them across multiple EmailPush objects"); every part carries the
+/// order, starting a new `EmailPush` whenever the next would not fit ("MUST
+/// split them across multiple `EmailPush` objects"); every part carries the
 /// same `state`, the state after the whole batch. An Email too large to fit
 /// even alone goes out alone, with its properties added in the config's
 /// order until the next would not fit; that property and all later ones
@@ -151,7 +151,7 @@ pub struct OutboundEmailPush {
 ///
 /// - [`EmailPushError::MissingThreadKeywords`] when the filter has a
 ///   thread condition and a delivered Email has no thread keywords;
-/// - [`EmailPushError::LimitTooSmall`] when an EmailPush holding one `{}`
+/// - [`EmailPushError::LimitTooSmall`] when an `EmailPush` holding one `{}`
 ///   does not fit in `batch.max_bytes`.
 pub fn email_pushes_for(
     stored: &StoredPushSubscription,
@@ -216,11 +216,11 @@ fn json_len<T: serde::Serialize>(value: &T) -> usize {
     serde_json::to_vec(value).map_or(usize::MAX, |v| v.len())
 }
 
-/// Packs `emails` into the `emails` arrays of EmailPush objects of at most
+/// Packs `emails` into the `emails` arrays of [`EmailPush`] objects of at most
 /// `batch.max_bytes`, cutting an Email to a prefix of `properties` only when
 /// it does not fit alone.
 ///
-/// The compact serialization of an EmailPush is its length with `emails`
+/// The compact serialization of an `EmailPush` is its length with `emails`
 /// empty, plus each Email's length, plus a comma between Emails, so each
 /// Email is serialized once to measure it.
 fn split(

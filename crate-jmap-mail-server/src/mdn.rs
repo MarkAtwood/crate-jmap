@@ -294,6 +294,18 @@ pub trait MdnBackend: MailBackend {
 /// Returns `(response_args, extra_invocations)`. When `onSuccessUpdateEmail` is
 /// present and MDNs are sent successfully, `extra_invocations` will contain one
 /// `Email/set` invocation using the same `call_id`.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when the arguments do not parse as an `MDN/send`
+///   request, `identityId` names no Identity, or `onSuccessUpdateEmail`
+///   does not set `keywords/$mdnsent` to `true` for every `send` entry;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `serverFail` when the backend fails.
+///
+/// An MDN that cannot be sent is a [`SetError`] in `notSent`, not an `Err`.
 pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -652,6 +664,17 @@ pub const MDN_PARSE_MAX_BLOB_IDS: usize = 16;
 ///
 /// Returns `(response_args, extra_invocations)`. Extra invocations are always
 /// empty — `MDN/parse` is a read-only operation with no side effects.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when the arguments do not parse as an `MDN/parse`
+///   request;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `blobIds` holds more ids than the backend's
+///   [`MdnBackend::max_mdn_parse_blob_ids`];
+/// - `serverFail` when the backend fails.
 pub async fn handle_mdn_parse<B: MailBackend + MdnBackend>(
     backend: &B,
     caller: &B::CallerCtx,

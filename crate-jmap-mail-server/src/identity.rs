@@ -49,6 +49,16 @@ use jmap_server::{
 /// `/get` response shape (`accountId`, `state`, `list`, `notFound`).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `ids` or `properties` is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `ids` holds more than `maxObjectsInGet` ids;
+/// - `serverFail` when the backend fails.
 pub async fn handle_identity_get<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -134,6 +144,17 @@ pub async fn handle_identity_get<B: MailBackend>(
 /// `hasMoreChanges`, `created`, `updated`, `destroyed`).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `sinceState` is missing, or `maxChanges` is not a positive integer;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `cannotCalculateChanges` when the backend cannot compute the changes
+///   since `sinceState`;
+/// - `serverFail` when the backend fails.
 pub async fn handle_identity_changes<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -189,6 +210,21 @@ pub async fn handle_identity_changes<B: MailBackend>(
 /// maps).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `create`, `update` or `destroy` is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `create`, `update` and `destroy` together hold
+///   more than `maxObjectsInSet` objects;
+/// - `stateMismatch` when `ifInState` is not the current state;
+/// - `serverFail` when the backend fails.
+///
+/// A create, update or destroy that fails on its own is a
+/// [`SetError`](jmap_server::SetError) in the response, not an `Err`.
 pub async fn handle_identity_set<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -297,7 +333,7 @@ async fn set_create<B: MailBackend>(
 }
 
 /// Check one `Identity/set` create object and return the builder for the
-/// stored Identity, or the SetError value for `notCreated`.
+/// stored Identity, or the `SetError` value for `notCreated`.
 fn identity_builder(
     mut obj_val: Value,
 ) -> Result<impl FnOnce(&Id) -> jmap_mail_types::Identity + Send, Value> {

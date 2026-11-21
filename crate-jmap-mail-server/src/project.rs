@@ -1,6 +1,6 @@
 //! The Email/get property check and projection (RFC 8621 §4.1, §4.2),
 //! shared by Email/get, Email/parse and, through [`project_email`],
-//! EmailPush delivery.
+//! `EmailPush` delivery.
 //!
 //! - [`check_email_property`] checks one requested property name;
 //! - [`EmailProjection`] holds one request's `properties`,
@@ -212,7 +212,7 @@ pub(crate) fn parse_header_property(prop: &str) -> Result<HeaderPropertyRequest,
 /// [RFC5322] or [RFC2369]"; Raw is allowed for every field. So a field
 /// RFC 5322 or RFC 2369 defines gets only its own forms (Subject, Comments
 /// and Keywords: Text; From and the other address fields: Addresses and
-/// GroupedAddresses; Received and Return-Path: Raw only), and any other
+/// `GroupedAddresses`; Received and Return-Path: Raw only), and any other
 /// field, List-Id included, gets every form.
 ///
 /// # Defense notes (bd:JMAP-q2wa.11, q2wa.47)
@@ -734,7 +734,7 @@ pub(crate) struct EmailProjection<'a> {
     /// `headers` was added only to extract `header:` properties, so it is
     /// removed from the result.
     headers_implicit: bool,
-    /// The `bodyProperties` to keep in each EmailBodyPart.
+    /// The `bodyProperties` to keep in each `EmailBodyPart`.
     body_props: HashSet<&'a str>,
     body_fetch: BodyFetchArgs,
 }

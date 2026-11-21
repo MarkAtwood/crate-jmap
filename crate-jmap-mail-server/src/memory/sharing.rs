@@ -15,7 +15,7 @@ use serde_json::{Map, Value};
 
 use super::{ChangeEntry, Inner, MemoryError};
 
-/// The RFC 8621 §2 MailboxRights properties (rfc8621.txt:627-689).
+/// The RFC 8621 §2 [`MailboxRights`] properties (rfc8621.txt:627-689).
 const RFC8621_RIGHTS: [&str; 9] = [
     "mayReadItems",
     "mayAddItems",

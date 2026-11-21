@@ -1,9 +1,9 @@
 //! The Email filter evaluator: does one Email match an [`EmailFilter`]?
 //!
-//! Shared by the memory backend's `Email/query` and by EmailPush delivery
-//! (draft-ietf-jmap-emailpush-05 §4, which requires "FilterOperator objects
+//! Shared by the memory backend's `Email/query` and by `EmailPush` delivery
+//! (draft-ietf-jmap-emailpush-05 §4, which requires "`FilterOperator` objects
 //! with any of the "AND", "OR", and "NOT" operators" and, for a mail account,
-//! "all the FilterCondition properties it supports for the "Email/query"
+//! "all the `FilterCondition` properties it supports for the "Email/query"
 //! method"). Every RFC 8621 §4.4.1 condition and the six
 //! draft-ietf-jmap-metadata-05 §3.6 conditions are evaluated; none is
 //! skipped.
@@ -25,7 +25,7 @@ use jmap_metadata_types::MetadataTextMatch;
 use jmap_types::UTCDate;
 use serde_json::{Map, Value};
 
-/// One FilterCondition property of RFC 8621 §4.4.1 or
+/// One `FilterCondition` property of RFC 8621 §4.4.1 or
 /// draft-ietf-jmap-metadata-05 §3.6.
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -211,7 +211,7 @@ fn collect(filter: &EmailFilter, out: &mut BTreeSet<EmailCondition>) {
     }
 }
 
-/// The conditions set in one FilterCondition.
+/// The conditions set in one `FilterCondition`.
 fn condition_kinds(c: &EmailFilterCondition) -> impl Iterator<Item = EmailCondition> {
     use EmailCondition as C;
     [
@@ -265,7 +265,7 @@ fn condition_kinds(c: &EmailFilterCondition) -> impl Iterator<Item = EmailCondit
     .filter_map(|(set, kind)| set.then_some(kind))
 }
 
-/// One FilterCondition: every property set must match (RFC 8621 §4.4.1:
+/// One `FilterCondition`: every property set must match (RFC 8621 §4.4.1:
 /// "the Email must match all of them").
 fn condition_matches(
     email: &Email,

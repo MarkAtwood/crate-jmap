@@ -79,7 +79,7 @@ impl SeedData {
 
 /// Pre-computed UTC timestamps.  The baseline is 2026-01-01T00:00:00Z.
 /// `days_ago(n)` = baseline minus exactly n × 86400 seconds.
-/// `DAYS_AGO_1_MINUS_1H` = days_ago(1) minus 1 hour.
+/// `DAYS_AGO_1_MINUS_1H` = `days_ago(1)` minus 1 hour.
 ///
 /// Fixed absolute timestamps are intentional — sort-by-date and
 /// filter-by-date tests require deterministic results regardless of when
@@ -96,7 +96,7 @@ mod ts {
     pub const DAYS_AGO_3: &str = "2025-12-29T00:00:00Z";
     pub const DAYS_AGO_2: &str = "2025-12-30T00:00:00Z";
     pub const DAYS_AGO_1: &str = "2025-12-31T00:00:00Z";
-    /// days_ago(1) minus 1 hour = 2025-12-30T23:00:00Z
+    /// `days_ago(1)` minus 1 hour = 2025-12-30T23:00:00Z
     pub const DAYS_AGO_1_MINUS_1H: &str = "2025-12-30T23:00:00Z";
 }
 

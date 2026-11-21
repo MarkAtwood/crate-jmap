@@ -1,4 +1,4 @@
-//! Validation and normalization of the `emailPush` PushSubscription
+//! Validation and normalization of the `emailPush` [`PushSubscription`]
 //! property (draft-ietf-jmap-emailpush-05 §4).
 
 use jmap_mail_types::{EMAIL_PUSH_PROPERTY, Email, EmailFilter, EmailPushConfig};
@@ -30,11 +30,11 @@ const REQUIRED_PROPERTIES: [&str; 8] = [
     "sentAt",
 ];
 
-/// The properties ObjectID (RFC 8474) adds for an account without mail
+/// The properties OBJECTID (RFC 8474) adds for an account without mail
 /// (-05 §4: "it MUST also support").
 const OBJECT_ID_PROPERTIES: [&str; 3] = ["id", "threadId", "mailboxIds"];
 
-/// Which properties of one EmailPushConfig are invalid, as reported by
+/// Which properties of one [`EmailPushConfig`] are invalid, as reported by
 /// [`check_email_push_config`].
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -44,13 +44,13 @@ pub struct InvalidEmailPushConfig {
     pub properties: Vec<&'static str>,
 }
 
-/// Checks one EmailPushConfig value for `account` without any backend
+/// Checks one [`EmailPushConfig`] value for `account` without any backend
 /// call, and returns it normalized.
 ///
 /// The checks are those -05 §4 lists for `invalidProperties`, other than
 /// the account check:
 ///
-/// - `filter` decodes as a FilterOperator, FilterCondition or `null`,
+/// - `filter` decodes as a `FilterOperator`, `FilterCondition` or `null`,
 ///   nests no deeper than [`MAX_FILTER_DEPTH`], and uses only conditions
 ///   the account supports: every condition with `mail`; otherwise the ten
 ///   -05 §4 requires, `inMailbox` / `inMailboxOtherThan` with `object_ids`,
@@ -71,7 +71,7 @@ pub struct InvalidEmailPushConfig {
 ///
 /// The normalized config has every default filled (`filter` `null`,
 /// `properties` `[]`, `urgency` `"normal"`) and no `objectHistory` in
-/// `properties`, the other names keeping their order: EmailPush has no
+/// `properties`, the other names keeping their order: `EmailPush` has no
 /// `includeReplaced` / `includeDestroyed`, so `objectHistory` could never
 /// be pushed, and dropping it keeps each pushed Email a prefix of the
 /// stored list (-05 §3).
@@ -223,7 +223,7 @@ fn property_supported(name: &str, account: &EmailPushAccount, metadata: bool) ->
 }
 
 /// Validates and normalizes the `emailPush` property of one
-/// PushSubscription create or update, as -05 §4 requires.
+/// [`PushSubscription`] create or update, as -05 §4 requires.
 ///
 /// `old` is the stored subscription for an update and `None` for a
 /// create; `new` is the subscription to store (for an update, `old` with

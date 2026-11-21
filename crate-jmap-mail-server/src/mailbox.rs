@@ -85,6 +85,16 @@ use jmap_server::{SetError, SetErrorType};
 /// backend's.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `ids` or `properties` is malformed or names an unknown property;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `ids` holds more than `maxObjectsInGet` ids;
+/// - `serverFail` when the backend fails.
 pub async fn handle_mailbox_get<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -201,6 +211,18 @@ pub async fn handle_mailbox_get<B: MailBackend>(
 /// without it metadata-only changes are left out (-05 §3).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `sinceState` is missing, `maxChanges` is not a positive integer, or
+///   `ignoreMetadataOnlyChanges` is not a boolean;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `cannotCalculateChanges` when the backend cannot compute the changes
+///   since `sinceState`;
+/// - `serverFail` when the backend fails.
 pub async fn handle_mailbox_changes<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -258,6 +280,22 @@ fn mailbox_sort_arg(
 /// filter condition is `unsupportedFilter` (-05 §3).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `filter`, `sort`, `position`, `anchor`, `anchorOffset` or `limit`
+///   is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `unsupportedFilter` when the filter does not decode as a Mailbox filter
+///   or the backend cannot process it;
+/// - `unsupportedSort` when `sort` names a property or collation that is not
+///   supported;
+/// - `anchorNotFound` when `anchor` is not in the results;
+/// - `serverFail` when the backend fails, or any other RFC 8620 §5.5 error
+///   the backend returns.
 pub async fn handle_mailbox_query<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -468,6 +506,21 @@ pub async fn handle_mailbox_query<B: MailBackend>(
 /// [`QueryParams::language`]; the `queryState` records it (§4.2.3).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `sinceQueryState` is missing, or `filter`, `sort`, `maxChanges` or
+///   `upToId` is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `unsupportedFilter` or `unsupportedSort` as for
+///   [`handle_mailbox_query`];
+/// - `cannotCalculateChanges` when `sinceQueryState` was computed in another
+///   language or the backend cannot compute the changes since it;
+/// - `tooManyChanges` when there are more changes than `maxChanges`;
+/// - `serverFail` when the backend fails.
 pub async fn handle_mailbox_query_changes<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -657,6 +710,21 @@ fn parents_first(creates: &serde_json::Map<String, Value>) -> Vec<(&String, &Val
 ///   mayShare right") is the backend's check, atomic with the write.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `create`, `update` or `destroy` is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `create`, `update` and `destroy` together hold
+///   more than `maxObjectsInSet` objects;
+/// - `stateMismatch` when `ifInState` is not the current state;
+/// - `serverFail` when the backend fails.
+///
+/// A create, update or destroy that fails on its own is a [`SetError`] in
+/// the response, not an `Err`.
 pub async fn handle_mailbox_set<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -923,7 +991,7 @@ async fn create_one<B: MailBackend>(
     Ok(())
 }
 
-/// The SetError value when a create's `parentId`, `role` or name clashes
+/// The [`SetError`] value when a create's `parentId`, `role` or name clashes
 /// with the Mailboxes before this call or those it created so far, else
 /// `None`. Every check is deferred to commit when atomic.
 fn create_conflict<B: MailBackend>(
@@ -1097,7 +1165,7 @@ async fn set_update<B: MailBackend>(
     Ok(())
 }
 
-/// The checks both update passes run first: the id, the PatchObject,
+/// The checks both update passes run first: the id, the [`PatchObject`],
 /// read-only properties (RFC 8621 §2) and capability-gated writes.
 /// Returns the id and patch to apply, or `None` once the outcome is in
 /// `acc` (a failure, or a no-op success).
@@ -1423,14 +1491,14 @@ async fn set_destroy<B: MailBackend>(
 
 /// Empty Mailbox `id` before it is destroyed: without
 /// `onDestroyRemoveEmails` an Email in it makes the destroy
-/// `mailboxHasEmail` (the returned SetError value); with it, an Email
+/// `mailboxHasEmail` (the returned [`SetError`] value); with it, an Email
 /// only in this Mailbox is destroyed and any other loses this Mailbox
 /// (RFC 8621 §2.5). Returns `None` when the Mailbox may be destroyed.
 ///
 /// # Errors
 ///
 /// `serverFail` when the Emails cannot be read, or a cascade write fails
-/// in storage (bd:JMAP-wlip.2). A per-object SetError of the cascade is
+/// in storage (bd:JMAP-wlip.2). A per-object `SetError` of the cascade is
 /// ignored.
 async fn remove_mailbox_emails<B: MailBackend>(
     ctx: &SetCtx<'_, B>,
@@ -1530,7 +1598,7 @@ async fn remove_mailbox_emails<B: MailBackend>(
 // Helpers
 // ---------------------------------------------------------------------------
 
-/// The SetError for an update of Mailbox `id` by `patch` that breaks the
+/// The [`SetError`] for an update of Mailbox `id` by `patch` that breaks the
 /// tree, judged against the Mailboxes as they are now (earlier changes of
 /// this call included), or `None`.
 ///
@@ -1761,7 +1829,7 @@ fn shares(using: &[String]) -> bool {
         .any(|u| u == jmap_mail_types::JMAP_MAIL_SHARE_URI)
 }
 
-/// The SetError for a write to `shareWith` without the mail:share
+/// The [`SetError`] for a write to `shareWith` without the mail:share
 /// capability: the property does not exist for the request.
 fn share_with_invalid() -> Value {
     serde_json::Value::from(

@@ -83,8 +83,8 @@ impl<C: MemoryCaller> MemoryBackend<C> {
     ///
     /// When `supportedTypes` names a type without history
     /// (`jmap_object_history_types::is_history_type`), or one this backend
-    /// does not keep history for (Mailbox, Email, Identity, VacationResponse,
-    /// and SieveScript with the `sieve` feature).
+    /// does not keep history for (Mailbox, Email, Identity, `VacationResponse`,
+    /// and `SieveScript` with the `sieve` feature).
     #[must_use]
     pub fn with_object_history(
         self,
@@ -404,7 +404,7 @@ impl Inner {
 }
 
 impl Inner {
-    /// §5.2: a restored SieveScript "is not active" (RFC 9661 §2.4 lets
+    /// §5.2: a restored `SieveScript` "is not active" (RFC 9661 §2.4 lets
     /// only `onSuccessActivateScript` activate one), and a name another
     /// script now uses is `alreadyExists`.
     fn check_script_restore(

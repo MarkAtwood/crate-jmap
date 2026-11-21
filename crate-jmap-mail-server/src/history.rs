@@ -303,9 +303,9 @@ pub async fn handle_vacation_set_with_history<B: MailBackend + ObjectHistoryBack
 
 /// [`register_mail_handlers`], then the history-aware `/get`, `/set`,
 /// `/query` and `/queryChanges` of Mailbox and Email, and `/get` and `/set`
-/// of Identity and VacationResponse, registered through
+/// of Identity and [`VacationResponse`], registered through
 /// `Dispatcher::register_history_aware` (docs/design/DECISIONS.md decision
-/// 1). SieveScript has `register_sieve_handlers_with_history`.
+/// 1). `SieveScript` has `register_sieve_handlers_with_history`.
 ///
 /// Call `register_mail_conditional` after it, if used: it attaches to the
 /// registered `/set`. Advertise `urn:ietf:params:jmap:object-history` for
@@ -395,7 +395,7 @@ where
 }
 
 /// `SieveScript/query` with `onlyDestroyed` (§4): `handle_sieve_query`
-/// otherwise. SieveScript filters in the handler, so the destroyed query
+/// otherwise. `SieveScript` filters in the handler, so the destroyed query
 /// reads every destroyed script's final version through
 /// `get_object_history` and runs the same filter, sort and paging over
 /// them, most recently destroyed first by default. There is no
@@ -405,7 +405,7 @@ where
 ///
 /// As `handle_sieve_query` and
 /// `jmap_server::parse_destroyed_query_arguments`; `invalidArguments` when
-/// the account does not list SieveScript.
+/// the account does not list `SieveScript`.
 #[cfg(feature = "sieve")]
 pub async fn handle_sieve_query_with_history<B>(
     backend: &B,

@@ -84,6 +84,17 @@ use jmap_server::{SetError, SetErrorType};
 /// unchanged (-05 §2, §3.1).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `ids`, `properties`, `bodyProperties` or a body-value argument is
+///   malformed or names a property that is not an Email property;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `ids` holds more than `maxObjectsInGet` ids;
+/// - `serverFail` when the backend fails.
 pub async fn handle_email_get<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -244,6 +255,18 @@ where
 /// without it metadata-only changes are left out (-05 §3).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `sinceState` is missing, `maxChanges` is not a positive integer, or
+///   `ignoreMetadataOnlyChanges` is not a boolean;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `cannotCalculateChanges` when the backend cannot compute the changes
+///   since `sinceState`;
+/// - `serverFail` when the backend fails.
 pub async fn handle_email_changes<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -331,6 +354,23 @@ async fn check_email_search<B: MailBackend>(
 /// `canCalculateChanges` `false`.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `filter`, `sort`, `position`, `anchor`, `anchorOffset` or `limit`
+///   is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `unsupportedFilter` when the filter does not decode as an Email filter
+///   or uses a metadata condition or a `where` that `using` and the backend
+///   do not allow;
+/// - `unsupportedSort` when `sort` names a property or collation that is not
+///   supported;
+/// - `anchorNotFound` when `anchor` is not in the results;
+/// - `serverFail` when the backend fails, or any other RFC 8620 §5.5 error
+///   the backend returns.
 pub async fn handle_email_query<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -572,6 +612,20 @@ pub async fn handle_email_query<B: MailBackend>(
 /// answered with `cannotCalculateChanges` (jmap-search §Query Changes).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `sinceQueryState` is missing, or `filter`, `sort`, `maxChanges` or
+///   `upToId` is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `unsupportedFilter` or `unsupportedSort` as for [`handle_email_query`];
+/// - `cannotCalculateChanges` when the filter has a JMAP Search `where` or
+///   the backend cannot compute the changes since `sinceQueryState`;
+/// - `tooManyChanges` when there are more changes than `maxChanges`;
+/// - `serverFail` when the backend fails.
 pub async fn handle_email_query_changes<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -703,6 +757,21 @@ pub async fn handle_email_query_changes<B: MailBackend>(
 /// either in a create (-05 §3.2). The backend validates the rest.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `create`, `update` or `destroy` is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `create`, `update` and `destroy` together hold
+///   more than `maxObjectsInSet` objects;
+/// - `stateMismatch` when `ifInState` is not the current state;
+/// - `serverFail` when the backend fails.
+///
+/// A create, update or destroy that fails on its own is a [`SetError`] in
+/// the response, not an `Err`.
 pub async fn handle_email_set<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -982,7 +1051,7 @@ async fn update_one<B: MailBackend>(
 }
 
 /// For a `patch` that removes a Mailbox by path, the `invalidProperties`
-/// SetError value when no Mailbox of Email `id` would remain, else `None`.
+/// [`SetError`] value when no Mailbox of Email `id` would remain, else `None`.
 ///
 /// # Errors
 ///
@@ -1097,7 +1166,7 @@ const MAX_KEYWORD_LEN: usize = 255;
 /// - False-valued entries are silently dropped (keyword is absent).
 ///
 /// Returns the validated, normalized map or a descriptive error string for
-/// use in an `invalidProperties` SetError.
+/// use in an `invalidProperties` [`SetError`].
 fn validate_and_normalize_keywords(
     raw: BTreeMap<String, bool>,
 ) -> Result<BTreeMap<Keyword, bool>, String> {
@@ -1136,7 +1205,7 @@ fn normalize_keyword(kw: &str) -> Result<String, String> {
 ///
 /// # Errors
 ///
-/// The `invalidProperties` SetError naming the property.
+/// The `invalidProperties` [`SetError`] naming the property.
 fn check_email_patch(patch: &mut serde_json::Map<String, Value>) -> Result<bool, Value> {
     let invalid = |prop: &str, why: String| json!({ "type": "invalidProperties", "properties": [prop], "description": why });
     let mut removes_mailbox = false;
@@ -1277,7 +1346,7 @@ fn parse_mailbox_ids(entry: &Value, rfc_ref: &str) -> Result<Vec<Id>, Value> {
 /// Parse and validate the optional `receivedAt` field of an Email/set
 /// create, Email/import, or Email/copy entry.
 ///
-/// `receivedAt` is a client-supplied RFC 8620 §1.4 UTCDate. A malformed
+/// `receivedAt` is a client-supplied RFC 8620 §1.4 [`UTCDate`]. A malformed
 /// value MUST produce `invalidProperties` rather than flowing into the
 /// stored object — `UTCDate::from` is infallible and would silently
 /// truncate / pad a malformed string, breaking sort order downstream.
@@ -1330,7 +1399,7 @@ fn parse_keywords_field(entry: &Value) -> Result<Vec<Keyword>, Value> {
     }
 }
 
-/// RFC 8621 §4.6 — validate a single EmailBodyPart on creation.
+/// RFC 8621 §4.6 — validate a single `EmailBodyPart` on creation.
 ///
 /// Rules enforced:
 /// - `partId` and `blobId` are mutually exclusive.
@@ -1413,7 +1482,7 @@ fn validate_body_part(
 /// server MUST generate and set a Message-ID header field ... and a Date
 /// header field".
 ///
-/// On failure returns the SetError for `notCreated`: `blobNotFound` with
+/// On failure returns the [`SetError`] for `notCreated`: `blobNotFound` with
 /// `notFound` listing every missing `blobId`, `invalidProperties` for a
 /// malformed create, or `serverFail`.
 async fn build_email_from_create<B: MailBackend>(
@@ -1591,7 +1660,7 @@ async fn build_email_from_create<B: MailBackend>(
     }))
 }
 
-/// Check the header properties of one Email or EmailBodyPart in a create
+/// Check the header properties of one Email or `EmailBodyPart` in a create
 /// (RFC 8621 §4.6): "The "headers" property MUST NOT be given ... the
 /// client must set each header field as an individual property", and
 /// "Header fields MUST NOT be specified in parsed forms that are
@@ -1629,7 +1698,7 @@ fn validate_create_header_properties(obj: &Value) -> Result<(), (String, String)
 /// - All body parts satisfy `validate_body_part`: `partId`/`blobId` rules, and
 ///   `bodyValues` entries must not have `isEncodingProblem` or `isTruncated` true.
 ///
-/// On failure returns an `invalidProperties` SetError whose `properties`
+/// On failure returns an `invalidProperties` [`SetError`] whose `properties`
 /// names the top-level property that failed (RFC 8620 §5.3).
 fn validate_email_body(obj_val: &Value) -> Result<(), Value> {
     fn invalid(properties: &[&str], description: impl std::fmt::Display) -> Value {
@@ -1815,7 +1884,7 @@ async fn collapse_by_thread<B: MailBackend>(
 /// Handle an `Email/import` method call (RFC 8621 §4.8).
 ///
 /// `args` is the RFC 8621 §4.8 `Email/import` request shape (`accountId`,
-/// optional `ifInState`, `emails` map of creationId → EmailImport object —
+/// optional `ifInState`, `emails` map of creationId → `EmailImport` object —
 /// each carrying a `blobId`, `mailboxIds`, optional `keywords`, optional
 /// `receivedAt`); the returned `Value` is the §4.8 response shape
 /// (`accountId`, `oldState`, `newState`, `created` / `notCreated` maps).
@@ -1829,6 +1898,19 @@ async fn collapse_by_thread<B: MailBackend>(
 /// that entry with `invalidProperties` naming `mailboxIds`.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   `emails` is missing or not an object;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `stateMismatch` when `ifInState` is not the current state;
+/// - `serverFail` when the backend fails.
+///
+/// An entry that fails on its own is a [`SetError`] in `notCreated`, not an
+/// `Err`.
 pub async fn handle_email_import<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -1983,6 +2065,17 @@ pub async fn handle_email_import<B: MailBackend>(
 /// A `#creationId` in `blobIds` needs the request's creation ids, which this
 /// function does not take: [`register_mail_handlers`](crate::register_mail_handlers)
 /// resolves them (RFC 8620 §5.3).
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `blobIds` is missing or not an Id array, or `properties`,
+///   `bodyProperties` or a body-value argument is malformed or names an
+///   unknown property;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `serverFail` when the backend fails.
 pub async fn handle_email_parse<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -2159,6 +2252,22 @@ pub(crate) async fn email_parse<B: MailBackend>(
 /// [`jmap_server::CallContext::created_ids`]) before the entry reaches
 /// the backend; an unknown reference fails that entry with
 /// `invalidProperties` naming `mailboxIds`.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` or `fromAccountId` is missing or not
+///   a valid Id, `fromAccountId` equals `accountId`, or `create` is missing
+///   or not an object;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `fromAccountNotFound` when the backend does not know `fromAccountId`;
+/// - `stateMismatch` when `ifFromInState` or `ifInState` is not the current
+///   state of its account;
+/// - `serverFail` when the backend fails.
+///
+/// An entry that fails on its own is a [`SetError`] in `notCreated`, not an
+/// `Err`.
 pub async fn handle_email_copy<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,

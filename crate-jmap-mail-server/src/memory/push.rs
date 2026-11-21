@@ -1,11 +1,11 @@
-//! PushSubscription and EmailPush for the memory backend
+//! [`PushSubscription`] and `EmailPush` for the memory backend
 //! (RFC 8620 §7.2, draft-ietf-jmap-emailpush-05).
 //!
 //! Single owner: every subscription belongs to the one
 //! caller, and [`MAX_PUSH_SUBSCRIPTIONS`] caps them all. Nothing is sent:
-//! PushVerification objects queue in an outbox
+//! [`PushVerification`] objects queue in an outbox
 //! ([`MemoryBackend::take_push_verifications`]) and
-//! [`MemoryBackend::deliver_email`] returns the EmailPush objects a
+//! [`MemoryBackend::deliver_email`] returns the `EmailPush` objects a
 //! delivery produces.
 
 use std::collections::{BTreeMap, HashMap};
@@ -30,7 +30,7 @@ use jmap_server::MemoryCaller;
 /// §8.6).
 pub const MAX_PUSH_SUBSCRIPTIONS: usize = 50;
 
-/// The EmailPush size limit [`MemoryBackend::deliver_email`] uses: 3993
+/// The `EmailPush` size limit [`MemoryBackend::deliver_email`] uses: 3993
 /// octets, the largest Web Push plaintext without padding (RFC 8291 §4:
 /// 4096 minus the 103-octet header and padding delimiter). Equal to
 /// `jmap_web_push::MAX_PLAINTEXT`, which this crate does not depend on.
@@ -41,10 +41,10 @@ pub const PUSH_PLAINTEXT_BYTES: usize = 3993;
 pub(super) struct PushState {
     subs: BTreeMap<Id, StoredPushSubscription>,
     verifications: Vec<PushVerification>,
-    /// Per-account EmailPush overrides; `None` revokes the account.
+    /// Per-account `EmailPush` overrides; `None` revokes the account.
     accounts: HashMap<Id, Option<EmailPushAccount>>,
     max_bytes: usize,
-    /// Every EmailPush produced, in order, for tests.
+    /// Every `EmailPush` produced, in order, for tests.
     sent: Vec<(Id, OutboundEmailPush)>,
 }
 
@@ -61,7 +61,7 @@ impl Default for PushState {
 }
 
 impl<C: MemoryCaller> MemoryBackend<C> {
-    /// Removes and returns the PushVerification objects queued by
+    /// Removes and returns the [`PushVerification`] objects queued by
     /// `PushSubscription/set` creates, oldest first. A client sets the
     /// code on its subscription to verify it (RFC 8620 §7.2.2).
     pub fn take_push_verifications(&self) -> Vec<PushVerification> {
@@ -71,14 +71,14 @@ impl<C: MemoryCaller> MemoryBackend<C> {
     /// Simulates an SMTP delivery to `account_id`: stores `raw` as a blob,
     /// imports it into `mailbox_ids` with `keywords` and the current time
     /// as `receivedAt`, advances the account's `EmailDelivery` state, and
-    /// builds the EmailPush objects for every stored subscription
+    /// builds the `EmailPush` objects for every stored subscription
     /// (draft-ietf-jmap-emailpush-05 §3: a message is delivered under the
-    /// conditions that change EmailDelivery, RFC 8621 §1.5).
+    /// conditions that change `EmailDelivery`, RFC 8621 §1.5).
     ///
-    /// Returns the new Email's id and each EmailPush with its
+    /// Returns the new Email's id and each `EmailPush` with its
     /// subscription's id; nothing is sent. `Email/import` and `Email/set`
-    /// never produce EmailPush objects. A subscription whose size limit
-    /// cannot hold any EmailPush gets none.
+    /// never produce `EmailPush` objects. A subscription whose size limit
+    /// cannot hold any `EmailPush` gets none.
     ///
     /// # Errors
     ///
@@ -153,9 +153,9 @@ impl<C: MemoryCaller> MemoryBackend<C> {
 
 #[cfg(feature = "test-helpers")]
 impl<C: MemoryCaller> MemoryBackend<C> {
-    /// Overrides what `account_id` supports for EmailPush; `None` revokes
+    /// Overrides what `account_id` supports for `EmailPush`; `None` revokes
     /// it (the user lost access, or the account lost the capability).
-    /// Registered accounts default to mail and ObjectID, with Email history
+    /// Registered accounts default to mail and OBJECTID, with Email history
     /// when the object-history capability lists Email.
     pub fn set_email_push_account_for_test(
         &self,
@@ -169,13 +169,13 @@ impl<C: MemoryCaller> MemoryBackend<C> {
             .insert(account_id.clone(), account);
     }
 
-    /// Sets the EmailPush size limit of [`deliver_email`](Self::deliver_email)
+    /// Sets the `EmailPush` size limit of [`deliver_email`](Self::deliver_email)
     /// (default [`PUSH_PLAINTEXT_BYTES`]).
     pub fn set_push_max_bytes_for_test(&self, max_bytes: usize) {
         self.inner.lock_unscoped().push.max_bytes = max_bytes;
     }
 
-    /// Removes and returns every EmailPush produced so far, with its
+    /// Removes and returns every `EmailPush` produced so far, with its
     /// subscription's id.
     pub fn take_email_pushes_for_test(&self) -> Vec<(Id, OutboundEmailPush)> {
         std::mem::take(&mut self.inner.lock_unscoped().push.sent)
@@ -211,7 +211,7 @@ impl<C: MemoryCaller> PushSubscriptionBackend for MemoryBackend<C> {
     }
 
     /// Validates `emailPush`, then stores `new` under a fresh id with a
-    /// 128-bit verification code and queues its PushVerification, or
+    /// 128-bit verification code and queues its [`PushVerification`], or
     /// returns `overQuota` at [`MAX_PUSH_SUBSCRIPTIONS`].
     async fn create_push_subscription(
         &self,
@@ -287,7 +287,7 @@ impl<C: MemoryCaller> PushSubscriptionBackend for MemoryBackend<C> {
 
 impl<C: MemoryCaller> EmailPushBackend for MemoryBackend<C> {
     /// Every registered account the caller owns (all of them for a caller
-    /// without a principal), as mail with ObjectID, with Email history
+    /// without a principal), as mail with OBJECTID, with Email history
     /// when its object-history capability lists Email, unless a test
     /// override changes or revokes it. A sharee reads no Email in this
     /// backend, so no shared account is listed.

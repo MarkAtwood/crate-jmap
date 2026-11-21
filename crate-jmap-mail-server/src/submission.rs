@@ -1,4 +1,4 @@
-//! EmailSubmission/* method handlers (RFC 8621 §7).
+//! [`EmailSubmission`]/* method handlers (RFC 8621 §7).
 //!
 //! Provides handlers for:
 //! - `EmailSubmission/get` (§7.1)
@@ -74,6 +74,16 @@ use jmap_server::{
 /// `/get` response shape (`accountId`, `state`, `list`, `notFound`).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   `ids` is not an Id array;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `ids` holds more than `maxObjectsInGet` ids;
+/// - `serverFail` when the backend fails.
 pub async fn handle_submission_get<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -135,6 +145,18 @@ pub async fn handle_submission_get<B: MailBackend>(
 /// `hasMoreChanges`, `created`, `updated`, `destroyed`).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `sinceState` is missing, `maxChanges` is not a positive integer, or
+///   `ignoreMetadataOnlyChanges` is not a boolean;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `cannotCalculateChanges` when the backend cannot compute the changes
+///   since `sinceState`;
+/// - `serverFail` when the backend fails.
 pub async fn handle_submission_changes<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -151,7 +173,7 @@ pub async fn handle_submission_changes<B: MailBackend>(
 /// `EmailSubmission/queryChanges`.
 ///
 /// RFC 8621 §7.3 defines `emailId`, `threadId` and `sentAt` as the
-/// EmailSubmission comparator properties; any other property decodes as
+/// [`EmailSubmission`] comparator properties; any other property decodes as
 /// [`EmailSubmissionComparatorProperty::Other`] and is unsupportedSort
 /// (RFC 8620 §5.5). Ids compare byte-wise and `sentAt` by instant, so
 /// `i;octet` (RFC 4790 §9.3) is the only collation accepted; §5.5 makes "a collation method it
@@ -184,6 +206,21 @@ fn submission_sort_arg(
 /// `total`, optional `limit`).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `filter`, `sort`, `position`, `anchor`, `anchorOffset` or `limit`
+///   is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `unsupportedFilter` when the filter does not decode as an
+///   `EmailSubmission` filter or the backend cannot process it;
+/// - `unsupportedSort` when `sort` names a property that is not supported;
+/// - `anchorNotFound` when `anchor` is not in the results;
+/// - `serverFail` when the backend fails, or any other RFC 8620 §5.5 error
+///   the backend returns.
 pub async fn handle_submission_query<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -333,6 +370,21 @@ pub async fn handle_submission_query<B: MailBackend>(
 /// `removed`, `added`).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `sinceQueryState` is missing, or `filter`, `sort`, `maxChanges` or
+///   `upToId` is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `unsupportedFilter` or `unsupportedSort` as for
+///   [`handle_submission_query`];
+/// - `cannotCalculateChanges` when the backend cannot compute the changes
+///   since `sinceQueryState`;
+/// - `tooManyChanges` when there are more changes than `maxChanges`;
+/// - `serverFail` when the backend fails.
 pub async fn handle_submission_query_changes<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -424,12 +476,27 @@ pub async fn handle_submission_query_changes<B: MailBackend>(
 /// `destroyed` / `notDestroyed` maps).
 ///
 /// Returns `(response_args, extra_invocations)`. When `onSuccessUpdateEmail` is
-/// present, extra_invocations will contain one `Email/set` invocation.
+/// present, `extra_invocations` will contain one `Email/set` invocation.
 ///
 /// A `#creationId` `identityId` or `emailId` on a create, and a
 /// `#creationId` Mailbox in an `onSuccessUpdateEmail` `mailboxIds` patch,
 /// resolves against `created_ids` (pass
 /// [`jmap_server::CallContext::created_ids`]; RFC 8620 §5.3).
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `create`, `update` or `destroy` is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `create`, `update` and `destroy` together hold
+///   more than `maxObjectsInSet` objects;
+/// - `stateMismatch` when `ifInState` is not the current state;
+/// - `serverFail` when the backend fails.
+///
+/// A create, update or destroy that fails on its own is a [`SetError`] in
+/// the response, not an `Err`.
 pub async fn handle_submission_set<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -740,7 +807,7 @@ async fn set_destroy<B: MailBackend>(
 /// `onSuccessUpdateEmail` / `onSuccessDestroyEmail` (RFC 8621 §7.5): the
 /// implicit `Email/set` invocation, if any Email operation was attempted.
 ///
-/// Keys are EmailSubmission IDs or creation references ("#<create_id>").
+/// Keys are [`EmailSubmission`] IDs or creation references (`"#<create_id>"`).
 /// Only apply the side effect if the referenced operation succeeded, i.e.
 /// the key is present in `submission_email_id_map`.
 async fn set_on_success<B: MailBackend>(
@@ -1093,7 +1160,7 @@ async fn create_one<B: MailBackend>(
 /// the patch names; only then is a changed server-set or immutable value
 /// (RFC 8621 §7) `invalidProperties`, an identical one dropped (RFC 8620
 /// §5.3), and any other property `invalidProperties`. Nothing left is a
-/// no-op success, `Ok(None)` with no write. The `Err` value is the SetError
+/// no-op success, `Ok(None)` with no write. The `Err` value is the [`SetError`]
 /// JSON.
 async fn update_one<B: MailBackend>(
     backend: &B,

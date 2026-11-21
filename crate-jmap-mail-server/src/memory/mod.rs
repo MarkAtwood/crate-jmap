@@ -209,7 +209,7 @@ struct Inner {
     states: HashMap<&'static str, HashMap<String, u64>>,
     /// `type_name` → `account_id` → ordered change entries
     change_log: HashMap<&'static str, HashMap<String, Vec<ChangeEntry>>>,
-    /// blob_id → raw bytes (used by import_email and parse_email)
+    /// `blob_id` → raw bytes (used by `import_email` and `parse_email`)
     blobs: HashMap<Id, Vec<u8>>,
     /// Optional maxSizeScript limit in bytes for sieve size enforcement tests.
     #[cfg(feature = "sieve")]
@@ -220,7 +220,7 @@ struct Inner {
     /// scripts.
     #[cfg(feature = "sieve")]
     max_sieve_scripts_limit: Option<usize>,
-    /// account_id → (message_id_string → email_id) for duplicate detection in import_email
+    /// `account_id` → (`message_id_string` → `email_id`) for duplicate detection in `import_email`
     message_id_index: HashMap<String, HashMap<String, Id>>,
     /// explicitly registered account ids (accounts may exist with no objects yet)
     known_accounts: HashSet<String>,
@@ -232,7 +232,7 @@ struct Inner {
     /// stored Mailbox holds the owner's.
     subscriptions: HashMap<(String, Id, Id), bool>,
     /// `type_name` → the draft-ietf-jmap-metadata-05 §1.2.1
-    /// DataTypeMetadataInfo set by [`MemoryBackend::with_metadata_info`].
+    /// [`DataTypeMetadataInfo`] set by [`MemoryBackend::with_metadata_info`].
     /// A type without an entry does not have the metadata properties.
     metadata_info: HashMap<&'static str, DataTypeMetadataInfo>,
     /// The `urn:ietf:params:jmap:search` capability of every account, set
@@ -241,9 +241,9 @@ struct Inner {
     /// Object history, once [`MemoryBackend::with_object_history`] turns it
     /// on.
     history: Option<jmap_object_history_server::HistoryStore>,
-    /// PushSubscription and EmailPush state, inside the scoped store so an
+    /// `PushSubscription` and `EmailPush` state, inside the scoped store so an
     /// atomic PushSubscription/set rolls back its creates and their
-    /// PushVerifications.
+    /// `PushVerification`s.
     #[cfg(feature = "emailpush")]
     push: push::PushState,
 }
@@ -674,9 +674,9 @@ enum IdFate {
 /// **Known limitation**: the internal change log grows without bound. This is
 /// intentional for unit tests (which are short-lived).
 ///
-/// Note: `query_changes` applies filter, sort, max_changes and up_to_id but
-/// ignores collapse_threads. Do not write tests that rely on collapse_threads
-/// with MemoryBackend.
+/// Note: `query_changes` applies filter, sort, `max_changes` and `up_to_id` but
+/// ignores `collapse_threads`. Do not write tests that rely on `collapse_threads`
+/// with [`MemoryBackend`].
 ///
 /// Cloning is cheap and **shared-state**; see the [`Clone`] impl.
 ///
@@ -746,7 +746,7 @@ impl<C> MemoryBackend<C> {
 
 impl<C: MemoryCaller> MemoryBackend<C> {
     /// Give `data_type` the draft-ietf-jmap-metadata-05 `metadata`
-    /// property, configured by `info` (the DataTypeMetadataInfo of -05
+    /// property, configured by `info` (the [`DataTypeMetadataInfo`] of -05
     /// §1.2.1).
     ///
     /// Without this call a type has no metadata: `Foo/set` rejects a
@@ -874,7 +874,7 @@ impl<C: MemoryCaller> MemoryBackend<C> {
             .is_owner(account_id.as_ref(), caller.principal())
     }
 
-    /// `Err` with a `kind` SetError unless `caller` acts as the owner of
+    /// `Err` with a `kind` [`SetError`] unless `caller` acts as the owner of
     /// `account_id`: a sharee reads and writes only Mailboxes.
     async fn require_owner(
         &self,
@@ -1327,7 +1327,7 @@ fn invalid_metadata_property(property: &str, description: &str) -> BackendSetErr
 impl Inner {
     /// draft-ietf-jmap-metadata-05 §3.2 rules 1 to 3 for a metadata write
     /// on a `type_name` object, before the write is applied. Returns the
-    /// type's DataTypeMetadataInfo for the rule 4 check after applying,
+    /// type's [`DataTypeMetadataInfo`] for the rule 4 check after applying,
     /// or `None` when `entry` writes no metadata.
     ///
     /// `entry` is the create object or update patch, `stored` the object
@@ -3096,7 +3096,7 @@ pub(super) struct ThreadIndex(Option<HashMap<Id, ThreadMembers>>);
 /// Each current Email of one Thread, with its keywords.
 type ThreadMembers = Vec<(Id, BTreeMap<Keyword, bool>)>;
 
-/// RFC 8620 §1.4: an Email filter's `before` / `after` are UTCDates; a
+/// RFC 8620 §1.4: an Email filter's `before` / `after` are [`UTCDate`]s; a
 /// malformed one is `invalidArguments`, whether or not any Email is
 /// evaluated.
 pub(super) fn check_email_filter_dates(
@@ -3204,7 +3204,7 @@ impl ThreadIndex {
 // EmailSubmission filter helpers (used by MemoryBackend::query_objects)
 // ---------------------------------------------------------------------------
 
-/// Sort EmailSubmission ids by the RFC 8621 §7.3 comparators in `sort`,
+/// Sort [`EmailSubmission`] ids by the RFC 8621 §7.3 comparators in `sort`,
 /// breaking ties by id so the order is deterministic.
 ///
 /// `sentAt` compares the stored `sendAt` instant (RFC 8621 §7). An id with
@@ -3489,7 +3489,7 @@ fn base_subject(subject: &str) -> String {
 /// Pre-built lookup sets for a single `EmailSubmissionFilterCondition`.
 ///
 /// Constructed once per filter (not once per submission) so that the
-/// `identityIds`, `emailIds`, and `threadIds` HashSets are not re-allocated
+/// `identityIds`, `emailIds`, and `threadIds` [`HashSet`]s are not re-allocated
 /// on every iteration of the per-submission loop.
 struct SubmissionConditionSets<'a> {
     identity_ids: Option<std::collections::HashSet<&'a Id>>,
@@ -3899,7 +3899,7 @@ fn find_header_value(text: &str, field_name: &str) -> Option<String> {
 }
 
 /// Parse an RFC 8098 `Disposition:` field value into a JSON value suitable for
-/// deserializing into a [`Disposition`].
+/// deserializing into a `Disposition`.
 ///
 /// Expected format: `action-mode/sending-mode; disposition-type`
 /// e.g. `manual-action/MDN-sent-manually; displayed`
@@ -4020,7 +4020,7 @@ impl<C: MemoryCaller> ConditionalBackend for MemoryBackend<C> {
 /// - Mailbox (RFC 8621 §2): two mailboxes with one name under one parent
 ///   (`alreadyExists`), two with one role, or a `parentId` that names no
 ///   Mailbox or whose chain loops (`invalidProperties`);
-/// - SieveScript (RFC 9661 §2): two scripts with one name
+/// - `SieveScript` (RFC 9661 §2): two scripts with one name
 ///   (`alreadyExists`), more than one active script
 ///   (`invalidProperties`), or more scripts than the per-account cap
 ///   (`overQuota`, on the creates).

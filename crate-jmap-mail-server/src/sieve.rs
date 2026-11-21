@@ -34,7 +34,7 @@
 //! - `/query`: `unsupportedFilter`, `unsupportedSort`, `anchorNotFound`.
 //!
 //! Per-target failures inside `/set` (including the `invalidSieve` and
-//! `sieveIsActive` Sieve-specific SetError types defined by RFC 9661) surface
+//! `sieveIsActive` Sieve-specific [`SetError`] types defined by RFC 9661) surface
 //! in the `notCreated` / `notUpdated` / `notDestroyed` maps within
 //! `Ok((Value, ...))`, not as `Err`.
 
@@ -175,7 +175,7 @@ struct SieveScriptFilter {
     is_active: Option<bool>,
 }
 
-/// `true` if `script` matches one `SieveScript/query` FilterCondition.
+/// `true` if `script` matches one `SieveScript/query` `FilterCondition`.
 ///
 /// `name` is a case-sensitive substring match (a script without a name
 /// never matches it); `isActive` is an exact match.
@@ -236,6 +236,16 @@ fn validate_script_name(name: &str) -> Option<SetError> {
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty
 /// — `SieveScript/get` is a read-only operation with no side effects.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `ids` or `properties` is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `ids` holds more than `maxObjectsInGet` ids;
+/// - `serverFail` when the backend fails.
 pub async fn handle_sieve_get<B: MailBackend + SieveBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -333,6 +343,22 @@ pub async fn handle_sieve_get<B: MailBackend + SieveBackend>(
 /// Returns `(response_args, extra_invocations)`. Extra invocations are always
 /// empty — activation side effects are applied inline, not as separate
 /// invocations.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `create`, `update`, `destroy`, `onSuccessActivateScript` or
+///   `onSuccessDeactivateScript` is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `create`, `update` and `destroy` together hold
+///   more than `maxObjectsInSet` objects;
+/// - `stateMismatch` when `ifInState` is not the current state;
+/// - `serverFail` when the backend fails.
+///
+/// A create, update or destroy that fails on its own is a [`SetError`] in
+/// the response, not an `Err`.
 pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -734,7 +760,7 @@ async fn create_one<B: MailBackend + SieveBackend>(
 }
 
 /// A create's `blobId`, required, with a `#creationId` reference
-/// resolved, or the SetError value for `notCreated`.
+/// resolved, or the [`SetError`] value for `notCreated`.
 fn create_blob_id<B: MailBackend + SieveBackend>(
     ctx: &SetCtx<'_, B>,
     obj_val: &Value,
@@ -751,7 +777,7 @@ fn create_blob_id<B: MailBackend + SieveBackend>(
 }
 
 /// Fetch the script in `blob_id` once and check `maxSizeScript`, then
-/// syntax. Returns the SetError value, or `None` for a good script.
+/// syntax. Returns the [`SetError`] value, or `None` for a good script.
 async fn script_error<B: MailBackend + SieveBackend>(
     ctx: &SetCtx<'_, B>,
     blob_id: &Id,
@@ -771,7 +797,7 @@ async fn script_error<B: MailBackend + SieveBackend>(
     }
 }
 
-/// The SetError value for a create's `name` that is invalid (R2) or
+/// The [`SetError`] value for a create's `name` that is invalid (R2) or
 /// already taken (R6, R7), else `None`. Uniqueness is deferred to commit
 /// when atomic.
 fn create_name_error<B: MailBackend + SieveBackend>(
@@ -936,7 +962,7 @@ async fn update_one<B: MailBackend + SieveBackend>(
     Ok(())
 }
 
-/// The SetError value for an update `patch` of script `id` whose `name`
+/// The [`SetError`] value for an update `patch` of script `id` whose `name`
 /// is invalid (R2) or taken by another script (R6, deferred to commit
 /// when atomic), else `None`.
 fn update_name_error<B: MailBackend + SieveBackend>(
@@ -964,7 +990,7 @@ fn update_name_error<B: MailBackend + SieveBackend>(
 
 /// If `patch` sets `blobId`: resolve a `#creationId` reference into the
 /// patch, then check the new script's size and syntax. Returns the
-/// SetError value for `notUpdated`, or `None`.
+/// [`SetError`] value for `notUpdated`, or `None`.
 async fn update_blob_error<B: MailBackend + SieveBackend>(
     ctx: &SetCtx<'_, B>,
     patch: &mut PatchObject,
@@ -1047,7 +1073,7 @@ async fn set_activate<B: MailBackend + SieveBackend>(
     Ok(())
 }
 
-/// A one-key PatchObject `{"isActive": active}`.
+/// A one-key [`PatchObject`] `{"isActive": active}`.
 fn is_active_patch(active: bool) -> PatchObject {
     let mut patch_map = serde_json::Map::new();
     patch_map.insert("isActive".to_owned(), Value::Bool(active));
@@ -1197,6 +1223,21 @@ async fn mark_activated<B: MailBackend + SieveBackend>(
 /// (O(10)), so a full scan is cheap.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `filter`, `sort`, `position`, `anchor`, `anchorOffset` or `limit`
+///   is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `unsupportedFilter` when the filter does not decode as a `SieveScript`
+///   filter;
+/// - `unsupportedSort` when `sort` names a property or collation that is not
+///   supported;
+/// - `anchorNotFound` when `anchor` is not in the results;
+/// - `serverFail` when the backend fails.
 pub async fn handle_sieve_query<B: MailBackend + SieveBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -1460,6 +1501,15 @@ async fn check_script<B: SieveBackend>(
 /// A `#creationId` `blobId` needs the request's creation ids, which this
 /// function does not take: `register_sieve_handlers` resolves them (RFC
 /// 8620 §5.3).
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` or `blobId` is missing or not a
+///   valid Id;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `serverFail` when the backend fails.
 pub async fn handle_sieve_validate<B: MailBackend + SieveBackend>(
     backend: &B,
     caller: &B::CallerCtx,
