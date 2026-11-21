@@ -14,6 +14,14 @@ publish = false
 
 [dependencies]
 jmap-base-client = { workspace = true }
+# `exclusive`: one server test at a time per test binary.
+tokio = { workspace = true, features = ["sync"] }
 
 [dev-dependencies]
-tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+jmap-mail-client = { workspace = true }
+jmap-mail-types = { workspace = true }
+jmap-types = { workspace = true }
+serde_json = { workspace = true }
+# Blob upload bodies for Email/import (jmap-base-client takes bytes::Bytes).
+bytes = "1"
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time"] }

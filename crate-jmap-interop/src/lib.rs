@@ -178,6 +178,38 @@ impl InteropEnv {
     }
 }
 
+/// Environment variable that turns known divergences into failures; see
+/// [`known_divergence`].
+pub const STRICT_VAR: &str = "JMAP_INTEROP_STRICT";
+
+/// Record that the server diverges from an RFC in a way already known and
+/// tracked (bd:JMAP-cyub.5), so the run stays green without hiding it.
+///
+/// Prints `what` to standard error. With [`STRICT_VAR`] set to a
+/// non-empty value it panics instead, so a strict run fails on every
+/// divergence, known or not.
+///
+/// # Panics
+///
+/// When [`STRICT_VAR`] is set and not empty.
+pub fn known_divergence(what: &str) {
+    if std::env::var(STRICT_VAR).is_ok_and(|v| !v.is_empty()) {
+        panic!("known divergence ({STRICT_VAR} is set): {what}");
+    }
+    eprintln!("known divergence (set {STRICT_VAR}=1 to fail on it): {what}");
+}
+
+/// Hold this guard for the whole of a test that talks to the server.
+///
+/// RFC 8620 §2 lets a server cap `maxConcurrentRequests` (Stalwart
+/// advertises 4) and refuse requests over it with the `limit` problem
+/// (§3.6.1). The test harness runs tests in parallel threads, so the
+/// guard runs the server tests of one test binary one at a time.
+pub async fn exclusive() -> tokio::sync::MutexGuard<'static, ()> {
+    static LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+    LOCK.lock().await
+}
+
 /// `prefix` followed by a suffix that differs on every call in every run,
 /// for names of objects a test creates (Mailbox names, Email subjects) on
 /// a server that keeps state across runs and tests.

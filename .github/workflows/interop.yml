@@ -1,0 +1,38 @@
+# Interop tests against Stalwart, a real JMAP server (bd:JMAP-cyub).
+#
+# The default CI (ci.yml) never starts a container: the jmap-interop
+# tests are #[ignore]d. This workflow starts Stalwart with podman (on the
+# GitHub Ubuntu runners), runs them, and removes the container. It runs
+# only on demand and weekly, never on push, so it never blocks a change.
+# See docs/interop/README.md.
+
+name: interop
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Mondays 06:47 UTC.
+    - cron: "47 6 * * 1"
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: short
+
+jobs:
+  stalwart:
+    name: jmap-interop (Stalwart)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: podman --version
+      - name: start Stalwart
+        run: scripts/stalwart-up.sh
+      - name: cargo test (interop)
+        run: |
+          . target/interop/stalwart.env
+          cargo test -p jmap-interop -- --ignored --nocapture
+      - name: stop Stalwart
+        if: always()
+        run: scripts/stalwart-down.sh

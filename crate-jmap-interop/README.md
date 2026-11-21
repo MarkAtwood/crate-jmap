@@ -52,6 +52,11 @@ compared with each other.
 - `cargo test -p jmap-interop` without `--ignored` runs only the helper
   unit tests. With `--ignored` but without `JMAP_INTEROP_URL`, every
   interop test fails with instructions.
+- Known server divergences (`known_divergence`) only print a line and
+  pass; `JMAP_INTEROP_STRICT=1` makes them fail. The list for Stalwart is
+  in docs/interop/README.md.
+- Tests that talk to the server hold `exclusive()`, so they run one at a
+  time: Stalwart refuses more than `maxConcurrentRequests` (4) at once.
 - Stalwart is AGPL-licensed: it runs only in the container. Do not add a
   dependency on any Stalwart crate.
 - The Stalwart container speaks plain HTTP on 127.0.0.1. Use full email

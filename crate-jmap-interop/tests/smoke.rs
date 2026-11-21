@@ -9,6 +9,7 @@ use jmap_interop::InteropEnv;
 #[tokio::test]
 #[ignore = "needs a JMAP server: scripts/stalwart-up.sh, see docs/interop/README.md"]
 async fn server_answers_session() {
+    let _server = jmap_interop::exclusive().await;
     let env = InteropEnv::require();
     let client = env.client(&env.user).expect("client");
     let session = client.fetch_session().await.expect("Session");

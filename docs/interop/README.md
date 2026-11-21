@@ -33,10 +33,15 @@ yourself:
 Any JMAP server with two such accounts that can mail each other can be
 tested the same way. `--ignored` without `JMAP_INTEROP_URL` fails each
 test with a message saying how to start the server.
+`JMAP_INTEROP_STRICT=1` turns known divergences into failures (see
+below).
 
 The scripts read `STALWART_PORT` (default 18080), `STALWART_CONTAINER`
 (default `crate-jmap-interop-stalwart`) and `STALWART_ENV_FILE`.
 `stalwart-down.sh` is idempotent.
+
+On GitHub the `interop` workflow (`.github/workflows/interop.yml`) does
+the same on demand and weekly; it never runs on push.
 
 ## What the scripts set up
 
@@ -66,6 +71,26 @@ Protocol facts from RFC 8620 and RFC 8621, not Stalwart's choices: the
 Session resource, authentication failure, `Core/echo`, request-level
 and method-level error shapes, Mailbox, Email, Thread, Identity and
 EmailSubmission methods, `/changes` state tracking, and delivery from
-alice to bob. Divergences found are tracked under bd:JMAP-cyub.5.
+alice to bob.
+
+Tests run one at a time within each test binary
+(`jmap_interop::exclusive`): Stalwart advertises
+`maxConcurrentRequests: 4` and answers the `limit` problem above it.
+
+## Known divergences
+
+A server behaviour that contradicts an RFC and is already tracked
+(bd:JMAP-cyub.5) is reported with `jmap_interop::known_divergence`: the
+test prints it to standard error and passes. Set `JMAP_INTEROP_STRICT=1`
+to make each one fail instead (add `--nocapture` to see them in a green
+run). Known for Stalwart v1.1.1:
+
+| RFC | Expected | Stalwart v1.1.1 |
+|---|---|---|
+| RFC 8620 §3.6.1 | an unsupported `using` capability is `unknownCapability` | `notRequest` (400, problem details) |
+| RFC 8620 §5.3 | every `/set` response has `oldState` (`String\|null`) and `newState` | `Identity/set` has no `oldState`; `Identity/set` and `EmailSubmission/set` without a change omit both; a successful `EmailSubmission/set` create has no `oldState` |
+
+The missing `newState` makes `jmap-mail-client`'s `email_submission_set`
+fail with `ClientError::Parse`, since the client requires the property.
 
 [Stalwart]: https://stalw.art

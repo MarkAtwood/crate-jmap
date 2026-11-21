@@ -2398,7 +2398,12 @@ dependencies = [
 name = "jmap-interop"
 version = "0.0.0"
 dependencies = [
+ "bytes",
  "jmap-base-client",
+ "jmap-mail-client",
+ "jmap-mail-types",
+ "jmap-types",
+ "serde_json",
  "tokio",
 ]
 
