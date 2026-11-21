@@ -13,7 +13,7 @@
 //! | `VtcBackend::create_call`, before the insert | [`check_call_create`] |
 //! | `VtcBackend::create_call`, `update_object::<VtcCall>` and `update_object_if::<VtcCall>`, after the write | [`sync_active_call_id`] |
 //! | `VtcBackend::is_user_blocked` | [`is_blocked_by_contact`] |
-//! | `JmapReads::get_objects`, `query_objects` and `query_changes`, per VTCCall (`VtcBackend` §Per-call access) | [`may_access_call`] |
+//! | `JmapReads::get_objects`, `query_objects` and `query_changes`, per `VTCCall` (`VtcBackend` §Per-call access) | [`may_access_call`] |
 //! | `ChatEvents::on_chat_destroyed` | [`clear_channel_references`] |
 //! | `ChatEvents::on_space_destroyed` | [`clear_space_references`] |
 //! | `ChatEvents::on_space_ban_created` | [`contact_identity`], then [`eject_banned_user`] |
@@ -51,12 +51,12 @@ use serde_json::{Value, json};
 ///   server MUST return `invalidProperties` naming `chatId`. The server
 ///   SHOULD return the same error when the caller is not a member of that
 ///   Chat, so that the response does not reveal that the Chat exists."
-///   Both cases return the same SetError. A direct Chat always includes
+///   Both cases return the same `SetError`. A direct Chat always includes
 ///   the owner. A group Chat must list the owner (by accountId) in
 ///   `members`. For a channel, the owner must be a member of its Space.
 /// - A call with a `spaceId` or `channelId` needs the
 ///   [`ChatPermission::StartCall`] permission (draft-atwood-jmap-chat-00
-///   §SpaceRole: "`"start_call"` — initiate a voice or video call in a
+///   §`SpaceRole`: "`"start_call"` — initiate a voice or video call in a
 ///   channel"): "the server SHOULD return `forbidden` if the caller lacks
 ///   the `"start_call"` permission in the bound Space or channel." The
 ///   Space is `spaceId`, or else the
@@ -72,7 +72,7 @@ use serde_json::{Value, json};
 /// to the owner carries the accountId of the owner's account").
 ///
 /// Returns `Ok(Err(set_error))` when the create must be refused. Return
-/// that SetError from `create_call`.
+/// that [`SetError`] from `create_call`.
 ///
 /// # Errors
 ///
@@ -131,12 +131,12 @@ pub async fn check_call_create<C: ChatBackend>(
 }
 
 /// `false` if the Chat rules of draft-atwood-jmap-vtc-00 deny `viewer`
-/// access to `call`, a VTCCall in `account_id`, its hosting account.
+/// access to `call`, a `VTCCall` in `account_id`, its hosting account.
 ///
 /// `VtcBackend` §Per-call access makes `get_objects`, `query_objects` and
 /// `query_changes` treat a call the caller cannot access, and its
-/// VTCParticipant, VTCRecording and VTCLivestream records, as absent.
-/// Call this per VTCCall from those methods and hide the call when it
+/// `VTCParticipant`, `VTCRecording` and `VTCLivestream` records, as absent.
+/// Call this per `VTCCall` from those methods and hide the call when it
 /// returns `false`. §Joining a Room or Scheduled Call: "When
 /// `urn:ietf:params:jmap:chat` is present, callers without access include
 /// a caller who lacks `"view"` permission on the channel of a Space-bound
@@ -145,12 +145,12 @@ pub async fn check_call_create<C: ChatBackend>(
 /// `true` on the initiator's contact record for the caller)."
 ///
 /// `viewer` names the caller in the Chat data of `account_id`:
-/// `account_id` for the owner, otherwise the caller's ChatContact id
+/// `account_id` for the owner, otherwise the caller's [`ChatContact`] id
 /// (draft-atwood-jmap-chat-00 §Terminology: "a client-facing reference
 /// to the owner carries the accountId of the owner's account"). Access is
 /// denied when any of these holds:
 ///
-/// - `viewer` is not the owner and its ChatContact in `account_id` has
+/// - `viewer` is not the owner and its `ChatContact` in `account_id` has
 ///   `blocked` set. This treats the hosting account's contact list as the
 ///   initiator's, as [`check_call_create`] treats the owner as the
 ///   creator. It applies to every call, bound or not.
@@ -178,7 +178,7 @@ pub async fn check_call_create<C: ChatBackend>(
 ///
 /// # Errors
 ///
-/// Returns the Chat backend's error if reading the ChatContact, the Chat,
+/// Returns the Chat backend's error if reading the `ChatContact`, the Chat,
 /// the channel, the Space or its `@everyone` permissions fails.
 pub async fn may_access_call<C: ChatBackend>(
     chat: &C,
@@ -236,13 +236,13 @@ pub async fn may_access_call<C: ChatBackend>(
     )
 }
 
-/// Set or clear `Chat.activeCallId` and `Chat.activeCallAccountId` for `call`, the VTCCall as stored
+/// Set or clear `Chat.activeCallId` and `Chat.activeCallAccountId` for `call`, the `VTCCall` as stored
 /// after a create or update.
 ///
-/// draft-atwood-jmap-chat-00 §Chat `activeCallId`: "When a VTCCall with a
+/// draft-atwood-jmap-chat-00 §Chat `activeCallId`: "When a `VTCCall` with a
 /// `chatId` matching this Chat's `id` transitions to state `"active"`,
-/// the server MUST set this field to that VTCCall's `id` ... When that
-/// VTCCall transitions to state `"ended"`, the server MUST clear this
+/// the server MUST set this field to that `VTCCall`'s `id` ... When that
+/// `VTCCall` transitions to state `"ended"`, the server MUST clear this
 /// field to `null`".
 ///
 /// §Chat `activeCallAccountId`: "The server sets and clears this field
@@ -255,12 +255,12 @@ pub async fn may_access_call<C: ChatBackend>(
 /// [`check_call_create`]). For an `"ended"` call both become `null` if
 /// `activeCallId` named this call. No other state changes them, and
 /// unchanged values are not written again, so this is safe to call after
-/// every VTCCall create and update. A `chatId` that names no Chat is
+/// every `VTCCall` create and update. A `chatId` that names no Chat is
 /// ignored.
 ///
 /// The write goes through [`ChatStore::update_object`](jmap_chat_server::ChatStore::update_object), which advances
 /// the Chat state, so the Chat `StateChange` follows. Call this in the
-/// same atomic step as the VTCCall write and before the VTCCall
+/// same atomic step as the `VTCCall` write and before the `VTCCall`
 /// `StateChange` is delivered: the update MUST be "applied atomically
 /// with it from the client's perspective".
 ///
@@ -304,15 +304,15 @@ pub async fn sync_active_call_id<C: ChatBackend>(
         .map(|_| ())
 }
 
-/// Clear `spaceId` on every VTCCall that references the destroyed Space
+/// Clear `spaceId` on every `VTCCall` that references the destroyed Space
 /// `space_id`.
 ///
-/// draft-atwood-jmap-vtc-00 §VTCCall: "When a Space or channel Chat
+/// draft-atwood-jmap-vtc-00 §`VTCCall`: "When a Space or channel Chat
 /// referenced by `spaceId` or `channelId` is destroyed, the server MUST
-/// clear the corresponding field to `null` on all VTCCalls that
+/// clear the corresponding field to `null` on all `VTCCall`s that
 /// reference it." Each change goes through
-/// [`VtcBackend::update_object`], which advances the VTCCall state ("MUST
-/// emit a `StateChange` for the VTCCall type").
+/// [`VtcBackend::update_object`], which advances the `VTCCall` state ("MUST
+/// emit a `StateChange` for the `VTCCall` type").
 ///
 /// # Errors
 ///
@@ -331,7 +331,7 @@ pub async fn clear_space_references<V: VtcBackend>(
     .await
 }
 
-/// Clear `channelId` on every VTCCall that references the destroyed
+/// Clear `channelId` on every `VTCCall` that references the destroyed
 /// channel Chat `chat_id`, as [`clear_space_references`] does for
 /// `spaceId`.
 ///
@@ -355,19 +355,19 @@ pub async fn clear_channel_references<V: VtcBackend>(
 /// names, as VTC uses it in `userId` and `initiatorId`.
 ///
 /// draft-atwood-jmap-chat-00 §Terminology: a user's identity is
-/// "recorded in the `identity` property of the user's ChatContact", and
-/// "The owner has no ChatContact: a client-facing reference to the owner
+/// "recorded in the `identity` property of the user's [`ChatContact`]", and
+/// "The owner has no `ChatContact`: a client-facing reference to the owner
 /// carries the accountId". So `account_id` maps to
-/// [`ChatSettings::owner_user_id`](jmap_chat_server::ChatSettings::owner_user_id) and any other id to that ChatContact's
-/// `identity`. `None` when the ChatContact does not exist or the owner's
+/// [`ChatSettings::owner_user_id`](jmap_chat_server::ChatSettings::owner_user_id) and any other id to that `ChatContact`'s
+/// `identity`. `None` when the `ChatContact` does not exist or the owner's
 /// identity is unknown.
 ///
-/// A SpaceBan's `userId` is such a reference ("The ChatContact.id of the
+/// A `SpaceBan`'s `userId` is such a reference ("The ChatContact.id of the
 /// banned user").
 ///
 /// # Errors
 ///
-/// Returns the Chat backend's error from reading the ChatContact or the
+/// Returns the Chat backend's error from reading the `ChatContact` or the
 /// owner's identity.
 pub async fn contact_identity<C: ChatBackend>(
     chat: &C,
@@ -389,9 +389,9 @@ pub async fn contact_identity<C: ChatBackend>(
 /// [`contact_identity`]) from every call bound to the Space `space_id`.
 ///
 /// draft-atwood-jmap-vtc-00 §Chat-Bound Calls: "When a user is banned from a
-/// Space (via SpaceBan creation) and has an active VTCParticipant record
+/// Space (via `SpaceBan` creation) and has an active `VTCParticipant` record
 /// in a call bound to that Space (via `spaceId`), the server SHOULD set
-/// `leftAt` on that VTCParticipant record and emit a
+/// `leftAt` on that `VTCParticipant` record and emit a
 /// `VTCParticipantEvent` with event `"left"`. The ban takes effect
 /// immediately on active calls."
 ///
@@ -400,7 +400,7 @@ pub async fn contact_identity<C: ChatBackend>(
 /// `user_id`, `joinedAt` is set and `leftAt` is `null`, as in
 /// §VTCParticipant/query `isActive`. A ring target that has not answered
 /// is not active and is left as it is. Each `leftAt` write goes through
-/// [`VtcBackend::update_object`], which advances the VTCParticipant
+/// [`VtcBackend::update_object`], which advances the `VTCParticipant`
 /// state.
 ///
 /// After the `leftAt` writes in a call, [`jmap_vtc_server::after_leave`]
@@ -417,8 +417,14 @@ pub async fn contact_identity<C: ChatBackend>(
 /// Returns the VTC backend's error from reading the calls or the
 /// participants, from updating a participant, or from
 /// [`jmap_vtc_server::after_leave`]. Writes made before the error stay
-/// made, and their events are lost; the VTCCall and VTCParticipant
+/// made, and their events are lost; the `VTCCall` and `VTCParticipant`
 /// `StateChange`s still report them.
+///
+/// # Panics
+///
+/// Panics if `account_id`, or the id of a stored call or participant, is
+/// not a valid RFC 8620 Id (one built unchecked with `Id::from`): each
+/// `"left"` event is deserialized from JSON, and that validates each Id.
 // Same error type as `VtcBackend::update_object`, which it propagates.
 pub async fn eject_banned_user<V: VtcBackend>(
     vtc: &V,
@@ -485,7 +491,7 @@ pub async fn eject_banned_user<V: VtcBackend>(
 }
 
 /// `true` if `user_id` (an identity string) is blocked on the contact list
-/// of `account_id`: a ChatContact with that `identity` has `blocked` set.
+/// of `account_id`: a [`ChatContact`] with that `identity` has `blocked` set.
 ///
 /// draft-atwood-jmap-vtc-00 §Blocked-Sender Suppression: "the server SHOULD
 /// check whether the initiator corresponds to a contact whose `blocked`
@@ -548,6 +554,12 @@ pub async fn is_blocked_by_contact<C: ChatBackend>(
 /// # Errors
 ///
 /// Returns the backend's error from [`jmap_vtc_server::should_deliver`].
+///
+/// # Panics
+///
+/// Does not panic: the `expect` guards subscribing to every event type
+/// with a default `VTCStreamEnable`, whose `null` `eventTypes` is always
+/// valid.
 pub async fn should_deliver_vtc<V: VtcBackend>(
     vtc: &V,
     caller: &V::CallerCtx,
@@ -641,12 +653,12 @@ fn bound(field: &Option<Option<Id>>) -> Option<&Id> {
     field.as_ref().and_then(Option::as_ref)
 }
 
-/// A `forbidden` SetError with `description`.
+/// A `forbidden` [`SetError`] with `description`.
 fn forbidden(description: &str) -> SetError {
     SetError::new(SetErrorType::Forbidden).with_description(description)
 }
 
-/// A one-property PatchObject setting `key` to `value`.
+/// A one-property [`PatchObject`] setting `key` to `value`.
 fn patch(key: &str, value: Value) -> PatchObject {
     let mut p = PatchObject::new();
     p.as_map_mut().insert(key.to_owned(), value);
@@ -666,7 +678,7 @@ async fn get_one<O: GetObject + Send + Sync, B: JmapBackend>(
     Ok(found.into_iter().next())
 }
 
-/// `true` if `member` (`account_id` for the owner, else a ChatContact id)
+/// `true` if `member` (`account_id` for the owner, else a [`ChatContact`] id)
 /// is a member of `chat`, a Chat in `account_id`. A direct Chat's members
 /// are the owner and its `contactId`.
 async fn is_member<C: ChatBackend>(
@@ -690,7 +702,7 @@ async fn is_member<C: ChatBackend>(
 }
 
 /// The effective permissions of `member` (`account_id` for the owner,
-/// else a ChatContact id) in `space`, or in `channel` when one is given
+/// else a [`ChatContact`] id) in `space`, or in `channel` when one is given
 /// (draft-atwood-jmap-chat-00 §Space Permission Resolution). Empty when
 /// `member` is not a member of `space`.
 fn member_permissions(
@@ -722,7 +734,7 @@ fn member_permissions(
     }
 }
 
-/// Set `property` to `null` on every VTCCall for which `references` holds.
+/// Set `property` to `null` on every `VTCCall` for which `references` holds.
 // Same error type as `VtcBackend::update_object`, which it propagates.
 async fn clear_references<V: VtcBackend>(
     vtc: &V,
