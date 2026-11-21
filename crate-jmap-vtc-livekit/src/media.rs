@@ -13,8 +13,8 @@ use url::Url;
 
 use crate::LiveKitError;
 use crate::egress::{
-    EgressClient, EgressInfo, EgressStatus, EncodingPreset, FileOutput, RoomCompositeRequest,
-    S3Upload, SegmentOutput, StreamOutput, StreamProtocol,
+    EgressClient, EgressInfo, EgressStatus, EncodingPreset, FileOutput, Output, S3Upload,
+    SegmentOutput, StartEgressRequest, StreamOutput, StreamProtocol,
 };
 
 /// The `streamUri` schemes a push livestream may use: LiveKit Egress
@@ -546,9 +546,9 @@ impl LiveKitMedia {
         &self,
         room_name: &str,
         layout: Option<&CompositionLayout>,
-    ) -> Result<RoomCompositeRequest, LiveKitError> {
+    ) -> Result<StartEgressRequest, LiveKitError> {
         let mut req =
-            RoomCompositeRequest::new(room_name).with_layout(self.livekit_layout(layout)?);
+            StartEgressRequest::room_composite(room_name).with_layout(self.livekit_layout(layout)?);
         if let Some(preset) = &self.config.preset {
             req = req.with_preset(preset.clone());
         }
@@ -558,7 +558,16 @@ impl LiveKitMedia {
         Ok(req)
     }
 
-    /// The `StartRoomCompositeEgress` request for `livestream` of LiveKit
+    /// `output` uploaded to the configured storage, if any.
+    fn stored(&self, output: impl Into<Output>) -> Output {
+        let output = output.into();
+        match &self.config.storage {
+            Some(s3) => output.with_s3(s3.clone()),
+            None => output,
+        }
+    }
+
+    /// The `StartEgress` request for `livestream` of LiveKit
     /// room `room_name`, in the livestream's `layout`:
     ///
     /// - push: one stream output to [`Self::push_url`];
@@ -577,7 +586,7 @@ impl LiveKitMedia {
         &self,
         livestream: &VtcLivestream,
         room_name: &str,
-    ) -> Result<RoomCompositeRequest, LiveKitError> {
+    ) -> Result<StartEgressRequest, LiveKitError> {
         check_id(&livestream.id)?;
         let req = self.composite(room_name, livestream.layout.as_ref())?;
         match &livestream.mode {
@@ -587,7 +596,7 @@ impl LiveKitMedia {
                     .as_deref()
                     .ok_or(LiveKitError::MissingStreamUri)?;
                 let (protocol, url) = Self::push_url(uri, livestream.stream_key.as_deref())?;
-                Ok(req.with_stream(StreamOutput::new(protocol, vec![url])))
+                Ok(req.with_output(StreamOutput::new(protocol, vec![url])))
             }
             LivestreamMode::Hosted => match &self.config.hosted {
                 None => Err(LiveKitError::UnsupportedMode(LivestreamMode::Hosted)),
@@ -603,24 +612,21 @@ impl LiveKitMedia {
                     if let Some(d) = hls.segment_duration {
                         seg = seg.with_segment_duration(d);
                     }
-                    if let Some(s3) = &self.config.storage {
-                        seg = seg.with_s3(s3.clone());
-                    }
-                    Ok(req.with_segments(seg))
+                    Ok(req.with_output(self.stored(seg)))
                 }
                 Some(HostedOutput::Origin(origin)) => {
                     let ingest = origin
                         .ingest
                         .replace(ID_PLACEHOLDER, livestream.id.as_ref());
                     let (protocol, url) = Self::push_url(&ingest, None)?;
-                    Ok(req.with_stream(StreamOutput::new(protocol, vec![url])))
+                    Ok(req.with_output(StreamOutput::new(protocol, vec![url])))
                 }
             },
             other => Err(LiveKitError::UnsupportedMode(other.clone())),
         }
     }
 
-    /// The `StartRoomCompositeEgress` request for `recording` of LiveKit
+    /// The `StartEgress` request for `recording` of LiveKit
     /// room `room_name`: one MP4 file output at
     /// `{recording_prefix}{id}.mp4`, uploaded to the configured storage,
     /// in the recording's `layout`.
@@ -632,18 +638,15 @@ impl LiveKitMedia {
         &self,
         recording: &VtcRecording,
         room_name: &str,
-    ) -> Result<RoomCompositeRequest, LiveKitError> {
+    ) -> Result<StartEgressRequest, LiveKitError> {
         check_id(&recording.id)?;
-        let mut file = FileOutput::mp4(format!(
+        let file = FileOutput::mp4(format!(
             "{}{}.mp4",
             self.config.recording_prefix, recording.id
         ));
-        if let Some(s3) = &self.config.storage {
-            file = file.with_s3(s3.clone());
-        }
         Ok(self
             .composite(room_name, recording.layout.as_ref())?
-            .with_file(file))
+            .with_output(self.stored(file)))
     }
 
     /// Start `livestream`
@@ -663,7 +666,7 @@ impl LiveKitMedia {
         room_name: &str,
     ) -> Result<EgressJob, LiveKitError> {
         let req = self.livestream_request(livestream, room_name)?;
-        let info = self.client.start_room_composite_egress(&req).await?;
+        let info = self.client.start_egress(&req).await?;
         Ok(EgressJob {
             egress_id: info.egress_id,
             object: JobObject::Livestream {
@@ -688,7 +691,7 @@ impl LiveKitMedia {
         room_name: &str,
     ) -> Result<EgressJob, LiveKitError> {
         let req = self.recording_request(recording, room_name)?;
-        let info = self.client.start_room_composite_egress(&req).await?;
+        let info = self.client.start_egress(&req).await?;
         Ok(EgressJob {
             egress_id: info.egress_id,
             object: JobObject::Recording {

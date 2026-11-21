@@ -30,8 +30,11 @@
 //! `supportsRecordingPause: false`.
 //!
 //! [`egress`] is the Egress Twirp client underneath ([`egress::EgressClient`]:
-//! `StartRoomCompositeEgress`, `UpdateLayout`, `StopEgress`, `ListEgress`)
-//! with the request and `EgressInfo` types; [`token`] signs and verifies
+//! `StartEgress`, `UpdateLayout`, `StopEgress`, `ListEgress`) with the
+//! request and `EgressInfo` types. Egresses start with LiveKit's unified
+//! `StartEgress` RPC, not the deprecated `StartRoomCompositeEgress`:
+//! LiveKit servers before v1.13.2 and egress workers before v1.14.0
+//! refuse it (see the README). [`token`] signs and verifies
 //! LiveKit access tokens (HS256 JWTs with the video grant) with an
 //! [`token::ApiKey`]; [`webhook`] verifies signed webhooks
 //! ([`webhook::WebhookReceiver`]) and reads their events.

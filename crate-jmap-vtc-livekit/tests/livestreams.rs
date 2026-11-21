@@ -45,7 +45,7 @@ fn info(egress_id: &str, status: &str, started: bool) -> EgressInfo {
 async fn stub(server: &MockServer, egress_id: &str) {
     on(
         server,
-        "StartRoomCompositeEgress",
+        "StartEgress",
         ResponseTemplate::new(200).set_body_json(egress_info(egress_id, "EGRESS_STARTING")),
     )
     .await;
@@ -103,17 +103,17 @@ async fn push_livestream_lifecycle() {
             mode: LivestreamMode::Push
         }
     );
-    let r = &sent(&server, "StartRoomCompositeEgress").await[0];
+    let r = &sent(&server, "StartEgress").await[0];
     assert_egress_auth(r);
     assert_eq!(
         body(r),
         json!({
             "room_name": ROOM,
-            "layout": "grid",
-            "stream_outputs": [{
+            "template": {"layout": "grid"},
+            "outputs": [{"stream": {
                 "protocol": "RTMP",
                 "urls": ["rtmps://live.example.com:443/app/sk_live_1"]
-            }]
+            }}]
         })
     );
     // The job is serializable, so the deployment keeps it with the
@@ -212,23 +212,25 @@ async fn hosted_hls_livestream() {
         .await
         .unwrap();
     assert_eq!(
-        body(&sent(&server, "StartRoomCompositeEgress").await[0]),
+        body(&sent(&server, "StartEgress").await[0]),
         json!({
             "room_name": ROOM,
-            "layout": "speaker",
-            "segment_outputs": [{
-                "protocol": "HLS_PROTOCOL",
-                "filename_prefix": format!("vtc/live/{id}/segment"),
-                "playlist_name": format!("vtc/live/{id}/index.m3u8"),
-                "live_playlist_name": format!("vtc/live/{id}/live.m3u8"),
-                "segment_duration": 2,
-                "s3": {
+            "template": {"layout": "speaker"},
+            "outputs": [{
+                "segments": {
+                    "protocol": "HLS_PROTOCOL",
+                    "filename_prefix": format!("vtc/live/{id}/segment"),
+                    "playlist_name": format!("vtc/live/{id}/index.m3u8"),
+                    "live_playlist_name": format!("vtc/live/{id}/live.m3u8"),
+                    "segment_duration": 2
+                },
+                "storage": {"s3": {
                     "access_key": "AKIDEXAMPLE",
                     "secret": "s3-secret",
                     "endpoint": "https://s3.example.net",
                     "bucket": "media",
                     "force_path_style": true
-                }
+                }}
             }]
         })
     );
@@ -278,11 +280,11 @@ async fn hosted_origin_livestream() {
         .await
         .unwrap();
     assert_eq!(
-        body(&sent(&server, "StartRoomCompositeEgress").await[0])["stream_outputs"],
-        json!([{
+        body(&sent(&server, "StartEgress").await[0])["outputs"],
+        json!([{"stream": {
             "protocol": "SRT",
             "urls": [format!("srt://mtx.example.com:8890?streamid=publish:vtc/{id}")]
-        }])
+        }}])
     );
     let caller = system();
     let reporter = MediaReporter::new(&b, &caller, Id::from(ACCOUNT));
@@ -311,7 +313,7 @@ async fn room_emptied_is_the_idle_stop() {
     let server = MockServer::start().await;
     on(
         &server,
-        "StartRoomCompositeEgress",
+        "StartEgress",
         ResponseTemplate::new(200).set_body_json(egress_info("EG_idle", "EGRESS_STARTING")),
     )
     .await;
@@ -337,7 +339,7 @@ async fn room_emptied_is_the_idle_stop() {
         .await
         .unwrap();
     assert_eq!(
-        body(&sent(&server, "StartRoomCompositeEgress").await[0])["stream_outputs"][0]["urls"],
+        body(&sent(&server, "StartEgress").await[0])["outputs"][0]["stream"]["urls"],
         json!(["srt://ingest.example.com:9000?streamid=k1"])
     );
     let caller = system();
@@ -366,7 +368,7 @@ async fn failures() {
     let server = MockServer::start().await;
     on(
         &server,
-        "StartRoomCompositeEgress",
+        "StartEgress",
         twirp_error(503, "unavailable", "no response from servers"),
     )
     .await;

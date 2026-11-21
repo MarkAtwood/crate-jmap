@@ -53,7 +53,13 @@ pub fn egress_info(egress_id: &str, status: &str) -> Value {
         "details": "",
         "error": "",
         "error_code": 0,
-        "room_composite": {"room_name": ROOM, "layout": "speaker"},
+        "egress": {
+            "room_name": ROOM,
+            "template": {"layout": "speaker", "audio_only": false, "video_only": false, "custom_base_url": ""},
+            "outputs": [],
+            "storage": null,
+            "webhooks": []
+        },
         "stream_results": [],
         "file_results": [],
         "segment_results": [],

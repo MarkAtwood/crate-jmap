@@ -5,58 +5,65 @@
 //! `https://<your-livekit-host>/twirp/livekit.Egress/<MethodName>`",
 //! `Authorization: Bearer`, `Content-Type: application/json`, the
 //! `roomRecord` permission); `protobufs/livekit_egress.proto` in
-//! livekit/protocol for every field and enum name
-//! (`RoomCompositeEgressRequest`, `EncodedFileOutput`, `S3Upload`,
+//! livekit/protocol `main` for the RPC name `StartEgress` and every field
+//! and enum name (`StartEgressRequest` with its `source` oneof member
+//! `template` (`TemplateSource`) and `encoding` oneof member `preset`;
+//! `Output` with its `config` oneof (`file`, `stream`, `segments`) and
+//! `storage`; `StorageConfig`, `FileOutput`, `S3Upload`,
 //! `SegmentedFileOutput`, `StreamOutput`, `UpdateLayoutRequest`,
-//! `StopEgressRequest`, `ListEgressRequest`, `EgressInfo`); the Twirp
-//! wire protocol's error body (`{"code", "msg"}`).
+//! `StopEgressRequest`, `ListEgressRequest`, `EgressInfo`); protojson,
+//! which writes a oneof as its member's field; the Twirp wire protocol's
+//! error body (`{"code", "msg"}`) and its `bad_route` (404) for a method
+//! the server does not have; livekit/livekit v1.13.1's `StartEgress`
+//! ("not implemented").
 
 mod common;
 
 use common::{API_KEY, ROOM, assert_egress_auth, body, client, egress_info, on, sent, twirp_error};
 use jmap_vtc_livekit::egress::{
-    EgressClient, EgressStatus, EncodingPreset, FileOutput, RoomCompositeRequest, S3Upload,
-    SegmentOutput, StreamOutput, StreamProtocol,
+    EgressClient, EgressStatus, EncodingPreset, FileOutput, Output, S3Upload, SegmentOutput,
+    StartEgressRequest, StreamOutput, StreamProtocol,
 };
 use jmap_vtc_livekit::token::ApiKey;
 use jmap_vtc_livekit::url::Url;
 use jmap_vtc_livekit::{LiveKitError, TwirpCode};
+use jmap_vtc_types::LivestreamFailureReason;
 use serde_json::json;
 use wiremock::{MockServer, ResponseTemplate};
 
 #[tokio::test]
-async fn start_room_composite_sends_the_proto_fields() {
+async fn start_egress_sends_the_proto_fields() {
     let server = MockServer::start().await;
     on(
         &server,
-        "StartRoomCompositeEgress",
+        "StartEgress",
         ResponseTemplate::new(200).set_body_json(egress_info("EG_abc", "EGRESS_STARTING")),
     )
     .await;
     let s3 = S3Upload::new("AKIDEXAMPLE", "s3-secret", "recordings").with_region("us-west-2");
-    let req = RoomCompositeRequest::new(ROOM)
+    let req = StartEgressRequest::room_composite(ROOM)
         .with_layout("grid-light")
         .with_preset(EncodingPreset::H264_1080p30)
-        .with_file(FileOutput::mp4("jmap-vtc/recordings/R1.mp4").with_s3(s3.clone()))
-        .with_stream(StreamOutput::new(
+        .with_custom_base_url("https://templates.example.com/vtc")
+        .with_output(
+            Output::from(FileOutput::mp4("jmap-vtc/recordings/R1.mp4")).with_s3(s3.clone()),
+        )
+        .with_output(StreamOutput::new(
             StreamProtocol::Rtmp,
             vec!["rtmps://live.example.com:443/app/sk_1".to_owned()],
         ))
-        .with_segments(
+        .with_output(
             SegmentOutput::hls("live/L1/segment", "live/L1/index.m3u8")
                 .with_live_playlist("live/L1/live.m3u8")
-                .with_segment_duration(2)
-                .with_s3(s3),
-        );
-    let info = client(&server)
-        .start_room_composite_egress(&req)
-        .await
-        .unwrap();
+                .with_segment_duration(2),
+        )
+        .with_storage(s3.clone().with_session_token("tok"));
+    let info = client(&server).start_egress(&req).await.unwrap();
     assert_eq!(info.egress_id, "EG_abc");
     assert_eq!(info.status, EgressStatus::Starting);
     assert_eq!(info.room_name, ROOM);
 
-    let r = &sent(&server, "StartRoomCompositeEgress").await[0];
+    let r = &sent(&server, "StartEgress").await[0];
     assert_egress_auth(r);
     let s3 = json!({
         "access_key": "AKIDEXAMPLE",
@@ -64,31 +71,92 @@ async fn start_room_composite_sends_the_proto_fields() {
         "region": "us-west-2",
         "bucket": "recordings"
     });
+    let mut default_s3 = s3.clone();
+    default_s3["session_token"] = json!("tok");
     assert_eq!(
         body(r),
         json!({
             "room_name": ROOM,
-            "layout": "grid-light",
+            "template": {
+                "layout": "grid-light",
+                "custom_base_url": "https://templates.example.com/vtc"
+            },
             "preset": "H264_1080P_30",
-            "file_outputs": [{
-                "file_type": "MP4",
-                "filepath": "jmap-vtc/recordings/R1.mp4",
-                "s3": s3
-            }],
-            "stream_outputs": [{
-                "protocol": "RTMP",
-                "urls": ["rtmps://live.example.com:443/app/sk_1"]
-            }],
-            "segment_outputs": [{
-                "protocol": "HLS_PROTOCOL",
-                "filename_prefix": "live/L1/segment",
-                "playlist_name": "live/L1/index.m3u8",
-                "live_playlist_name": "live/L1/live.m3u8",
-                "segment_duration": 2,
-                "s3": s3
-            }]
+            "outputs": [
+                {
+                    "file": {"file_type": "MP4", "filepath": "jmap-vtc/recordings/R1.mp4"},
+                    "storage": {"s3": s3}
+                },
+                {
+                    "stream": {
+                        "protocol": "RTMP",
+                        "urls": ["rtmps://live.example.com:443/app/sk_1"]
+                    }
+                },
+                {
+                    "segments": {
+                        "protocol": "HLS_PROTOCOL",
+                        "filename_prefix": "live/L1/segment",
+                        "playlist_name": "live/L1/index.m3u8",
+                        "live_playlist_name": "live/L1/live.m3u8",
+                        "segment_duration": 2
+                    }
+                }
+            ],
+            "storage": {"s3": default_s3}
         })
     );
+}
+
+/// The smallest request: the `template` oneof member is sent even when
+/// empty (it selects the room-composite source), `outputs` always, and
+/// nothing else. A second output of a kind replaces the first, since the
+/// egress refuses two ("multiple file outputs").
+#[test]
+fn minimal_request_and_one_output_per_kind() {
+    let req = StartEgressRequest::room_composite(ROOM)
+        .with_output(FileOutput::mp4("a.mp4"))
+        .with_output(StreamOutput::new(
+            StreamProtocol::Srt,
+            vec!["srt://x:1".to_owned()],
+        ))
+        .with_output(FileOutput::mp4("b.mp4"));
+    assert_eq!(
+        serde_json::to_value(&req).unwrap(),
+        json!({
+            "room_name": ROOM,
+            "template": {},
+            "outputs": [
+                {"stream": {"protocol": "SRT", "urls": ["srt://x:1"]}},
+                {"file": {"file_type": "MP4", "filepath": "b.mp4"}}
+            ]
+        })
+    );
+}
+
+/// A LiveKit server older than v1.13.2 refuses `StartEgress`: through
+/// v1.12.0 the Twirp router has no such method (`bad_route`, 404), and
+/// v1.13.1 answers "not implemented" (a plain Go error, so `internal`,
+/// 500). Both are `unavailable`, not `rejected`: the moderator's request
+/// was fine, the deployment's LiveKit is too old.
+#[tokio::test]
+async fn older_servers_refuse_start_egress() {
+    for (status, code, msg, want) in [
+        (
+            404,
+            "bad_route",
+            "no handler for path \"/twirp/livekit.Egress/StartEgress\"",
+            TwirpCode::BadRoute,
+        ),
+        (500, "internal", "not implemented", TwirpCode::Internal),
+    ] {
+        let server = MockServer::start().await;
+        on(&server, "StartEgress", twirp_error(status, code, msg)).await;
+        let req = StartEgressRequest::room_composite(ROOM).with_output(FileOutput::mp4("a.mp4"));
+        let e = client(&server).start_egress(&req).await.unwrap_err();
+        assert_eq!(e.code(), Some(&want), "{e}");
+        assert_eq!(e.failure_reason(), LivestreamFailureReason::Unavailable);
+    }
 }
 
 #[tokio::test]

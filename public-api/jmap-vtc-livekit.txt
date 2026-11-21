@@ -91,6 +91,20 @@ impl serde_core::ser::Serialize for jmap_vtc_livekit::egress::EncodingPreset
 pub fn jmap_vtc_livekit::egress::EncodingPreset::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
 impl<'de> serde_core::de::Deserialize<'de> for jmap_vtc_livekit::egress::EncodingPreset
 pub fn jmap_vtc_livekit::egress::EncodingPreset::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_vtc_livekit::egress::OutputConfig
+pub jmap_vtc_livekit::egress::OutputConfig::File(jmap_vtc_livekit::egress::FileOutput)
+pub jmap_vtc_livekit::egress::OutputConfig::Segments(jmap_vtc_livekit::egress::SegmentOutput)
+pub jmap_vtc_livekit::egress::OutputConfig::Stream(jmap_vtc_livekit::egress::StreamOutput)
+impl core::clone::Clone for jmap_vtc_livekit::egress::OutputConfig
+pub fn jmap_vtc_livekit::egress::OutputConfig::clone(&self) -> jmap_vtc_livekit::egress::OutputConfig
+impl core::cmp::Eq for jmap_vtc_livekit::egress::OutputConfig
+impl core::cmp::PartialEq for jmap_vtc_livekit::egress::OutputConfig
+pub fn jmap_vtc_livekit::egress::OutputConfig::eq(&self, &jmap_vtc_livekit::egress::OutputConfig) -> bool
+impl core::fmt::Debug for jmap_vtc_livekit::egress::OutputConfig
+pub fn jmap_vtc_livekit::egress::OutputConfig::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_vtc_livekit::egress::OutputConfig
+impl serde_core::ser::Serialize for jmap_vtc_livekit::egress::OutputConfig
+pub fn jmap_vtc_livekit::egress::OutputConfig::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
 #[non_exhaustive] pub enum jmap_vtc_livekit::egress::SegmentedFileProtocol
 pub jmap_vtc_livekit::egress::SegmentedFileProtocol::Default
 pub jmap_vtc_livekit::egress::SegmentedFileProtocol::Hls
@@ -180,7 +194,7 @@ pub fn jmap_vtc_livekit::egress::EgressClient::api_key(&self) -> &jmap_vtc_livek
 pub fn jmap_vtc_livekit::egress::EgressClient::base_url(&self) -> &url::Url
 pub async fn jmap_vtc_livekit::egress::EgressClient::list_egress(&self, core::option::Option<&str>, core::option::Option<&str>, bool) -> core::result::Result<alloc::vec::Vec<jmap_vtc_livekit::egress::EgressInfo>, jmap_vtc_livekit::LiveKitError>
 pub fn jmap_vtc_livekit::egress::EgressClient::new(&url::Url, jmap_vtc_livekit::token::ApiKey) -> core::result::Result<Self, jmap_vtc_livekit::LiveKitError>
-pub async fn jmap_vtc_livekit::egress::EgressClient::start_room_composite_egress(&self, &jmap_vtc_livekit::egress::RoomCompositeRequest) -> core::result::Result<jmap_vtc_livekit::egress::EgressInfo, jmap_vtc_livekit::LiveKitError>
+pub async fn jmap_vtc_livekit::egress::EgressClient::start_egress(&self, &jmap_vtc_livekit::egress::StartEgressRequest) -> core::result::Result<jmap_vtc_livekit::egress::EgressInfo, jmap_vtc_livekit::LiveKitError>
 pub async fn jmap_vtc_livekit::egress::EgressClient::stop_egress(&self, &str) -> core::result::Result<jmap_vtc_livekit::egress::EgressInfo, jmap_vtc_livekit::LiveKitError>
 pub async fn jmap_vtc_livekit::egress::EgressClient::update_layout(&self, &str, &str) -> core::result::Result<jmap_vtc_livekit::egress::EgressInfo, jmap_vtc_livekit::LiveKitError>
 pub fn jmap_vtc_livekit::egress::EgressClient::with_http(reqwest::async_impl::client::Client, &url::Url, jmap_vtc_livekit::token::ApiKey) -> core::result::Result<Self, jmap_vtc_livekit::LiveKitError>
@@ -236,47 +250,42 @@ pub fn jmap_vtc_livekit::egress::FileInfo::deserialize<__D>(__D) -> core::result
 #[non_exhaustive] pub struct jmap_vtc_livekit::egress::FileOutput
 pub jmap_vtc_livekit::egress::FileOutput::file_type: jmap_vtc_livekit::egress::EncodedFileType
 pub jmap_vtc_livekit::egress::FileOutput::filepath: alloc::string::String
-pub jmap_vtc_livekit::egress::FileOutput::s3: core::option::Option<jmap_vtc_livekit::egress::S3Upload>
 impl jmap_vtc_livekit::egress::FileOutput
 pub fn jmap_vtc_livekit::egress::FileOutput::mp4(impl core::convert::Into<alloc::string::String>) -> Self
-pub fn jmap_vtc_livekit::egress::FileOutput::with_s3(self, jmap_vtc_livekit::egress::S3Upload) -> Self
 impl core::clone::Clone for jmap_vtc_livekit::egress::FileOutput
 pub fn jmap_vtc_livekit::egress::FileOutput::clone(&self) -> jmap_vtc_livekit::egress::FileOutput
 impl core::cmp::Eq for jmap_vtc_livekit::egress::FileOutput
 impl core::cmp::PartialEq for jmap_vtc_livekit::egress::FileOutput
 pub fn jmap_vtc_livekit::egress::FileOutput::eq(&self, &jmap_vtc_livekit::egress::FileOutput) -> bool
+impl core::convert::From<jmap_vtc_livekit::egress::FileOutput> for jmap_vtc_livekit::egress::Output
+pub fn jmap_vtc_livekit::egress::Output::from(jmap_vtc_livekit::egress::FileOutput) -> Self
 impl core::fmt::Debug for jmap_vtc_livekit::egress::FileOutput
 pub fn jmap_vtc_livekit::egress::FileOutput::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for jmap_vtc_livekit::egress::FileOutput
 impl serde_core::ser::Serialize for jmap_vtc_livekit::egress::FileOutput
 pub fn jmap_vtc_livekit::egress::FileOutput::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
-#[non_exhaustive] pub struct jmap_vtc_livekit::egress::RoomCompositeRequest
-pub jmap_vtc_livekit::egress::RoomCompositeRequest::audio_only: bool
-pub jmap_vtc_livekit::egress::RoomCompositeRequest::custom_base_url: core::option::Option<alloc::string::String>
-pub jmap_vtc_livekit::egress::RoomCompositeRequest::file_outputs: alloc::vec::Vec<jmap_vtc_livekit::egress::FileOutput>
-pub jmap_vtc_livekit::egress::RoomCompositeRequest::layout: core::option::Option<alloc::string::String>
-pub jmap_vtc_livekit::egress::RoomCompositeRequest::preset: core::option::Option<jmap_vtc_livekit::egress::EncodingPreset>
-pub jmap_vtc_livekit::egress::RoomCompositeRequest::room_name: alloc::string::String
-pub jmap_vtc_livekit::egress::RoomCompositeRequest::segment_outputs: alloc::vec::Vec<jmap_vtc_livekit::egress::SegmentOutput>
-pub jmap_vtc_livekit::egress::RoomCompositeRequest::stream_outputs: alloc::vec::Vec<jmap_vtc_livekit::egress::StreamOutput>
-impl jmap_vtc_livekit::egress::RoomCompositeRequest
-pub fn jmap_vtc_livekit::egress::RoomCompositeRequest::new(impl core::convert::Into<alloc::string::String>) -> Self
-pub fn jmap_vtc_livekit::egress::RoomCompositeRequest::with_custom_base_url(self, impl core::convert::Into<alloc::string::String>) -> Self
-pub fn jmap_vtc_livekit::egress::RoomCompositeRequest::with_file(self, jmap_vtc_livekit::egress::FileOutput) -> Self
-pub fn jmap_vtc_livekit::egress::RoomCompositeRequest::with_layout(self, impl core::convert::Into<alloc::string::String>) -> Self
-pub fn jmap_vtc_livekit::egress::RoomCompositeRequest::with_preset(self, jmap_vtc_livekit::egress::EncodingPreset) -> Self
-pub fn jmap_vtc_livekit::egress::RoomCompositeRequest::with_segments(self, jmap_vtc_livekit::egress::SegmentOutput) -> Self
-pub fn jmap_vtc_livekit::egress::RoomCompositeRequest::with_stream(self, jmap_vtc_livekit::egress::StreamOutput) -> Self
-impl core::clone::Clone for jmap_vtc_livekit::egress::RoomCompositeRequest
-pub fn jmap_vtc_livekit::egress::RoomCompositeRequest::clone(&self) -> jmap_vtc_livekit::egress::RoomCompositeRequest
-impl core::cmp::Eq for jmap_vtc_livekit::egress::RoomCompositeRequest
-impl core::cmp::PartialEq for jmap_vtc_livekit::egress::RoomCompositeRequest
-pub fn jmap_vtc_livekit::egress::RoomCompositeRequest::eq(&self, &jmap_vtc_livekit::egress::RoomCompositeRequest) -> bool
-impl core::fmt::Debug for jmap_vtc_livekit::egress::RoomCompositeRequest
-pub fn jmap_vtc_livekit::egress::RoomCompositeRequest::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
-impl core::marker::StructuralPartialEq for jmap_vtc_livekit::egress::RoomCompositeRequest
-impl serde_core::ser::Serialize for jmap_vtc_livekit::egress::RoomCompositeRequest
-pub fn jmap_vtc_livekit::egress::RoomCompositeRequest::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+#[non_exhaustive] pub struct jmap_vtc_livekit::egress::Output
+pub jmap_vtc_livekit::egress::Output::config: jmap_vtc_livekit::egress::OutputConfig
+pub jmap_vtc_livekit::egress::Output::storage: core::option::Option<jmap_vtc_livekit::egress::S3Upload>
+impl jmap_vtc_livekit::egress::Output
+pub fn jmap_vtc_livekit::egress::Output::new(jmap_vtc_livekit::egress::OutputConfig) -> Self
+pub fn jmap_vtc_livekit::egress::Output::with_s3(self, jmap_vtc_livekit::egress::S3Upload) -> Self
+impl core::clone::Clone for jmap_vtc_livekit::egress::Output
+pub fn jmap_vtc_livekit::egress::Output::clone(&self) -> jmap_vtc_livekit::egress::Output
+impl core::cmp::Eq for jmap_vtc_livekit::egress::Output
+impl core::cmp::PartialEq for jmap_vtc_livekit::egress::Output
+pub fn jmap_vtc_livekit::egress::Output::eq(&self, &jmap_vtc_livekit::egress::Output) -> bool
+impl core::convert::From<jmap_vtc_livekit::egress::FileOutput> for jmap_vtc_livekit::egress::Output
+pub fn jmap_vtc_livekit::egress::Output::from(jmap_vtc_livekit::egress::FileOutput) -> Self
+impl core::convert::From<jmap_vtc_livekit::egress::SegmentOutput> for jmap_vtc_livekit::egress::Output
+pub fn jmap_vtc_livekit::egress::Output::from(jmap_vtc_livekit::egress::SegmentOutput) -> Self
+impl core::convert::From<jmap_vtc_livekit::egress::StreamOutput> for jmap_vtc_livekit::egress::Output
+pub fn jmap_vtc_livekit::egress::Output::from(jmap_vtc_livekit::egress::StreamOutput) -> Self
+impl core::fmt::Debug for jmap_vtc_livekit::egress::Output
+pub fn jmap_vtc_livekit::egress::Output::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_vtc_livekit::egress::Output
+impl serde_core::ser::Serialize for jmap_vtc_livekit::egress::Output
+pub fn jmap_vtc_livekit::egress::Output::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
 #[non_exhaustive] pub struct jmap_vtc_livekit::egress::S3Upload
 pub jmap_vtc_livekit::egress::S3Upload::access_key: alloc::string::String
 pub jmap_vtc_livekit::egress::S3Upload::bucket: alloc::string::String
@@ -305,18 +314,18 @@ pub jmap_vtc_livekit::egress::SegmentOutput::filename_prefix: alloc::string::Str
 pub jmap_vtc_livekit::egress::SegmentOutput::live_playlist_name: core::option::Option<alloc::string::String>
 pub jmap_vtc_livekit::egress::SegmentOutput::playlist_name: alloc::string::String
 pub jmap_vtc_livekit::egress::SegmentOutput::protocol: jmap_vtc_livekit::egress::SegmentedFileProtocol
-pub jmap_vtc_livekit::egress::SegmentOutput::s3: core::option::Option<jmap_vtc_livekit::egress::S3Upload>
 pub jmap_vtc_livekit::egress::SegmentOutput::segment_duration: core::option::Option<u32>
 impl jmap_vtc_livekit::egress::SegmentOutput
 pub fn jmap_vtc_livekit::egress::SegmentOutput::hls(impl core::convert::Into<alloc::string::String>, impl core::convert::Into<alloc::string::String>) -> Self
 pub fn jmap_vtc_livekit::egress::SegmentOutput::with_live_playlist(self, impl core::convert::Into<alloc::string::String>) -> Self
-pub fn jmap_vtc_livekit::egress::SegmentOutput::with_s3(self, jmap_vtc_livekit::egress::S3Upload) -> Self
 pub fn jmap_vtc_livekit::egress::SegmentOutput::with_segment_duration(self, u32) -> Self
 impl core::clone::Clone for jmap_vtc_livekit::egress::SegmentOutput
 pub fn jmap_vtc_livekit::egress::SegmentOutput::clone(&self) -> jmap_vtc_livekit::egress::SegmentOutput
 impl core::cmp::Eq for jmap_vtc_livekit::egress::SegmentOutput
 impl core::cmp::PartialEq for jmap_vtc_livekit::egress::SegmentOutput
 pub fn jmap_vtc_livekit::egress::SegmentOutput::eq(&self, &jmap_vtc_livekit::egress::SegmentOutput) -> bool
+impl core::convert::From<jmap_vtc_livekit::egress::SegmentOutput> for jmap_vtc_livekit::egress::Output
+pub fn jmap_vtc_livekit::egress::Output::from(jmap_vtc_livekit::egress::SegmentOutput) -> Self
 impl core::fmt::Debug for jmap_vtc_livekit::egress::SegmentOutput
 pub fn jmap_vtc_livekit::egress::SegmentOutput::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for jmap_vtc_livekit::egress::SegmentOutput
@@ -342,6 +351,29 @@ pub fn jmap_vtc_livekit::egress::SegmentsInfo::fmt(&self, &mut core::fmt::Format
 impl core::marker::StructuralPartialEq for jmap_vtc_livekit::egress::SegmentsInfo
 impl<'de> serde_core::de::Deserialize<'de> for jmap_vtc_livekit::egress::SegmentsInfo where jmap_vtc_livekit::egress::SegmentsInfo: core::default::Default
 pub fn jmap_vtc_livekit::egress::SegmentsInfo::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_vtc_livekit::egress::StartEgressRequest
+pub jmap_vtc_livekit::egress::StartEgressRequest::outputs: alloc::vec::Vec<jmap_vtc_livekit::egress::Output>
+pub jmap_vtc_livekit::egress::StartEgressRequest::preset: core::option::Option<jmap_vtc_livekit::egress::EncodingPreset>
+pub jmap_vtc_livekit::egress::StartEgressRequest::room_name: alloc::string::String
+pub jmap_vtc_livekit::egress::StartEgressRequest::storage: core::option::Option<jmap_vtc_livekit::egress::S3Upload>
+pub jmap_vtc_livekit::egress::StartEgressRequest::template: jmap_vtc_livekit::egress::TemplateSource
+impl jmap_vtc_livekit::egress::StartEgressRequest
+pub fn jmap_vtc_livekit::egress::StartEgressRequest::room_composite(impl core::convert::Into<alloc::string::String>) -> Self
+pub fn jmap_vtc_livekit::egress::StartEgressRequest::with_custom_base_url(self, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn jmap_vtc_livekit::egress::StartEgressRequest::with_layout(self, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn jmap_vtc_livekit::egress::StartEgressRequest::with_output(self, impl core::convert::Into<jmap_vtc_livekit::egress::Output>) -> Self
+pub fn jmap_vtc_livekit::egress::StartEgressRequest::with_preset(self, jmap_vtc_livekit::egress::EncodingPreset) -> Self
+pub fn jmap_vtc_livekit::egress::StartEgressRequest::with_storage(self, jmap_vtc_livekit::egress::S3Upload) -> Self
+impl core::clone::Clone for jmap_vtc_livekit::egress::StartEgressRequest
+pub fn jmap_vtc_livekit::egress::StartEgressRequest::clone(&self) -> jmap_vtc_livekit::egress::StartEgressRequest
+impl core::cmp::Eq for jmap_vtc_livekit::egress::StartEgressRequest
+impl core::cmp::PartialEq for jmap_vtc_livekit::egress::StartEgressRequest
+pub fn jmap_vtc_livekit::egress::StartEgressRequest::eq(&self, &jmap_vtc_livekit::egress::StartEgressRequest) -> bool
+impl core::fmt::Debug for jmap_vtc_livekit::egress::StartEgressRequest
+pub fn jmap_vtc_livekit::egress::StartEgressRequest::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_vtc_livekit::egress::StartEgressRequest
+impl serde_core::ser::Serialize for jmap_vtc_livekit::egress::StartEgressRequest
+pub fn jmap_vtc_livekit::egress::StartEgressRequest::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
 #[non_exhaustive] pub struct jmap_vtc_livekit::egress::StreamInfo
 pub jmap_vtc_livekit::egress::StreamInfo::duration: i64
 pub jmap_vtc_livekit::egress::StreamInfo::ended_at: i64
@@ -371,11 +403,29 @@ pub fn jmap_vtc_livekit::egress::StreamOutput::clone(&self) -> jmap_vtc_livekit:
 impl core::cmp::Eq for jmap_vtc_livekit::egress::StreamOutput
 impl core::cmp::PartialEq for jmap_vtc_livekit::egress::StreamOutput
 pub fn jmap_vtc_livekit::egress::StreamOutput::eq(&self, &jmap_vtc_livekit::egress::StreamOutput) -> bool
+impl core::convert::From<jmap_vtc_livekit::egress::StreamOutput> for jmap_vtc_livekit::egress::Output
+pub fn jmap_vtc_livekit::egress::Output::from(jmap_vtc_livekit::egress::StreamOutput) -> Self
 impl core::fmt::Debug for jmap_vtc_livekit::egress::StreamOutput
 pub fn jmap_vtc_livekit::egress::StreamOutput::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for jmap_vtc_livekit::egress::StreamOutput
 impl serde_core::ser::Serialize for jmap_vtc_livekit::egress::StreamOutput
 pub fn jmap_vtc_livekit::egress::StreamOutput::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+#[non_exhaustive] pub struct jmap_vtc_livekit::egress::TemplateSource
+pub jmap_vtc_livekit::egress::TemplateSource::audio_only: bool
+pub jmap_vtc_livekit::egress::TemplateSource::custom_base_url: core::option::Option<alloc::string::String>
+pub jmap_vtc_livekit::egress::TemplateSource::layout: core::option::Option<alloc::string::String>
+impl core::clone::Clone for jmap_vtc_livekit::egress::TemplateSource
+pub fn jmap_vtc_livekit::egress::TemplateSource::clone(&self) -> jmap_vtc_livekit::egress::TemplateSource
+impl core::cmp::Eq for jmap_vtc_livekit::egress::TemplateSource
+impl core::cmp::PartialEq for jmap_vtc_livekit::egress::TemplateSource
+pub fn jmap_vtc_livekit::egress::TemplateSource::eq(&self, &jmap_vtc_livekit::egress::TemplateSource) -> bool
+impl core::default::Default for jmap_vtc_livekit::egress::TemplateSource
+pub fn jmap_vtc_livekit::egress::TemplateSource::default() -> jmap_vtc_livekit::egress::TemplateSource
+impl core::fmt::Debug for jmap_vtc_livekit::egress::TemplateSource
+pub fn jmap_vtc_livekit::egress::TemplateSource::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_vtc_livekit::egress::TemplateSource
+impl serde_core::ser::Serialize for jmap_vtc_livekit::egress::TemplateSource
+pub fn jmap_vtc_livekit::egress::TemplateSource::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
 pub const jmap_vtc_livekit::egress::API_TOKEN_TTL: core::time::Duration
 pub mod jmap_vtc_livekit::token
 #[non_exhaustive] pub enum jmap_vtc_livekit::token::TokenError
@@ -744,11 +794,11 @@ pub fn jmap_vtc_livekit::LiveKitMedia::client(&self) -> &jmap_vtc_livekit::egres
 pub fn jmap_vtc_livekit::LiveKitMedia::config(&self) -> &jmap_vtc_livekit::LiveKitConfig
 pub fn jmap_vtc_livekit::LiveKitMedia::egress_outcome(&self, &jmap_vtc_livekit::EgressJob, &jmap_vtc_livekit::egress::EgressInfo) -> core::result::Result<jmap_vtc_livekit::EgressOutcome, jmap_vtc_livekit::LiveKitError>
 pub fn jmap_vtc_livekit::LiveKitMedia::livekit_layout(&self, core::option::Option<&jmap_vtc_types::recording::CompositionLayout>) -> core::result::Result<&str, jmap_vtc_livekit::LiveKitError>
-pub fn jmap_vtc_livekit::LiveKitMedia::livestream_request(&self, &jmap_vtc_types::recording::VtcLivestream, &str) -> core::result::Result<jmap_vtc_livekit::egress::RoomCompositeRequest, jmap_vtc_livekit::LiveKitError>
+pub fn jmap_vtc_livekit::LiveKitMedia::livestream_request(&self, &jmap_vtc_types::recording::VtcLivestream, &str) -> core::result::Result<jmap_vtc_livekit::egress::StartEgressRequest, jmap_vtc_livekit::LiveKitError>
 pub fn jmap_vtc_livekit::LiveKitMedia::new(jmap_vtc_livekit::egress::EgressClient, jmap_vtc_livekit::LiveKitConfig) -> Self
 pub fn jmap_vtc_livekit::LiveKitMedia::playback_endpoints(&self, &jmap_types::id::Id) -> core::result::Result<alloc::vec::Vec<jmap_vtc_types::recording::VtcPlaybackEndpoint>, jmap_vtc_livekit::LiveKitError>
 pub fn jmap_vtc_livekit::LiveKitMedia::push_url(&str, core::option::Option<&str>) -> core::result::Result<(jmap_vtc_livekit::egress::StreamProtocol, alloc::string::String), jmap_vtc_livekit::LiveKitError>
-pub fn jmap_vtc_livekit::LiveKitMedia::recording_request(&self, &jmap_vtc_types::recording::VtcRecording, &str) -> core::result::Result<jmap_vtc_livekit::egress::RoomCompositeRequest, jmap_vtc_livekit::LiveKitError>
+pub fn jmap_vtc_livekit::LiveKitMedia::recording_request(&self, &jmap_vtc_types::recording::VtcRecording, &str) -> core::result::Result<jmap_vtc_livekit::egress::StartEgressRequest, jmap_vtc_livekit::LiveKitError>
 pub async fn jmap_vtc_livekit::LiveKitMedia::report_egress<B: jmap_vtc_server::backend::VtcBackend>(&self, &jmap_vtc_server::media_report::MediaReporter<'_, B>, &jmap_vtc_livekit::EgressJob, &jmap_vtc_livekit::egress::EgressInfo) -> jmap_vtc_livekit::EgressReport<<B as jmap_server::backend::JmapAccounts>::Error>
 pub async fn jmap_vtc_livekit::LiveKitMedia::start_livestream(&self, &jmap_vtc_types::recording::VtcLivestream, &str) -> core::result::Result<jmap_vtc_livekit::EgressJob, jmap_vtc_livekit::LiveKitError>
 pub async fn jmap_vtc_livekit::LiveKitMedia::start_recording(&self, &jmap_vtc_types::recording::VtcRecording, &str) -> core::result::Result<jmap_vtc_livekit::EgressJob, jmap_vtc_livekit::LiveKitError>

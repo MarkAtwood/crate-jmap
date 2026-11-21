@@ -23,8 +23,8 @@ against a LiveKit server and holds its API secret.
 | `HostedOutput::Origin` / `OriginOutput` | hosted livestreams streamed over RTMP or SRT into a media origin (MediaMTX for WHEP), with `{id}` endpoint templates | [MediaMTX][mtx] |
 | `EgressJob`, `JobObject` | the egress serving one object; `Serialize`, so the deployment stores it | |
 | `UploadedFile` | location, size, duration, `video/mp4` of a finished recording; `recording_file(blob_id)` for `recording_available` | `FileInfo` |
-| `egress::EgressClient` | `start_room_composite_egress`, `update_layout`, `stop_egress`, `list_egress`, over `POST /twirp/livekit.Egress/{Method}` | [Egress API][lk-api], [Twirp][twirp] |
-| `egress::*` | `RoomCompositeRequest`, `FileOutput`, `SegmentOutput`, `StreamOutput`, `S3Upload` (redacted `Debug`), `EgressInfo`, `EgressStatus`, `FileInfo`, `SegmentsInfo`, `StreamInfo` | [livekit_egress.proto][proto-egress] |
+| `egress::EgressClient` | `start_egress` (the unified `StartEgress` RPC; needs LiveKit server v1.13.2 and egress v1.14.0, see Gotchas), `update_layout`, `stop_egress`, `list_egress`, over `POST /twirp/livekit.Egress/{Method}` | [Egress API][lk-api], [Twirp][twirp], [twirp.go][proto-twirp] |
+| `egress::*` | `StartEgressRequest` (room composite: `TemplateSource`), `Output` (`OutputConfig` plus per-output storage), `FileOutput`, `SegmentOutput`, `StreamOutput`, `S3Upload` (redacted `Debug`), `EgressInfo`, `EgressStatus`, `FileInfo`, `SegmentsInfo`, `StreamInfo` | [livekit_egress.proto][proto-egress] |
 | `token::ApiKey`, `Claims`, `VideoGrant` | HS256 access tokens: `sign`, `verify` (issuer, `exp`, `nbf`, one minute of leeway); the secret never reaches `Debug` | [tokens and grants][lk-tokens], [auth][proto-auth] |
 | `webhook::WebhookReceiver`, `WebhookEvent` | verify a webhook's `Authorization` token and its body `sha256`, then parse the event | [webhooks][lk-hooks], [webhook package][proto-webhook] |
 | `LiveKitError`, `TwirpCode` | `failure_reason()` (`rejected` / `unavailable`) and `set_error()` | [Twirp errors][twirp] |
@@ -139,6 +139,25 @@ values omitted, so `EGRESS_STARTING` is absent). The `egress` response
 types read both. A non-2xx answer becomes `LiveKitError::Twirp` with the
 body's `code` and `msg`.
 
+Egresses start with LiveKit's unified `StartEgress` RPC (decision 64),
+not `StartRoomCompositeEgress`, which the proto lists under "TODO:
+deprecate". `UpdateLayout`, `StopEgress` and `ListEgress` are not
+deprecated and stay. A room composite is a `StartEgressRequest` whose
+`source` oneof is `template` (`TemplateSource`: `layout`,
+`custom_base_url`); protojson writes a oneof as its member's field, so a
+recording's request is
+
+```json
+{"room_name": "vtc-C1", "template": {"layout": "speaker"},
+ "outputs": [{"file": {"file_type": "MP4", "filepath": "jmap-vtc/recordings/R1.mp4"},
+              "storage": {"s3": {"access_key": "...", "secret": "...", "bucket": "media"}}}]}
+```
+
+Storage now sits on each `Output` (`storage`, "falls back to request,
+then server") instead of inside the file or segment output; the crate
+sets it per output, as it set `s3` per output before. The egress still
+takes at most one file, one stream and one segmented output.
+
 `LiveKitMedia` keeps no state. A start returns an `EgressJob`; the
 deployment stores it and finds it by `egress_id` when a webhook arrives.
 The adapter never writes the JMAP store itself: state changes go through
@@ -194,17 +213,36 @@ constructor plus `with_*` methods.
 - **Webhooks are best effort.** LiveKit retries but does not guarantee
   delivery. Without the final webhook an object stays where it is; poll
   `EgressClient::list_egress` and feed the infos to `report_egress`.
-- **Egress per type.** "Egress supports only a single item per type", so
-  a livestream is one egress and a recording another, even for the same
-  call (each costs a browser and an encoder on the egress workers).
+- **Egress per type.** "Egress supports only a single item per type"
+  (the egress worker refuses "multiple file outputs", and likewise for
+  stream and segmented outputs), so a livestream is one egress and a
+  recording another, even for the same call (each costs a browser and an
+  encoder on the egress workers).
+- **Needs LiveKit server v1.13.2 and egress v1.14.0 or later.** The crate
+  starts egresses with the unified `StartEgress` RPC (decision 64), and
+  older LiveKit refuses it; there is no fallback to
+  `StartRoomCompositeEgress`. The first server release that serves it is
+  [v1.13.2][lk-1.13.2] (2026-06-27, "egress v2 api", [livekit#4592][lk-4592]).
+  Through [v1.12.0][lk-1.12.0] the Twirp router has no such method and
+  answers `bad_route` (404); [v1.13.1][lk-1.13.1] has the method but
+  answers "not implemented" (a plain Go error, so `internal`, 500). Both
+  become `LiveKitError::Twirp` with `failure_reason()` `unavailable`. The
+  egress workers must be [v1.14.0][eg-1.14.0] (2026-08-06) or later too:
+  earlier workers have no case for the new request kind and refuse it
+  ("request has missing or invalid field: request", psrpc
+  `InvalidArgument`), which presumably reaches the caller as
+  `invalid_argument` (so `rejected`, though the moderator did nothing
+  wrong). A self-hosted deployment upgrades both before using this
+  crate.
 - **Ed25519 tokens.** LiveKit can also sign with Ed25519 keys
   (`livekit-v2+jwt`); this crate verifies HS256 only.
-- **Unconfirmed** (checked against the docs and livekit/protocol `main`
-  on 2026-11-21, not against a running server): that `EgressInfo.started_at`
-  is set only once the egress is active (used to tell `"interrupted"` from
-  `"rejected"`); which Twirp code `StartRoomCompositeEgress` returns for a
-  room that does not exist; that the deprecated `StartRoomCompositeEgress`
-  stays served now that `main` adds a unified `StartEgress` RPC; LiveKit's
+- **Unconfirmed** (checked against the docs, livekit/protocol `main`,
+  and the livekit/livekit and livekit/egress sources at the tags named
+  above on 2026-11-21, not against a running server): that
+  `EgressInfo.started_at` is set only once the egress is active (used to
+  tell `"interrupted"` from `"rejected"`); which Twirp code `StartEgress`
+  returns for a room that does not exist; the exact Twirp codes older
+  servers and workers answer `StartEgress` with (above); LiveKit's
   default layout when `layout` is empty (the crate always sends one);
   egress latency.
 - **Tests never call LiveKit.** They run against a wiremock stub, and the
@@ -220,7 +258,9 @@ constructor plus `with_*` methods.
 - [LiveKit composite recording][lk-comp]
 - [LiveKit tokens and grants][lk-tokens]
 - [LiveKit webhooks][lk-hooks]
-- [livekit/protocol `livekit_egress.proto`][proto-egress], [`livekit_webhook.proto`][proto-webhook-proto], [`auth`][proto-auth], [`webhook`][proto-webhook]
+- [livekit/protocol `livekit_egress.proto`][proto-egress] (`StartEgress`, `StartEgressRequest`, `TemplateSource`, `Output`, `StorageConfig`), [`livekit_egress.twirp.go`][proto-twirp] (route `/twirp/livekit.Egress/StartEgress`; `DiscardUnknown: true`; `UseProtoNames: !jsonCamelCase`, `EmitUnpopulated: !jsonSkipDefaults`), [`livekit_webhook.proto`][proto-webhook-proto], [`auth`][proto-auth], [`webhook`][proto-webhook]
+- livekit/livekit: [v1.13.2][lk-1.13.2], the first release serving `StartEgress` ([egress v2 api, #4592][lk-4592]); [v1.13.1 `egress.go`][lk-1.13.1] (the "not implemented" stub); [v1.12.0 `egress.go`][lk-1.12.0] (no `StartEgress`)
+- livekit/egress: [v1.14.0][eg-1.14.0], the first worker release that handles the request (`pkg/config/pipeline.go`, `pkg/config/output.go`)
 - [Twirp wire protocol][twirp]
 - [MediaMTX][mtx]
 - docs/design/vtc-broadcast-research.md §2, §3.2 — the media backend research
@@ -232,6 +272,12 @@ constructor plus `with_*` methods.
 [lk-tokens]: https://docs.livekit.io/frontends/reference/tokens-grants/
 [lk-hooks]: https://docs.livekit.io/home/server/webhooks/
 [proto-egress]: https://github.com/livekit/protocol/blob/main/protobufs/livekit_egress.proto
+[proto-twirp]: https://github.com/livekit/protocol/blob/main/livekit/livekit_egress.twirp.go
+[lk-1.13.2]: https://github.com/livekit/livekit/releases/tag/v1.13.2
+[lk-4592]: https://github.com/livekit/livekit/pull/4592
+[lk-1.13.1]: https://github.com/livekit/livekit/blob/v1.13.1/pkg/service/egress.go
+[lk-1.12.0]: https://github.com/livekit/livekit/blob/v1.12.0/pkg/service/egress.go
+[eg-1.14.0]: https://github.com/livekit/egress/releases/tag/v1.14.0
 [proto-webhook-proto]: https://github.com/livekit/protocol/blob/main/protobufs/livekit_webhook.proto
 [proto-auth]: https://github.com/livekit/protocol/tree/main/auth
 [proto-webhook]: https://github.com/livekit/protocol/tree/main/webhook

@@ -9,9 +9,18 @@
 //! and `protobufs/livekit_egress.proto` in livekit/protocol (field names,
 //! enum names, `EgressStatus` numbers).
 //!
+//! Egresses start with the unified `StartEgress` RPC
+//! ([`StartEgressRequest`] with the `template` source), not the
+//! `StartRoomCompositeEgress` RPC the proto marks "TODO: deprecate"
+//! (decision 64); `UpdateLayout`, `StopEgress` and `ListEgress` are not
+//! deprecated. LiveKit servers before v1.13.2 and egress workers before
+//! v1.14.0 refuse `StartEgress`.
+//!
 //! JSON shape: requests use the proto field names (`room_name`), which the
 //! server's protojson decoder accepts along with the lowerCamelCase JSON
-//! names. LiveKit's Twirp server answers with the proto names, every field
+//! names (and it discards unknown fields: `DiscardUnknown: true`). A oneof
+//! is its member's field (`"template": {...}`, `"preset": "..."`,
+//! `"file": {...}`). LiveKit's Twirp server answers with the proto names, every field
 //! present, `int64` values as JSON strings and enums by name
 //! (`livekit_egress.twirp.go`: `UseProtoNames: !jsonCamelCase,
 //! EmitUnpopulated: !jsonSkipDefaults`, neither option set by the server).
@@ -269,9 +278,10 @@ impl fmt::Debug for S3Upload {
     }
 }
 
-/// `EncodedFileOutput`: one file. `filepath` "Supports templating"
+/// `FileOutput`: one file. `filepath` "Supports templating"
 /// (`{room_name}`, `{room_id}`, `{time}`); the default is
-/// `{room_name}-{time}`.
+/// `{room_name}-{time}`. Where it is uploaded is the [`Output`]'s
+/// storage.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct FileOutput {
@@ -279,9 +289,6 @@ pub struct FileOutput {
     pub file_type: EncodedFileType,
     /// `filepath`: the object key (or path) of the file.
     pub filepath: String,
-    /// `s3`, or `None` for the egress server's configured storage.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub s3: Option<S3Upload>,
 }
 
 impl FileOutput {
@@ -290,20 +297,13 @@ impl FileOutput {
         Self {
             file_type: EncodedFileType::Mp4,
             filepath: filepath.into(),
-            s3: None,
-        }
-    }
-
-    /// This output uploaded to `s3`.
-    pub fn with_s3(self, s3: S3Upload) -> Self {
-        Self {
-            s3: Some(s3),
-            ..self
         }
     }
 }
 
-/// `SegmentedFileOutput`: HLS segments and playlists.
+/// `SegmentedFileOutput`: HLS segments and playlists. Where they are
+/// uploaded is the [`Output`]'s storage (the message's own `s3` is marked
+/// "TODO: deprecate" and never sent).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct SegmentOutput {
@@ -313,16 +313,13 @@ pub struct SegmentOutput {
     pub filename_prefix: String,
     /// `playlist_name`: the full playlist.
     pub playlist_name: String,
-    /// `live_playlist_name`: "when provided, we'll generate a playlist
-    /// containing only the last few segments".
+    /// `live_playlist_name`: "Path of a live playlist", one containing
+    /// only the last few segments.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub live_playlist_name: Option<String>,
     /// `segment_duration` in seconds (LiveKit's default when `None`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub segment_duration: Option<u32>,
-    /// `s3`, or `None` for the egress server's configured storage.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub s3: Option<S3Upload>,
 }
 
 impl SegmentOutput {
@@ -335,7 +332,6 @@ impl SegmentOutput {
             playlist_name: playlist_name.into(),
             live_playlist_name: None,
             segment_duration: None,
-            s3: None,
         }
     }
 
@@ -351,14 +347,6 @@ impl SegmentOutput {
     pub fn with_segment_duration(self, seconds: u32) -> Self {
         Self {
             segment_duration: Some(seconds),
-            ..self
-        }
-    }
-
-    /// This output uploaded to `s3`.
-    pub fn with_s3(self, s3: S3Upload) -> Self {
-        Self {
-            s3: Some(s3),
             ..self
         }
     }
@@ -393,17 +381,98 @@ impl fmt::Debug for StreamOutput {
     }
 }
 
-/// `RoomCompositeEgressRequest`: a room rendered by the egress's web
-/// template in `layout`, to at most one output of each kind ("Egress
-/// supports only a single item per type").
+/// The `config` oneof of an [`Output`]: what it writes. Serialized as the
+/// oneof member's field (`file`, `stream`, `segments`).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct RoomCompositeRequest {
-    /// `room_name`.
-    pub room_name: String,
-    /// `layout`: "Layout parameter that is passed to the template"; the
-    /// default template knows `grid`, `speaker` and `single-speaker`,
-    /// each with a `-light` variant.
+#[serde(rename_all = "snake_case")]
+pub enum OutputConfig {
+    /// `file`.
+    File(FileOutput),
+    /// `stream`.
+    Stream(StreamOutput),
+    /// `segments`.
+    Segments(SegmentOutput),
+}
+
+impl OutputConfig {
+    fn same_kind(&self, other: &Self) -> bool {
+        std::mem::discriminant(self) == std::mem::discriminant(other)
+    }
+}
+
+/// `Output`: one output of a [`StartEgressRequest`] with its own storage.
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct Output {
+    /// The `config` oneof.
+    #[serde(flatten)]
+    pub config: OutputConfig,
+    /// `storage`: "Per-output storage override (falls back to request,
+    /// then server)"; sent as `{"s3": ...}`.
+    #[serde(
+        skip_serializing_if = "Option::is_none",
+        serialize_with = "storage_config"
+    )]
+    pub storage: Option<S3Upload>,
+}
+
+impl Output {
+    /// An output writing `config`, to the request's or the server's
+    /// storage.
+    pub fn new(config: OutputConfig) -> Self {
+        Self {
+            config,
+            storage: None,
+        }
+    }
+
+    /// This output uploaded to `s3`.
+    pub fn with_s3(self, s3: S3Upload) -> Self {
+        Self {
+            storage: Some(s3),
+            ..self
+        }
+    }
+}
+
+impl From<FileOutput> for Output {
+    fn from(file: FileOutput) -> Self {
+        Self::new(OutputConfig::File(file))
+    }
+}
+
+impl From<StreamOutput> for Output {
+    fn from(stream: StreamOutput) -> Self {
+        Self::new(OutputConfig::Stream(stream))
+    }
+}
+
+impl From<SegmentOutput> for Output {
+    fn from(segments: SegmentOutput) -> Self {
+        Self::new(OutputConfig::Segments(segments))
+    }
+}
+
+/// A `StorageConfig` holding its `s3` provider.
+fn storage_config<S: serde::Serializer>(s3: &Option<S3Upload>, s: S) -> Result<S::Ok, S::Error> {
+    #[derive(Serialize)]
+    struct StorageConfig<'a> {
+        s3: &'a S3Upload,
+    }
+    match s3 {
+        Some(s3) => StorageConfig { s3 }.serialize(s),
+        None => s.serialize_none(),
+    }
+}
+
+/// `TemplateSource`: "Room composite recording via layout template".
+#[non_exhaustive]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+pub struct TemplateSource {
+    /// `layout`, passed to the template; the default template knows
+    /// `grid`, `speaker` and `single-speaker`, each with a `-light`
+    /// variant.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub layout: Option<String>,
     /// `audio_only`.
@@ -412,41 +481,49 @@ pub struct RoomCompositeRequest {
     /// `custom_base_url`: a custom template.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub custom_base_url: Option<String>,
-    /// `preset`.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub preset: Option<EncodingPreset>,
-    /// `file_outputs` (at most one).
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub file_outputs: Vec<FileOutput>,
-    /// `stream_outputs` (at most one).
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub stream_outputs: Vec<StreamOutput>,
-    /// `segment_outputs` (at most one).
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub segment_outputs: Vec<SegmentOutput>,
 }
 
-impl RoomCompositeRequest {
-    /// A composite of `room_name` with no output yet.
-    pub fn new(room_name: impl Into<String>) -> Self {
+/// `StartEgressRequest` with the `template` source: a room rendered by
+/// the egress's web template in `layout` (a room-composite egress), to at
+/// most one output of each kind (the egress refuses "multiple file
+/// outputs", and likewise for stream and segmented outputs).
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct StartEgressRequest {
+    /// `room_name`.
+    pub room_name: String,
+    /// `template`, the `source` oneof member.
+    pub template: TemplateSource,
+    /// `preset`, the `encoding` oneof member ("Optional — default
+    /// H264_720P_30").
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub preset: Option<EncodingPreset>,
+    /// `outputs`: "At least one required".
+    pub outputs: Vec<Output>,
+    /// `storage`: "Request-level storage default", sent as `{"s3": ...}`.
+    #[serde(
+        skip_serializing_if = "Option::is_none",
+        serialize_with = "storage_config"
+    )]
+    pub storage: Option<S3Upload>,
+}
+
+impl StartEgressRequest {
+    /// A room composite of `room_name` with no output yet.
+    pub fn room_composite(room_name: impl Into<String>) -> Self {
         Self {
             room_name: room_name.into(),
-            layout: None,
-            audio_only: false,
-            custom_base_url: None,
+            template: TemplateSource::default(),
             preset: None,
-            file_outputs: Vec::new(),
-            stream_outputs: Vec::new(),
-            segment_outputs: Vec::new(),
+            outputs: Vec::new(),
+            storage: None,
         }
     }
 
     /// This request in `layout`.
-    pub fn with_layout(self, layout: impl Into<String>) -> Self {
-        Self {
-            layout: Some(layout.into()),
-            ..self
-        }
+    pub fn with_layout(mut self, layout: impl Into<String>) -> Self {
+        self.template.layout = Some(layout.into());
+        self
     }
 
     /// This request with encoding `preset`.
@@ -458,28 +535,25 @@ impl RoomCompositeRequest {
     }
 
     /// This request rendering template `url`.
-    pub fn with_custom_base_url(self, url: impl Into<String>) -> Self {
+    pub fn with_custom_base_url(mut self, url: impl Into<String>) -> Self {
+        self.template.custom_base_url = Some(url.into());
+        self
+    }
+
+    /// This request uploading to `s3` unless an output says otherwise.
+    pub fn with_storage(self, s3: S3Upload) -> Self {
         Self {
-            custom_base_url: Some(url.into()),
+            storage: Some(s3),
             ..self
         }
     }
 
-    /// This request writing `file`.
-    pub fn with_file(mut self, file: FileOutput) -> Self {
-        self.file_outputs = vec![file];
-        self
-    }
-
-    /// This request streaming to `stream`.
-    pub fn with_stream(mut self, stream: StreamOutput) -> Self {
-        self.stream_outputs = vec![stream];
-        self
-    }
-
-    /// This request writing `segments`.
-    pub fn with_segments(mut self, segments: SegmentOutput) -> Self {
-        self.segment_outputs = vec![segments];
+    /// This request with `output`, in place of any output of the same
+    /// kind.
+    pub fn with_output(mut self, output: impl Into<Output>) -> Self {
+        let output = output.into();
+        self.outputs.retain(|o| !o.config.same_kind(&output.config));
+        self.outputs.push(output);
         self
     }
 }
@@ -736,16 +810,22 @@ impl EgressClient {
         &self.api_key
     }
 
-    /// `StartRoomCompositeEgress`.
+    /// `StartEgress`, the unified start RPC, in place of
+    /// `StartRoomCompositeEgress` (marked "TODO: deprecate").
+    ///
+    /// LiveKit servers before v1.13.2 refuse it: through v1.12.0 the Twirp
+    /// router has no such method (`bad_route`, 404), and v1.13.1 answers
+    /// "not implemented". Egress workers before v1.14.0 reject the request
+    /// too.
     ///
     /// # Errors
     ///
     /// The call's [`LiveKitError`].
-    pub async fn start_room_composite_egress(
+    pub async fn start_egress(
         &self,
-        request: &RoomCompositeRequest,
+        request: &StartEgressRequest,
     ) -> Result<EgressInfo, LiveKitError> {
-        self.call("StartRoomCompositeEgress", request).await
+        self.call("StartEgress", request).await
     }
 
     /// `UpdateLayout`: "Used to change the web layout on an active
@@ -860,7 +940,8 @@ mod tests {
             "status": "EGRESS_ACTIVE", "started_at": "1700000000000000000",
             "ended_at": "0", "updated_at": "0", "error": "", "error_code": 0,
             "details": "", "stream_results": [], "file_results": [],
-            "segment_results": [], "image_results": [], "room_composite": {}
+            "segment_results": [], "image_results": [],
+            "egress": {"room_name": "r", "template": {"layout": "grid"}}
         }))
         .unwrap();
         assert_eq!(twirp.status, EgressStatus::Active);

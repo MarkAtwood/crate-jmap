@@ -17,8 +17,8 @@ wire behaviour that a conforming peer can observe.
 - **jmap-vtc-livekit**: new support crate, the LiveKit media backend for
   `jmap-vtc-server` (bd:JMAP-po6q.6, decision 63): every livestream and
   recording is one LiveKit room-composite egress, started over the Egress
-  Twirp JSON API (`egress::EgressClient`: `StartRoomCompositeEgress`,
-  `UpdateLayout`, `StopEgress`, `ListEgress`) with an HS256 access token
+  Twirp JSON API (`egress::EgressClient`: `StartEgress`, `UpdateLayout`,
+  `StopEgress`, `ListEgress`) with an HS256 access token
   carrying the `roomRecord` grant (`token::ApiKey`, signed with ring; no
   JWT crate). `LiveKitMedia` pushes to `streamUri` over RTMP(S) or SRT
   with the stream key presented per §Presenting the Stream Key, serves
@@ -32,8 +32,13 @@ wire behaviour that a conforming peer can observe.
   the room-emptied idle stop, and a finished recording moved to
   `"processing"` with the uploaded file to import. LiveKit has no egress
   pause, so the crate does not emulate one: advertise
-  `supportsRecordingPause: false`. Re-exports `reqwest` and `url`. Not
-  published yet.
+  `supportsRecordingPause: false`. Egresses start with LiveKit's unified
+  `StartEgress` RPC (`egress::StartEgressRequest` with the `template`
+  source and `Output`s carrying their own storage), not the deprecated
+  `StartRoomCompositeEgress` (decision 64), so the crate needs LiveKit
+  server v1.13.2 and egress v1.14.0 or later: older servers refuse the
+  call (`bad_route`, or "not implemented" in v1.13.1). Re-exports
+  `reqwest` and `url`. Not published yet.
 - **jmap-vtc-ffmpeg**: new support crate, the free-tools media backend
   for `jmap-vtc-server` (bd:JMAP-po6q.7, decision 57,
   docs/design/vtc-broadcast-research.md §3.3): the vendor-neutral

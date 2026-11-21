@@ -73,7 +73,7 @@ async fn recording_lifecycle() {
     let server = MockServer::start().await;
     on(
         &server,
-        "StartRoomCompositeEgress",
+        "StartEgress",
         ResponseTemplate::new(200).set_body_json(egress_info("EG_rec1", "EGRESS_STARTING")),
     )
     .await;
@@ -96,22 +96,24 @@ async fn recording_lifecycle() {
         .await
         .unwrap();
     assert_eq!(job.object, JobObject::Recording { id: id.clone() });
-    let r = &sent(&server, "StartRoomCompositeEgress").await[0];
+    let r = &sent(&server, "StartEgress").await[0];
     assert_egress_auth(r);
     assert_eq!(
         body(r),
         json!({
             "room_name": ROOM,
-            "layout": "speaker",
-            "file_outputs": [{
-                "file_type": "MP4",
-                "filepath": format!("jmap-vtc/recordings/{id}.mp4"),
-                "s3": {
+            "template": {"layout": "speaker"},
+            "outputs": [{
+                "file": {
+                    "file_type": "MP4",
+                    "filepath": format!("jmap-vtc/recordings/{id}.mp4")
+                },
+                "storage": {"s3": {
                     "access_key": "AKIDEXAMPLE",
                     "secret": "s3-secret",
                     "region": "us-west-2",
                     "bucket": "media"
-                }
+                }}
             }]
         })
     );
@@ -197,7 +199,7 @@ async fn room_emptied_stops_the_recording() {
     let server = MockServer::start().await;
     on(
         &server,
-        "StartRoomCompositeEgress",
+        "StartEgress",
         ResponseTemplate::new(200).set_body_json(egress_info("EG_rec2", "EGRESS_STARTING")),
     )
     .await;
@@ -220,7 +222,7 @@ async fn room_emptied_stops_the_recording() {
         .unwrap();
     // `layout: null` is drawn in the default layout.
     assert_eq!(
-        body(&sent(&server, "StartRoomCompositeEgress").await[0])["layout"],
+        body(&sent(&server, "StartEgress").await[0])["template"]["layout"],
         "speaker"
     );
     let caller = system();
