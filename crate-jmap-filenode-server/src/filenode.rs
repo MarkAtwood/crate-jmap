@@ -2789,6 +2789,11 @@ pub(crate) async fn filenode_copy<B: FileNodeBackend>(
         None => return Err(JmapError::invalid_arguments("fromAccountId is required")),
     };
     let (account_id, mut args) = extract_account_id(args)?;
+    // No same-account check, unlike every other Foo/copy here:
+    // draft-ietf-jmap-filenode-20 §3.2.4 "Unlike other Foo/copy methods
+    // (RFC 8620 §5.4), FileNode/copy allows accountId to be the same as
+    // fromAccountId, so a client can copy a node or a tree within one
+    // account."
 
     // Verify both accounts exist. RFC 8620 §5.4 distinguishes
     // fromAccountNotFound (the source) from accountNotFound (the

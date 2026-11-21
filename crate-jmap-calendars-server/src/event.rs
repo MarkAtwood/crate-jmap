@@ -1117,7 +1117,7 @@ async fn set_destroy<B: CalendarsBackend>(
 /// Returns a method-level [`JmapError`]:
 ///
 /// - `invalidArguments` when `accountId` or `fromAccountId` is missing or not
-///   a valid Id;
+///   a valid Id, or `fromAccountId` equals `accountId`;
 /// - `accountNotFound` when the backend does not know `accountId`;
 /// - `fromAccountNotFound` when the backend does not know `fromAccountId`;
 /// - `stateMismatch` when `ifFromInState` or `ifInState` is not the current
@@ -1173,6 +1173,12 @@ pub(crate) async fn calendar_event_copy<B: CalendarsBackend>(
         None => return Err(JmapError::invalid_arguments("fromAccountId is required")),
     };
 
+    // RFC 8620 §5.4: fromAccountId MUST differ from accountId.
+    if from_account_id == account_id {
+        return Err(JmapError::invalid_arguments(
+            "fromAccountId must be different from accountId",
+        ));
+    }
     if !backend
         .account_exists(caller, &from_account_id)
         .await
@@ -2077,14 +2083,50 @@ mod tests {
         );
     }
 
+    /// Oracle: RFC 8620 §5.4 — `fromAccountId` "MUST be different" from
+    /// `accountId`. As in the canonical `Email/copy`, a same-account copy is
+    /// `invalidArguments`, checked after `accountNotFound` and the shape of
+    /// `fromAccountId`, and before `fromAccountNotFound`.
+    #[tokio::test]
+    async fn copy_same_account_returns_invalid_arguments() {
+        let backend = MockBackend::new_with_account("acc");
+        let err = handle_calendar_event_copy(
+            &backend,
+            &(),
+            json!({
+                "accountId": "acc",
+                "fromAccountId": "acc",
+                "create": { "c1": { "id": "ev1" } }
+            }),
+            "c0",
+            &[],
+        )
+        .await
+        .expect_err("same-account CalendarEvent/copy must be rejected");
+        assert_eq!(err.error_type.to_string(), "invalidArguments", "{err:?}");
+
+        // An unknown account is still accountNotFound: that check comes first.
+        let err = handle_calendar_event_copy(
+            &backend,
+            &(),
+            json!({ "accountId": "nosuch", "fromAccountId": "nosuch", "create": {} }),
+            "c0",
+            &[],
+        )
+        .await
+        .expect_err("unknown account must be rejected");
+        assert_eq!(err.error_type.to_string(), "accountNotFound", "{err:?}");
+    }
+
     /// Oracle: RFC 8620 §5.4 — when the source id is absent from the create
     /// entry, `notCreated` must contain `invalidProperties` with `properties: ["id"]`.
     #[tokio::test]
     async fn copy_missing_source_id_returns_invalid_properties() {
         let backend = MockBackend::new_with_account("acc");
+        backend.add_account("src");
         let args = json!({
             "accountId": "acc",
-            "fromAccountId": "acc",
+            "fromAccountId": "src",
             "create": {
                 "c1": { "calendarIds": { "cal1": true } }
             }
@@ -2127,9 +2169,10 @@ mod tests {
     #[tokio::test]
     async fn copy_non_string_source_id_returns_invalid_properties_with_description() {
         let backend = MockBackend::new_with_account("acc");
+        backend.add_account("src");
         let args = json!({
             "accountId": "acc",
-            "fromAccountId": "acc",
+            "fromAccountId": "src",
             "create": {
                 "c1": { "id": 42 },
                 "c2": { "id": null },
@@ -2165,9 +2208,10 @@ mod tests {
     #[tokio::test]
     async fn copy_source_not_found() {
         let backend = MockBackend::new_with_account("acc");
+        backend.add_account("src");
         let args = json!({
             "accountId": "acc",
-            "fromAccountId": "acc",
+            "fromAccountId": "src",
             "create": {
                 "c1": { "id": "no-such-event" }
             }
@@ -3905,8 +3949,9 @@ mod tests {
                 "calendarIds": { "cal1": true }
             }),
         );
+        backend.add_account("dst");
         let args = json!({
-            "accountId": "src",
+            "accountId": "dst",
             "fromAccountId": "src",
             "onSuccessDestroyOriginal": true,
             "create": {

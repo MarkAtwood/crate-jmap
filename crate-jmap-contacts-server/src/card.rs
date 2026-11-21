@@ -546,8 +546,7 @@ async fn set_destroy<B: ContactsBackend>(
 /// Returns a method-level [`JmapError`]:
 ///
 /// - `invalidArguments` when `accountId` or `fromAccountId` is missing or not
-///   a valid Id, or `fromAccountId`
-///   equals `accountId`;
+///   a valid Id, or `fromAccountId` equals `accountId`;
 /// - `accountNotFound` when the backend does not know `accountId`;
 /// - `fromAccountNotFound` when the backend does not know `fromAccountId`;
 /// - `stateMismatch` when `ifFromInState` or `ifInState` is not the current
@@ -583,6 +582,17 @@ pub(crate) async fn contact_card_copy<B: ContactsBackend>(
     }
     let (to_account_id, mut args) = extract_account_id(args)?;
 
+    // The canonical jmap-mail-server order: accountNotFound, then the
+    // shape of fromAccountId, then the same-account check, then
+    // fromAccountNotFound.
+    let to_exists = backend
+        .account_exists(caller, &to_account_id)
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?;
+    if !to_exists {
+        return Err(JmapError::account_not_found());
+    }
+
     let from_account_id = match args.get("fromAccountId").and_then(|v| v.as_str()) {
         Some(s) => Id::new_validated(s)
             .map_err(|e| JmapError::invalid_arguments(format!("fromAccountId: {e}")))?,
@@ -597,15 +607,6 @@ pub(crate) async fn contact_card_copy<B: ContactsBackend>(
         return Err(JmapError::invalid_arguments(
             "fromAccountId must be different from accountId",
         ));
-    }
-
-    // Verify both accounts exist.
-    let to_exists = backend
-        .account_exists(caller, &to_account_id)
-        .await
-        .map_err(|e| server_fail_from_backend(&e))?;
-    if !to_exists {
-        return Err(JmapError::account_not_found());
     }
 
     let from_exists = backend
@@ -1377,6 +1378,24 @@ mod tests {
             .await
             .expect_err("same-account copy must error");
         assert_eq!(err.error_type.to_string(), "invalidArguments");
+    }
+
+    /// Oracle: the canonical `Email/copy` order (RFC 8620 §3.6.2, §5.4):
+    /// `accountNotFound` comes before the shape of `fromAccountId` and the
+    /// same-account check, so an unknown account is reported as such even
+    /// when `fromAccountId` is missing or equal to it.
+    #[tokio::test]
+    async fn copy_unknown_account_precedes_from_account_checks() {
+        let backend = MockBackend::new_with_account("acc1");
+        for args in [
+            json!({ "accountId": "nosuch", "fromAccountId": "nosuch", "create": {} }),
+            json!({ "accountId": "nosuch", "create": {} }),
+        ] {
+            let err = handle_contact_card_copy(&backend, &(), args.clone(), "c0", &[])
+                .await
+                .expect_err("unknown account must error");
+            assert_eq!(err.error_type.to_string(), "accountNotFound", "{args}");
+        }
     }
 
     /// Oracle (RFC 8620 §5.4): `ifFromInState` checks the SOURCE account

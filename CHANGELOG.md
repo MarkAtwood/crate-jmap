@@ -120,6 +120,19 @@ wire behaviour that a conforming peer can observe.
   (jmap-chat-spec 55246b1). No registered type name comes near the
   limit.
 
+### Fixed
+
+- **jmap-calendars-server**: `CalendarEvent/copy` rejects a
+  `fromAccountId` equal to `accountId` with `invalidArguments`, as
+  `Email/copy` does (RFC 8620 §5.4: it "MUST be different"). Before this,
+  a same-account copy went ahead and duplicated the events within one
+  account (bd:JMAP-wr3k).
+- **jmap-contacts-server**: `ContactCard/copy` checks `accountId` for
+  `accountNotFound` before it looks at `fromAccountId`, in the
+  `Email/copy` order, so an unknown `accountId` is `accountNotFound` even
+  when `fromAccountId` is missing or equal to it; before this it was
+  `invalidArguments` (bd:JMAP-wr3k).
+
 ## [0.6.0] - 2026-11-20
 
 ### Added

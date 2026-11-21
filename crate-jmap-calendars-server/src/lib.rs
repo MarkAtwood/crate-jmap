@@ -503,6 +503,18 @@ pub(crate) mod test_support {
             b
         }
 
+        /// Register another, empty account, for `/copy` tests that need a
+        /// source and a destination (RFC 8620 §5.4: they "MUST be
+        /// different").
+        #[allow(dead_code)]
+        pub fn add_account(&self, account_id: &str) {
+            self.state
+                .lock()
+                .unwrap()
+                .entry(account_id.to_owned())
+                .or_default();
+        }
+
         /// Create an account where `calendar_id` is registered as having events.
         pub fn new_with_account_and_events(account_id: &str, calendar_id: &str) -> Self {
             let b = Self::new();
@@ -1576,6 +1588,7 @@ mod tests {
     #[tokio::test]
     async fn copy_missing_source_id_returns_invalid_properties() {
         let backend = Arc::new(MockBackend::new_with_account("acc1"));
+        backend.add_account("acc2");
         let mut dispatcher: Dispatcher<()> = Dispatcher::new();
         register_calendars_handlers(&mut dispatcher, Arc::clone(&backend));
 
@@ -1583,7 +1596,7 @@ mod tests {
             "CalendarEvent/copy",
             json!({
                 "accountId": "acc1",
-                "fromAccountId": "acc1",
+                "fromAccountId": "acc2",
                 "create": {
                     "c1": { "calendarIds": { "cal1": true } }
                 }
@@ -1613,6 +1626,7 @@ mod tests {
     #[tokio::test]
     async fn copy_source_event_not_found_returns_not_found() {
         let backend = Arc::new(MockBackend::new_with_account("acc1"));
+        backend.add_account("acc2");
         let mut dispatcher: Dispatcher<()> = Dispatcher::new();
         register_calendars_handlers(&mut dispatcher, Arc::clone(&backend));
 
@@ -1620,7 +1634,7 @@ mod tests {
             "CalendarEvent/copy",
             json!({
                 "accountId": "acc1",
-                "fromAccountId": "acc1",
+                "fromAccountId": "acc2",
                 "create": {
                     "c1": { "id": "no-such-event" }
                 }
