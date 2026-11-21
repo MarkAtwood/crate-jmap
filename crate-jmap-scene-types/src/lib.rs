@@ -37,7 +37,7 @@
 //!   (draft §SceneObject/interact).
 //! - `query` — the `/query` filters, including the `withinRadius` and
 //!   `withinBounds` spatial filters, and comparators of the four types.
-//! - `set_error` — the `contentPolicy` SetError type (draft §Content
+//! - `set_error` — the `contentPolicy` `SetError` type (draft §Content
 //!   Moderation for User-Created Objects).
 //! - [`JMAP_SCENE_WEBSOCKET_URI`] — the WebSocket capability
 //!   (scene-wss draft §Capability).

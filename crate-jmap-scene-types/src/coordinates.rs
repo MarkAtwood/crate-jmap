@@ -1,4 +1,4 @@
-//! draft-atwood-jmap-scene-00 §Coordinate System and §SceneBounds.
+//! draft-atwood-jmap-scene-00 §Coordinate System and §[`SceneBounds`].
 //!
 //! "Implementations MUST use this convention for all position,
 //! orientation, and scale values": right-handed, Y-up, meters,
@@ -40,7 +40,7 @@ pub(crate) fn identity_scale() -> Scale {
 }
 
 /// An axis-aligned bounding box in region-local coordinates
-/// (draft-atwood-jmap-scene-00 §SceneBounds). Embedded, not a top-level
+/// (draft-atwood-jmap-scene-00 §[`SceneBounds`]). Embedded, not a top-level
 /// JMAP data type.
 ///
 /// Each component of `max` "MUST be greater than or equal to the

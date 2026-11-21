@@ -1,4 +1,4 @@
-//! JMAP Graph — `Graph/*` method implementations on SessionClient
+//! JMAP Graph — `Graph/*` method implementations on `SessionClient`
 //! (draft-atwood-jmap-graph-00 §Graph Methods).
 
 use std::collections::BTreeMap;
@@ -74,8 +74,8 @@ impl super::SessionClient {
     ///
     /// Changing `isSubscribed` needs `mayRead`, `name` and `annotations`
     /// `mayWrite`, `shareWith` and destroy `mayAdmin` (L250). "When a Graph
-    /// is destroyed, the server MUST also destroy every GraphNode and
-    /// GraphEdge in it" (L254). Patch single annotation keys with
+    /// is destroyed, the server MUST also destroy every `GraphNode` and
+    /// `GraphEdge` in it" (L254). Patch single annotation keys with
     /// `annotations/<key>` paths (§Annotations).
     ///
     /// The result is the untyped [`SetResponse`]: per RFC 8620 §5.3 a

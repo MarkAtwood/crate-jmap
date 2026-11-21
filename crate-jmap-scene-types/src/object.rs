@@ -1,4 +1,4 @@
-//! draft-atwood-jmap-scene-00 §SceneObject.
+//! draft-atwood-jmap-scene-00 §[`SceneObject`].
 
 use jmap_types::{Id, UTCDate, impl_string_enum};
 use serde::{Deserialize, Serialize};
@@ -7,7 +7,7 @@ use crate::coordinates::identity_scale;
 use crate::{Orientation, Position, Scale};
 
 /// How the simulation layer treats a [`SceneObject`]'s physics: its
-/// `physicsMode` (draft-atwood-jmap-scene-00 §SceneObject Object Fields).
+/// `physicsMode` (draft-atwood-jmap-scene-00 §[`SceneObject`] Object Fields).
 /// Draft default `"static"`.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
@@ -32,8 +32,8 @@ impl_string_enum!(PhysicsMode, "a Scene physics mode string",
     "none" => None,
 );
 
-/// A positioned entity within a SceneRegion
-/// (draft-atwood-jmap-scene-00 §SceneObject).
+/// A positioned entity within a `SceneRegion`
+/// (draft-atwood-jmap-scene-00 §[`SceneObject`]).
 ///
 /// `T|null` properties are `Option<T>` and serialize `None` as `null`.
 /// `position`, `orientation` and `scale` are relative to the parent's
@@ -48,9 +48,9 @@ impl_string_enum!(PhysicsMode, "a Scene physics mode string",
 pub struct SceneObject {
     /// A ULID assigned at creation.
     pub id: Id,
-    /// The SceneRegion this object belongs to.
+    /// The `SceneRegion` this object belongs to.
     pub region_id: Id,
-    /// Parent SceneObject in the scene graph; `None` for a root object.
+    /// Parent [`SceneObject`] in the scene graph; [`None`] for a root object.
     pub parent_id: Option<Id>,
     /// Human-readable label.
     pub name: Option<String>,

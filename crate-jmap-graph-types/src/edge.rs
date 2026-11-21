@@ -1,10 +1,10 @@
-//! draft-atwood-jmap-graph-00 §GraphEdge.
+//! draft-atwood-jmap-graph-00 §[`GraphEdge`].
 
 use jmap_types::{Id, UTCDate};
 use serde::{Deserialize, Serialize};
 
 /// A directed link from one node to another in the same Graph
-/// (draft-atwood-jmap-graph-00 §GraphEdge).
+/// (draft-atwood-jmap-graph-00 §[`GraphEdge`]).
 ///
 /// "Any number of edges, of the same or different types, may connect the
 /// same pair of nodes in either direction." Checking that `fromId` and
@@ -17,9 +17,9 @@ pub struct GraphEdge {
     pub id: Id,
     /// "The id of the Graph the edge belongs to." Immutable.
     pub graph_id: Id,
-    /// "The id of the GraphNode the edge starts at."
+    /// "The id of the `GraphNode` the edge starts at."
     pub from_id: Id,
-    /// "The id of the GraphNode the edge ends at. It may equal `fromId`."
+    /// "The id of the `GraphNode` the edge ends at. It may equal `fromId`."
     pub to_id: Id,
     /// "An application-defined edge type. The server attaches no meaning
     /// to it." Draft default `""`. Untrusted (draft §Untrusted Data).

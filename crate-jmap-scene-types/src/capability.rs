@@ -55,10 +55,10 @@ pub const JMAP_SCENE_WEBSOCKET_URI: &str = "urn:ietf:params:jmap:scene:websocket
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SceneCapability {
-    /// `true` if the authenticated user may create new SceneRegion
+    /// `true` if the authenticated user may create new `SceneRegion`
     /// objects.
     pub may_create_region: bool,
-    /// `true` if the authenticated user may create new SceneObject
+    /// `true` if the authenticated user may create new `SceneObject`
     /// objects.
     pub may_create_object: bool,
     /// Media types the deployment supports for visual representations.
@@ -73,13 +73,13 @@ pub struct SceneCapability {
     pub max_avatars_per_region: Option<u64>,
     /// Maximum asset file size in bytes; `None` (`null`) means no limit.
     pub max_asset_size_bytes: Option<u64>,
-    /// `true` if the server supports the SceneAsset methods on this
-    /// account. "When `false`, a call to any SceneAsset method returns an
+    /// `true` if the server supports the `SceneAsset` methods on this
+    /// account. "When `false`, a call to any `SceneAsset` method returns an
     /// `unknownMethod` error" (draft-atwood-jmap-scene-00
     /// §Account-Level Capability Object).
     ///
     /// Defaults to `true` when absent, so a capability object from a peer
-    /// predating the field keeps SceneAsset enabled. Always serialized.
+    /// predating the field keeps `SceneAsset` enabled. Always serialized.
     #[serde(default = "crate::query::default_true")]
     pub supports_scene_asset: bool,
     /// Catch-all for vendor / site / private extension fields not covered

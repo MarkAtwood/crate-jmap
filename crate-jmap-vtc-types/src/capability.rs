@@ -1,4 +1,4 @@
-//! draft-atwood-jmap-vtc-00 §Capability and §VTCGateway — capability URI,
+//! draft-atwood-jmap-vtc-00 §Capability and §`VTCGateway` — capability URI,
 //! account-level capability object, and the gateway types it embeds.
 
 use jmap_types::impl_string_enum;
@@ -47,7 +47,7 @@ impl_string_enum!(MediaKind, "a VTC media type string",
 
 /// The `protocol` of a [`VtcGateway`] and of a
 /// [`VtcGatewaySignal`](crate::VtcGatewaySignal)
-/// (draft-atwood-jmap-vtc-00 §VTCGateway).
+/// (draft-atwood-jmap-vtc-00 §`VTCGateway`).
 ///
 /// The draft registers `"pstn"`, `"sip"` and `"h323"`; other protocols use
 /// reverse-domain notation and land in `Other`, which "Clients MUST
@@ -110,7 +110,7 @@ impl_string_enum!(GatewayProtocol, "a VTC gateway protocol string",
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VtcCapability {
-    /// `true` if the authenticated user may create new VTCCall objects.
+    /// `true` if the authenticated user may create new `VTCCall` objects.
     pub may_create_call: bool,
     /// `true` if the server supports ring calls (`callType: "ring"`).
     pub supports_ring_calls: bool,
@@ -119,14 +119,14 @@ pub struct VtcCapability {
     /// `true` if the server supports scheduled calls
     /// (`callType: "scheduled"`).
     pub supports_scheduled_calls: bool,
-    /// `true` if the server supports VTCRecording.
+    /// `true` if the server supports `VTCRecording`.
     pub supports_recording: bool,
-    /// `true` if the server supports VTCLivestream.
+    /// `true` if the server supports `VTCLivestream`.
     pub supports_livestream: bool,
-    /// The VTCLivestream modes the server accepts: one or both of `"push"`
+    /// The `VTCLivestream` modes the server accepts: one or both of `"push"`
     /// and `"hosted"`. Empty when `supports_livestream` is `false`.
     pub livestream_modes: Vec<crate::LivestreamMode>,
-    /// `true` if the server supports pausing and resuming a VTCRecording
+    /// `true` if the server supports pausing and resuming a `VTCRecording`
     /// (§Pausing, Resuming, and Stopping a Recording). Optional on the
     /// wire, "Default: `true`"; always serialized. "A client SHOULD NOT
     /// offer a pause control when it is `false`."
@@ -140,7 +140,7 @@ pub struct VtcCapability {
     /// [`Self::accepts_push_scheme`].
     pub livestream_push_schemes: Vec<String>,
     /// The composition layouts the server accepts in the `layout` of
-    /// VTCRecording and VTCLivestream (§Composition Layouts). Empty when
+    /// `VTCRecording` and `VTCLivestream` (§Composition Layouts). Empty when
     /// the server offers no choice of layout.
     pub layouts: Vec<crate::CompositionLayout>,
     /// `true` if the server supports lobby (waiting-room) mode.
@@ -209,7 +209,7 @@ impl VtcCapability {
 
 /// A protocol gateway through which external telephony or
 /// video-conferencing systems interoperate with calls
-/// (draft-atwood-jmap-vtc-00 §VTCGateway).
+/// (draft-atwood-jmap-vtc-00 §`VTCGateway`).
 ///
 /// Advertised in [`VtcCapability::gateways`]; not a JMAP object.
 #[non_exhaustive]
@@ -242,7 +242,7 @@ pub struct VtcGateway {
 }
 
 /// An address through which an external caller reaches a call via a
-/// gateway (draft-atwood-jmap-vtc-00 §VTCDialInEntry).
+/// gateway (draft-atwood-jmap-vtc-00 §`VTCDialInEntry`).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

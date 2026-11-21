@@ -8,7 +8,7 @@
 /// The `SetError` type a server uses for content that fails its content
 /// policy: "Servers MAY reject `SceneRegion/set` or `SceneObject/set`
 /// create or update requests that violate text or asset content policies
-/// with a `SetError` of type `contentPolicy`". "This SetError is only for
+/// with a `SetError` of type `contentPolicy`". "This `SetError` is only for
 /// a rejection made while processing the `/set` call."
 pub const CONTENT_POLICY: &str = "contentPolicy";
 

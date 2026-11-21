@@ -1,5 +1,5 @@
-//! JMAP Scene — `SceneRegion/*` method implementations on SessionClient
-//! (draft-atwood-jmap-scene-00 §SceneRegion Methods).
+//! JMAP Scene — `SceneRegion/*` method implementations on `SessionClient`
+//! (draft-atwood-jmap-scene-00 §[`SceneRegion`] Methods).
 
 use std::collections::BTreeMap;
 
@@ -15,7 +15,7 @@ use super::{
 impl super::SessionClient {
     /// `SceneRegion/get` (draft-atwood-jmap-scene-00 L921-L1037; RFC 8620 §5.1).
     ///
-    /// `ids: None` asks for every SceneRegion in the account, subject to the
+    /// `ids: None` asks for every [`SceneRegion`] in the account, subject to the
     /// server's `maxObjectsInGet` cap. `properties: None` returns all
     /// properties; a `properties` subset that omits a required
     /// [`SceneRegion`] field fails to decode, so request full objects.
@@ -67,7 +67,7 @@ impl super::SessionClient {
     /// `SceneRegion/set` (draft-atwood-jmap-scene-00 L1043-L1343; RFC 8620 §5.3).
     ///
     /// Creates, updates and destroys regions. A destroy also removes every
-    /// SceneObject and SceneAvatar in the region, which their `/changes`
+    /// `SceneObject` and `SceneAvatar` in the region, which their `/changes`
     /// report as destroyed (L1210).
     ///
     /// The result is the untyped [`SetResponse`]: per RFC 8620 §5.3 a

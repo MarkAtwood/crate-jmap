@@ -3,8 +3,8 @@
 //!
 //! - [`JMAP_GRAPH_EDIT_URI`], [`GraphEditCapability`] (§Capability).
 //! - [`GraphNode::edit_format`] and [`GraphNode::snapshot_seq`], the
-//!   §GraphNode Extensions properties.
-//! - [`GraphNodeOp`] (§The GraphNodeOp Data Type), with its `/query`
+//!   §[`GraphNode`] Extensions properties.
+//! - [`GraphNodeOp`] (§The [`GraphNodeOp`] Data Type), with its `/query`
 //!   [`GraphNodeOpFilterCondition`] and [`GraphNodeOpComparator`]
 //!   (§GraphNodeOp/query and GraphNodeOp/queryChanges).
 //! - [`OPS_COMPACTED`] (§Errors).
@@ -42,12 +42,12 @@ pub const JMAP_GRAPH_EDIT_URI: &str = "urn:ietf:params:jmap:graph:edit";
 /// carries any type string, so this only names it.
 pub const OPS_COMPACTED: &str = "opsCompacted";
 
-/// Wire name of the GraphNode `editFormat` extension property
-/// (draft-atwood-jmap-graph-edit-00 §GraphNode Extensions).
+/// Wire name of the [`GraphNode`] `editFormat` extension property
+/// (draft-atwood-jmap-graph-edit-00 §[`GraphNode`] Extensions).
 pub const GRAPH_NODE_EDIT_FORMAT_PROPERTY: &str = "editFormat";
 
-/// Wire name of the GraphNode `snapshotSeq` extension property
-/// (draft-atwood-jmap-graph-edit-00 §GraphNode Extensions).
+/// Wire name of the [`GraphNode`] `snapshotSeq` extension property
+/// (draft-atwood-jmap-graph-edit-00 §[`GraphNode`] Extensions).
 pub const GRAPH_NODE_SNAPSHOT_SEQ_PROPERTY: &str = "snapshotSeq";
 
 /// Account-level capability object for `"urn:ietf:params:jmap:graph:edit"`.
@@ -61,7 +61,7 @@ pub const GRAPH_NODE_SNAPSHOT_SEQ_PROPERTY: &str = "snapshotSeq";
 #[serde(rename_all = "camelCase")]
 pub struct GraphEditCapability {
     /// "The largest op, in octets before base64url encoding, that the
-    /// server accepts." A larger op is a `tooLarge` SetError.
+    /// server accepts." A larger op is a `tooLarge` `SetError`.
     pub max_op_size: u64,
     /// "The largest cursor data, in octets before base64url encoding, that
     /// the server accepts in `GraphNode/cursor`."
@@ -79,7 +79,7 @@ pub struct GraphEditCapability {
 }
 
 impl GraphNode {
-    /// The node's `editFormat` (draft-atwood-jmap-graph-edit-00 §GraphNode
+    /// The node's `editFormat` (draft-atwood-jmap-graph-edit-00 §[`GraphNode`]
     /// Extensions): "The media type of the node's ops, or `null` if the
     /// node has no edit log." Read from [`extra`](Self::extra).
     ///
@@ -96,7 +96,7 @@ impl GraphNode {
     }
 
     /// The node's `snapshotSeq` (draft-atwood-jmap-graph-edit-00
-    /// §GraphNode Extensions): "The `seq` of the last op included in the
+    /// §[`GraphNode`] Extensions): "The `seq` of the last op included in the
     /// node's current blob, or `null` if the node has no snapshot." Read
     /// from [`extra`](Self::extra).
     ///
@@ -106,7 +106,7 @@ impl GraphNode {
     /// # Errors
     ///
     /// Returns the deserialization error when the value is not an
-    /// UnsignedInt.
+    /// `UnsignedInt`.
     pub fn snapshot_seq(&self) -> Result<Option<u64>, serde_json::Error> {
         self.extra
             .get(GRAPH_NODE_SNAPSHOT_SEQ_PROPERTY)
@@ -115,10 +115,10 @@ impl GraphNode {
 }
 
 /// One op in a node's edit log (draft-atwood-jmap-graph-edit-00 §The
-/// GraphNodeOp Data Type). "Ops are immutable once created."
+/// [`GraphNodeOp`] Data Type). "Ops are immutable once created."
 ///
 /// Server-set properties are required on deserialize; a `/set` create
-/// argument (`nodeId`, `baseSeq`, `data`) is not a whole GraphNodeOp.
+/// argument (`nodeId`, `baseSeq`, `data`) is not a whole [`GraphNodeOp`].
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -127,7 +127,7 @@ pub struct GraphNodeOp {
     pub id: Id,
     /// "The id of the Graph of the op's node." Immutable, server-set.
     pub graph_id: Id,
-    /// "The id of the GraphNode whose content the op edits." Immutable.
+    /// "The id of the [`GraphNode`] whose content the op edits." Immutable.
     pub node_id: Id,
     /// "The op's position in the node's edit log. The first op of a node
     /// has `seq` 1, and each later op of that node has the previous op's
@@ -141,7 +141,7 @@ pub struct GraphNodeOp {
     pub data: String,
     /// "When the op was sequenced." Immutable, server-set.
     pub created: UTCDate,
-    /// "The id of the Principal that created the op", as for GraphNode
+    /// "The id of the Principal that created the op", as for [`GraphNode`]
     /// `createdBy`. Immutable, server-set. The only authorship the draft
     /// attests (§Attribution).
     pub created_by: Option<Id>,
@@ -157,11 +157,11 @@ pub struct GraphNodeOp {
 /// filter (draft-atwood-jmap-graph-edit-00 §GraphNodeOp/query and
 /// GraphNodeOp/queryChanges).
 ///
-/// "The `filter` argument MUST be a single FilterCondition, not a
-/// FilterOperator, and MUST include `nodeId`"; any other filter is
-/// `unsupportedFilter`. As with the GraphNode and GraphEdge filters (see
+/// "The `filter` argument MUST be a single `FilterCondition`, not a
+/// `FilterOperator`, and MUST include `nodeId`"; any other filter is
+/// `unsupportedFilter`. As with the [`GraphNode`] and `GraphEdge` filters (see
 /// `query`), `node_id` is required and unknown keys are
-/// rejected, so a FilterOperator, a condition without `nodeId` or an
+/// rejected, so a `FilterOperator`, a condition without `nodeId` or an
 /// unknown clause fails the decode.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -347,7 +347,7 @@ impl_string_enum!(GraphEditDataType, "a GraphEditStreamEnable dataTypes string",
 
 /// Client→server: start or replace the op and cursor subscription on this
 /// WebSocket connection (draft-atwood-jmap-graph-edit-00
-/// §GraphEditStreamEnable). "A new `GraphEditStreamEnable` replaces the
+/// §[`GraphEditStreamEnable`]). "A new [`GraphEditStreamEnable`] replaces the
 /// previous subscription in its entirety. Success is silent".
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -358,7 +358,7 @@ pub struct GraphEditStreamEnable {
     /// Absent unless the client sent one.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub id: Option<String>,
-    /// "The GraphNodes whose ops and cursors the client wishes to receive.
+    /// "The `GraphNode`s whose ops and cursors the client wishes to receive.
     /// An id matches that id in every account the user can access".
     pub node_ids: Vec<Id>,
     /// "A non-empty list of the event categories wanted". Recognized values
@@ -387,7 +387,7 @@ impl GraphEditStreamEnable {
 }
 
 /// Client→server: end the subscription (draft-atwood-jmap-graph-edit-00
-/// §GraphEditStreamDisable). Its "only property is `@type`".
+/// §[`GraphEditStreamDisable`]). Its "only property is `@type`".
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct GraphEditStreamDisable {
@@ -458,7 +458,7 @@ impl<'de> Deserialize<'de> for GraphEditStreamMessage {
 }
 
 /// An op sequenced on a subscribed node (draft-atwood-jmap-graph-edit-00
-/// §GraphNodeOpEvent). Server→client only, sent "when `\"ops\"` is in
+/// §[`GraphNodeOpEvent`]). Server→client only, sent "when `\"ops\"` is in
 /// `dataTypes`".
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -477,7 +477,7 @@ pub struct GraphNodeOpEvent {
 }
 
 /// Another user's cursor or selection in a subscribed node
-/// (draft-atwood-jmap-graph-edit-00 §GraphCursorEvent). Server→client only,
+/// (draft-atwood-jmap-graph-edit-00 §[`GraphCursorEvent`]). Server→client only,
 /// sent to connections "subscribed to the node with `\"cursors\"` in
 /// `dataTypes`".
 #[non_exhaustive]

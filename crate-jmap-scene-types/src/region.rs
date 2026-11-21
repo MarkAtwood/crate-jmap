@@ -1,4 +1,4 @@
-//! draft-atwood-jmap-scene-00 §SceneRegion, including GeoAnchor.
+//! draft-atwood-jmap-scene-00 §[`SceneRegion`], including [`GeoAnchor`].
 
 use jmap_types::{Id, UTCDate, impl_string_enum};
 use serde::{Deserialize, Serialize};
@@ -7,7 +7,7 @@ use crate::coordinates::identity_orientation;
 use crate::{Orientation, Position, SceneBounds};
 
 /// The advisory `viewHint` rendering mode of a [`SceneRegion`]
-/// (draft-atwood-jmap-scene-00 §SceneRegion Object Fields).
+/// (draft-atwood-jmap-scene-00 §[`SceneRegion`] Object Fields).
 ///
 /// "Clients MUST NOT fail when encountering an unrecognized value; they
 /// SHOULD fall back to `\"3d\"`." Deployment-specific reverse-domain hints
@@ -36,7 +36,7 @@ impl_string_enum!(ViewHint, "a Scene view hint string",
 );
 
 /// Who may enter a [`SceneRegion`]: its `accessPolicy`
-/// (draft-atwood-jmap-scene-00 §SceneRegion Object Fields). Draft default
+/// (draft-atwood-jmap-scene-00 §[`SceneRegion`] Object Fields). Draft default
 /// `"public"`.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
@@ -59,7 +59,7 @@ impl_string_enum!(AccessPolicy, "a Scene access policy string",
 );
 
 /// Anchors a region's local coordinate origin to a point in a reference
-/// frame (draft-atwood-jmap-scene-00 §SceneRegion, `geoAnchor`).
+/// frame (draft-atwood-jmap-scene-00 §[`SceneRegion`], `geoAnchor`).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -90,7 +90,7 @@ pub struct GeoAnchor {
 }
 
 /// A discrete bounded spatial environment users can enter
-/// (draft-atwood-jmap-scene-00 §SceneRegion).
+/// (draft-atwood-jmap-scene-00 §[`SceneRegion`]).
 ///
 /// `T|null` properties are `Option<T>` and serialize `None` as `null`.
 /// Properties whose absence and `null` the draft's examples keep apart
@@ -98,7 +98,7 @@ pub struct GeoAnchor {
 /// That covers the binding properties (`chatId`, `spaceId`, `channelId`,
 /// `activeCallId`), "present only when the corresponding companion
 /// capability is advertised", and `inputUri`, `geoAnchor` and
-/// `worldState`, which the draft's full SceneRegion examples omit
+/// `worldState`, which the draft's full [`SceneRegion`] examples omit
 /// (L894-954, L2808-2862, L3070-3100).
 ///
 /// `simulationUri` and `inputUri` are peer-supplied and untrusted; nothing
@@ -190,7 +190,7 @@ pub struct SceneRegion {
         skip_serializing_if = "Option::is_none"
     )]
     pub channel_id: Option<Option<Id>>,
-    /// Bound active VTCCall (`urn:ietf:params:jmap:vtc`).
+    /// Bound active `VTCCall` (`urn:ietf:params:jmap:vtc`).
     #[serde(
         default,
         deserialize_with = "crate::wire::present",

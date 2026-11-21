@@ -15,7 +15,7 @@ use crate::event::{
 };
 
 /// The recognized values of [`VtcStreamEnable::event_types`]
-/// (draft-atwood-jmap-vtc-wss-00 §VTCStreamEnable).
+/// (draft-atwood-jmap-vtc-wss-00 §`VTCStreamEnable`).
 ///
 /// "Unrecognized values in `eventTypes` that appear alongside recognized
 /// values MUST be silently ignored"; an `eventTypes` that is empty or holds
@@ -32,7 +32,7 @@ pub const VTC_EVENT_TYPES: &[&str] = &[
 ];
 
 /// One [`VtcStreamEnable::event_types`] value
-/// (draft-atwood-jmap-vtc-wss-00 §VTCStreamEnable); the recognized values
+/// (draft-atwood-jmap-vtc-wss-00 §`VTCStreamEnable`); the recognized values
 /// are [`VTC_EVENT_TYPES`].
 ///
 /// "Unrecognized values in `eventTypes` that appear alongside recognized
@@ -80,7 +80,7 @@ impl_string_enum!(VtcEventType, "a VTCStreamEnable eventTypes string",
 
 /// Client→server: start or replace the ephemeral VTC event subscription on
 /// this WebSocket connection (draft-atwood-jmap-vtc-wss-00
-/// §VTCStreamEnable).
+/// §`VTCStreamEnable`).
 ///
 /// Both filters default to `null`, so [`Default`] subscribes to every
 /// event of every call the user is in. `None` serializes as an explicit
@@ -94,7 +94,7 @@ pub struct VtcStreamEnable {
     /// Absent unless the client sent one.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub id: Option<String>,
-    /// VTCCall ids to receive events for; `None` means every call in which
+    /// `VTCCall` ids to receive events for; [`None`] means every call in which
     /// the user is a current participant.
     #[serde(default)]
     pub call_ids: Option<Vec<Id>>,
@@ -112,7 +112,7 @@ pub struct VtcStreamEnable {
 }
 
 /// Client→server: cancel all ephemeral VTC event delivery on this
-/// connection (draft-atwood-jmap-vtc-wss-00 §VTCStreamDisable).
+/// connection (draft-atwood-jmap-vtc-wss-00 §`VTCStreamDisable`).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct VtcStreamDisable {

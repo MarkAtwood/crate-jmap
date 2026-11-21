@@ -1,5 +1,5 @@
 //! draft-atwood-jmap-vtc-00 ephemeral WebSocket events: §WebSocket:
-//! VTCRingEvent, §VTCCallEndEvent, §VTCGatewaySignal and §In-Call
+//! `VTCRingEvent`, §`VTCCallEndEvent`, §`VTCGatewaySignal` and §In-Call
 //! Ephemeral Events.
 //!
 //! The event structs carry no `@type`; [`VtcEvent`] adds and dispatches
@@ -11,7 +11,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use crate::{CallRole, GatewayProtocol, MediaKind, RecordingState, VtcMediaState};
 
 /// The `endReason` of a [`VtcCallEndEvent`]: why ringing stopped on this
-/// device (draft-atwood-jmap-vtc-00 §VTCCallEndEvent).
+/// device (draft-atwood-jmap-vtc-00 §`VTCCallEndEvent`).
 ///
 /// "This is a per-device ring-disposition enum, distinct from
 /// VTCCall.endReason" ([`CallEndReason`](crate::CallEndReason)).
@@ -78,13 +78,13 @@ impl_string_enum!(ParticipantEventKind, "a VTC participant event string",
 );
 
 /// An incoming ring on a WebSocket connection
-/// (draft-atwood-jmap-vtc-00 §WebSocket: VTCRingEvent).
+/// (draft-atwood-jmap-vtc-00 §WebSocket: `VTCRingEvent`).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VtcRingEvent {
     /// The id of the call's hosting account, "the account that contains
-    /// the VTCCall and its VTCParticipant records" (draft-atwood-jmap-vtc-wss-00
+    /// the `VTCCall` and its `VTCParticipant` records" (draft-atwood-jmap-vtc-wss-00
     /// §Event Types); usually not the recipient's personal account.
     pub account_id: Id,
     /// The ringing call.
@@ -93,7 +93,7 @@ pub struct VtcRingEvent {
     pub initiator_id: String,
     /// The media types for this call.
     pub media_types: Vec<MediaKind>,
-    /// The media-layer entry point. Untrusted (§VTCCall `joinUri`).
+    /// The media-layer entry point. Untrusted (§`VTCCall` `joinUri`).
     pub join_uri: String,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
@@ -104,13 +104,13 @@ pub struct VtcRingEvent {
 }
 
 /// Tells a ringing device to stop ringing
-/// (draft-atwood-jmap-vtc-00 §VTCCallEndEvent).
+/// (draft-atwood-jmap-vtc-00 §`VTCCallEndEvent`).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VtcCallEndEvent {
     /// The id of the call's hosting account, "the account that contains
-    /// the VTCCall and its VTCParticipant records" (draft-atwood-jmap-vtc-wss-00
+    /// the `VTCCall` and its `VTCParticipant` records" (draft-atwood-jmap-vtc-wss-00
     /// §Event Types); usually not the recipient's personal account.
     pub account_id: Id,
     /// The call.
@@ -127,13 +127,13 @@ pub struct VtcCallEndEvent {
 
 /// A protocol-specific signal between a gateway and a call participant,
 /// relayed without interpretation (draft-atwood-jmap-vtc-00
-/// §VTCGatewaySignal).
+/// §`VTCGatewaySignal`).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VtcGatewaySignal {
     /// The id of the call's hosting account, "the account that contains
-    /// the VTCCall and its VTCParticipant records" (draft-atwood-jmap-vtc-wss-00
+    /// the `VTCCall` and its `VTCParticipant` records" (draft-atwood-jmap-vtc-wss-00
     /// §Event Types); usually not the recipient's personal account.
     pub account_id: Id,
     /// The call.
@@ -159,13 +159,13 @@ pub struct VtcGatewaySignal {
 }
 
 /// A participant joined, left or was kicked
-/// (draft-atwood-jmap-vtc-00 §VTCParticipantEvent).
+/// (draft-atwood-jmap-vtc-00 §`VTCParticipantEvent`).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VtcParticipantEvent {
     /// The id of the call's hosting account, "the account that contains
-    /// the VTCCall and its VTCParticipant records" (draft-atwood-jmap-vtc-wss-00
+    /// the `VTCCall` and its `VTCParticipant` records" (draft-atwood-jmap-vtc-wss-00
     /// §Event Types); usually not the recipient's personal account.
     pub account_id: Id,
     /// The call.
@@ -187,13 +187,13 @@ pub struct VtcParticipantEvent {
 }
 
 /// A participant's media state changed
-/// (draft-atwood-jmap-vtc-00 §VTCMediaStateEvent).
+/// (draft-atwood-jmap-vtc-00 §`VTCMediaStateEvent`).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VtcMediaStateEvent {
     /// The id of the call's hosting account, "the account that contains
-    /// the VTCCall and its VTCParticipant records" (draft-atwood-jmap-vtc-wss-00
+    /// the `VTCCall` and its `VTCParticipant` records" (draft-atwood-jmap-vtc-wss-00
     /// §Event Types); usually not the recipient's personal account.
     pub account_id: Id,
     /// The call.
@@ -211,13 +211,13 @@ pub struct VtcMediaStateEvent {
 }
 
 /// The active (dominant) speaker changed
-/// (draft-atwood-jmap-vtc-00 §VTCActiveSpeakerEvent).
+/// (draft-atwood-jmap-vtc-00 §`VTCActiveSpeakerEvent`).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VtcActiveSpeakerEvent {
     /// The id of the call's hosting account, "the account that contains
-    /// the VTCCall and its VTCParticipant records" (draft-atwood-jmap-vtc-wss-00
+    /// the `VTCCall` and its `VTCParticipant` records" (draft-atwood-jmap-vtc-wss-00
     /// §Event Types); usually not the recipient's personal account.
     pub account_id: Id,
     /// The call.
@@ -233,13 +233,13 @@ pub struct VtcActiveSpeakerEvent {
 }
 
 /// A moderator asked a participant to unmute
-/// (draft-atwood-jmap-vtc-00 §VTCUnmuteRequestEvent).
+/// (draft-atwood-jmap-vtc-00 §`VTCUnmuteRequestEvent`).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VtcUnmuteRequestEvent {
     /// The id of the call's hosting account, "the account that contains
-    /// the VTCCall and its VTCParticipant records" (draft-atwood-jmap-vtc-wss-00
+    /// the `VTCCall` and its `VTCParticipant` records" (draft-atwood-jmap-vtc-wss-00
     /// §Event Types); usually not the recipient's personal account.
     pub account_id: Id,
     /// The call.
@@ -257,7 +257,7 @@ pub struct VtcUnmuteRequestEvent {
 }
 
 /// Recording state changed: "This is the consent signal"
-/// (draft-atwood-jmap-vtc-00 §VTCRecordingStateEvent, §Recording Consent).
+/// (draft-atwood-jmap-vtc-00 §`VTCRecordingStateEvent`, §Recording Consent).
 ///
 /// "Exactly one of `recordingId` and `livestreamId` is present"; this is
 /// documented, not enforced on deserialize.
@@ -266,7 +266,7 @@ pub struct VtcUnmuteRequestEvent {
 #[serde(rename_all = "camelCase")]
 pub struct VtcRecordingStateEvent {
     /// The id of the call's hosting account, "the account that contains
-    /// the VTCCall and its VTCParticipant records" (draft-atwood-jmap-vtc-wss-00
+    /// the `VTCCall` and its `VTCParticipant` records" (draft-atwood-jmap-vtc-wss-00
     /// §Event Types); usually not the recipient's personal account.
     pub account_id: Id,
     /// The call.

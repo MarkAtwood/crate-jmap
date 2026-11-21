@@ -52,19 +52,19 @@ impl_string_enum!(ObjectEventKind, "a Scene object event string",
 );
 
 /// An avatar entered, left or was ejected from a region
-/// (draft-atwood-jmap-scene-wss-00 §SceneAvatarEvent). Server→client only.
+/// (draft-atwood-jmap-scene-wss-00 §[`SceneAvatarEvent`]). Server→client only.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SceneAvatarEvent {
-    /// The region's hosting account: "the account in which the SceneRegion
-    /// was created and which holds its SceneObject and SceneAvatar records"
+    /// The region's hosting account: "the account in which the `SceneRegion`
+    /// was created and which holds its `SceneObject` and `SceneAvatar` records"
     /// (draft-atwood-jmap-scene-wss-00 §Ephemeral Event Types). Region and
     /// object ids are unique only within it.
     pub account_id: Id,
-    /// The SceneRegion.
+    /// The `SceneRegion`.
     pub region_id: Id,
-    /// The SceneAvatar.
+    /// The `SceneAvatar`.
     pub avatar_id: Id,
     /// Entered, left or ejected.
     pub event: AvatarEventKind,
@@ -81,20 +81,20 @@ pub struct SceneAvatarEvent {
 }
 
 /// An object in a subscribed region was created, updated or destroyed
-/// (draft-atwood-jmap-scene-wss-00 §SceneObjectEvent). Server→client only;
+/// (draft-atwood-jmap-scene-wss-00 §[`SceneObjectEvent`]). Server→client only;
 /// the full object state is available via `SceneObject/get`.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SceneObjectEvent {
-    /// The region's hosting account: "the account in which the SceneRegion
-    /// was created and which holds its SceneObject and SceneAvatar records"
+    /// The region's hosting account: "the account in which the `SceneRegion`
+    /// was created and which holds its `SceneObject` and `SceneAvatar` records"
     /// (draft-atwood-jmap-scene-wss-00 §Ephemeral Event Types). Region and
     /// object ids are unique only within it.
     pub account_id: Id,
-    /// The SceneRegion.
+    /// The `SceneRegion`.
     pub region_id: Id,
-    /// The SceneObject.
+    /// The `SceneObject`.
     pub object_id: Id,
     /// Created, updated or destroyed.
     pub event: ObjectEventKind,
@@ -113,7 +113,7 @@ pub struct SceneObjectEvent {
 }
 
 /// A user interacted with an interactable object
-/// (draft-atwood-jmap-scene-wss-00 §SceneInteractionEvent).
+/// (draft-atwood-jmap-scene-wss-00 §[`SceneInteractionEvent`]).
 ///
 /// Bidirectional: a client submits one to the server, which validates it
 /// (§Client-to-Server Submission) and relays it to the region's
@@ -122,14 +122,14 @@ pub struct SceneObjectEvent {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SceneInteractionEvent {
-    /// The region's hosting account: "the account in which the SceneRegion
-    /// was created and which holds its SceneObject and SceneAvatar records"
+    /// The region's hosting account: "the account in which the `SceneRegion`
+    /// was created and which holds its `SceneObject` and `SceneAvatar` records"
     /// (draft-atwood-jmap-scene-wss-00 §Ephemeral Event Types). Region and
     /// object ids are unique only within it.
     pub account_id: Id,
-    /// The SceneRegion.
+    /// The `SceneRegion`.
     pub region_id: Id,
-    /// The SceneObject interacted with.
+    /// The `SceneObject` interacted with.
     pub object_id: Id,
     /// The userId of the user who performed the interaction.
     ///

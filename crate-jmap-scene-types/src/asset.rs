@@ -1,10 +1,10 @@
-//! draft-atwood-jmap-scene-00 §SceneAsset.
+//! draft-atwood-jmap-scene-00 §[`SceneAsset`].
 
 use jmap_types::{Id, UTCDate};
 use serde::{Deserialize, Serialize};
 
 /// Metadata about a visual or audio resource stored as a JMAP blob
-/// (draft-atwood-jmap-scene-00 §SceneAsset).
+/// (draft-atwood-jmap-scene-00 §[`SceneAsset`]).
 ///
 /// `T|null` properties are `Option<T>` and serialize `None` as `null`.
 /// `assetUri` is peer-supplied and untrusted; nothing here validates it.

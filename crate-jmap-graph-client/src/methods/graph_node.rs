@@ -1,5 +1,5 @@
-//! JMAP Graph — `GraphNode/*` method implementations on SessionClient
-//! (draft-atwood-jmap-graph-00 §GraphNode Methods).
+//! JMAP Graph — `GraphNode/*` method implementations on `SessionClient`
+//! (draft-atwood-jmap-graph-00 §[`GraphNode`] Methods).
 
 use std::collections::BTreeMap;
 
@@ -14,7 +14,7 @@ use super::{
 impl super::SessionClient {
     /// `GraphNode/get` (draft-atwood-jmap-graph-00 L269-L271; RFC 8620 §5.1).
     ///
-    /// `ids: None` asks for every GraphNode in the account, subject to the
+    /// `ids: None` asks for every [`GraphNode`] in the account, subject to the
     /// server's `maxObjectsInGet` cap. `properties: None` returns all
     /// properties; a `properties` subset that omits a required [`GraphNode`]
     /// field fails to decode, so request full objects.
@@ -72,7 +72,7 @@ impl super::SessionClient {
     /// `GraphNode/set` (draft-atwood-jmap-graph-00 L273-L279; RFC 8620 §5.3).
     ///
     /// "On create, `graphId` is required" and may be a creation id (L277).
-    /// Destroying a node destroys every GraphEdge that starts or ends at it
+    /// Destroying a node destroys every `GraphEdge` that starts or ends at it
     /// (L279).
     ///
     /// The result is the untyped [`SetResponse`]: per RFC 8620 §5.3 a
@@ -122,8 +122,8 @@ impl super::SessionClient {
 
     /// `GraphNode/query` (draft-atwood-jmap-graph-00 L281-L292; RFC 8620 §5.5).
     ///
-    /// "The `filter` argument MUST be a single FilterCondition, not a
-    /// FilterOperator, and MUST include `graphId`" (L285), so `filter` is
+    /// "The `filter` argument MUST be a single `FilterCondition`, not a
+    /// `FilterOperator`, and MUST include `graphId`" (L285), so `filter` is
     /// required and is the bare condition. Sort properties are `created`
     /// and `updated` (L292).
     ///

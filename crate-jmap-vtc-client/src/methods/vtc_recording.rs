@@ -1,5 +1,5 @@
-//! JMAP VTC — `VTCRecording/*` method implementations on SessionClient
-//! (draft-atwood-jmap-vtc-00 §VTCRecording Methods).
+//! JMAP VTC — `VTCRecording/*` method implementations on `SessionClient`
+//! (draft-atwood-jmap-vtc-00 §`VTCRecording` Methods).
 
 use std::collections::BTreeMap;
 
@@ -15,7 +15,7 @@ use super::{
 impl super::SessionClient {
     /// `VTCRecording/get` (draft-atwood-jmap-vtc-00 L1104-L1108; RFC 8620 §5.1).
     ///
-    /// `ids: None` asks for every VTCRecording in the account, subject to the
+    /// `ids: None` asks for every `VTCRecording` in the account, subject to the
     /// server's `maxObjectsInGet` cap. `properties: None` returns all
     /// properties; a `properties` subset that omits a required
     /// [`VtcRecording`] field fails to decode, so request full objects.

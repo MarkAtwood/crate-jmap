@@ -36,22 +36,22 @@ use crate::{Graph, GraphNode, GraphRights};
 /// the account." Its session-level and account-level values are both `{}`.
 pub const JMAP_GRAPH_PROVENANCE_URI: &str = "urn:ietf:params:jmap:graph:provenance";
 
-/// The GraphEdge `type` of an evidence edge (§Evidence): "A record's
-/// evidence is the set of GraphEdge objects whose `fromId` is the record
+/// The `GraphEdge` `type` of an evidence edge (§Evidence): "A record's
+/// evidence is the set of `GraphEdge` objects whose `fromId` is the record
 /// and whose `type` is `urn:ietf:params:jmap:graph:provenance#evidence`."
 pub const EVIDENCE_EDGE_TYPE: &str = "urn:ietf:params:jmap:graph:provenance#evidence";
 
 /// §Limits: "A record has at most 32 evidence edges."
 pub const MAX_EVIDENCE_EDGES: usize = 32;
 
-/// §Limits: "A PermittedUse has at most 8 `purposes`" (and at least 1).
+/// §Limits: "A [`PermittedUse`] has at most 8 `purposes`" (and at least 1).
 pub const MAX_PURPOSES: usize = 8;
 
 /// §Graph Extensions: each Retention value, "when not `null`, is between 1
 /// and 36500".
 pub const RETENTION_DAYS: RangeInclusive<u64> = 1..=36500;
 
-/// Wire names of the GraphNode properties this document adds.
+/// Wire names of the [`GraphNode`] properties this document adds.
 pub mod property {
     /// `basis` (§Provenance Properties).
     pub const BASIS: &str = "basis";
@@ -74,7 +74,7 @@ pub mod property {
     pub const PROVENANCE: &[&str] = &[BASIS, CONFIDENCE, VALID_UNTIL, VALID_FOR, CREDENTIAL_DIGEST];
     /// The curation properties, which need `mayCurate` (§Sharing Rights).
     pub const CURATION: &[&str] = &[STATUS, PINNED, CURATION_REASON];
-    /// `mayCurate` on GraphRights (§Sharing Rights).
+    /// `mayCurate` on `GraphRights` (§Sharing Rights).
     pub const MAY_CURATE: &str = "mayCurate";
     /// `retention` on Graph (§Graph Extensions).
     pub const RETENTION: &str = "retention";
@@ -82,7 +82,7 @@ pub mod property {
 
 /// A record's `basis` (§Provenance Properties): "How the author came to the
 /// record's content." The server rejects any value not listed here; `Other`
-/// keeps it so a server can name it in the `invalidProperties` SetError.
+/// keeps it so a server can name it in the `invalidProperties` `SetError`.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ProvenanceBasis {
@@ -131,7 +131,7 @@ impl_string_enum!(RecordStatus, "a record status string",
     "retracted" => Retracted,
 );
 
-/// The `validFor` PermittedUse of a record (§Provenance Properties): "The
+/// The `validFor` [`PermittedUse`] of a record (§Provenance Properties): "The
 /// uses the author intends the record for", "at least one of which is
 /// present". It "is not an access control and is not enforced by the
 /// server."
@@ -152,7 +152,7 @@ pub struct PermittedUse {
 }
 
 impl PermittedUse {
-    /// A PermittedUse naming `purposes`.
+    /// A [`PermittedUse`] naming `purposes`.
     pub fn with_purposes(purposes: Vec<String>) -> Self {
         Self {
             purposes: Some(purposes),
@@ -160,7 +160,7 @@ impl PermittedUse {
         }
     }
 
-    /// A PermittedUse with only a `note`.
+    /// A [`PermittedUse`] with only a `note`.
     pub fn with_note(note: impl Into<String>) -> Self {
         Self {
             note: Some(note.into()),
@@ -170,7 +170,7 @@ impl PermittedUse {
 
     /// Whether the §Provenance Properties rules hold: at least one member,
     /// and `purposes`, when present, has 1 to [`MAX_PURPOSES`] entries.
-    /// The server rejects a PermittedUse that fails this with
+    /// The server rejects a [`PermittedUse`] that fails this with
     /// `invalidProperties` naming `validFor`.
     pub fn is_well_formed(&self) -> bool {
         match &self.purposes {
@@ -201,7 +201,7 @@ pub struct Retention {
 
 impl Retention {
     /// Whether every non-null value is in [`RETENTION_DAYS`]. "The server
-    /// rejects others with an `invalidProperties` SetError naming
+    /// rejects others with an `invalidProperties` `SetError` naming
     /// `retention`."
     pub fn is_well_formed(&self) -> bool {
         [self.record_days, self.tombstone_days]
@@ -249,7 +249,7 @@ impl GraphNode {
     ///
     /// # Errors
     ///
-    /// The deserialization error when the value is not a UTCDate string.
+    /// The deserialization error when the value is not a [`UTCDate`] string.
     pub fn valid_until(&self) -> Result<Option<UTCDate>, serde_json::Error> {
         extension(&self.extra, property::VALID_UNTIL)
     }
@@ -270,7 +270,7 @@ impl GraphNode {
     ///
     /// # Errors
     ///
-    /// The deserialization error when the value is not a PermittedUse.
+    /// The deserialization error when the value is not a [`PermittedUse`].
     pub fn valid_for(&self) -> Result<Option<PermittedUse>, serde_json::Error> {
         extension(&self.extra, property::VALID_FOR)
     }

@@ -22,7 +22,7 @@ impl GetObject for VtcCall {}
 /// docs/design/DECISIONS.md decision 22).
 impl jmap_object_history_types::HistoryObject for VtcCall {}
 
-/// draft-atwood-jmap-vtc-00 §VTCCall Object Fields (lines 393-474): `id`,
+/// draft-atwood-jmap-vtc-00 §`VTCCall` Object Fields (lines 393-474): `id`,
 /// `createdAt` and `initiatorId` are "immutable, server-set"; `accountId`,
 /// `endedAt`, `endReason`, `activeParticipantCount` and `breakoutRoomIds`
 /// are "server-set"; `callType` and `parentCallId` are "immutable".
@@ -76,7 +76,7 @@ impl JmapObject for VtcParticipant {
 
 impl GetObject for VtcParticipant {}
 
-/// draft-atwood-jmap-vtc-00 §VTCParticipant Object Fields (lines 329-380):
+/// draft-atwood-jmap-vtc-00 §`VTCParticipant` Object Fields (lines 329-380):
 /// `id` and `userId` are "immutable, server-set"; `joinedAt` and
 /// `speakerTimeMs` are "server-set"; `callId` is "immutable".
 ///
@@ -84,7 +84,7 @@ impl GetObject for VtcParticipant {}
 /// layer", never sent by a client, so it is server-set here. A dial-out
 /// create may carry `gatewayData`, which the server then "stores and relays
 /// ... without interpretation"; an update reaches it only through
-/// §VTCGatewaySignal, so it is immutable here.
+/// §`VTCGatewaySignal`, so it is immutable here.
 impl SetObject for VtcParticipant {
     type Patch = PatchObject;
     const SERVER_SET: &'static [&'static str] = &[
@@ -126,7 +126,7 @@ impl GetObject for VtcRecording {}
 /// docs/design/DECISIONS.md decision 22).
 impl jmap_object_history_types::HistoryObject for VtcRecording {}
 
-/// draft-atwood-jmap-vtc-00 §VTCRecording (lines 512-539): `id` is
+/// draft-atwood-jmap-vtc-00 §`VTCRecording` (lines 512-539): `id` is
 /// "immutable, server-set"; `startedAt`, `stoppedAt`, `initiatedBy`,
 /// `blobId`, `size`, `duration` and `mediaType` are "server-set"; `callId`
 /// is "immutable". `layout` (jmap-chat-spec 125749a) is settable on create
@@ -162,7 +162,7 @@ impl GetObject for VtcLivestream {}
 /// docs/design/DECISIONS.md decision 22).
 impl jmap_object_history_types::HistoryObject for VtcLivestream {}
 
-/// draft-atwood-jmap-vtc-00 §VTCLivestream: `id` is "immutable,
+/// draft-atwood-jmap-vtc-00 §`VTCLivestream`: `id` is "immutable,
 /// server-set"; `failureReason`, `playbackEndpoints`, `startedAt` and
 /// `stoppedAt` are "server-set"; `callId`, `mode`, `platform`, `streamUri`
 /// and `streamKey` are "immutable". `layout` (jmap-chat-spec 125749a) is

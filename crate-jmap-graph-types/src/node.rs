@@ -1,9 +1,9 @@
-//! draft-atwood-jmap-graph-00 §GraphNode.
+//! draft-atwood-jmap-graph-00 §[`GraphNode`].
 
 use jmap_types::{Id, UTCDate};
 use serde::{Deserialize, Serialize};
 
-/// A vertex in a Graph (draft-atwood-jmap-graph-00 §GraphNode).
+/// A vertex in a Graph (draft-atwood-jmap-graph-00 §[`GraphNode`]).
 ///
 /// Properties with a draft default (`annotations`, `blobId`, `mediaType`,
 /// `uri`) take it when absent. `T|null` properties are `Option<T>` and

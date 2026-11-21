@@ -1,4 +1,4 @@
-//! draft-atwood-jmap-vtc-00 §Push: VTCCallPush.
+//! draft-atwood-jmap-vtc-00 §Push: `VTCCallPush`.
 
 use jmap_types::Id;
 use serde::de::Error as _;
@@ -9,7 +9,7 @@ use crate::{CallType, MediaKind};
 /// Wire value of the `@type` of a [`VtcCallPush`].
 const VTC_CALL_PUSH_TYPE: &str = "VTCCallPush";
 
-/// The ring push payload (draft-atwood-jmap-vtc-00 §Push: VTCCallPush),
+/// The ring push payload (draft-atwood-jmap-vtc-00 §Push: `VTCCallPush`),
 /// in its full or content-free form.
 ///
 /// The content-free form "carries only `@type`, `accountId`, `callId`,
@@ -44,7 +44,7 @@ const VTC_CALL_PUSH_TYPE: &str = "VTCCallPush";
 #[serde(remote = "Self", rename_all = "camelCase")]
 pub struct VtcCallPush {
     /// "The call's hosting account ... This is usually not the target's
-    /// personal account" (draft-atwood-jmap-vtc-00 §VTCCallPush).
+    /// personal account" (draft-atwood-jmap-vtc-00 §`VTCCallPush`).
     pub account_id: Id,
     /// The ringing call.
     pub call_id: Id,
@@ -67,7 +67,7 @@ pub struct VtcCallPush {
     /// The media types for this call.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub media_types: Option<Vec<MediaKind>>,
-    /// The media-layer entry point. Untrusted (§VTCCall `joinUri`).
+    /// The media-layer entry point. Untrusted (§`VTCCall` `joinUri`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub join_uri: Option<String>,
     /// The associated Chat.

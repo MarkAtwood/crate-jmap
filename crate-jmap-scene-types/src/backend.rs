@@ -22,7 +22,7 @@ impl GetObject for SceneAsset {}
 /// docs/design/DECISIONS.md decision 22).
 impl jmap_object_history_types::HistoryObject for SceneAsset {}
 
-/// draft-atwood-jmap-scene-00 §SceneAsset (lines 269-296): `id`, `ownerId`
+/// draft-atwood-jmap-scene-00 §[`SceneAsset`] (lines 269-296): `id`, `ownerId`
 /// and `createdAt` are "immutable, server-set"; `accountId` and `size` are
 /// "server-set"; `blobId` and `mediaType` are "immutable".
 impl SetObject for SceneAsset {
@@ -49,7 +49,7 @@ impl GetObject for SceneRegion {}
 /// docs/design/DECISIONS.md decision 22).
 impl jmap_object_history_types::HistoryObject for SceneRegion {}
 
-/// draft-atwood-jmap-scene-00 §SceneRegion Object Fields (lines 321-481):
+/// draft-atwood-jmap-scene-00 §[`SceneRegion`] Object Fields (lines 321-481):
 /// `id`, `ownerId` and `createdAt` are "immutable, server-set";
 /// `accountId`, `activeAvatarCount` and `updatedAt` are "server-set".
 impl SetObject for SceneRegion {
@@ -99,7 +99,7 @@ impl GetObject for SceneObject {}
 /// docs/design/DECISIONS.md decision 22).
 impl jmap_object_history_types::HistoryObject for SceneObject {}
 
-/// draft-atwood-jmap-scene-00 §SceneObject Object Fields (lines 529-577):
+/// draft-atwood-jmap-scene-00 §[`SceneObject`] Object Fields (lines 529-577):
 /// `id` and `createdAt` are "immutable, server-set"; `ownerId` and
 /// `updatedAt` are "server-set"; `regionId` is "immutable".
 impl SetObject for SceneObject {
@@ -135,7 +135,7 @@ impl JmapObject for SceneAvatar {
 
 impl GetObject for SceneAvatar {}
 
-/// draft-atwood-jmap-scene-00 §SceneAvatar Object Fields (lines 616-646):
+/// draft-atwood-jmap-scene-00 §[`SceneAvatar`] Object Fields (lines 616-646):
 /// `id` and `userId` are "immutable, server-set"; `joinedAt` is
 /// "server-set"; `regionId` is "immutable". §SceneAvatar/set also has the
 /// server set `position`, `orientation` and `leftAt` on create.

@@ -1,4 +1,4 @@
-//! Typed JMAP Scene method wrappers — response types, SessionClient,
+//! Typed JMAP Scene method wrappers — response types, [`SessionClient`],
 //! constants, and helpers.
 //!
 //! Response types mirror RFC 8620 standard shapes (§5.1 /get, §5.2
@@ -170,7 +170,7 @@ impl SessionClient {
     /// A region's records live in its hosting account, which other users
     /// reach as a shared account (draft-atwood-jmap-scene-00 L169: "Every
     /// `accountId` in a Scene method call, response, or push notification
-    /// is the id of the hosting account (for SceneAsset, the account that
+    /// is the id of the hosting account (for `SceneAsset`, the account that
     /// holds the asset)"). Use this handle to enter, query or update a
     /// region hosted in a shared account. The returned handle is a cheap
     /// clone sharing the HTTP connection pool; `self` keeps its own

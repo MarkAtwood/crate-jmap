@@ -1,5 +1,5 @@
-//! JMAP VTC — `VTCParticipant/*` method implementations on SessionClient
-//! (draft-atwood-jmap-vtc-00 §VTCParticipant Methods).
+//! JMAP VTC — `VTCParticipant/*` method implementations on `SessionClient`
+//! (draft-atwood-jmap-vtc-00 §`VTCParticipant` Methods).
 
 use std::collections::BTreeMap;
 
@@ -15,7 +15,7 @@ use super::{
 impl super::SessionClient {
     /// `VTCParticipant/get` (draft-atwood-jmap-vtc-00 L824-L826; RFC 8620 §5.1).
     ///
-    /// `ids: None` asks for every VTCParticipant in the account, subject to the
+    /// `ids: None` asks for every `VTCParticipant` in the account, subject to the
     /// server's `maxObjectsInGet` cap. `properties: None` returns all
     /// properties; a `properties` subset that omits a required
     /// [`VtcParticipant`] field fails to decode, so request full objects.

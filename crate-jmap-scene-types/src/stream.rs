@@ -12,7 +12,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use crate::event::{AVATAR, INTERACTION, OBJECT};
 
 /// The recognized values of [`SceneStreamEnable::event_types`]
-/// (draft-atwood-jmap-scene-wss-00 §SceneStreamEnable).
+/// (draft-atwood-jmap-scene-wss-00 §[`SceneStreamEnable`]).
 ///
 /// "Unrecognized values in `eventTypes` that appear alongside recognized
 /// values MUST be silently ignored"; an `eventTypes` that is empty or holds
@@ -20,7 +20,7 @@ use crate::event::{AVATAR, INTERACTION, OBJECT};
 pub const SCENE_EVENT_TYPES: &[&str] = &[AVATAR, OBJECT, INTERACTION];
 
 /// One [`SceneStreamEnable::event_types`] value
-/// (draft-atwood-jmap-scene-wss-00 §SceneStreamEnable); the recognized
+/// (draft-atwood-jmap-scene-wss-00 §[`SceneStreamEnable`]); the recognized
 /// values are [`SCENE_EVENT_TYPES`].
 ///
 /// "Unrecognized values in `eventTypes` that appear alongside recognized
@@ -53,7 +53,7 @@ impl_string_enum!(SceneEventType, "a SceneStreamEnable eventTypes string",
 
 /// Client→server: start or replace the ephemeral Scene event subscription
 /// on this WebSocket connection (draft-atwood-jmap-scene-wss-00
-/// §SceneStreamEnable).
+/// §[`SceneStreamEnable`]).
 ///
 /// Both filters default to `null`, so [`Default`] subscribes to every
 /// event of every region in which the user has an active avatar. `None`
@@ -68,7 +68,7 @@ pub struct SceneStreamEnable {
     /// Absent unless the client sent one.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub id: Option<String>,
-    /// SceneRegion ids to receive events for; `None` means every region in
+    /// `SceneRegion` ids to receive events for; [`None`] means every region in
     /// which the user has an active avatar.
     #[serde(default)]
     pub region_ids: Option<Vec<Id>>,
@@ -86,7 +86,7 @@ pub struct SceneStreamEnable {
 }
 
 /// Client→server: cancel all ephemeral Scene event delivery on this
-/// connection (draft-atwood-jmap-scene-wss-00 §SceneStreamDisable).
+/// connection (draft-atwood-jmap-scene-wss-00 §[`SceneStreamDisable`]).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct SceneStreamDisable {

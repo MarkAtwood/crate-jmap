@@ -13,13 +13,13 @@
 //! and servers map that to `unsupportedFilter`. See the workspace
 //! AGENTS.md "Filter algebra and control enums are explicitly EXCLUDED".
 //!
-//! # GraphNode and GraphEdge filters are single conditions
+//! # `GraphNode` and `GraphEdge` filters are single conditions
 //!
-//! "The `filter` argument MUST be a single FilterCondition, not a
-//! FilterOperator, and MUST include `graphId`. A server receiving any other
+//! "The `filter` argument MUST be a single `FilterCondition`, not a
+//! [`FilterOperator`], and MUST include `graphId`. A server receiving any other
 //! filter, or no filter, rejects the call with an `unsupportedFilter`
 //! error." The filter types of those two objects are therefore the bare
-//! condition structs, with a required `graph_id`: a FilterOperator or a
+//! condition structs, with a required `graph_id`: a [`FilterOperator`] or a
 //! condition without `graphId` fails the decode, which is
 //! `unsupportedFilter`. Rejecting an absent `filter` is the server's job.
 //! `Graph/query` takes the ordinary [`Filter`] tree.
@@ -125,8 +125,8 @@ impl GraphComparator {
 /// [`JMAP_GRAPH_PROVENANCE_URI`](crate::JMAP_GRAPH_PROVENANCE_URI).
 ///
 /// `where_`, `language` and `expression` are the
-/// draft-atwood-jmap-graph-search-00 §FilterCondition Extensions ("A
-/// FilterCondition may include `where`, `language` with `expression`, or
+/// draft-atwood-jmap-graph-search-00 §`FilterCondition` Extensions ("A
+/// `FilterCondition` may include `where`, `language` with `expression`, or
 /// both"). A request that sets them uses
 /// [`JMAP_GRAPH_SEARCH_URI`](crate::JMAP_GRAPH_SEARCH_URI).
 #[non_exhaustive]
@@ -245,7 +245,7 @@ impl GraphNodeComparator {
 /// §GraphEdge/queryChanges).
 ///
 /// "All properties given must match." `where_`, `language` and `expression`
-/// are the draft-atwood-jmap-graph-search-00 §FilterCondition Extensions, as
+/// are the draft-atwood-jmap-graph-search-00 §`FilterCondition` Extensions, as
 /// on [`GraphNodeFilterCondition`].
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

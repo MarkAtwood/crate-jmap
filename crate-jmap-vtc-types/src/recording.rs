@@ -1,4 +1,4 @@
-//! draft-atwood-jmap-vtc-00 §VTCRecording and §VTCLivestream.
+//! draft-atwood-jmap-vtc-00 §`VTCRecording` and §`VTCLivestream`.
 
 use jmap_types::{Id, UTCDate, impl_string_enum};
 use serde::{Deserialize, Serialize};
@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use crate::call::REDACTED;
 
 /// The `state` of a [`VtcRecording`] (draft-atwood-jmap-vtc-00
-/// §VTCRecording), also carried by
+/// §`VTCRecording`), also carried by
 /// [`VtcRecordingStateEvent`](crate::VtcRecordingStateEvent).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -37,7 +37,7 @@ impl_string_enum!(RecordingState, "a VTC recording state string",
 );
 
 /// The `state` of a [`VtcLivestream`] (draft-atwood-jmap-vtc-00
-/// §VTCLivestream).
+/// §`VTCLivestream`).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum LivestreamState {
@@ -90,7 +90,7 @@ impl_string_enum!(CompositionLayout, "a VTC composition layout string",
 );
 
 /// Metadata of a recording session within a call
-/// (draft-atwood-jmap-vtc-00 §VTCRecording).
+/// (draft-atwood-jmap-vtc-00 §`VTCRecording`).
 ///
 /// `T|null` properties are `Option<T>` and serialize `None` as `null`.
 #[non_exhaustive]
@@ -152,7 +152,7 @@ impl_string_enum!(LivestreamMode, "a VTC livestream mode string",
 );
 
 /// The `failureReason` of a failed [`VtcLivestream`]
-/// (draft-atwood-jmap-vtc-00 §VTCLivestream). "Clients treat an
+/// (draft-atwood-jmap-vtc-00 §`VTCLivestream`). "Clients treat an
 /// unrecognized value as an unspecified failure."
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -275,7 +275,7 @@ impl VtcTimeReference {
 }
 
 /// One selectable track of a [`VtcPlaybackEndpoint`]
-/// (draft-atwood-jmap-vtc-00 §VTCStreamTrack).
+/// (draft-atwood-jmap-vtc-00 §`VTCStreamTrack`).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -308,7 +308,7 @@ impl VtcStreamTrack {
 }
 
 /// A place from which a viewer's player can receive a hosted livestream
-/// (draft-atwood-jmap-vtc-00 §VTCPlaybackEndpoint).
+/// (draft-atwood-jmap-vtc-00 §`VTCPlaybackEndpoint`).
 ///
 /// `url` "MAY carry authorization for the requesting user" and
 /// `credential` is a playback credential, so the `Debug` impl redacts both.
@@ -386,7 +386,7 @@ impl std::fmt::Debug for VtcPlaybackEndpoint {
 }
 
 /// Metadata of a one-to-many broadcast of a call
-/// (draft-atwood-jmap-vtc-00 §VTCLivestream), in push or hosted mode.
+/// (draft-atwood-jmap-vtc-00 §`VTCLivestream`), in push or hosted mode.
 ///
 /// `streamUri` is "Treated as sensitive" and `streamKey` is an ingest
 /// credential, so the `Debug` impl redacts both (and the playback URLs and

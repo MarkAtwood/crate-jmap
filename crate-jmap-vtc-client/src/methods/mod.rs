@@ -1,4 +1,4 @@
-//! Typed JMAP VTC method wrappers — response types, SessionClient,
+//! Typed JMAP VTC method wrappers — response types, [`SessionClient`],
 //! constants, and helpers.
 //!
 //! Response types mirror RFC 8620 standard shapes (§5.1 /get, §5.2

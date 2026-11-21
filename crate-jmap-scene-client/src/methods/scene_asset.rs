@@ -1,5 +1,5 @@
-//! JMAP Scene — `SceneAsset/*` method implementations on SessionClient
-//! (draft-atwood-jmap-scene-00 §SceneAsset Methods).
+//! JMAP Scene — `SceneAsset/*` method implementations on `SessionClient`
+//! (draft-atwood-jmap-scene-00 §[`SceneAsset`] Methods).
 
 use std::collections::BTreeMap;
 
@@ -15,7 +15,7 @@ use super::{
 impl super::SessionClient {
     /// `SceneAsset/get` (draft-atwood-jmap-scene-00 L674-L676; RFC 8620 §5.1).
     ///
-    /// `ids: None` asks for every SceneAsset in the account, subject to the
+    /// `ids: None` asks for every [`SceneAsset`] in the account, subject to the
     /// server's `maxObjectsInGet` cap. `properties: None` returns all
     /// properties; a `properties` subset that omits a required
     /// [`SceneAsset`] field fails to decode, so request full objects.

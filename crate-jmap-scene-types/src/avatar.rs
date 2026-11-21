@@ -1,12 +1,12 @@
-//! draft-atwood-jmap-scene-00 §SceneAvatar.
+//! draft-atwood-jmap-scene-00 §[`SceneAvatar`].
 
 use jmap_types::{Id, UTCDate};
 use serde::{Deserialize, Serialize};
 
 use crate::{Orientation, Position};
 
-/// A user's spatial presence within a SceneRegion
-/// (draft-atwood-jmap-scene-00 §SceneAvatar).
+/// A user's spatial presence within a `SceneRegion`
+/// (draft-atwood-jmap-scene-00 §[`SceneAvatar`]).
 ///
 /// `position` and `orientation` are the last known values, "Not a
 /// real-time value". `T|null` properties are `Option<T>` and serialize
@@ -19,7 +19,7 @@ pub struct SceneAvatar {
     /// Server-assigned identifier: "A ULID assigned at creation, unique
     /// within the account like any JMAP id".
     pub id: Id,
-    /// The SceneRegion this avatar is in.
+    /// The `SceneRegion` this avatar is in.
     pub region_id: Id,
     /// The authenticated user identity string.
     pub user_id: String,

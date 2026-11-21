@@ -1,4 +1,4 @@
-//! draft-atwood-jmap-vtc-00 §VTCParticipant.
+//! draft-atwood-jmap-vtc-00 §`VTCParticipant`.
 
 use jmap_types::{Id, UTCDate, impl_string_enum};
 use serde::{Deserialize, Serialize};
@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use crate::VtcMediaState;
 
 /// The VTC `role` of a participant (draft-atwood-jmap-vtc-00
-/// §VTCParticipant). Independent of any Chat or Space role.
+/// §`VTCParticipant`). Independent of any Chat or Space role.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum CallRole {
@@ -24,7 +24,7 @@ impl_string_enum!(CallRole, "a VTC participant role string",
 );
 
 /// A ring target's `callResponse` (draft-atwood-jmap-vtc-00
-/// §VTCParticipant).
+/// §`VTCParticipant`).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum CallResponse {
@@ -45,7 +45,7 @@ impl_string_enum!(CallResponse, "a VTC call response string",
 );
 
 /// A participant's `lobbyState` (draft-atwood-jmap-vtc-00
-/// §VTCParticipant).
+/// §`VTCParticipant`).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum LobbyState {
@@ -66,7 +66,7 @@ impl_string_enum!(LobbyState, "a VTC lobby state string",
 );
 
 /// How a participant connected: its `joinMethod`
-/// (draft-atwood-jmap-vtc-00 §VTCParticipant).
+/// (draft-atwood-jmap-vtc-00 §`VTCParticipant`).
 ///
 /// The draft registers `"webrtc"`, `"sip"`, `"pstn"` and `"h323"`;
 /// reverse-domain values land in `Other`, which "Clients MUST ignore" for
@@ -93,10 +93,10 @@ impl_string_enum!(JoinMethod, "a VTC join method string",
     "h323" => H323,
 );
 
-/// One participant in a call (draft-atwood-jmap-vtc-00 §VTCParticipant).
+/// One participant in a call (draft-atwood-jmap-vtc-00 §`VTCParticipant`).
 ///
-/// `id` is opaque: "VTCParticipant ids are ordinary server-assigned JMAP
-/// ids, unique within the call's hosting account" (§VTCParticipant ID
+/// `id` is opaque: "`VTCParticipant` ids are ordinary server-assigned JMAP
+/// ids, unique within the call's hosting account" (§`VTCParticipant` ID
 /// Assignment).
 ///
 /// `T|null` properties are `Option<T>` and serialize `None` as `null`.

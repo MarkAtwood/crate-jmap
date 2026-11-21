@@ -3,7 +3,7 @@
 //! Normative reference: draft-atwood-jmap-graph-00, the
 //! `urn:ietf:params:jmap:graph` capability for storing and synchronizing
 //! general-purpose directed graphs: a shareable Graph container holding
-//! GraphNode vertices and directed, typed GraphEdge links. The draft
+//! [`GraphNode`] vertices and directed, typed [`GraphEdge`] links. The draft
 //! assigns no meaning to node content, edge types or annotations.
 //!
 //! ## Crate posture
@@ -24,10 +24,10 @@
 //! - [`JMAP_GRAPH_URI`], [`GraphCapability`], [`PrincipalGraphCapability`]
 //!   — the capability (draft §Capability).
 //! - [`Graph`], [`GraphRights`] (draft §Graph).
-//! - [`GraphNode`] (draft §GraphNode).
-//! - [`GraphEdge`] (draft §GraphEdge).
+//! - [`GraphNode`] (draft §[`GraphNode`]).
+//! - [`GraphEdge`] (draft §[`GraphEdge`]).
 //! - `query` — the `/query` filters and comparators of the three types,
-//!   including the draft-atwood-jmap-graph-projection-00 GraphNode
+//!   including the draft-atwood-jmap-graph-projection-00 [`GraphNode`]
 //!   `objectUri` filter and its [`JMAP_GRAPH_PROJECTION_URI`] capability,
 //!   whose account-level object is [`GraphProjectionCapability`].
 //! - [`JMAP_URI_GRAPH_TYPE`], [`JMAP_URI_GRAPH_NODE_TYPE`],
@@ -35,13 +35,13 @@
 //!   §JMAP Object URI Type Registrations).
 //! - `edit` — draft-atwood-jmap-graph-edit-00, the
 //!   `urn:ietf:params:jmap:graph:edit` capability: [`GraphNodeOp`], the
-//!   GraphNode `editFormat` and `snapshotSeq` accessors, `GraphNode/cursor`
+//!   [`GraphNode`] `editFormat` and `snapshotSeq` accessors, `GraphNode/cursor`
 //!   and the WebSocket op and cursor stream.
 //! - `search` — draft-atwood-jmap-graph-search-00, the
 //!   `urn:ietf:params:jmap:graph:search` capability: the
 //!   [`GraphSearchCapability`], the built-in filter language
-//!   [`Expression`] carried in the GraphNode and
-//!   GraphEdge filter conditions' `where`, and `queryTooComplex`.
+//!   [`Expression`] carried in the [`GraphNode`] and
+//!   [`GraphEdge`] filter conditions' `where`, and `queryTooComplex`.
 //!
 //! # Logging safety
 //!

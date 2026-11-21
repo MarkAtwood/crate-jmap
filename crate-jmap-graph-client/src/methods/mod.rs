@@ -1,4 +1,4 @@
-//! Typed JMAP Graph method wrappers — response types, SessionClient,
+//! Typed JMAP Graph method wrappers — response types, [`SessionClient`],
 //! constants, and helpers.
 //!
 //! Response types mirror RFC 8620 standard shapes (§5.1 /get, §5.2
@@ -141,7 +141,7 @@ impl SessionClient {
     /// Borrow the underlying [`JmapClient`](jmap_base_client::JmapClient).
     ///
     /// Useful for ad-hoc operations outside the typed JMAP method surface,
-    /// such as uploading the blob a GraphNode's `blobId` references, or a
+    /// such as uploading the blob a `GraphNode`'s `blobId` references, or a
     /// multi-method request that chains calls by result reference
     /// (draft-atwood-jmap-graph-00 §Traversal).
     pub fn client(&self) -> &jmap_base_client::JmapClient {
@@ -160,8 +160,8 @@ impl SessionClient {
     /// Whether the bound account advertises
     /// `urn:ietf:params:jmap:graph:provenance`
     /// (draft-atwood-jmap-graph-provenance-00 §Capability) in its
-    /// `accountCapabilities`. When it does, every Graph, GraphNode and
-    /// GraphEdge call carries that URI in `using`, so its properties,
+    /// `accountCapabilities`. When it does, every Graph, `GraphNode` and
+    /// `GraphEdge` call carries that URI in `using`, so its properties,
     /// evidence edges and rights apply. No network I/O is done.
     pub fn supports_provenance(&self) -> bool {
         self.graph_account_id()
@@ -173,7 +173,7 @@ impl SessionClient {
             })
     }
 
-    /// The `using` array of a Graph, GraphNode or GraphEdge call: core and
+    /// The `using` array of a Graph, `GraphNode` or `GraphEdge` call: core and
     /// graph, plus provenance when [`Self::supports_provenance`].
     pub(crate) fn using_graph(&self) -> Vec<&'static str> {
         let mut using = USING_GRAPH.to_vec();
@@ -183,7 +183,7 @@ impl SessionClient {
         using
     }
 
-    /// The `using` array of a GraphNode `/query` or `/queryChanges` with
+    /// The `using` array of a `GraphNode` `/query` or `/queryChanges` with
     /// `filter`: [`Self::using_graph`], plus projection when `objectUri` is
     /// set (draft-atwood-jmap-graph-projection-00 Example) and provenance
     /// when a §Query Filters condition is (`basis`, `status`, `pinned`,

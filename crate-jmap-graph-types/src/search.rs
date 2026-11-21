@@ -2,7 +2,7 @@
 //! `urn:ietf:params:jmap:graph:search` capability.
 //!
 //! - [`JMAP_GRAPH_SEARCH_URI`], [`GraphSearchCapability`] (§Capability).
-//! - The §FilterCondition Extensions `where`, `language` and `expression`
+//! - The §`FilterCondition` Extensions `where`, `language` and `expression`
 //!   are fields of [`GraphNodeFilterCondition`] and
 //!   [`GraphEdgeFilterCondition`].
 //! - [`Expression`], the §The Built-In Filter Language AST, with
@@ -85,15 +85,15 @@ pub struct GraphSearchCapability {
     pub extra: Map<String, Value>,
 }
 
-/// The kind of object an expression is tested against: "a GraphNode during
-/// GraphNode/query, or a GraphEdge during GraphEdge/query, or a node or edge
+/// The kind of object an expression is tested against: "a `GraphNode` during
+/// GraphNode/query, or a `GraphEdge` during GraphEdge/query, or a node or edge
 /// reached while evaluating a traversal operator" (§Conventions and
 /// Definitions, Candidate).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum CandidateKind {
-    /// A GraphNode: `$edge` and `$reachable` apply.
+    /// A `GraphNode`: `$edge` and `$reachable` apply.
     Node,
-    /// A GraphEdge: `$from` and `$to` apply.
+    /// A `GraphEdge`: `$from` and `$to` apply.
     Edge,
 }
 
@@ -120,16 +120,16 @@ pub struct Expression {
     pub or: Option<Vec<Expression>>,
     /// `$not`: "True if the expression is false."
     pub not: Option<Box<Expression>>,
-    /// `$edge` (GraphNode candidates only): "True if the candidate has at
-    /// least one edge satisfying the EdgeTest."
+    /// `$edge` (`GraphNode` candidates only): "True if the candidate has at
+    /// least one edge satisfying the [`EdgeTest`]."
     pub edge: Option<Box<EdgeTest>>,
-    /// `$reachable` (GraphNode candidates only): "True if some node
+    /// `$reachable` (`GraphNode` candidates only): "True if some node
     /// reachable from the candidate satisfies the test."
     pub reachable: Option<Box<ReachTest>>,
-    /// `$from` (GraphEdge candidates only): "The node named by the candidate
+    /// `$from` (`GraphEdge` candidates only): "The node named by the candidate
     /// edge's `fromId` satisfies the expression."
     pub from: Option<Box<Expression>>,
-    /// `$to` (GraphEdge candidates only): "The node named by the candidate
+    /// `$to` (`GraphEdge` candidates only): "The node named by the candidate
     /// edge's `toId` satisfies the expression."
     pub to: Option<Box<Expression>>,
     /// `$text`: "True if the candidate matches the given text." Matching is
@@ -156,11 +156,11 @@ pub struct EdgeTest {
     pub direction: Direction,
     /// `type`: "the edge's `type` equals this value exactly."
     pub edge_type: Option<String>,
-    /// `edge`: "an expression that the edge itself satisfies" (a GraphEdge
+    /// `edge`: "an expression that the edge itself satisfies" (a `GraphEdge`
     /// candidate).
     pub edge: Option<Expression>,
     /// `node`: "an expression that the node at the other end of the edge
-    /// satisfies" (a GraphNode candidate).
+    /// satisfies" (a `GraphNode` candidate).
     pub node: Option<Expression>,
 }
 
@@ -207,9 +207,9 @@ impl ReachTest {
 
 impl Expression {
     /// Parse and check a `where` value for a candidate of `kind`
-    /// (§FilterCondition Extensions, well-formedness).
+    /// (§`FilterCondition` Extensions, well-formedness).
     ///
-    /// Unknown members of an EdgeTest or ReachTest are malformed even when
+    /// Unknown members of an [`EdgeTest`] or [`ReachTest`] are malformed even when
     /// `$`-prefixed: they "contain only the members defined for them".
     ///
     /// # Errors

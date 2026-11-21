@@ -1,5 +1,5 @@
-//! JMAP VTC — `VTCCall/*` method implementations on SessionClient
-//! (draft-atwood-jmap-vtc-00 §VTCCall Methods).
+//! JMAP VTC — `VTCCall/*` method implementations on `SessionClient`
+//! (draft-atwood-jmap-vtc-00 §`VTCCall` Methods).
 
 use std::collections::BTreeMap;
 
@@ -15,7 +15,7 @@ use super::{
 impl super::SessionClient {
     /// `VTCCall/get` (draft-atwood-jmap-vtc-00 L574-L612; RFC 8620 §5.1).
     ///
-    /// `ids: None` asks for every VTCCall in the account, subject to the
+    /// `ids: None` asks for every `VTCCall` in the account, subject to the
     /// server's `maxObjectsInGet` cap. `properties: None` returns all
     /// properties; a `properties` subset that omits a required
     /// [`VtcCall`] field fails to decode, so request full objects.
@@ -67,7 +67,7 @@ impl super::SessionClient {
     /// `VTCCall/set` (draft-atwood-jmap-vtc-00 L618-L776; RFC 8620 §5.3).
     ///
     /// Creates ring, room and scheduled calls, ends a call (`"state": "ended"`)
-    /// and applies the moderator actions of §Moderator Actions on VTCCall.
+    /// and applies the moderator actions of §Moderator Actions on `VTCCall`.
     ///
     /// The result is the untyped [`SetResponse`]: per RFC 8620 §5.3 a
     /// `created` entry carries only the server-set properties (the draft's

@@ -4,9 +4,9 @@
 //! `/queryChanges` methods of `Graph`, `GraphNode` and `GraphEdge`
 //! (draft-atwood-jmap-graph-00 §Methods) on top of `jmap-base-client`.
 //! Wire types come from `jmap-graph-types`, including the
-//! draft-atwood-jmap-graph-projection-00 GraphNode `objectUri` filter.
+//! draft-atwood-jmap-graph-projection-00 `GraphNode` `objectUri` filter.
 //!
-//! draft-atwood-jmap-graph-edit-00 adds an edit log of ops to a GraphNode:
+//! draft-atwood-jmap-graph-edit-00 adds an edit log of ops to a `GraphNode`:
 //! [`SessionClient`] binds `GraphNodeOp/get`, `/changes`, the create-only
 //! `/set`, `/query` and `/queryChanges`, and `GraphNode/cursor`, each with
 //! `urn:ietf:params:jmap:graph:edit` in `using`. [`GraphEditWsExt`] sends
@@ -17,8 +17,8 @@
 //! draft-atwood-jmap-graph-provenance-00 adds properties, an edge type and
 //! filter conditions, not methods: when the bound account advertises
 //! `urn:ietf:params:jmap:graph:provenance`
-//! ([`SessionClient::supports_provenance`]) every Graph, GraphNode and
-//! GraphEdge request carries it in `using`, as does a GraphNode query that
+//! ([`SessionClient::supports_provenance`]) every Graph, `GraphNode` and
+//! `GraphEdge` request carries it in `using`, as does a `GraphNode` query that
 //! uses `basis`, `status`, `pinned` or `validAt`. The record properties are
 //! read with the `jmap-graph-types` accessors (`GraphNode::basis` and the
 //! rest).

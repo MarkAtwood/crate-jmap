@@ -53,9 +53,9 @@ pub const JMAP_URI_GRAPH_EDGE_TYPE: &str = "graphedge";
 #[serde(rename_all = "camelCase")]
 pub struct GraphCapability {
     /// "The maximum size, in octets, of the `annotations` property of a
-    /// single Graph, GraphNode, or GraphEdge, measured as UTF-8 encoded
+    /// single Graph, `GraphNode`, or `GraphEdge`, measured as UTF-8 encoded
     /// JSON." `None` (`null`) "means the server advertises no limit".
-    /// Exceeding it is a `tooLarge` SetError, a server check.
+    /// Exceeding it is a `tooLarge` `SetError`, a server check.
     pub max_annotation_size: Option<u64>,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across

@@ -1,4 +1,4 @@
-//! draft-atwood-jmap-graph-00 §Graph, including GraphRights.
+//! draft-atwood-jmap-graph-00 §Graph, including [`GraphRights`].
 
 use std::collections::BTreeMap;
 
@@ -6,16 +6,16 @@ use jmap_types::{Id, UTCDate};
 use serde::{Deserialize, Serialize};
 
 /// The rights a user has on a [`Graph`] (draft-atwood-jmap-graph-00
-/// §Graph, GraphRights). "The owner of the account that holds the Graph
+/// §Graph, [`GraphRights`]). "The owner of the account that holds the Graph
 /// implicitly has all rights."
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GraphRights {
-    /// "The user may fetch this Graph and every GraphNode and GraphEdge in
+    /// "The user may fetch this Graph and every `GraphNode` and `GraphEdge` in
     /// it."
     pub may_read: bool,
-    /// "The user may create, update, and destroy GraphNode and GraphEdge
+    /// "The user may create, update, and destroy `GraphNode` and `GraphEdge`
     /// objects in this Graph, and may change the Graph's `name` and
     /// `annotations`."
     pub may_write: bool,

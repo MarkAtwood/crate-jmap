@@ -1,4 +1,4 @@
-//! draft-atwood-jmap-vtc-00 §VTCMediaState, §VTCCallPolicy and §VTCCall.
+//! draft-atwood-jmap-vtc-00 §`VTCMediaState`, §`VTCCallPolicy` and §`VTCCall`.
 
 use jmap_types::{Id, UTCDate, impl_string_enum};
 use serde::{Deserialize, Serialize};
@@ -8,7 +8,7 @@ use crate::MediaKind;
 /// Placeholder printed by `Debug` impls in place of secret values.
 pub(crate) const REDACTED: &str = "[REDACTED]";
 
-/// The `callType` of a [`VtcCall`] (draft-atwood-jmap-vtc-00 §VTCCall).
+/// The `callType` of a [`VtcCall`] (draft-atwood-jmap-vtc-00 §`VTCCall`).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum CallType {
@@ -55,7 +55,7 @@ impl_string_enum!(CallState, "a VTC call state string",
 );
 
 /// The `endReason` of a [`VtcCall`]: the call-level outcome
-/// (draft-atwood-jmap-vtc-00 §VTCCall).
+/// (draft-atwood-jmap-vtc-00 §`VTCCall`).
 ///
 /// Distinct from [`RingEndReason`](crate::RingEndReason), the per-device
 /// ring disposition of a `VTCCallEndEvent`.
@@ -90,7 +90,7 @@ impl_string_enum!(CallEndReason, "a VTC call end reason string",
 );
 
 /// A participant's self-reported media state
-/// (draft-atwood-jmap-vtc-00 §VTCMediaState).
+/// (draft-atwood-jmap-vtc-00 §`VTCMediaState`).
 ///
 /// "The server relays this information without verification."
 #[non_exhaustive]
@@ -114,7 +114,7 @@ pub struct VtcMediaState {
 }
 
 /// Moderator-controlled media policies of a call
-/// (draft-atwood-jmap-vtc-00 §VTCCallPolicy).
+/// (draft-atwood-jmap-vtc-00 §`VTCCallPolicy`).
 ///
 /// A missing field takes its draft default, which is also what
 /// [`Default`] returns: `muteOnEntry` and `videoOffOnEntry` `false`, the
@@ -154,7 +154,7 @@ impl Default for VtcCallPolicy {
     }
 }
 
-/// A voice or video call session (draft-atwood-jmap-vtc-00 §VTCCall).
+/// A voice or video call session (draft-atwood-jmap-vtc-00 §`VTCCall`).
 ///
 /// `T|null` properties are `Option<T>` and serialize `None` as `null`.
 /// The binding properties (`chatId`, `spaceId`, `channelId`,
@@ -239,7 +239,7 @@ pub struct VtcCall {
         skip_serializing_if = "Option::is_none"
     )]
     pub channel_id: Option<Option<Id>>,
-    /// Bound CalendarEvent (`urn:ietf:params:jmap:calendars`).
+    /// Bound `CalendarEvent` (`urn:ietf:params:jmap:calendars`).
     #[serde(
         default,
         deserialize_with = "crate::wire::present",

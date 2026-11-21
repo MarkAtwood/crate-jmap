@@ -1,5 +1,5 @@
-//! JMAP Scene — `SceneObject/*` method implementations on SessionClient
-//! (draft-atwood-jmap-scene-00 §SceneObject Methods).
+//! JMAP Scene — `SceneObject/*` method implementations on `SessionClient`
+//! (draft-atwood-jmap-scene-00 §[`SceneObject`] Methods).
 
 use std::collections::BTreeMap;
 
@@ -16,7 +16,7 @@ use super::{
 impl super::SessionClient {
     /// `SceneObject/get` (draft-atwood-jmap-scene-00 L1446-L1530; RFC 8620 §5.1).
     ///
-    /// `ids: None` asks for every SceneObject in the account, subject to the
+    /// `ids: None` asks for every [`SceneObject`] in the account, subject to the
     /// server's `maxObjectsInGet` cap. `properties: None` returns all
     /// properties; a `properties` subset that omits a required
     /// [`SceneObject`] field fails to decode, so request full objects.
@@ -193,7 +193,7 @@ impl super::SessionClient {
     /// Submits `interactions`, keyed by client-chosen ids, with objects in
     /// regions of the targeted account. The call is ephemeral: it "does not
     /// change any record or state string" (L2021). Each id comes back in
-    /// `accepted` or, with a SetError (`notFound`, `forbidden`,
+    /// `accepted` or, with a `SetError` (`notFound`, `forbidden`,
     /// `rateLimit`, `invalidProperties`), in `notAccepted`. Unlike the
     /// `SceneInteractionEvent` frame sent with
     /// [`SceneWsExt::send_scene_interaction`](crate::SceneWsExt::send_scene_interaction),

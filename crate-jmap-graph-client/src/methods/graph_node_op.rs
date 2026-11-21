@@ -1,5 +1,5 @@
 //! JMAP Graph Live Editing — `GraphNodeOp/*` and `GraphNode/cursor` method
-//! implementations on SessionClient (draft-atwood-jmap-graph-edit-00
+//! implementations on `SessionClient` (draft-atwood-jmap-graph-edit-00
 //! §Methods, §GraphNode/cursor; line numbers cite jmap-chat-spec 6bcd9d8).
 //!
 //! Every request carries `urn:ietf:params:jmap:graph:edit` in `using`, as
@@ -126,8 +126,8 @@ impl super::SessionClient {
     /// `GraphNodeOp/query` (draft-atwood-jmap-graph-edit-00 L218-L234;
     /// RFC 8620 §5.5).
     ///
-    /// "The `filter` argument MUST be a single FilterCondition, not a
-    /// FilterOperator, and MUST include `nodeId`" (L222), so `filter` is
+    /// "The `filter` argument MUST be a single `FilterCondition`, not a
+    /// `FilterOperator`, and MUST include `nodeId`" (L222), so `filter` is
     /// required and is the bare condition. "The only supported sort is
     /// `seq` ascending, which is also the order when `sort` is absent"
     /// (L230). Page by sending the next query with `after_seq` set to the

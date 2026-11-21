@@ -3,7 +3,7 @@
 //!
 //! The method submits interactions with interactable objects. It is
 //! ephemeral: it changes no record or state string, and its response
-//! "follows the shape of `/set`" so that failures are standard SetErrors.
+//! "follows the shape of `/set`" so that failures are standard `SetError`s.
 //! Validation is the server's job, not these types'.
 
 use std::collections::BTreeMap;
@@ -16,9 +16,9 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SceneInteraction {
-    /// The SceneRegion containing the object.
+    /// The `SceneRegion` containing the object.
     pub region_id: Id,
-    /// The SceneObject being interacted with.
+    /// The `SceneObject` being interacted with.
     pub object_id: Id,
     /// The interaction type, with the values of
     /// [`SceneInteractionEvent::action`](crate::SceneInteractionEvent::action):
@@ -59,7 +59,7 @@ impl SceneInteraction {
 pub struct SceneObjectInteractRequest {
     /// "The hosting account of the regions."
     pub account_id: Id,
-    /// "A map from a client-chosen id to a SceneInteraction object." Keyed
+    /// "A map from a client-chosen id to a [`SceneInteraction`] object." Keyed
     /// by `String`, like the creation-id maps of `/set`.
     pub interactions: BTreeMap<String, SceneInteraction>,
     /// Catch-all for vendor / site / private extension fields not covered
@@ -95,7 +95,7 @@ pub struct SceneObjectInteractResponse {
     /// if none."
     #[serde(default)]
     pub accepted: Option<Vec<String>>,
-    /// "A map from client id to a SetError for each interaction the server
+    /// "A map from client id to a [`SetError`] for each interaction the server
     /// did not accept, or `null` if none."
     #[serde(default)]
     pub not_accepted: Option<BTreeMap<String, SetError>>,

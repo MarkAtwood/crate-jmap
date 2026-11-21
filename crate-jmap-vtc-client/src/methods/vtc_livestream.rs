@@ -1,5 +1,5 @@
-//! JMAP VTC — `VTCLivestream/*` method implementations on SessionClient
-//! (draft-atwood-jmap-vtc-00 §VTCLivestream Methods).
+//! JMAP VTC — `VTCLivestream/*` method implementations on `SessionClient`
+//! (draft-atwood-jmap-vtc-00 §`VTCLivestream` Methods).
 
 use std::collections::BTreeMap;
 
@@ -15,7 +15,7 @@ use super::{
 impl super::SessionClient {
     /// `VTCLivestream/get` (draft-atwood-jmap-vtc-00 L1202-L1206; RFC 8620 §5.1).
     ///
-    /// `ids: None` asks for every VTCLivestream in the account, subject to the
+    /// `ids: None` asks for every `VTCLivestream` in the account, subject to the
     /// server's `maxObjectsInGet` cap. `properties: None` returns all
     /// properties; a `properties` subset that omits a required
     /// [`VtcLivestream`] field fails to decode, so request full objects.

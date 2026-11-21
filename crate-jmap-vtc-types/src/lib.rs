@@ -19,7 +19,7 @@
 //!
 //! - [`JMAP_VTC_URI`], [`VtcCapability`], [`VtcGateway`],
 //!   [`VtcDialInEntry`], [`MediaKind`], [`GatewayProtocol`] — the
-//!   capability and its gateways (draft §Capability, §VTCGateway).
+//!   capability and its gateways (draft §Capability, §`VTCGateway`).
 //! - [`VtcMediaState`], [`VtcCallPolicy`] — embedded types.
 //! - [`VtcCall`], [`CallType`], [`CallState`], [`CallEndReason`].
 //! - [`VtcParticipant`], [`CallRole`], [`CallResponse`], [`LobbyState`],

@@ -49,7 +49,7 @@ impl GetObject for GraphNode {}
 /// docs/design/DECISIONS.md decision 22).
 impl jmap_object_history_types::HistoryObject for GraphNode {}
 
-/// draft-atwood-jmap-graph-00 §GraphNode (lines 179-206): `id` is
+/// draft-atwood-jmap-graph-00 §[`GraphNode`] (lines 179-206): `id` is
 /// "immutable, server-set"; `created`, `updated`, `createdBy` and
 /// `updatedBy` are "server-set"; `graphId` is "immutable".
 impl SetObject for GraphNode {
@@ -76,9 +76,9 @@ impl GetObject for GraphEdge {}
 /// docs/design/DECISIONS.md decision 22).
 impl jmap_object_history_types::HistoryObject for GraphEdge {}
 
-/// draft-atwood-jmap-graph-00 §GraphEdge (lines 213-232): `id` is
+/// draft-atwood-jmap-graph-00 §[`GraphEdge`] (lines 213-232): `id` is
 /// "immutable, server-set"; `graphId` is "immutable"; `created`,
-/// `updated`, `createdBy` and `updatedBy` are "As defined for GraphNode",
+/// `updated`, `createdBy` and `updatedBy` are "As defined for [`GraphNode`]",
 /// "server-set".
 impl SetObject for GraphEdge {
     type Patch = PatchObject;
@@ -101,7 +101,7 @@ impl JmapObject for GraphNodeOp {
 
 impl GetObject for GraphNodeOp {}
 
-/// draft-atwood-jmap-graph-edit-00 §The GraphNodeOp Data Type (lines
+/// draft-atwood-jmap-graph-edit-00 §The [`GraphNodeOp`] Data Type (lines
 /// 172-193): `id`, `graphId`, `seq`, `created` and `createdBy` are
 /// "immutable, server-set"; `nodeId`, `baseSeq` and `data` are
 /// "immutable".

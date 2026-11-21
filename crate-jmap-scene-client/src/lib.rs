@@ -16,8 +16,8 @@
 //! # }
 //! ```
 //!
-//! [`AssetFetcher`] fetches a peer-supplied `assetUri` (SceneAsset or
-//! SceneObject) under the draft's §assetUri Is Untrusted rules:
+//! [`AssetFetcher`] fetches a peer-supplied `assetUri` (`SceneAsset` or
+//! `SceneObject`) under the draft's §assetUri Is Untrusted rules:
 //!
 //! - "Clients MUST validate that `assetUri` uses a permitted scheme
 //!   (`https:`) before fetching": any other scheme fails with
@@ -26,7 +26,7 @@
 //!   redirect fails with [`AssetFetchError::Transport`] and the target is
 //!   never contacted.
 //! - "Clients SHOULD verify asset integrity using the `sha256` field on
-//!   SceneAsset when available": pass it to [`AssetFetcher::fetch`], which
+//!   `SceneAsset` when available": pass it to [`AssetFetcher::fetch`], which
 //!   fails with [`AssetFetchError::DigestMismatch`] when the body differs.
 //!
 //! ```rust,no_run
@@ -200,7 +200,7 @@ impl AssetFetcher {
     /// GETs `asset_uri` and returns its body.
     ///
     /// Reading stops with [`AssetFetchError::TooLarge`] once the body
-    /// passes `max_bytes`; a SceneAsset's `size` is a natural limit. When
+    /// passes `max_bytes`; a `SceneAsset`'s `size` is a natural limit. When
     /// `sha256` is given, the body must hash to it.
     ///
     /// # Errors

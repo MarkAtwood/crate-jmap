@@ -1,5 +1,5 @@
-//! JMAP Graph — `GraphEdge/*` method implementations on SessionClient
-//! (draft-atwood-jmap-graph-00 §GraphEdge Methods).
+//! JMAP Graph — `GraphEdge/*` method implementations on `SessionClient`
+//! (draft-atwood-jmap-graph-00 §[`GraphEdge`] Methods).
 
 use std::collections::BTreeMap;
 
@@ -14,7 +14,7 @@ use super::{
 impl super::SessionClient {
     /// `GraphEdge/get` (draft-atwood-jmap-graph-00 L296-L298; RFC 8620 §5.1).
     ///
-    /// `ids: None` asks for every GraphEdge in the account, subject to the
+    /// `ids: None` asks for every [`GraphEdge`] in the account, subject to the
     /// server's `maxObjectsInGet` cap. `properties: None` returns all
     /// properties; a `properties` subset that omits a required [`GraphEdge`]
     /// field fails to decode, so request full objects.
@@ -73,7 +73,7 @@ impl super::SessionClient {
     ///
     /// "On create, `graphId`, `fromId`, and `toId` are required"; the
     /// server rejects an endpoint outside the edge's Graph with an
-    /// `invalidProperties` SetError (L304). `fromId` and `toId` may be
+    /// `invalidProperties` `SetError` (L304). `fromId` and `toId` may be
     /// creation ids (L306).
     ///
     /// The result is the untyped [`SetResponse`]: per RFC 8620 §5.3 a
@@ -123,7 +123,7 @@ impl super::SessionClient {
 
     /// `GraphEdge/query` (draft-atwood-jmap-graph-00 L310-L330; RFC 8620 §5.5).
     ///
-    /// `filter` is required: "a single FilterCondition that includes
+    /// `filter` is required: "a single `FilterCondition` that includes
     /// `graphId`" (L314). `from_id`/`to_id` accept a whole frontier, so one
     /// call is one traversal hop (§Traversal, L334). Sort properties are
     /// `created` and `updated` (L330).
