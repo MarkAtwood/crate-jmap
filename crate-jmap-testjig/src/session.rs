@@ -56,10 +56,14 @@ pub const DEFAULT_ADDR: SocketAddr =
 /// upload / event-source URLs in [`session_json`].
 pub const BASE_URL: &str = "http://127.0.0.1:8080";
 
-/// The 14 capability URIs the testjig advertises: RFC 8620 base `core`
-/// plus the 13 workspace extension capabilities (mail, chat, calendars,
-/// tasks, contacts, filenode, principals, metadata, cid, i18n, quota,
-/// blob2, blob).
+/// The 16 capability URIs the testjig advertises: RFC 8620 base `core`
+/// plus the 15 workspace extension capabilities (mail, submission,
+/// vacationresponse, chat, calendars, tasks, contacts, filenode,
+/// principals, metadata, cid, i18n, quota, blob2, blob).
+///
+/// The mail memory backend serves `Identity`, `EmailSubmission` and
+/// `VacationResponse`, so their RFC 8621 §1.3.2 and §1.3.3 capabilities
+/// are advertised with the mail one.
 ///
 /// Blob is advertised twice (docs/design/DECISIONS.md decision 11):
 /// `urn:ietf:params:jmap:blob2` (draft-ietf-jmap-blobext-03 §2.1) and
@@ -98,6 +102,8 @@ pub const BASE_URL: &str = "http://127.0.0.1:8080";
 pub const ADVERTISED_CAPABILITIES: &[&str] = &[
     "urn:ietf:params:jmap:core",
     "urn:ietf:params:jmap:mail",
+    SUBMISSION_URI,
+    VACATION_RESPONSE_URI,
     "urn:ietf:params:jmap:chat",
     "urn:ietf:params:jmap:calendars",
     "urn:ietf:params:jmap:tasks",
@@ -113,6 +119,9 @@ pub const ADVERTISED_CAPABILITIES: &[&str] = &[
 ];
 
 const BLOB2_URI: &str = jmap_blob_types::JMAP_BLOB2_URI;
+const MAIL_URI: &str = "urn:ietf:params:jmap:mail";
+const SUBMISSION_URI: &str = "urn:ietf:params:jmap:submission";
+const VACATION_RESPONSE_URI: &str = "urn:ietf:params:jmap:vacationresponse";
 const BLOB_URI: &str = jmap_blob_types::JMAP_BLOB_URI;
 
 /// The blob account capability the jig's blob backend enforces: the
@@ -234,7 +243,7 @@ pub fn session_json() -> Value {
 ///   requires; every other account capability is `{}`.
 /// - `accounts`: single entry keyed by [`ACCOUNT_ID`]; `name` =
 ///   [`USERNAME`]; not personal, not read-only;
-///   `accountCapabilities` re-advertises the 13 extension URIs (Core
+///   `accountCapabilities` re-advertises the 15 extension URIs (Core
 ///   is conventionally session-only, not per-account) and adds the
 ///   object-history capability (object-history-03 §2.1). That one has
 ///   no methods of its own, so it is not in `primaryAccounts`.
@@ -288,7 +297,7 @@ pub fn session_json_for(addr: SocketAddr) -> Value {
 
     capabilities.insert(CHAT_WEBSOCKET_CAPABILITY.to_owned(), json!({}));
 
-    // Account-capabilities: the 13 extension URIs (Core is session-only).
+    // Account-capabilities: the 15 extension URIs (Core is session-only).
     let mut account_capabilities =
         serde_json::Map::with_capacity(ADVERTISED_CAPABILITIES.len() - 1);
     for uri in ADVERTISED_CAPABILITIES
@@ -297,6 +306,33 @@ pub fn session_json_for(addr: SocketAddr) -> Value {
     {
         account_capabilities.insert((*uri).to_owned(), json!({}));
     }
+    // RFC 8621 §1.3.1: the mail account capability has six required
+    // properties. The memory backend caps neither Mailboxes per Email nor
+    // the Mailbox depth (null: no limit) and accepts every §4.4.2 sort
+    // property (`email_sort_arg`). ponytail: it enforces no Mailbox name
+    // or attachment size, so those mirror a common name limit (at least
+    // the §1.3.1 minimum of 100) and the upload cap.
+    account_capabilities.insert(
+        MAIL_URI.to_owned(),
+        json!({
+            "maxMailboxesPerEmail": null,
+            "maxMailboxDepth": null,
+            "maxSizeMailboxName": 255_u64,
+            "maxSizeAttachmentsPerEmail": 50_000_000_u64,
+            "emailQuerySortOptions": [
+                "receivedAt", "size", "from", "to", "subject", "sentAt",
+                "hasKeyword", "allInThreadHaveKeyword", "someInThreadHaveKeyword",
+            ],
+            "mayCreateTopLevelMailbox": true,
+        }),
+    );
+    // RFC 8621 §1.3.2: the memory backend has no delayed send
+    // (`MailBackend::max_delayed_send_seconds` is 0) and no SMTP
+    // extensions.
+    account_capabilities.insert(
+        SUBMISSION_URI.to_owned(),
+        json!({"maxDelayedSend": 0_u64, "submissionExtensions": {}}),
+    );
     // ponytail: the reference chat backend enforces only the body cap
     // (message.rs rejects bodies over 100_000 bytes) and the body types
     // (message.rs SUPPORTED_BODY_TYPES), and does not parse
@@ -628,5 +664,32 @@ mod tests {
     fn session_advertises_cid_capability_as_empty_object() {
         let s = session_json();
         assert_eq!(s["capabilities"]["urn:ietf:params:jmap:cid"], json!({}));
+    }
+
+    /// Oracle: RFC 8621 §1.3.1 and §1.3.2 — the mail and submission
+    /// account capabilities carry their required properties, typed as the
+    /// RFC defines them, and §1.3 puts `{}` in the Session `capabilities`
+    /// for mail, submission and vacationresponse. Found by the
+    /// differential tests against Stalwart (bd:JMAP-cyub.4).
+    #[test]
+    fn mail_account_capabilities_have_rfc_8621_properties() {
+        let s = session_json();
+        for uri in [MAIL_URI, SUBMISSION_URI, VACATION_RESPONSE_URI] {
+            assert_eq!(s["capabilities"][uri], json!({}), "{uri}");
+            assert_eq!(s["primaryAccounts"][uri], ACCOUNT_ID, "{uri}");
+        }
+        let caps = &s["accounts"][ACCOUNT_ID]["accountCapabilities"];
+        let mail: jmap_mail_types::MailAccountCapability =
+            serde_json::from_value(caps[MAIL_URI].clone()).expect("RFC 8621 §1.3.1 shape");
+        assert!(mail.max_size_mailbox_name >= 100, "§1.3.1: at least 100");
+        assert!(
+            mail.email_query_sort_options
+                .iter()
+                .any(|o| o == "receivedAt")
+        );
+        let submission: jmap_mail_types::SubmissionAccountCapability =
+            serde_json::from_value(caps[SUBMISSION_URI].clone()).expect("RFC 8621 §1.3.2 shape");
+        assert_eq!(submission.max_delayed_send, 0);
+        assert_eq!(caps[VACATION_RESPONSE_URI], json!({}));
     }
 }

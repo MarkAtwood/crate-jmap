@@ -179,6 +179,7 @@ struct JigHandler {
 
 impl RequestHandler for JigHandler {
     async fn handle(&self, request: JmapRequest) -> Result<JmapResponse, JmapError> {
+        self.state.check_using(&request)?;
         let response = self
             .state
             .dispatcher

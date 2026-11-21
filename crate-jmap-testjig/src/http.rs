@@ -193,6 +193,38 @@ impl AppStateInner {
     pub(crate) fn subscribe_state_changes(&self) -> tokio::sync::watch::Receiver<u64> {
         self.state_change_tx.subscribe()
     }
+
+    /// The Session resource for a jig bound on `addr`: the pinned
+    /// [`session::session_json_for`] plus the capabilities that depend
+    /// on the dispatcher.
+    pub(crate) fn session(&self, addr: SocketAddr) -> Value {
+        let mut session = session::session_json_for(addr);
+        // draft-ietf-jmap-conditional-02 §2.1: the capability covers every
+        // Foo/set, so it is advertised only when the dispatcher has
+        // conditional support for all of them.
+        if self.dispatcher.conditional_ready() {
+            session["capabilities"][jmap_types::conditional::JMAP_CONDITIONAL_URI] =
+                serde_json::json!({});
+        }
+        session
+    }
+
+    /// Refuse a Request whose `using` names a capability the Session does
+    /// not advertise.
+    ///
+    /// # Errors
+    ///
+    /// RFC 8620 §3.6.1 `unknownCapability` ("The client included a
+    /// capability in the "using" property of the request that the server
+    /// does not support") for the first such URI.
+    pub(crate) fn check_using(&self, request: &jmap_types::JmapRequest) -> Result<(), JmapError> {
+        let session = self.session(session::DEFAULT_ADDR);
+        let known: Vec<&String> = session["capabilities"]
+            .as_object()
+            .map(|caps| caps.keys().collect())
+            .unwrap_or_default();
+        jmap_server::check_known_capabilities(request, &known)
+    }
 }
 
 impl AppState {
@@ -305,14 +337,7 @@ pub fn router(state: AppState) -> Router {
 /// state's advertised address; this handler simply serialises it with
 /// `application/json` Content-Type.
 async fn get_session(AxumState(state): AxumState<AppState>) -> Response {
-    let mut session = session::session_json_for(state.session_addr);
-    // draft-ietf-jmap-conditional-02 §2.1: the capability covers every
-    // Foo/set, so it is advertised only when the dispatcher has
-    // conditional support for all of them.
-    if state.inner.dispatcher.conditional_ready() {
-        session["capabilities"][jmap_types::conditional::JMAP_CONDITIONAL_URI] =
-            serde_json::json!({});
-    }
+    let session = state.inner.session(state.session_addr);
     let body = serde_json::to_string(&session)
         .expect("session_json builds only JSON-safe primitives — Serialize is infallible");
     let mut resp = Response::new(Body::from(body));
@@ -372,6 +397,7 @@ async fn post_jmap_inner(state: AppState, body: Body) -> Result<Response, ApiErr
     let value: Value =
         serde_json::from_slice(&bytes).map_err(|_| ApiError::from(JmapError::not_json()))?;
     let request = parse_request(value, MAX_CALLS_IN_REQUEST).map_err(ApiError::from)?;
+    state.inner.check_using(&request).map_err(ApiError::from)?;
 
     let response = state
         .inner
@@ -984,6 +1010,47 @@ mod tests {
         .await;
         assert_eq!(status, StatusCode::BAD_REQUEST);
         assert_eq!(body["type"], "urn:ietf:params:jmap:error:notRequest");
+    }
+
+    /// Oracle: RFC 8620 §3.6.1 — `unknownCapability`: "The client
+    /// included a capability in the "using" property of the request that
+    /// the server does not support", HTTP 400. Every capability the
+    /// Session advertises is accepted. Found by the differential tests
+    /// against Stalwart (bd:JMAP-cyub.4).
+    #[tokio::test]
+    async fn post_jmap_unknown_capability_returns_400() {
+        let req = |using: Vec<String>| {
+            json!({"using": using, "methodCalls": [["Core/echo", {}, "c1"]]}).to_string()
+        };
+        let unknown = req(vec![
+            "urn:ietf:params:jmap:core".to_owned(),
+            "urn:example:not-a-capability".to_owned(),
+        ]);
+        let (status, body) = send(
+            router(AppState::new()),
+            http::Method::POST,
+            "/jmap",
+            Some(&unknown),
+        )
+        .await;
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+        assert_eq!(body["type"], "urn:ietf:params:jmap:error:unknownCapability");
+        assert_eq!(body["status"], 400);
+
+        let advertised: Vec<String> = session::session_json()["capabilities"]
+            .as_object()
+            .expect("capabilities")
+            .keys()
+            .cloned()
+            .collect();
+        let (status, body) = send(
+            router(AppState::new()),
+            http::Method::POST,
+            "/jmap",
+            Some(&req(advertised)),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{body}");
     }
 
     /// Oracle: RFC 8620 §3.6.1 — exceeding `maxCallsInRequest` produces
