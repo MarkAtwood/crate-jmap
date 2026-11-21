@@ -420,11 +420,6 @@ pub async fn contact_identity<C: ChatBackend>(
 /// made, and their events are lost; the `VTCCall` and `VTCParticipant`
 /// `StateChange`s still report them.
 ///
-/// # Panics
-///
-/// Panics if `account_id`, or the id of a stored call or participant, is
-/// not a valid RFC 8620 Id (one built unchecked with `Id::from`): each
-/// `"left"` event is deserialized from JSON, and that validates each Id.
 // Same error type as `VtcBackend::update_object`, which it propagates.
 pub async fn eject_banned_user<V: VtcBackend>(
     vtc: &V,
@@ -471,23 +466,36 @@ pub async fn eject_banned_user<V: VtcBackend>(
             if left_role != Some(CallRole::Moderator) {
                 left_role = Some(p.role.clone());
             }
-            events.push(
-                serde_json::from_value(json!({
-                    "accountId": account_id,
-                    "callId": p.call_id,
-                    "participantId": p.id,
-                    "event": ParticipantEventKind::Left,
-                    "displayName": p.display_name,
-                    "role": p.role,
-                }))
-                .expect("a VTCParticipantEvent built from a stored participant is valid"),
-            );
+            events.push(left_event(account_id, p));
         }
         if let Some(role) = left_role {
             after_leave(vtc, caller, account_id, call, &role).await?;
         }
     }
     Ok(events)
+}
+
+/// The `"left"` [`VtcParticipantEvent`] for `p` in `account_id`.
+///
+/// Built from a template of constants with the ids set field by field, so
+/// an id built unchecked with `Id::from` is carried as given rather than
+/// re-validated by deserialization.
+fn left_event(account_id: &Id, p: &VtcParticipant) -> VtcParticipantEvent {
+    let mut ev: VtcParticipantEvent = serde_json::from_value(json!({
+        "accountId": "a",
+        "callId": "c",
+        "participantId": "p",
+        "event": ParticipantEventKind::Left,
+        "displayName": "",
+        "role": CallRole::Participant,
+    }))
+    .expect("a VTCParticipantEvent of constants deserializes");
+    ev.account_id = account_id.clone();
+    ev.call_id = p.call_id.clone();
+    ev.participant_id = p.id.clone();
+    ev.display_name = p.display_name.clone();
+    ev.role = p.role.clone();
+    ev
 }
 
 /// `true` if `user_id` (an identity string) is blocked on the contact list
@@ -754,4 +762,52 @@ async fn clear_references<V: VtcBackend>(
             .await?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// JMAP-ifb2: an id built unchecked with `Id::from` used to panic when
+    /// the `"left"` event was deserialized from JSON; it is now carried
+    /// as given, with every other field copied from the participant.
+    #[test]
+    fn left_event_carries_unchecked_ids_without_panicking() {
+        let mut p: VtcParticipant = serde_json::from_value(json!({
+            "id": "P1",
+            "callId": "C1",
+            "userId": "bob",
+            "displayName": "Bob",
+            "role": "moderator",
+            "joinedAt": "2026-01-01T00:00:00Z",
+            "leftAt": null,
+            "callResponse": null,
+            "joinMethod": "webrtc",
+            "gatewayData": null,
+            "lobbyState": null,
+            "mediaState": { "audio": true, "video": false, "screen": false, "raisedHand": false },
+            "speakerTimeMs": 0,
+            "kickedBy": null,
+            "e2eeFingerprint": null,
+            "unmuteRequested": false,
+            "breakoutCallId": null
+        }))
+        .expect("participant fixture");
+        p.id = Id::from("not a valid id!");
+        p.call_id = Id::from("call id with spaces");
+
+        let ev = left_event(&Id::from("acct/1"), &p);
+
+        assert_eq!(
+            serde_json::to_value(&ev).expect("event serializes"),
+            json!({
+                "accountId": "acct/1",
+                "callId": "call id with spaces",
+                "participantId": "not a valid id!",
+                "event": "left",
+                "displayName": "Bob",
+                "role": "moderator"
+            })
+        );
+    }
 }

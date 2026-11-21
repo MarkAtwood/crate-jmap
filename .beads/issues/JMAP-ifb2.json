@@ -2,11 +2,13 @@
   "id": "JMAP-ifb2",
   "title": "chat-vtc-server eject_banned_user panics on an unchecked Id",
   "description": "Found in ibyi group C: jmap_chat_vtc_server::eject_banned_user calls serde_json::from_value(..).expect(..) on each 'left' event; panics if account_id or a stored call/participant id is an invalid Id built with Id::from. It already returns Result: return an error instead, add a test, drop the # Panics note. Same pattern as JMAP-x3s1.",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-21T03:19:46.328859708Z",
   "created_by": "Mark Atwood",
-  "updated_at": "2026-11-21T03:19:46.328859708Z"
+  "updated_at": "2026-11-21T03:22:02.547073429Z",
+  "closed_at": "2026-11-21T03:22:02.547073429Z",
+  "close_reason": "left_event builds from a constant template and sets ids field by field; unit test with unchecked ids; # Panics removed"
 }

@@ -1,1 +1,2 @@
 {"id":"01a1fc1d-fe0b-7114-b930-33d800bcd37a","issue_id":"JMAP-ifb2","event_type":"created","actor":"Mark Atwood","old_value":"","new_value":"","created_at":"2026-11-21T03:19:46.443075583Z"}
+{"id":"01a1fc20-11c6-7d08-9a92-06f129787fcb","issue_id":"JMAP-ifb2","event_type":"closed","actor":"Mark Atwood","old_value":"","new_value":"left_event builds from a constant template and sets ids field by field; unit test with unchecked ids; # Panics removed","created_at":"2026-11-21T03:22:02.566856064Z"}
