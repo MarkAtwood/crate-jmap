@@ -34,12 +34,19 @@
 //! (`jmap-chat-scene-server` wires the two), so both paths are decided
 //! here, once per event: the union is delivered without duplicates.
 //!
-//! The optional observer subscriptions (`observe`, advertised by
-//! `supportsObserve`) are not implemented: this handler is for a server
-//! that advertises the capability as `{}`. The `observe` member is then
-//! not recognized ("Recognized only when the server advertises
-//! `supportsObserve`") and stays in [`SceneStreamEnable::extra`],
-//! ignored.
+//! Observer subscriptions (`observe: true`, jmap-chat-spec 93f2258) are
+//! recognized when [`SceneBackend::supports_observe`] is `true`, the
+//! server advertising `{"supportsObserve": true}`; otherwise `observe` is
+//! ignored, as the draft requires. An observing `SceneStreamEnable` needs
+//! `regionIds` (`invalidArguments` without), looks each listed region up
+//! in [`SceneBackend::observer_accounts`], and fails with a `forbidden`
+//! `RequestError` whose `regionIds` member lists the accessible regions
+//! that refuse observers (`allowObservers` `false`, or
+//! [`SceneBackend::may_observe_region`]), leaving the subscription as it
+//! was. The observed regions are reported to
+//! [`SceneBackend::set_observing`], and released again when a later
+//! `SceneStreamEnable`, `SceneStreamDisable` or the connection's close
+//! stops covering them, so the backend can keep `observerCount`.
 //!
 //! Credential expiry is the deployment's (§Credential Expiry): the
 //! handler does not know when credentials expire; close the connection
@@ -78,7 +85,10 @@ use tokio::task::JoinHandle;
 use tokio::time::Instant;
 
 use crate::SceneBackend;
-use crate::ephemeral::{SceneEphemeralSubscription, should_deliver, validate_interaction};
+use crate::SceneStreamFilter;
+use crate::ephemeral::{
+    SceneEphemeralSubscription, observer_regions, should_deliver, validate_interaction,
+};
 use limit::{Limiter, Window, sleep_until};
 
 /// The `@type` of the message that enables ephemeral Scene events.
@@ -208,14 +218,17 @@ impl SceneStreamLimits {
 ///
 /// While on, the handler delivers every Scene event the user may
 /// receive, as a `SceneStreamEnable` with `regionIds` and `eventTypes`
-/// both `null` would, whatever the connection's own `SceneStreamEnable`
-/// subscription is: the `"scene"` path "Subscribes to all Scene event
+/// both `null` would: the `"scene"` path "Subscribes to all Scene event
 /// types for all regions in which the user has an active avatar"
 /// (draft-atwood-jmap-scene-wss-00 §Interoperability with JMAP Chat
 /// WebSocket). That covers every `SceneStreamEnable` subscription
-/// without `observe`, so it is the union the server "MUST deliver", and
-/// each event is decided once: "if an event matches both subscriptions,
-/// it is delivered exactly once" (§Subscription Union).
+/// without `observe`. An observer subscription also reaches listed
+/// regions without an avatar ("It has no observer form", jmap-chat-spec
+/// 93f2258), so for an event the `"scene"` path does not admit the
+/// handler still asks the connection's own observer subscription. Either
+/// way the union the server "MUST deliver" is decided once per event:
+/// "if an event matches both subscriptions, it is delivered exactly once"
+/// (§Subscription Union).
 /// `SceneStreamDisable` does not touch it, and turning it off leaves the
 /// `SceneStreamEnable` subscription in place (§Subscription
 /// Independence).
@@ -248,6 +261,9 @@ struct Shared<B: SceneBackend> {
     alias: SceneChatAlias,
     /// The subscription of the `"scene"` path: everything.
     every: SceneEphemeralSubscription,
+    /// The `(account, region)` pairs this connection reported observing
+    /// with [`SceneBackend::set_observing`].
+    observing: tokio::sync::Mutex<Vec<(Id, Id)>>,
 }
 
 impl<B: SceneBackend> Shared<B> {
@@ -260,27 +276,57 @@ impl<B: SceneBackend> Shared<B> {
 
     /// Whether this connection receives `event` now. A backend error
     /// drops it.
+    ///
+    /// With the `"scene"` path on, its everything-subscription decides,
+    /// except that an event it refuses may still reach the connection's
+    /// observer subscription, the one `SceneStreamEnable` the path does
+    /// not cover.
     async fn admits(&self, event: &SceneEvent) -> bool {
         let Some(hosting) = hosting_account(event) else {
             return false;
         };
-        let own;
-        let subscription = if self.alias.is_on() {
-            &self.every
-        } else {
-            own = self.subscription();
-            &own
+        let deliver = |subscription| {
+            should_deliver(
+                &*self.backend,
+                &self.caller,
+                hosting,
+                &self.recipient_account_id,
+                subscription,
+                event,
+            )
         };
-        should_deliver(
-            &*self.backend,
-            &self.caller,
-            hosting,
-            &self.recipient_account_id,
-            subscription,
-            event,
-        )
-        .await
-        .unwrap_or(false)
+        let own = self.subscription();
+        if self.alias.is_on() {
+            if deliver(&self.every).await.unwrap_or(false) {
+                return true;
+            }
+            if !own.filter().is_some_and(SceneStreamFilter::observes) {
+                return false;
+            }
+        }
+        deliver(&own).await.unwrap_or(false)
+    }
+
+    /// Replace the regions this connection observes with `next`, telling
+    /// the backend of each region it starts and stops observing. Starts
+    /// are reported first, so a region kept across two subscriptions
+    /// never dips. A backend error is ignored: the count is advisory and
+    /// the subscription stands.
+    async fn observe(&self, next: Vec<(Id, Id)>) {
+        let mut observing = self.observing.lock().await;
+        let previous = std::mem::replace(&mut *observing, next);
+        for (account, region) in observing.iter().filter(|p| !previous.contains(p)) {
+            let _ = self
+                .backend
+                .set_observing(&self.caller, account, region, true)
+                .await;
+        }
+        for (account, region) in previous.iter().filter(|p| !observing.contains(p)) {
+            let _ = self
+                .backend
+                .set_observing(&self.caller, account, region, false)
+                .await;
+        }
     }
 }
 
@@ -301,8 +347,11 @@ fn hosting_account(event: &SceneEvent) -> Option<&Id> {
 /// [module docs](self).
 ///
 /// - `SceneStreamEnable` replaces the subscription through
-///   [`SceneEphemeralSubscription::replace_with`]. Its error becomes the
-///   `RequestError` (`invalidArguments`, with the message's `id` as
+///   [`SceneEphemeralSubscription::replace_with`], or
+///   [`SceneEphemeralSubscription::replace_with_observe`] when
+///   [`SceneBackend::supports_observe`]. Its error becomes the
+///   `RequestError` (`invalidArguments`, or `forbidden` with `regionIds`
+///   for a refused observer subscription, with the message's `id` as
 ///   `requestId`) and leaves the subscription unchanged; "This error does
 ///   not close the WebSocket connection". A malformed message is
 ///   `notRequest`.
@@ -311,6 +360,9 @@ fn hosting_account(event: &SceneEvent) -> Option<&Id> {
 /// - `SceneInteractionEvent` is validated and relayed, never answered.
 /// - Closing the connection clears the subscription and stops delivery
 ///   (§Subscription Lifecycle).
+///
+/// Each of these that changes which regions the connection observes
+/// reports it to [`SceneBackend::set_observing`].
 pub struct SceneStreamHandler<B: SceneBackend> {
     shared: Arc<Shared<B>>,
     hub: SceneEventHub,
@@ -355,6 +407,7 @@ impl<B: SceneBackend> SceneStreamHandler<B> {
                 subscription: Mutex::new(SceneEphemeralSubscription::default()),
                 alias: SceneChatAlias::default(),
                 every,
+                observing: tokio::sync::Mutex::new(Vec::new()),
             }),
             hub: hub.clone(),
             limits: SceneStreamLimits::default(),
@@ -387,17 +440,46 @@ impl<B: SceneBackend> SceneStreamHandler<B> {
             .unwrap_or_else(PoisonError::into_inner) = subscription;
     }
 
-    fn enable(&self, message: &ExtensionMessage) -> Result<(), JmapError> {
+    async fn enable(&self, message: &ExtensionMessage) -> Result<(), JmapError> {
         let enable: SceneStreamEnable = message.deserialize()?;
-        // Observer subscriptions (`observe`, bd JMAP-24aw) go here: with
-        // `supportsObserve` advertised, an `observe: true` frame needs
-        // `regionIds` (else invalidArguments), may be refused per region
-        // (forbidden with `regionIds`), and counts toward
-        // `observerCount`. Until then `observe` is not recognized and is
-        // ignored, as the draft requires without `supportsObserve`.
+        let shared = &self.shared;
+        let backend = &*shared.backend;
         let mut next = self.subscription();
-        next.replace_with(&enable)?;
+        // "Recognized only when the server advertises `supportsObserve`".
+        let observing = backend.supports_observe(&shared.caller);
+        if observing {
+            next.replace_with_observe(&enable)?;
+        } else {
+            next.replace_with(&enable)?;
+        }
+        let mut observed = Vec::new();
+        if observing
+            && enable.observe == Some(true)
+            && let Some(region_ids) = &enable.region_ids
+        {
+            let fail = |e: B::Error| jmap_server::server_fail_from_backend(&e);
+            let accounts = backend
+                .observer_accounts(&shared.caller, &shared.recipient_account_id)
+                .await
+                .map_err(fail)?;
+            let refused;
+            (observed, refused) = observer_regions(backend, &shared.caller, &accounts, region_ids)
+                .await
+                .map_err(fail)?;
+            if !refused.is_empty() {
+                // "the server MUST respond with a `RequestError` ... with a
+                // `type` of `\"urn:ietf:params:jmap:error:forbidden\"` and a
+                // `regionIds` member listing the refused regions, and MUST
+                // NOT update the current ephemeral subscription state".
+                let mut err = JmapError::forbidden();
+                err.description = Some("these regions do not admit observers".to_owned());
+                err.extra
+                    .insert("regionIds".to_owned(), serde_json::json!(refused));
+                return Err(err);
+            }
+        }
         self.set(next);
+        shared.observe(observed).await;
         Ok(())
     }
 
@@ -445,13 +527,14 @@ impl<B: SceneBackend> ExtensionHandler for SceneStreamHandler<B> {
 
     async fn handle(&mut self, message: ExtensionMessage) -> Result<(), JmapError> {
         match message.message_type.as_str() {
-            ENABLE => self.enable(&message),
+            ENABLE => self.enable(&message).await,
             INTERACTION => {
                 self.interact(&message).await;
                 Ok(())
             }
             _ => {
                 self.set(SceneEphemeralSubscription::default());
+                self.shared.observe(Vec::new()).await;
                 Ok(())
             }
         }
@@ -462,6 +545,9 @@ impl<B: SceneBackend> ExtensionHandler for SceneStreamHandler<B> {
             task.abort();
         }
         self.set(SceneEphemeralSubscription::default());
+        // "The count drops when the subscription stops covering the
+        // region, through ... the connection closing."
+        self.shared.observe(Vec::new()).await;
     }
 }
 

@@ -88,16 +88,23 @@ pub trait SceneWsExt: sealed::Sealed {
     /// from. When its `capabilities` lack
     /// `urn:ietf:params:jmap:scene:websocket` ([`supports_scene_websocket`]),
     /// nothing is sent: clients "MUST NOT send `SceneStreamEnable`" then
-    /// (jmap-scene-wss-guide §Checking capabilities).
+    /// (jmap-scene-wss-guide §Checking capabilities). An observer
+    /// subscription (`enable.observe` `Some(true)`) is sent only when the
+    /// capability has `supportsObserve` ([`supports_scene_observe`]): the
+    /// client checks "`supportsObserve` before sending `observe: true`"
+    /// (jmap-scene-wss-guide at jmap-chat-spec 93f2258).
     ///
     /// A server that rejects it answers with a `RequestError`, which
-    /// arrives as [`SceneWsFrame::Other`].
+    /// arrives as [`SceneWsFrame::Other`]; a refused observer subscription
+    /// is a `forbidden` one whose `regionIds` member lists the refused
+    /// regions.
     ///
     /// # Errors
     ///
     /// [`ClientError::InvalidArgument`] when `session` does not advertise
-    /// `urn:ietf:params:jmap:scene:websocket`; [`ClientError`] on a
-    /// serialization or transport failure.
+    /// `urn:ietf:params:jmap:scene:websocket`, or `enable` observes and it
+    /// lacks `supportsObserve`; [`ClientError`] on a serialization or
+    /// transport failure.
     fn send_scene_stream_enable(
         &mut self,
         session: &Session,
@@ -139,6 +146,22 @@ pub fn supports_scene_websocket(session: &Session) -> bool {
         .contains_key(jmap_scene_types::JMAP_SCENE_WEBSOCKET_URI)
 }
 
+/// Whether `session` advertises observer subscriptions: its
+/// `urn:ietf:params:jmap:scene:websocket` capability has
+/// `supportsObserve: true` (draft-atwood-jmap-scene-wss-00 at
+/// jmap-chat-spec 93f2258, §Capability). Only then may a
+/// [`SceneStreamEnable`] carry `observe: true`; the value `{}`, or a value
+/// that does not parse as a
+/// [`SceneWebSocketCapability`](jmap_scene_types::SceneWebSocketCapability),
+/// advertises no optional features.
+pub fn supports_scene_observe(session: &Session) -> bool {
+    session
+        .capabilities
+        .get(jmap_scene_types::JMAP_SCENE_WEBSOCKET_URI)
+        .and_then(|v| jmap_scene_types::SceneWebSocketCapability::deserialize(v.clone()).ok())
+        .is_some_and(|c| c.supports_observe)
+}
+
 mod sealed {
     /// Seals [`super::SceneWsExt`]; see its rustdoc.
     pub trait Sealed {}
@@ -160,6 +183,11 @@ impl SceneWsExt for WsSession {
                 "SceneStreamEnable requires the Session capability {}",
                 jmap_scene_types::JMAP_SCENE_WEBSOCKET_URI
             )));
+        }
+        if enable.observe == Some(true) && !supports_scene_observe(session) {
+            return Err(ClientError::InvalidArgument(
+                "SceneStreamEnable observe: true requires supportsObserve".to_owned(),
+            ));
         }
         send_json(self, &SceneStreamMessage::Enable(enable.clone())).await
     }

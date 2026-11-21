@@ -51,7 +51,8 @@ impl jmap_object_history_types::HistoryObject for SceneRegion {}
 
 /// draft-atwood-jmap-scene-00 §[`SceneRegion`] Object Fields (lines 321-481):
 /// `id`, `ownerId` and `createdAt` are "immutable, server-set";
-/// `accountId`, `activeAvatarCount` and `updatedAt` are "server-set".
+/// `accountId`, `activeAvatarCount` and `updatedAt` are "server-set", as is
+/// `observerCount` (jmap-chat-spec 93f2258); `allowObservers` is the owner's.
 impl SetObject for SceneRegion {
     type Patch = PatchObject;
     const SERVER_SET: &'static [&'static str] = &[
@@ -59,10 +60,12 @@ impl SetObject for SceneRegion {
         "accountId",
         "ownerId",
         "activeAvatarCount",
+        "observerCount",
         "createdAt",
         "updatedAt",
     ];
     const CLIENT_SETTABLE: &'static [&'static str] = &[
+        "allowObservers",
         "name",
         "description",
         "bounds",
@@ -212,6 +215,8 @@ mod tests {
             spawn_position: [0.0; 3],
             spawn_orientation: [0.0, 0.0, 0.0, 1.0],
             active_avatar_count: 1,
+            allow_observers: Some(true),
+            observer_count: Some(0),
             view_hint: Some(de(json!("immersive"))),
             geo_anchor: Some(Some(de(
                 json!({"latitude": 0.0, "longitude": 0.0, "heading": 0.0}),

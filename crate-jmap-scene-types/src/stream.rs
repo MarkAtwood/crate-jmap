@@ -81,6 +81,14 @@ pub struct SceneStreamEnable {
     /// [`SceneEventType::Other`].
     #[serde(default)]
     pub event_types: Option<Vec<SceneEventType>>,
+    /// `observe` (jmap-chat-spec 93f2258): "When `true`, the subscription
+    /// is an observer subscription: events for each region in `regionIds`
+    /// are delivered whether or not the user has an active avatar in it".
+    /// "Recognized only when the server advertises `supportsObserve`"
+    /// ([`SceneWebSocketCapability`](crate::SceneWebSocketCapability)).
+    /// "Default: `false`"; absent unless set, and left out when `None`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub observe: Option<bool>,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
@@ -247,6 +255,27 @@ mod tests {
                     SceneEventType::Other("SceneFooBarEvent".to_owned()),
                     SceneEventType::Avatar,
                 ][..])));
+    }
+
+    #[test]
+    fn enable_observe_is_typed_and_optional() {
+        // Oracle: jmap-chat-spec 93f2258 §SceneStreamEnable "`observe`
+        // (Boolean, optional) ... Default: `false`."
+        let msg = round_trip(json!({
+            "@type": "SceneStreamEnable",
+            "regionIds": ["01J5ABC0000000000000000001"],
+            "eventTypes": null,
+            "observe": true
+        }));
+        assert!(matches!(msg, SceneStreamMessage::Enable(ref e)
+            if e.observe == Some(true) && !e.extra.contains_key("observe")));
+        assert_eq!(SceneStreamEnable::default().observe, None);
+        assert!(
+            serde_json::from_value::<SceneStreamMessage>(
+                json!({"@type": "SceneStreamEnable", "observe": "yes"})
+            )
+            .is_err()
+        );
     }
 
     #[test]

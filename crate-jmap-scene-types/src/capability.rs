@@ -14,13 +14,53 @@ pub const JMAP_SCENE_URI: &str = "urn:ietf:params:jmap:scene";
 /// Capability URI for ephemeral Scene event push over WebSocket
 /// (draft-atwood-jmap-scene-wss-00 §Capability).
 ///
-/// The session-level value is an empty object `{}` and is not modelled.
+/// The session-level value is a [`SceneWebSocketCapability`].
 /// Advertising it means the server delivers [`SceneEvent`](crate::SceneEvent)
 /// frames and accepts [`SceneStreamEnable`](crate::SceneStreamEnable) and
 /// [`SceneStreamDisable`](crate::SceneStreamDisable). A server advertising
 /// it "MUST also advertise both `urn:ietf:params:jmap:websocket` and
 /// `urn:ietf:params:jmap:scene`".
 pub const JMAP_SCENE_WEBSOCKET_URI: &str = "urn:ietf:params:jmap:scene:websocket";
+
+/// Session-level capability object for
+/// `"urn:ietf:params:jmap:scene:websocket"`
+/// (draft-atwood-jmap-scene-wss-00 at jmap-chat-spec 93f2258,
+/// §Capability): "a JSON object with the following optional field".
+///
+/// "An absent field has the same meaning as `false`, so the value `{}`
+/// advertises no optional features"; [`Default`] is that value.
+///
+/// # Example
+///
+/// ```
+/// use jmap_scene_types::SceneWebSocketCapability;
+///
+/// let cap: SceneWebSocketCapability =
+///     serde_json::from_str(r#"{"supportsObserve": true}"#)?;
+/// assert!(cap.supports_observe);
+/// assert_eq!(
+///     serde_json::to_string(&SceneWebSocketCapability::default())?,
+///     "{}"
+/// );
+/// # Ok::<(), serde_json::Error>(())
+/// ```
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SceneWebSocketCapability {
+    /// `true` if the server accepts observer subscriptions (`observe` in
+    /// [`SceneStreamEnable`](crate::SceneStreamEnable)) and regions carry
+    /// the `allowObservers` and `observerCount` properties. Left out when
+    /// `false`.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub supports_observe: bool,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
+}
 
 /// Account-level capability object for `"urn:ietf:params:jmap:scene"`.
 ///
@@ -170,6 +210,24 @@ mod tests {
         assert!(cap.supports_region_broadcast);
         assert!(cap.supports_avatar_region_state);
         assert_eq!(serde_json::to_value(&cap).unwrap(), raw);
+    }
+
+    #[test]
+    fn websocket_capability_matches_draft_session_example() {
+        // Oracle: draft-atwood-jmap-scene-wss-00 (jmap-chat-spec 93f2258)
+        // §Capability, the Session example value
+        // `{"supportsObserve": true}`, and "the value `{}` advertises no
+        // optional features".
+        let raw = json!({"supportsObserve": true});
+        let cap: SceneWebSocketCapability = serde_json::from_value(raw.clone()).unwrap();
+        assert!(cap.supports_observe);
+        assert_eq!(serde_json::to_value(&cap).unwrap(), raw);
+        let empty: SceneWebSocketCapability = serde_json::from_value(json!({})).unwrap();
+        assert_eq!(empty, SceneWebSocketCapability::default());
+        assert!(!empty.supports_observe);
+        let vendor = json!({"vendor.example:maxRegions": 4});
+        let cap: SceneWebSocketCapability = serde_json::from_value(vendor.clone()).unwrap();
+        assert_eq!(serde_json::to_value(&cap).unwrap(), vendor);
     }
 
     #[test]

@@ -440,3 +440,51 @@ async fn region_event_is_typed() {
     assert!(ws.next_scene_frame().await.is_none());
     assert!(server.await.unwrap().is_empty());
 }
+
+/// A Session whose `urn:ietf:params:jmap:scene:websocket` value is `cap`.
+fn session_with_ws_capability(cap: Value) -> jmap_base_client::Session {
+    let mut session = session_with(true);
+    session
+        .capabilities
+        .insert("urn:ietf:params:jmap:scene:websocket".to_owned(), cap);
+    session
+}
+
+/// jmap-chat-spec 93f2258 §Capability: `supportsObserve` "`true` if the
+/// server accepts observer subscriptions"; "the value `{}` advertises no
+/// optional features". The client sends `observe: true` only to a server
+/// that advertises it, and the frame carries `observe` as sent.
+#[tokio::test]
+async fn observe_needs_supports_observe() {
+    let mut enable = SceneStreamEnable::default();
+    enable.region_ids = Some(vec![Id::from("01J5ABC0000000000000000001")]);
+    enable.observe = Some(true);
+
+    let plain = session_with_ws_capability(serde_json::json!({}));
+    let observing = session_with_ws_capability(serde_json::json!({"supportsObserve": true}));
+    assert!(!jmap_scene_client::supports_scene_observe(&plain));
+    assert!(jmap_scene_client::supports_scene_observe(&observing));
+
+    let (mut ws, server) = serve(vec![Step::Recv]).await;
+    let err = ws
+        .send_scene_stream_enable(&plain, &enable)
+        .await
+        .expect_err("must refuse");
+    assert!(
+        matches!(err, jmap_base_client::ClientError::InvalidArgument(_)),
+        "{err:?}"
+    );
+    ws.send_scene_stream_enable(&observing, &enable)
+        .await
+        .unwrap();
+    let received = server.await.unwrap();
+    assert_eq!(
+        received,
+        [serde_json::json!({
+            "@type": "SceneStreamEnable",
+            "regionIds": ["01J5ABC0000000000000000001"],
+            "eventTypes": null,
+            "observe": true
+        })]
+    );
+}

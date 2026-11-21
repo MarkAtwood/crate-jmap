@@ -818,6 +818,115 @@ pub trait SceneBackend: JmapBackend {
         async { Ok(AvatarView::Full) }
     }
 
+    /// `true` if the server advertises `supportsObserve` in its
+    /// `urn:ietf:params:jmap:scene:websocket` Session capability
+    /// ([`SceneWebSocketCapability`](jmap_scene_types::SceneWebSocketCapability);
+    /// draft-atwood-jmap-scene-wss-00 at jmap-chat-spec 93f2258).
+    ///
+    /// When `true`, `SceneRegion/set` gives a created region
+    /// `allowObservers` (default `true`) and `observerCount` (`0`) and
+    /// accepts updates of `allowObservers`, and the `websocket` handler
+    /// recognizes `observe` in `SceneStreamEnable`. When `false` the two
+    /// region properties are refused with `invalidProperties` and
+    /// `observe` is ignored: "Recognized only when the server advertises
+    /// `supportsObserve`". A backend that returns `true` must also
+    /// implement [`Self::set_observing`], so `observerCount` is right.
+    ///
+    /// # Default implementation
+    ///
+    /// Returns `false`: no observer subscriptions, today's behavior.
+    fn supports_observe(&self, caller: &Self::CallerCtx) -> bool {
+        let _ = caller;
+        false
+    }
+
+    /// `true` unless the server declines observers of `region` for
+    /// deployment-defined policy: "A server MAY also decline observers of
+    /// a region for deployment-defined policy reasons even when
+    /// `allowObservers` is `true`" (jmap-chat-spec 93f2258
+    /// §SceneStreamEnable).
+    ///
+    /// Asked for a region the caller has access to, when a
+    /// `SceneStreamEnable` with `observe: true` lists it (`false` makes it
+    /// one of the refused `regionIds` of the `forbidden` `RequestError`)
+    /// and again at delivery time by [`crate::should_deliver`] for an
+    /// observer without an active avatar there.
+    ///
+    /// # Default implementation
+    ///
+    /// Returns `Ok(true)` (fail-open, bd:JMAP-bghk).
+    fn may_observe_region(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        region: &SceneRegion,
+    ) -> impl std::future::Future<Output = Result<bool, Self::Error>> + Send {
+        let _ = (caller, account_id, region);
+        async { Ok(true) }
+    }
+
+    /// The accounts whose regions a `SceneStreamEnable` with
+    /// `observe: true` may name, for a connection whose own account is
+    /// `own_account_id`: "An id listed in `regionIds` matches in every
+    /// account the user can access" (draft-atwood-jmap-scene-wss-00
+    /// §SceneStreamEnable).
+    ///
+    /// The `websocket` handler looks each listed region up in each of
+    /// these accounts to decide which regions are observed and which are
+    /// refused. Access to each region is still checked with
+    /// [`Self::may_access_region`].
+    ///
+    /// # Default implementation
+    ///
+    /// Returns `own_account_id` alone. A deployment with shared regions
+    /// overrides it with the accounts the caller can access.
+    fn observer_accounts(
+        &self,
+        caller: &Self::CallerCtx,
+        own_account_id: &jmap_types::Id,
+    ) -> impl std::future::Future<Output = Result<Vec<jmap_types::Id>, Self::Error>> + Send {
+        let _ = caller;
+        let own = vec![own_account_id.clone()];
+        async { Ok(own) }
+    }
+
+    /// Record that one connection of the caller started (`observing`
+    /// `true`) or stopped (`false`) observing region `region_id` of
+    /// `account_id` (jmap-chat-spec 93f2258, `observerCount`).
+    ///
+    /// The `websocket` handler calls it with `true` for each region a
+    /// `SceneStreamEnable` with `observe: true` observes, and with `false`
+    /// when the connection's subscription stops covering it: a new
+    /// `SceneStreamEnable`, `SceneStreamDisable` or the connection
+    /// closing. Calls are balanced per connection, so a caller with
+    /// several observing connections calls `true` several times.
+    ///
+    /// The backend keeps `observerCount`: "The number of users currently
+    /// observing the region through an observer subscription ... who do
+    /// not have an active avatar in it. A user with several observing
+    /// connections counts once." Recount it, atomically with the change,
+    /// here and whenever one of those users enters or leaves the region
+    /// with an avatar, loses access, or `allowObservers` changes (`false`
+    /// stops delivery, so it counts no one). "Like `activeAvatarCount`, a
+    /// change to it is a change to the SceneRegion": record the region as
+    /// updated and advance the SceneRegion state, so push sends a
+    /// `StateChange`.
+    ///
+    /// # Default implementation
+    ///
+    /// Returns `Ok(())` and counts nothing. That is correct only while
+    /// [`Self::supports_observe`] is `false`, when no observer exists.
+    fn set_observing(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        region_id: &jmap_types::Id,
+        observing: bool,
+    ) -> impl std::future::Future<Output = Result<(), Self::Error>> + Send {
+        let _ = (caller, account_id, region_id, observing);
+        async { Ok(()) }
+    }
+
     /// Accept an interaction that passed the `SceneObject/interact`
     /// checks, or refuse it for its rate (draft-atwood-jmap-scene-00
     /// §SceneObject/interact).

@@ -140,6 +140,23 @@ pub struct SceneRegion {
     pub spawn_orientation: Orientation,
     /// Number of avatars currently present.
     pub active_avatar_count: u64,
+    /// `allowObservers`: "`true` if users with access to the region may
+    /// follow its events through an observer subscription, without an
+    /// avatar. Default: `true`." Written by the region owner and admins
+    /// (draft-atwood-jmap-scene-00 at jmap-chat-spec 93f2258).
+    ///
+    /// "Present only when the server advertises `supportsObserve`"
+    /// ([`SceneWebSocketCapability`](crate::SceneWebSocketCapability));
+    /// `None` when absent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub allow_observers: Option<bool>,
+    /// `observerCount` (server-set): "The number of users currently
+    /// observing the region through an observer subscription ... who do
+    /// not have an active avatar in it. A user with several observing
+    /// connections counts once." "Present when `allowObservers` is
+    /// present"; `None` when absent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub observer_count: Option<u64>,
     /// Advisory rendering mode; `None` (`null`) "is treated as `\"3d\"`".
     pub view_hint: Option<ViewHint>,
     /// Anchor of the region's origin in a reference frame.
@@ -424,6 +441,32 @@ mod tests {
             serde_json::to_value(&r).unwrap()["invitedUserIds"],
             json!([])
         );
+    }
+
+    #[test]
+    fn observer_properties_absent_or_present() {
+        // Oracle: jmap-chat-spec 93f2258 §SceneRegion: `allowObservers`
+        // (Boolean) "Present only when the server advertises
+        // `supportsObserve`"; `observerCount` (UnsignedInt, server-set)
+        // "Present when `allowObservers` is present".
+        let raw = standalone();
+        let r: SceneRegion = serde_json::from_value(raw.clone()).unwrap();
+        assert_eq!((r.allow_observers, r.observer_count), (None, None));
+        assert_eq!(serde_json::to_value(&r).unwrap(), raw);
+
+        let mut raw = standalone();
+        raw["allowObservers"] = json!(false);
+        raw["observerCount"] = json!(2);
+        let r: SceneRegion = serde_json::from_value(raw.clone()).unwrap();
+        assert_eq!(
+            (r.allow_observers, r.observer_count),
+            (Some(false), Some(2))
+        );
+        assert!(r.extra.is_empty());
+        assert_eq!(serde_json::to_value(&r).unwrap(), raw);
+
+        raw["observerCount"] = json!(-1);
+        assert!(serde_json::from_value::<SceneRegion>(raw).is_err());
     }
 
     #[test]

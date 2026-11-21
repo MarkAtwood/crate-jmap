@@ -117,6 +117,9 @@ fn scene_backend() -> Arc<MemoryBackend> {
             avatar(id, region, user, left_at),
         );
     }
+    // No test sends `observe` unless it means to: on, so the union with
+    // an observer subscription can be exercised.
+    backend.set_supports_observe(true);
     Arc::new(backend)
 }
 
@@ -339,5 +342,41 @@ async fn each_path_survives_the_other() {
     control(&mut ws, json!({"@type": "SceneStreamDisable"})).await;
     hub.publish(bob_entered(R2));
     next_is(&mut ws, R2).await;
+    nothing(&mut ws).await;
+}
+
+/// jmap-chat-spec 93f2258: the `"scene"` path "has no observer form", and
+/// an observer subscription delivers listed regions "with or without an
+/// active avatar". The union keeps the observed region where Alice has no
+/// avatar (R3) while the `"scene"` path is on, and still delivers an event
+/// both paths cover (R1) once.
+#[tokio::test]
+async fn union_keeps_the_observer_subscription() {
+    let (addr, hub) = server().await;
+    let mut ws = connect(addr).await;
+    control(
+        &mut ws,
+        json!({"@type": "SceneStreamEnable", "regionIds": [R1, R3], "observe": true}),
+    )
+    .await;
+    control(
+        &mut ws,
+        json!({"@type": "ChatStreamEnable", "dataTypes": ["scene"]}),
+    )
+    .await;
+
+    hub.publish(bob_entered(R3)); // the observer subscription only
+    hub.publish(bob_entered(R1)); // both paths
+    hub.publish(bob_entered(R2)); // the "scene" path only
+    next_is(&mut ws, R3).await;
+    next_is(&mut ws, R1).await;
+    next_is(&mut ws, R2).await;
+    nothing(&mut ws).await;
+
+    // ChatStreamDisable leaves the observer subscription alone.
+    control(&mut ws, json!({"@type": "ChatStreamDisable"})).await;
+    hub.publish(bob_entered(R2));
+    hub.publish(bob_entered(R3));
+    next_is(&mut ws, R3).await;
     nothing(&mut ws).await;
 }

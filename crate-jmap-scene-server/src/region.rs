@@ -417,7 +417,30 @@ fn malformed(m: &Map<String, Value>) -> Vec<&'static str> {
             v.as_array().is_some_and(|a| a.iter().all(Value::is_string))
         }),
     );
+    // jmap-chat-spec 93f2258: "`allowObservers` (Boolean)".
+    check(
+        "allowObservers",
+        optional("allowObservers", Value::is_boolean),
+    );
     bad
+}
+
+/// `allowObservers` on a server without `supportsObserve`
+/// ([`SceneBackend::supports_observe`]): the property is "Present only
+/// when the server advertises `supportsObserve`" (jmap-chat-spec 93f2258),
+/// so it is refused rather than kept as an extension property.
+fn observers_unsupported<B: SceneBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    touched: bool,
+) -> Result<(), Value> {
+    if touched && !backend.supports_observe(caller) {
+        return Err(invalid(
+            &["allowObservers"],
+            "allowObservers needs supportsObserve",
+        ));
+    }
+    Ok(())
 }
 
 /// The capability-dependent §Create Errors of region `m`: a non-null
@@ -584,7 +607,16 @@ async fn create_region<B: SceneBackend>(
         ));
     }
 
+    observers_unsupported(backend, caller, m.contains_key("allowObservers"))?;
     validate(backend, caller, account_id, &m, &|_| true).await?;
+    // "The server sets ... when the region has the observer properties,
+    // `observerCount` (to `0`)"; `allowObservers` "Default: `true`".
+    let observers = backend.supports_observe(caller);
+    let default_allow = observers && !m.contains_key("allowObservers");
+    if observers {
+        m.entry("allowObservers").or_insert(json!(true));
+        m.insert("observerCount".to_owned(), json!(0));
+    }
     let owner_id = backend
         .caller_user_id(caller, account_id)
         .await
@@ -628,6 +660,12 @@ async fn create_region<B: SceneBackend>(
     });
     if normalized.is_some() {
         created["spawnOrientation"] = json!(stored.spawn_orientation);
+    }
+    if let Some(count) = stored.observer_count {
+        created["observerCount"] = json!(count);
+    }
+    if default_allow {
+        created["allowObservers"] = json!(stored.allow_observers);
     }
     Ok(created)
 }
@@ -687,6 +725,7 @@ async fn update_region<B: SceneBackend>(
         )
     })?;
     let touched = |k: &str| patched.iter().any(|p| p == k);
+    observers_unsupported(backend, caller, touched("allowObservers"))?;
     validate(backend, caller, account_id, &result, &touched).await?;
 
     let now = now_utc_string();

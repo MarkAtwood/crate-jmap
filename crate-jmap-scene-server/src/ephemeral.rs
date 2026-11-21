@@ -19,6 +19,13 @@
 //! That lets events "begin (or resume) without a new `SceneStreamEnable`"
 //! when the user enters or re-enters a listed region.
 //!
+//! An observer subscription (`observe: true`, through
+//! [`SceneEphemeralSubscription::replace_with_observe`] on a server that
+//! advertises `supportsObserve`; jmap-chat-spec 93f2258) needs no avatar:
+//! its listed regions deliver events "while the user has access to the
+//! region", checked at delivery time as well, together with the region's
+//! `allowObservers`.
+//!
 //! # Delivery and relay
 //!
 //! Before sending an event to a connection, the transport asks
@@ -31,7 +38,7 @@
 
 use jmap_scene_types::{
     ObjectEventKind, SCENE_EVENT_TYPES, SceneAvatar, SceneEvent, SceneInteractionEvent,
-    SceneObject, SceneStreamEnable,
+    SceneObject, SceneRegion, SceneStreamEnable,
 };
 use jmap_types::{Id, JmapError};
 
@@ -71,12 +78,22 @@ impl RegionScope {
 pub struct SceneStreamFilter {
     region_ids: RegionScope,
     event_types: Option<Vec<&'static str>>,
+    observe: bool,
 }
 
 impl SceneStreamFilter {
     /// The regions covered.
     pub fn region_ids(&self) -> &RegionScope {
         &self.region_ids
+    }
+
+    /// Whether this is an observer subscription (jmap-chat-spec 93f2258):
+    /// its listed regions deliver events while the user has access to
+    /// them, with or without an active avatar. Set only through
+    /// [`SceneEphemeralSubscription::replace_with_observe`]; always with a
+    /// [`RegionScope::Only`] scope.
+    pub fn observes(&self) -> bool {
+        self.observe
     }
 
     /// Whether `event_type` (an `@type` such as `"SceneAvatarEvent"`) was
@@ -116,7 +133,49 @@ impl SceneEphemeralSubscription {
     /// `requestId` is [`SceneStreamEnable::id`] when the client sent one;
     /// the returned [`JmapError`] carries the short method-level name. The
     /// connection stays open.
+    ///
+    /// This is the form for a server that does not advertise
+    /// `supportsObserve`: [`SceneStreamEnable::observe`] "is recognized
+    /// only when the server advertises `supportsObserve`", so it is
+    /// ignored here. A server that advertises it uses
+    /// [`Self::replace_with_observe`].
     pub fn replace_with(&mut self, enable: &SceneStreamEnable) -> Result<(), JmapError> {
+        self.replace(enable, false)
+    }
+
+    /// As [`Self::replace_with`], for a server that advertises
+    /// `supportsObserve` (draft-atwood-jmap-scene-wss-00 at jmap-chat-spec
+    /// 93f2258): [`SceneStreamEnable::observe`] `true` makes the
+    /// subscription an observer subscription ([`SceneStreamFilter::observes`]).
+    ///
+    /// Whether a listed region may be observed (`allowObservers`, the
+    /// server's policy) is the transport's check before it commits the
+    /// subscription: "When `observe` is `true` and a listed region that the
+    /// user has access to has `allowObservers` set to `false`, or the
+    /// server declines observers of it by policy, the server MUST respond
+    /// with a `RequestError` ... `forbidden`". The `websocket` handler does
+    /// it.
+    ///
+    /// # Errors
+    ///
+    /// As [`Self::replace_with`], and an `invalidArguments` [`JmapError`]
+    /// when `observe` is `true` and `regionIds` is `null` or absent: "the
+    /// server MUST respond with a `RequestError` of type
+    /// `\"urn:ietf:params:jmap:error:invalidArguments\"` and MUST NOT
+    /// update the current ephemeral subscription state, because an
+    /// observer subscription names its regions". On error `self` is
+    /// unchanged.
+    pub fn replace_with_observe(&mut self, enable: &SceneStreamEnable) -> Result<(), JmapError> {
+        let observe = enable.observe == Some(true);
+        if observe && enable.region_ids.is_none() {
+            return Err(JmapError::invalid_arguments(
+                "an observer subscription (observe: true) needs regionIds",
+            ));
+        }
+        self.replace(enable, observe)
+    }
+
+    fn replace(&mut self, enable: &SceneStreamEnable, observe: bool) -> Result<(), JmapError> {
         let event_types = match &enable.event_types {
             None => None,
             Some(requested) => {
@@ -139,6 +198,7 @@ impl SceneEphemeralSubscription {
                 .clone()
                 .map_or(RegionScope::All, RegionScope::Only),
             event_types,
+            observe,
         });
         Ok(())
     }
@@ -162,7 +222,11 @@ impl SceneEphemeralSubscription {
 /// four events are per-region (§Event Summary): the event's region must
 /// be in the subscription's [`RegionScope`], the recipient must have
 /// access to it ([`SceneBackend::may_access_region`]) and an active
-/// avatar (`leftAt` `null`) in it. Then:
+/// avatar (`leftAt` `null`) in it, or, for an observer subscription
+/// ([`SceneStreamFilter::observes`]), the region must still admit
+/// observers: `allowObservers` not `false` and
+/// [`SceneBackend::may_observe_region`] (jmap-chat-spec 93f2258: events
+/// go "to users with access to the region at delivery time"). Then:
 ///
 /// - `SceneAvatarEvent` needs the recipient to see the region's avatars
 ///   ([`SceneBackend::may_see_region_avatars`]): a region bound to an
@@ -251,7 +315,10 @@ pub async fn should_deliver<B: SceneBackend>(
         return Ok(false);
     }
     let me = backend.caller_user_id(caller, hosting_account_id).await?;
-    if !has_active_avatar(backend, caller, hosting_account_id, &me, region_id).await? {
+    if !has_active_avatar(backend, caller, hosting_account_id, &me, region_id).await?
+        && !(filter.observes()
+            && observable(backend, caller, hosting_account_id, region_id).await?)
+    {
         return Ok(false);
     }
     if matches!(event, SceneEvent::Avatar(_))
@@ -345,6 +412,89 @@ pub async fn validate_interaction<B: SceneBackend>(
         relayed.user_id = me;
         relayed
     }))
+}
+
+/// `true` if region `region_id` admits observers at delivery time: it
+/// exists, its `allowObservers` is not `false` (an absent value is the
+/// draft default `true`) and [`SceneBackend::may_observe_region`] does not
+/// decline. Region access has been checked by the caller.
+async fn observable<B: SceneBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    region_id: &Id,
+) -> Result<bool, B::Error> {
+    let Some(region) = fetch_region(backend, caller, account_id, region_id).await? else {
+        return Ok(false);
+    };
+    Ok(region.allow_observers != Some(false)
+        && backend
+            .may_observe_region(caller, account_id, &region)
+            .await?)
+}
+
+/// The regions an observer subscription listing `region_ids` observes, as
+/// `(account, region)` pairs over `account_ids`, and the listed regions it
+/// is refused (jmap-chat-spec 93f2258 §SceneStreamEnable).
+///
+/// A region that does not exist in an account or that the caller has no
+/// access to there is neither: "A listed region that the user has no
+/// access to, or that does not exist, is not refused: the entry is
+/// retained and produces no events, so the response does not reveal
+/// whether the region exists." An accessible region whose
+/// `allowObservers` is `false`, or that [`SceneBackend::may_observe_region`]
+/// declines, is refused; any other accessible region is observed. The
+/// refused ids are in request order, without duplicates.
+pub(crate) async fn observer_regions<B: SceneBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_ids: &[Id],
+    region_ids: &[Id],
+) -> Result<(Vec<(Id, Id)>, Vec<Id>), B::Error> {
+    let mut observed = Vec::new();
+    let mut refused: Vec<Id> = Vec::new();
+    for region_id in region_ids {
+        for account_id in account_ids {
+            let Some(region) = fetch_region(backend, caller, account_id, region_id).await? else {
+                continue;
+            };
+            if !backend
+                .may_access_region(caller, account_id, region_id)
+                .await?
+            {
+                continue;
+            }
+            if region.allow_observers == Some(false)
+                || !backend
+                    .may_observe_region(caller, account_id, &region)
+                    .await?
+            {
+                if !refused.contains(region_id) {
+                    refused.push(region_id.clone());
+                }
+            } else if !observed.contains(&(account_id.clone(), region_id.clone())) {
+                observed.push((account_id.clone(), region_id.clone()));
+            }
+        }
+    }
+    Ok((observed, refused))
+}
+
+async fn fetch_region<B: SceneBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    region_id: &Id,
+) -> Result<Option<SceneRegion>, B::Error> {
+    let (regions, _) = backend
+        .get_objects::<SceneRegion>(
+            caller,
+            account_id,
+            Some(std::slice::from_ref(region_id)),
+            None,
+        )
+        .await?;
+    Ok(regions.into_iter().next())
 }
 
 /// `true` if `user_id` has an avatar in `region_id` with `leftAt` `null`.

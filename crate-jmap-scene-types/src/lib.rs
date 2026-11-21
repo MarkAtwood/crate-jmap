@@ -42,7 +42,7 @@
 //!   `withinBounds` spatial filters, and comparators of the four types.
 //! - `set_error` — the `contentPolicy` `SetError` type (draft §Content
 //!   Moderation for User-Created Objects).
-//! - [`JMAP_SCENE_WEBSOCKET_URI`] — the WebSocket capability
+//! - [`JMAP_SCENE_WEBSOCKET_URI`], [`SceneWebSocketCapability`] — the WebSocket capability
 //!   (scene-wss draft §Capability).
 //! - [`SceneEvent`], [`SceneAvatarEvent`], [`SceneObjectEvent`],
 //!   [`SceneInteractionEvent`], [`SceneRegionEvent`] — the ephemeral events
@@ -100,7 +100,9 @@ pub use avatar::SceneAvatar;
 pub use broadcast::{
     SceneRegionBroadcast, SceneRegionBroadcastRequest, SceneRegionBroadcastResponse,
 };
-pub use capability::{JMAP_SCENE_URI, JMAP_SCENE_WEBSOCKET_URI, SceneCapability};
+pub use capability::{
+    JMAP_SCENE_URI, JMAP_SCENE_WEBSOCKET_URI, SceneCapability, SceneWebSocketCapability,
+};
 pub use coordinates::{
     IDENTITY_ORIENTATION, IDENTITY_SCALE, Orientation, Position, Scale, SceneBounds,
 };

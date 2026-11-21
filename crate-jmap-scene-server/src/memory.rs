@@ -76,6 +76,19 @@
 //! kept per state; a state from before the first rule is
 //! `cannotCalculateChanges`.
 //!
+//! # Observers
+//!
+//! `set_supports_observe` turns on [`SceneBackend::supports_observe`].
+//! [`SceneBackend::observer_accounts`] is every registered account,
+//! [`SceneBackend::may_observe_region`] declines the regions registered
+//! with `decline_observers`, and [`SceneBackend::set_observing`] counts
+//! each user's observing connections per region. A region's
+//! `observerCount` is recomputed, advancing the SceneRegion state when it
+//! changes, whenever an observer starts or stops, an avatar enters or
+//! leaves, or the region is updated: the users observing it who have
+//! access and no active avatar there, or `0` while `allowObservers` is
+//! `false` or the region declines observers.
+//!
 //! # Companion capabilities and bindings
 //!
 //! `advertise` records a capability URI for an account, for
@@ -242,6 +255,14 @@ struct Inner {
     /// Account → one snapshot per SceneAvatar state since the first rule:
     /// the state, the stored avatars and the rules then in force.
     avatar_views: HashMap<String, Vec<AvatarSnapshot>>,
+    /// Whether [`SceneBackend::supports_observe`] answers `true`.
+    supports_observe: bool,
+    /// `(account, region id)` → observing userId → number of its
+    /// connections observing, from [`SceneBackend::set_observing`].
+    observers: HashMap<(String, Id), HashMap<String, usize>>,
+    /// Region ids whose observers [`SceneBackend::may_observe_region`]
+    /// declines by policy.
+    declined_observers: HashSet<Id>,
     /// Object history, once `MemoryBackend::with_object_history` turns it
     /// on.
     history: Option<jmap_object_history_server::HistoryStore>,
@@ -452,8 +473,9 @@ impl Inner {
     }
 
     /// Set each of `regions`' `activeAvatarCount` to its number of avatars
-    /// with `leftAt` `null`, and advance the SceneRegion state once if any
-    /// count changed.
+    /// with `leftAt` `null`, and, for a region with the observer
+    /// properties, its `observerCount` (see [`Self::observer_count`]), and
+    /// advance the SceneRegion state once if any count changed.
     fn recount(&mut self, account_id: &Id, regions: &[Id]) {
         let mut changed = Vec::new();
         for region in regions {
@@ -461,14 +483,25 @@ impl Inner {
                 .all::<SceneAvatar>(account_id)
                 .filter(|a| a.region_id == *region && a.left_at.is_none())
                 .count();
+            let observers = self.observer_count(account_id, region);
             let Some(stored) = self
                 .objects_mut(SceneRegion::TYPE_NAME, account_id)
                 .get_mut(region)
             else {
                 continue;
             };
+            let mut differs = false;
             if stored.get("activeAvatarCount") != Some(&json!(active)) {
                 stored["activeAvatarCount"] = json!(active);
+                differs = true;
+            }
+            if let Some(observers) = observers
+                && stored.get("observerCount") != Some(&json!(observers))
+            {
+                stored["observerCount"] = json!(observers);
+                differs = true;
+            }
+            if differs {
                 changed.push((region.clone(), Change::Updated));
             }
         }
@@ -562,6 +595,35 @@ impl Inner {
             }
         }
         Ok((changes, regions))
+    }
+
+    /// The `observerCount` of region `region_id`, or `None` when it has no
+    /// observer properties: "the number of users currently observing the
+    /// region through an observer subscription ... who do not have an
+    /// active avatar in it. A user with several observing connections
+    /// counts once." A user who lost access no longer receives events, and
+    /// `allowObservers` `false` "stops event delivery to the region's
+    /// current observers", so neither counts.
+    fn observer_count(&self, account_id: &Id, region_id: &Id) -> Option<usize> {
+        let region = self.region(account_id, region_id)?;
+        region.observer_count?;
+        if region.allow_observers == Some(false) || self.declined_observers.contains(region_id) {
+            return Some(0);
+        }
+        let watching = self
+            .observers
+            .get(&(account_id.as_ref().to_owned(), region_id.clone()));
+        Some(watching.map_or(0, |users| {
+            users
+                .keys()
+                .filter(|user| {
+                    self.admits(user, account_id, &region)
+                        && !self.all::<SceneAvatar>(account_id).any(|a| {
+                            a.region_id == *region_id && a.user_id == **user && a.left_at.is_none()
+                        })
+                })
+                .count()
+        }))
     }
 
     /// The stored region `region_id`, if it decodes.
@@ -837,6 +899,20 @@ impl<C: MemoryCaller> MemoryBackend<C> {
         self.lock()
             .hidden_avatars
             .insert((user.to_owned(), Id::from(region_id)));
+    }
+
+    /// Advertise (`true`) or withdraw `supportsObserve`, for
+    /// [`SceneBackend::supports_observe`]. List the same value in the
+    /// Session's `urn:ietf:params:jmap:scene:websocket` capability.
+    pub fn set_supports_observe(&self, on: bool) {
+        self.lock().supports_observe = on;
+    }
+
+    /// Decline observers of region `region_id` by policy, for
+    /// [`SceneBackend::may_observe_region`].
+    #[doc(hidden)]
+    pub fn decline_observers(&self, region_id: &str) {
+        self.lock().declined_observers.insert(Id::from(region_id));
     }
 
     /// Hide avatar `avatar_id` of `account_id` from `viewer`, for
@@ -1481,6 +1557,20 @@ impl<C: MemoryCaller> SceneBackend for MemoryBackend<C> {
             .insert(id.clone(), current);
         changes.push((id.clone(), Change::Updated));
         inner.commit(O::TYPE_NAME, account_id, changes);
+        if O::TYPE_NAME == SceneRegion::TYPE_NAME {
+            // `allowObservers` or the access rules may have changed who
+            // counts as an observer; a changed `observerCount` is "changed
+            // in a way not explicitly requested", so the region is echoed.
+            let before = inner.region(account_id, id).and_then(|r| r.observer_count);
+            inner.recount(account_id, std::slice::from_ref(id));
+            if let Some(after) = inner
+                .objects(O::TYPE_NAME, account_id)
+                .and_then(|m| m.get(id))
+                && after.get("observerCount").and_then(Value::as_u64) != before
+            {
+                return Ok(Some(decode::<O>(after).map_err(BackendSetError::Other)?));
+            }
+        }
         inner.recount(account_id, &regions);
         Ok(None)
     }
@@ -1717,6 +1807,60 @@ impl<C: MemoryCaller> SceneBackend for MemoryBackend<C> {
         let inner = self.locked().await;
         let rules = inner.avatar_rules.get(account_id.as_ref());
         Ok(inner.avatar_view(&viewer, account_id, avatar, rules))
+    }
+
+    fn supports_observe(&self, _caller: &C) -> bool {
+        self.lock().supports_observe
+    }
+
+    async fn may_observe_region(
+        &self,
+        _caller: &C,
+        _account_id: &Id,
+        region: &SceneRegion,
+    ) -> Result<bool, MemoryError> {
+        Ok(!self.locked().await.declined_observers.contains(&region.id))
+    }
+
+    /// Every registered account, in id order: access to each region is
+    /// checked separately.
+    async fn observer_accounts(&self, _caller: &C, _own: &Id) -> Result<Vec<Id>, MemoryError> {
+        let mut accounts: Vec<Id> = self
+            .locked()
+            .await
+            .accounts
+            .keys()
+            .map(|a| Id::from(a.as_str()))
+            .collect();
+        accounts.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
+        Ok(accounts)
+    }
+
+    async fn set_observing(
+        &self,
+        caller: &C,
+        account_id: &Id,
+        region_id: &Id,
+        observing: bool,
+    ) -> Result<(), MemoryError> {
+        let user = acting_user(caller, account_id);
+        let mut inner = self.locked().await;
+        let key = (account_id.as_ref().to_owned(), region_id.clone());
+        let users = inner.observers.entry(key.clone()).or_default();
+        let n = users.entry(user.clone()).or_insert(0);
+        if observing {
+            *n += 1;
+        } else {
+            *n = n.saturating_sub(1);
+            if *n == 0 {
+                users.remove(&user);
+            }
+        }
+        if users.is_empty() {
+            inner.observers.remove(&key);
+        }
+        inner.recount(account_id, std::slice::from_ref(region_id));
+        Ok(())
     }
 
     async fn reserved_display_names(

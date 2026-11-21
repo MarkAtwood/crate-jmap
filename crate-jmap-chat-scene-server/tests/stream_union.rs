@@ -218,3 +218,55 @@ async fn rejected_scene_stream_enable_leaves_chat_path() {
     assert!(sub.replace_with(&bad).is_err());
     assert!(delivers(true, &sub, &bob_entered(R2)).await);
 }
+
+/// An observer subscription (`observe: true`) on a server that advertises
+/// `supportsObserve`.
+fn observing(enable: Value) -> SceneEphemeralSubscription {
+    let enable: SceneStreamEnable = serde_json::from_value(enable).expect("SceneStreamEnable");
+    let mut sub = SceneEphemeralSubscription::default();
+    sub.replace_with_observe(&enable)
+        .expect("valid SceneStreamEnable");
+    sub
+}
+
+/// jmap-chat-spec 93f2258: the `"scene"` path "Subscribes to all Scene
+/// event types for all regions in which the user has an active avatar ...
+/// It has no observer form", while an observer subscription delivers "the
+/// events of each region in `regionIds` that the user has access to ...
+/// with or without an active avatar". The union the server "MUST deliver"
+/// therefore includes the observed regions where Alice has no avatar (R3),
+/// whether or not the `"scene"` path is on, and each event is still one
+/// decision.
+#[tokio::test]
+async fn union_keeps_observer_delivery() {
+    let observer = observing(json!({
+        "@type": "SceneStreamEnable",
+        "regionIds": [R3],
+        "observe": true
+    }));
+    assert!(delivers(false, &observer, &bob_entered(R3)).await);
+    assert!(
+        delivers(true, &observer, &bob_entered(R3)).await,
+        "the chat path must not suppress the observer subscription"
+    );
+    assert!(
+        delivers(true, &observer, &bob_entered(R1)).await,
+        "R1 still comes through the chat path"
+    );
+
+    let listed = subscribed(json!({ "@type": "SceneStreamEnable", "regionIds": [R3] }));
+    assert!(
+        !delivers(true, &listed, &bob_entered(R3)).await,
+        "without observe, R3 needs an active avatar on both paths"
+    );
+
+    // The observer's own `eventTypes` still applies to what only it
+    // covers.
+    let interactions_only = observing(json!({
+        "@type": "SceneStreamEnable",
+        "regionIds": [R3],
+        "eventTypes": ["SceneInteractionEvent"],
+        "observe": true
+    }));
+    assert!(!delivers(true, &interactions_only, &bob_entered(R3)).await);
+}

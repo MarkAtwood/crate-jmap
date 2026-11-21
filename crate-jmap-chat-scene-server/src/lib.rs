@@ -37,9 +37,13 @@ use jmap_types::Id;
 /// The `"scene"` path covers "all Scene event types for all regions in
 /// which the user has an active avatar", which is a `SceneStreamEnable`
 /// with `regionIds` and `eventTypes` both `null`. Every
-/// `SceneStreamEnable` covers a subset of that, so the union the server
-/// "MUST deliver" is the `"scene"` path when it is on and `subscription`
-/// otherwise. [`jmap_scene_server::should_deliver`] decides either way,
+/// `SceneStreamEnable` without `observe` covers a subset of that, so the
+/// union the server "MUST deliver" is the `"scene"` path when it is on and
+/// `subscription` otherwise. An observer subscription (jmap-chat-spec
+/// 93f2258) also reaches listed regions where the user has no avatar, and
+/// the `"scene"` path "has no observer form", so with the path on an event
+/// it refuses is still offered to an observing `subscription`.
+/// [`jmap_scene_server::should_deliver`] decides each way,
 /// with the same delivery-time access, visibility and blocked-sender
 /// checks. The answer is one `bool` per event and connection, so an event
 /// that matches both paths is still sent once (draft-atwood-jmap-scene-wss-00,
@@ -80,12 +84,32 @@ pub async fn should_deliver_scene<B: SceneBackend>(
     every
         .replace_with(&SceneStreamEnable::default())
         .expect("a SceneStreamEnable with null eventTypes is always valid");
-    jmap_scene_server::should_deliver(
+    if jmap_scene_server::should_deliver(
         backend,
         caller,
         hosting_account_id,
         recipient_account_id,
         &every,
+        event,
+    )
+    .await?
+    {
+        return Ok(true);
+    }
+    // An observer subscription reaches listed regions without an avatar,
+    // which the `"scene"` path ("It has no observer form") does not.
+    if !subscription
+        .filter()
+        .is_some_and(jmap_scene_server::SceneStreamFilter::observes)
+    {
+        return Ok(false);
+    }
+    jmap_scene_server::should_deliver(
+        backend,
+        caller,
+        hosting_account_id,
+        recipient_account_id,
+        subscription,
         event,
     )
     .await
