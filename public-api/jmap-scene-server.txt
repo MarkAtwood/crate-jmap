@@ -78,6 +78,56 @@ pub fn jmap_scene_server::query::compare_regions(&jmap_scene_types::region::Scen
 pub fn jmap_scene_server::query::object_matches(&jmap_scene_types::query::SceneObjectFilter, &jmap_scene_types::object::SceneObject, jmap_scene_types::coordinates::Position) -> bool
 pub fn jmap_scene_server::query::region_local_position<'a>(&'a jmap_scene_types::object::SceneObject, impl core::ops::function::Fn(&jmap_types::id::Id) -> core::option::Option<&'a jmap_scene_types::object::SceneObject>) -> jmap_scene_types::coordinates::Position
 pub fn jmap_scene_server::query::region_matches(&jmap_scene_types::query::SceneRegionFilter, &jmap_scene_types::region::SceneRegion) -> bool
+pub mod jmap_scene_server::websocket
+pub struct jmap_scene_server::websocket::SceneChatAlias
+impl jmap_scene_server::websocket::SceneChatAlias
+pub fn jmap_scene_server::websocket::SceneChatAlias::is_on(&self) -> bool
+pub fn jmap_scene_server::websocket::SceneChatAlias::set(&self, bool)
+impl core::clone::Clone for jmap_scene_server::websocket::SceneChatAlias
+pub fn jmap_scene_server::websocket::SceneChatAlias::clone(&self) -> jmap_scene_server::websocket::SceneChatAlias
+impl core::default::Default for jmap_scene_server::websocket::SceneChatAlias
+pub fn jmap_scene_server::websocket::SceneChatAlias::default() -> jmap_scene_server::websocket::SceneChatAlias
+impl core::fmt::Debug for jmap_scene_server::websocket::SceneChatAlias
+pub fn jmap_scene_server::websocket::SceneChatAlias::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct jmap_scene_server::websocket::SceneEventHub
+impl jmap_scene_server::websocket::SceneEventHub
+pub fn jmap_scene_server::websocket::SceneEventHub::new(usize) -> Self
+pub fn jmap_scene_server::websocket::SceneEventHub::publish(&self, jmap_scene_types::event::SceneEvent)
+pub fn jmap_scene_server::websocket::SceneEventHub::with_interaction_window(usize, core::option::Option<core::time::Duration>) -> Self
+impl core::clone::Clone for jmap_scene_server::websocket::SceneEventHub
+pub fn jmap_scene_server::websocket::SceneEventHub::clone(&self) -> jmap_scene_server::websocket::SceneEventHub
+impl core::fmt::Debug for jmap_scene_server::websocket::SceneEventHub
+pub fn jmap_scene_server::websocket::SceneEventHub::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct jmap_scene_server::websocket::SceneStreamHandler<B: jmap_scene_server::SceneBackend>
+impl<B: jmap_scene_server::SceneBackend> jmap_scene_server::websocket::SceneStreamHandler<B>
+pub fn jmap_scene_server::websocket::SceneStreamHandler<B>::chat_alias(&self) -> jmap_scene_server::websocket::SceneChatAlias
+pub fn jmap_scene_server::websocket::SceneStreamHandler<B>::new(alloc::sync::Arc<B>, <B as jmap_server::backend::JmapAccounts>::CallerCtx, jmap_types::id::Id, &jmap_scene_server::websocket::SceneEventHub) -> Self
+pub fn jmap_scene_server::websocket::SceneStreamHandler<B>::subscription(&self) -> jmap_scene_server::SceneEphemeralSubscription
+pub fn jmap_scene_server::websocket::SceneStreamHandler<B>::with_limits(self, jmap_scene_server::websocket::SceneStreamLimits) -> Self
+impl<B: jmap_scene_server::SceneBackend> core::fmt::Debug for jmap_scene_server::websocket::SceneStreamHandler<B>
+pub fn jmap_scene_server::websocket::SceneStreamHandler<B>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<B: jmap_scene_server::SceneBackend> core::ops::drop::Drop for jmap_scene_server::websocket::SceneStreamHandler<B>
+pub fn jmap_scene_server::websocket::SceneStreamHandler<B>::drop(&mut self)
+impl<B: jmap_scene_server::SceneBackend> jmap_websocket::server::extension::ExtensionHandler for jmap_scene_server::websocket::SceneStreamHandler<B>
+pub async fn jmap_scene_server::websocket::SceneStreamHandler<B>::close(&mut self)
+pub async fn jmap_scene_server::websocket::SceneStreamHandler<B>::handle(&mut self, jmap_websocket::server::extension::ExtensionMessage) -> core::result::Result<(), jmap_types::error::JmapError>
+pub fn jmap_scene_server::websocket::SceneStreamHandler<B>::message_types(&self) -> &[&str]
+pub fn jmap_scene_server::websocket::SceneStreamHandler<B>::start(&mut self, jmap_websocket::server::extension::ExtensionSender)
+pub struct jmap_scene_server::websocket::SceneStreamLimits
+impl jmap_scene_server::websocket::SceneStreamLimits
+pub fn jmap_scene_server::websocket::SceneStreamLimits::object_update_window(self, core::option::Option<core::time::Duration>) -> Self
+pub fn jmap_scene_server::websocket::SceneStreamLimits::object_update_window_value(&self) -> core::option::Option<core::time::Duration>
+impl core::clone::Clone for jmap_scene_server::websocket::SceneStreamLimits
+pub fn jmap_scene_server::websocket::SceneStreamLimits::clone(&self) -> jmap_scene_server::websocket::SceneStreamLimits
+impl core::cmp::Eq for jmap_scene_server::websocket::SceneStreamLimits
+impl core::cmp::PartialEq for jmap_scene_server::websocket::SceneStreamLimits
+pub fn jmap_scene_server::websocket::SceneStreamLimits::eq(&self, &jmap_scene_server::websocket::SceneStreamLimits) -> bool
+impl core::default::Default for jmap_scene_server::websocket::SceneStreamLimits
+pub fn jmap_scene_server::websocket::SceneStreamLimits::default() -> Self
+impl core::fmt::Debug for jmap_scene_server::websocket::SceneStreamLimits
+pub fn jmap_scene_server::websocket::SceneStreamLimits::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for jmap_scene_server::websocket::SceneStreamLimits
+impl core::marker::StructuralPartialEq for jmap_scene_server::websocket::SceneStreamLimits
 #[non_exhaustive] pub enum jmap_scene_server::BindingProperty
 pub jmap_scene_server::BindingProperty::ActiveCallId
 pub jmap_scene_server::BindingProperty::ChannelId

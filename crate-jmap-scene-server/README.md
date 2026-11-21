@@ -58,6 +58,39 @@ Advertise `urn:ietf:params:jmap:scene` in your Session with the same
 account-level object that `SceneBackend::scene_capability` returns, and
 list `model/gltf-binary` in its `supportedVisualTypes`.
 
+### WebSocket ephemeral events (`websocket` feature)
+
+`websocket::SceneStreamHandler` is a `jmap-websocket` extension handler
+for `SceneStreamEnable`, `SceneStreamDisable` and client-sent
+`SceneInteractionEvent` frames (draft-atwood-jmap-scene-wss-00). Keep one
+`SceneEventHub`, publish every Scene event to it (the interactions
+`SceneObject/interact` accepts included), and register one handler per
+connection next to advertising `urn:ietf:params:jmap:scene:websocket` as
+`{}`:
+
+```rust,ignore
+use jmap_scene_server::websocket::{SceneEventHub, SceneStreamHandler};
+
+let hub = SceneEventHub::new(256); // server-wide
+let scene = SceneStreamHandler::new(Arc::clone(&backend), caller, own_account_id, &hub);
+let connection = connection.with_extension(scene);
+
+hub.publish(avatar_event); // accountId = the region's hosting account
+```
+
+- Each event goes through `should_deliver` with its `accountId` as the
+  hosting account.
+- An interaction frame goes through `validate_interaction` and the hub's
+  limit of five per user per region per second, then to the hub; one
+  that fails is dropped without a `RequestError`.
+- `SceneStreamLimits` (default: the draft's) keeps two `"updated"`
+  `SceneObjectEvent`s per object per second, sending the latest held one
+  when the window reopens.
+- Observer subscriptions (`observe`, `supportsObserve`) are not
+  implemented; the member is ignored.
+- `chat_alias()` is the `ChatStreamEnable` `"scene"` switch;
+  `jmap-chat-scene-server::link_scene_stream` drives it.
+
 ## How it works
 
 A create must carry `blobId` and `mediaType` and must not carry the

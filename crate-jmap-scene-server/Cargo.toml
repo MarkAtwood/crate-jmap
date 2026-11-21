@@ -23,6 +23,11 @@ memory = ["dep:ulid", "dep:jmap-object-history-server", "jmap-server/scoped-stat
 # any supported API surface. Integration tests enable it via the self
 # dev-dependency below (bd:JMAP-ic0j.73).
 test-helpers = ["memory"]
+# `websocket`: SceneStreamEnable / SceneStreamDisable and the events they
+# turn on, as a jmap-websocket extension handler (draft-atwood-jmap-scene-wss-00).
+# Off by default so deployments without the WebSocket transport do not
+# pull in jmap-websocket.
+websocket = ["dep:jmap-websocket", "dep:tokio", "tokio/sync", "tokio/time", "tokio/macros"]
 
 [dependencies]
 jmap-types = { workspace = true }
@@ -33,15 +38,23 @@ serde_json = { workspace = true }
 ulid = { version = "1", optional = true }
 jmap-object-history-server = { workspace = true, optional = true }
 jmap-object-history-types = { workspace = true }
+# The `websocket` feature's extension handler (public: it implements
+# jmap_websocket::server::ExtensionHandler).
+jmap-websocket = { workspace = true, optional = true, features = ["server"] }
+tokio = { workspace = true, optional = true, features = ["rt"] }
 
 [dev-dependencies]
-tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "net", "time"] }
 # Tests use the public MemoryBackend reference impl from `src/memory.rs`.
 # Self-dep with the `memory` feature ensures integration tests get the
 # reference impl without exposing it to downstream users by default.
 # Path-only, no version: cargo drops it on publish, so it never has to
 # resolve against crates.io versions that lack these features (JMAP-31o4).
-jmap-scene-server = { path = ".", features = ["memory", "test-helpers"] }
+jmap-scene-server = { path = ".", features = ["memory", "test-helpers", "websocket"] }
+# tests/websocket_e2e.rs: the extension over a real loopback WebSocket.
+jmap-websocket = { workspace = true, features = ["server", "tungstenite"] }
+tokio-tungstenite = { workspace = true }
+futures = { workspace = true }
 
 [package.metadata.docs.rs]
 all-features = true

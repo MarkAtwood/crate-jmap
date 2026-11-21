@@ -91,6 +91,15 @@
 //! separate binding crates, which implement
 //! [`SceneBackend::has_capability`] and [`SceneBackend::region_binding`].
 //!
+//! # `websocket` feature (ephemeral events over RFC 8887)
+//!
+//! Enable `websocket` for the `websocket` module: the `jmap-websocket`
+//! extension handler for `SceneStreamEnable` / `SceneStreamDisable` and
+//! client-sent `SceneInteractionEvent` (draft-atwood-jmap-scene-wss-00) and
+//! the server-wide hub the deployment publishes events to. Off by default, so
+//! a deployment without the WebSocket transport does not pull in
+//! `jmap-websocket`.
+//!
 //! # `memory` feature (reference implementation)
 //!
 //! Enable the `memory` feature to expose `memory::MemoryBackend`, the
@@ -124,6 +133,8 @@ mod object;
 mod push;
 pub mod query;
 mod region;
+#[cfg(feature = "websocket")]
+pub mod websocket;
 
 use asset::scene_asset_set;
 pub use asset::{
