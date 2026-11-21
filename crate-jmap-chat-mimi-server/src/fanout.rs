@@ -1,13 +1,13 @@
-//! FanoutMessages a MIMI provider stores (draft-atwood-jmap-chat-mimi-00
+//! `FanoutMessage`s a MIMI provider stores (draft-atwood-jmap-chat-mimi-00
 //! §application/mimi-fanout).
 //!
 //! [`parse_fanout_messages`] splits a `/notify` body (draft-ietf-mimi-protocol-06
-//! §5.5: "The hub can include multiple concatenated FanoutMessage objects")
+//! §5.5: "The hub can include multiple concatenated `FanoutMessage` objects")
 //! into [`Fanout`]s, deriving what [`crate::MimiBackend::store_fanout`]
 //! needs: the `senderMsgId`, `sentAt`, the `message` octets the byte
-//! duplicate rule compares, and the KeyPackageRefs a Welcome names.
+//! duplicate rule compares, and the `KeyPackageRef`s a Welcome names.
 //!
-//! An MLSMessage has no length prefix, so finding where each FanoutMessage
+//! An `MLSMessage` has no length prefix, so finding where each `FanoutMessage`
 //! ends takes an openmls parse of its `message`.
 
 use std::fmt;
@@ -24,42 +24,42 @@ use tls_codec::{Deserialize, Serialize as _, VLBytes};
 /// `franking_signature_ciphersuite`, `franking_integrity_signature<V>`.
 pub(crate) type Frank = ([u8; 32], u16, VLBytes);
 
-/// The local accounts a FanoutMessage goes to
+/// The local accounts a `FanoutMessage` goes to
 /// (draft-atwood-jmap-chat-mimi-00 §application/mimi-fanout).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum FanoutRecipients {
     /// Every Chat of a local account bound to the room.
     Room,
-    /// A Welcome: "stored only in the account owning a KeyPackageRef named
-    /// in the Welcome". Each KeyPackageRef is in the encoding of
+    /// A Welcome: "stored only in the account owning a `KeyPackageRef` named
+    /// in the Welcome". Each `KeyPackageRef` is in the encoding of
     /// [`crate::NewKeyPackage::key_package_ref`], with its length prefix.
     Welcome(Vec<Base64Url>),
 }
 
-/// One FanoutMessage of a `/notify` body, ready for
+/// One `FanoutMessage` of a `/notify` body, ready for
 /// [`crate::MimiBackend::store_fanout`].
 ///
 /// Built by [`parse_fanout_messages`].
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Fanout {
-    /// The ULID "whose 48-bit time component is the FanoutMessage
+    /// The ULID "whose 48-bit time component is the `FanoutMessage`
     /// `timestamp` and whose 80-bit random component is the first 10
-    /// octets of the SHA-256 hash of the FanoutMessage octets".
+    /// octets of the SHA-256 hash of the `FanoutMessage` octets".
     pub sender_msg_id: String,
-    /// The FanoutMessage `timestamp`, the Message's `sentAt`.
+    /// The `FanoutMessage` `timestamp`, the Message's `sentAt`.
     pub sent_at: UTCDate,
-    /// The FanoutMessage octets, verbatim: the Message's `body`.
+    /// The `FanoutMessage` octets, verbatim: the Message's `body`.
     pub body: Base64Url,
-    /// The octets of the FanoutMessage `message`, which the byte duplicate
+    /// The octets of the `FanoutMessage` `message`, which the byte duplicate
     /// rule compares.
     pub message: Vec<u8>,
-    /// Where the FanoutMessage goes.
+    /// Where the `FanoutMessage` goes.
     pub recipients: FanoutRecipients,
 }
 
-/// A `/notify` body that is not one or more concatenated FanoutMessages
+/// A `/notify` body that is not one or more concatenated `FanoutMessage`s
 /// (draft-ietf-mimi-protocol-06 §5.5).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -93,7 +93,7 @@ fn malformed(what: &str) -> impl FnOnce(tls_codec::Error) -> FanoutParseError + 
 }
 
 /// Read a `T` from the front of `bytes`. The `Read`-based `Deserialize` is
-/// used because tls_codec 0.5.0's `DeserializeBytes` for a `<V>` vector
+/// used because `tls_codec` 0.5.0's `DeserializeBytes` for a `<V>` vector
 /// longer than its input hits a `debug_assert_eq!` instead of returning an
 /// error.
 fn read<'a, T: Deserialize>(
@@ -111,7 +111,7 @@ fn read<'a, T: Deserialize>(
 ///
 /// "A room's hub is the provider named by the authority component of its
 /// room ID". The server "MUST reject a `/notify` request for a room, and
-/// MUST NOT store its FanoutMessages, unless the MIMI transport
+/// MUST NOT store its `FanoutMessage`s, unless the MIMI transport
 /// authenticated the sender as that provider", so a `/notify` handler
 /// calls this before [`parse_fanout_messages`] and
 /// [`crate::MimiBackend::store_fanout`] and rejects the request on
@@ -135,19 +135,19 @@ pub fn notify_from_hub(room_id: &str, sender_uri: &str) -> bool {
     }
 }
 
-/// Split a `/notify` body into its FanoutMessages, in order.
+/// Split a `/notify` body into its `FanoutMessage`s, in order.
 ///
-/// Each FanoutMessage is a `uint64 timestamp` and an MLSMessage, followed
+/// Each `FanoutMessage` is a `uint64 timestamp` and an `MLSMessage`, followed
 /// by what its content type selects (draft-ietf-mimi-protocol-06 §5.5):
 /// an `optional Frank` for an application message, `moreProposals<V>` for
 /// a proposal, `externalProposals<V>` for a commit, and a
-/// RatchetTreeOption (draft-mahy-mls-ratchet-tree-options-04 §3) for a
+/// `RatchetTreeOption` (draft-mahy-mls-ratchet-tree-options-04 §3) for a
 /// Welcome. The proposal lists are kept as opaque octets.
 ///
 /// # Errors
 ///
-/// [`FanoutParseError`] when `body` is empty, when a FanoutMessage does
-/// not parse, when its `message` is not a PublicMessage, PrivateMessage or
+/// [`FanoutParseError`] when `body` is empty, when a `FanoutMessage` does
+/// not parse, when its `message` is not a `PublicMessage`, `PrivateMessage` or
 /// Welcome, or when its `timestamp` does not fit a ULID (48 bits) or a
 /// four-digit-year `UTCDate`.
 // ponytail: a SemiPrivateMessage (draft-mahy-mls-semiprivatemessage)
@@ -221,8 +221,8 @@ fn parse_one(bytes: &[u8]) -> Result<(Fanout, &[u8]), FanoutParseError> {
     Ok((fanout, tail))
 }
 
-/// Skip what the content type of a PublicMessage or PrivateMessage
-/// selects in a FanoutMessage.
+/// Skip what the content type of a `PublicMessage` or `PrivateMessage`
+/// selects in a `FanoutMessage`.
 fn skip_tail(content_type: ContentType, bytes: &[u8]) -> Result<&[u8], FanoutParseError> {
     let tail = match content_type {
         ContentType::Application => read::<Option<Frank>>(bytes, "frank")?.1,
@@ -232,7 +232,7 @@ fn skip_tail(content_type: ContentType, bytes: &[u8]) -> Result<&[u8], FanoutPar
     Ok(tail)
 }
 
-/// Skip a RatchetTreeOption: `full(1)` carries `ratchet_tree<V>`,
+/// Skip a `RatchetTreeOption`: `full(1)` carries `ratchet_tree<V>`,
 /// `httpsUri(2)` carries `ratchet_tree_url<V>`, `outOfBand(3)` and
 /// `distributionService(4)` carry nothing.
 fn skip_ratchet_tree_option(bytes: &[u8]) -> Result<&[u8], FanoutParseError> {

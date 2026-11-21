@@ -1,5 +1,5 @@
-//! draft-atwood-jmap-chat-mimi-00 §Handing Out KeyPackages: which stored
-//! KeyPackage a key material request may receive.
+//! draft-atwood-jmap-chat-mimi-00 §Handing Out `KeyPackage`s: which stored
+//! `KeyPackage` a key material request may receive.
 
 use base64::Engine as _;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
@@ -21,17 +21,17 @@ pub struct KeyMaterialRequirements {
     pub required_capabilities: RequiredCapabilitiesExtension,
 }
 
-/// How a stored KeyPackage fits a [`KeyMaterialRequirements`].
+/// How a stored `KeyPackage` fits a [`KeyMaterialRequirements`].
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum KeyPackageFit {
-    /// The KeyPackage may be handed out for the request.
+    /// The `KeyPackage` may be handed out for the request.
     Compatible,
-    /// The KeyPackage is valid now but does not meet the request: the
+    /// The `KeyPackage` is valid now but does not meet the request: the
     /// client's `clientStatus` is `nothingCompatible` when none of its
-    /// KeyPackages is compatible.
+    /// `KeyPackage`s is compatible.
     Incompatible,
-    /// The KeyPackage cannot be handed out at all, for example because
+    /// The `KeyPackage` cannot be handed out at all, for example because
     /// its leaf node lifetime has passed: "The target provider MUST NOT
     /// provide expired keying material" (draft-ietf-mimi-protocol-06 §5.2).
     Unavailable,
@@ -52,7 +52,7 @@ impl KeyMaterialRequirements {
 
     /// How the stored `key_package` fits these requirements.
     ///
-    /// The KeyPackage is validated again (RFC 9420 §10.1) so that one
+    /// The `KeyPackage` is validated again (RFC 9420 §10.1) so that one
     /// whose lifetime has passed since it was stored is
     /// [`KeyPackageFit::Unavailable`]. It is
     /// [`KeyPackageFit::Compatible`] when its cipher suite is acceptable

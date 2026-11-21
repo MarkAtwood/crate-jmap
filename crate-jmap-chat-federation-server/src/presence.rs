@@ -76,7 +76,7 @@ pub trait FederationPresenceBackend: FederationBackend {
     /// §Peer/presence "Receiver Behavior": "The server MUST then fire a
     /// local presence push event (as defined in {{JMAP-CHAT}}) to the
     /// owner's connected clients." [`handle_peer_presence`] calls this
-    /// after updating the ChatContact. The event is not stored.
+    /// after updating the [`ChatContact`]. The event is not stored.
     fn forward_presence(
         &self,
         caller: &Self::CallerCtx,
@@ -93,11 +93,11 @@ pub trait FederationPresenceBackend: FederationBackend {
 ///   carries the request's `accountId`.
 /// - A subscription [`FederationPresenceBackend::subscribe_presence`]
 ///   refuses is `forbidden`.
-/// - The response carries the owner's PresenceStatus `presence`,
+/// - The response carries the owner's [`PresenceStatus`] `presence`,
 ///   `statusText` and `statusEmoji`, with `"invisible"` reported as
 ///   `"offline"` (§Peer/presence: "`"invisible"` is never sent to a
-///   peer"). An account with no PresenceStatus reports `"offline"`.
-///   PresenceStatus has no `lastActiveAt`, so the response has none.
+///   peer"). An account with no `PresenceStatus` reports `"offline"`.
+///   `PresenceStatus` has no `lastActiveAt`, so the response has none.
 /// - `ttl` is what [`FederationPresenceBackend::subscribe_presence`]
 ///   granted.
 ///
@@ -199,11 +199,11 @@ pub async fn handle_peer_unsubscribe_presence<B: FederationPresenceBackend>(
 /// - `presence` must be `"online"`, `"away"`, `"busy"` or `"offline"`,
 ///   else `invalidArguments` ("One of `"online"`, `"away"`, `"busy"`, or
 ///   `"offline"`").
-/// - A `blocked` ChatContact with that identity is dropped silently:
+/// - A `blocked` [`ChatContact`] with that identity is dropped silently:
 ///   success, nothing updated, no event.
-/// - With no ChatContact of that identity there is no record to update:
+/// - With no `ChatContact` of that identity there is no record to update:
 ///   success, nothing created, no event.
-/// - Otherwise the ChatContact's `presence` is set, `lastActiveAt` when
+/// - Otherwise the `ChatContact`'s `presence` is set, `lastActiveAt` when
 ///   sent, and `statusText` and `statusEmoji` when sent (`null` clears
 ///   them; absent leaves them unchanged). Then
 ///   [`FederationPresenceBackend::forward_presence`] gets a presence

@@ -18,11 +18,11 @@ use crate::deliver::{Identities, Who, authenticate, route, set_failure};
 ///   names, else `forbidden`; the response carries the request's
 ///   `accountId`.
 /// - The Message is looked up by `senderMsgId` within `chatId`; with
-///   none, `invalidArguments`. Its `senderId` must be the ChatContact
+///   none, `invalidArguments`. Its `senderId` must be the `ChatContact`
 ///   `senderUserId` resolves to, else `forbidden` ("If the sender does not
 ///   match, the server SHOULD reject the request", jmap-chat-spec 77c3474
 ///   L850; this crate rejects by choice). An identity with no
-///   ChatContact sent nothing here, so no placeholder is created.
+///   `ChatContact` sent nothing here, so no placeholder is created.
 /// - On success `body` becomes `""`, `attachments` `[]`, `editHistory` is
 ///   removed, `deletedAt` is now and `deletedForAll` is `true`; the record
 ///   stays as a tombstone. `retractedAt` is `deletedAt`.

@@ -13,7 +13,7 @@
 //! | A source object is created or changed | [`Projectable::references`], [`object_uri`], [`projected_node`], [`projected_edge`] |
 //! | `GraphBackend::get_objects::<Graph>` for the projected Graph | [`projected_graph_rights`] |
 //! | `GraphBackend::query_objects::<GraphNode>` | [`node_matches`] |
-//! | Any GraphNode or GraphEdge method, per caller | [`visible_ids`] |
+//! | Any [`GraphNode`] or [`GraphEdge`] method, per caller | [`visible_ids`] |
 //! | `GraphBackend::projected_graph_id` | the id it advertises as `graphId` |
 //!
 //! The deployment owns node and edge ids and their `created` times: "A
@@ -27,10 +27,10 @@
 //!
 //! [`Projectable`] is implemented for the seven data types whose object
 //! URI type names the draft registers (§JMAP Object URI Type
-//! Registrations): Mailbox, Thread, Email, Identity, EmailSubmission,
-//! AddressBook and ContactCard. It is not implemented for Graph, GraphNode
-//! or GraphEdge: "The server MUST NOT project the Graph, GraphNode, or
-//! GraphEdge data types."
+//! Registrations): Mailbox, Thread, Email, Identity, [`EmailSubmission`],
+//! [`AddressBook`] and [`ContactCard`]. It is not implemented for Graph, `GraphNode`
+//! or `GraphEdge`: "The server MUST NOT project the Graph, `GraphNode`, or
+//! `GraphEdge` data types."
 
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
@@ -48,12 +48,12 @@ use serde_json::json;
 /// Capability URI for `urn:ietf:params:jmap:graph:projection`.
 pub use jmap_graph_types::JMAP_GRAPH_PROJECTION_URI;
 
-/// The GraphNode extension property naming a node's source object
+/// The [`GraphNode`] extension property naming a node's source object
 /// (draft-atwood-jmap-graph-projection-00 §objectUri).
 pub const OBJECT_URI_PROPERTY: &str = "objectUri";
 
 /// A reference from a source object to another object of the same
-/// account, from which one GraphEdge is derived
+/// account, from which one [`GraphEdge`] is derived
 /// (draft-atwood-jmap-graph-projection-00 §Edges).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -247,7 +247,7 @@ pub fn object_uri<O: Projectable>(account_id: &Id, id: &Id) -> Result<JmapUri, J
     JmapUri::new(O::URI_TYPE, account_id.clone(), id.clone())
 }
 
-/// The GraphNode `id` in projected Graph `graph_id` for the source object
+/// The [`GraphNode`] `id` in projected Graph `graph_id` for the source object
 /// `object_uri`, added to the projection at `added`
 /// (draft-atwood-jmap-graph-projection-00 §Nodes).
 ///
@@ -255,6 +255,12 @@ pub fn object_uri<O: Projectable>(account_id: &Id, id: &Id) -> Result<JmapUri, J
 /// "even when the source object refers to a blob"; `created` and `updated`
 /// are "the time the node was added to the projection"; `createdBy` and
 /// `updatedBy` are `null`. `objectUri` is in [`GraphNode::extra`].
+///
+/// # Panics
+///
+/// Panics if `id` or `graph_id` is not a valid RFC 8620 Id (one built
+/// unchecked with `Id::from`): the node is deserialized from JSON, and that
+/// validates each Id.
 pub fn projected_node(id: &Id, graph_id: &Id, object_uri: &JmapUri, added: &UTCDate) -> GraphNode {
     serde_json::from_value(json!({
         "id": id,
@@ -272,13 +278,19 @@ pub fn projected_node(id: &Id, graph_id: &Id, object_uri: &JmapUri, added: &UTCD
     .expect("a GraphNode built from typed ids and dates always deserializes")
 }
 
-/// The GraphEdge `id` in projected Graph `graph_id` from node `from_id` to
+/// The [`GraphEdge`] `id` in projected Graph `graph_id` from node `from_id` to
 /// node `to_id` for `reference`, added to the projection at `added`
 /// (draft-atwood-jmap-graph-projection-00 §Edges).
 ///
 /// `type` is [`Reference::edge_type`]; `annotations` is `{}`; `created`
 /// and `updated` are "the time the edge was added to the projection";
 /// `createdBy` and `updatedBy` are `null`.
+///
+/// # Panics
+///
+/// Panics if `id`, `graph_id`, `from_id` or `to_id` is not a valid RFC 8620
+/// Id (one built unchecked with `Id::from`): the edge is deserialized from
+/// JSON, and that validates each Id.
 pub fn projected_edge(
     id: &Id,
     graph_id: &Id,
@@ -333,10 +345,10 @@ pub fn node_matches(cond: &GraphNodeFilterCondition, node: &GraphNode) -> bool {
 ///
 /// ponytail: the projection accepts no writes ("or accept no writes at
 /// all"). With these rights the `jmap-graph-server` handlers reject every
-/// GraphNode and GraphEdge `/set` and every change to the Graph's `name`,
+/// [`GraphNode`] and [`GraphEdge`] `/set` and every change to the Graph's `name`,
 /// `annotations` and `shareWith`, and its destroy, with `forbidden` ("a
 /// write the server does not accept is rejected with a `forbidden`
-/// SetError"), while "Each user may change their own `isSubscribed`". The
+/// `SetError`"), while "Each user may change their own `isSubscribed`". The
 /// backend's own rights re-check sees the same `myRights`. Upgrade path: a
 /// deployment that maps writes onto native methods returns `mayWrite: true`
 /// and applies them with native rights checks (§Writes to Source Objects).

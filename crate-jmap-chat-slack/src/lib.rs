@@ -19,7 +19,7 @@
 //! | public / private channel | `channel` Chat in the Space |
 //! | DM (`im`) | `direct` Chat with `contactId` |
 //! | group DM (`mpim`) | `group` Chat with `members` |
-//! | user, bot | ChatContact (`identity` `slack:<team>:<user>`) |
+//! | user, bot | `ChatContact` (`identity` `slack:<team>:<user>`) |
 //! | message | Message (`senderId` the accountId for the owner) |
 //! | thread reply (`thread_ts`) | `replyTo` and `threadRootId` = the parent |
 //! | reaction | `reactions/<senderReactionId>` |

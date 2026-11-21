@@ -351,7 +351,7 @@ pub(crate) async fn get_chat<B: ChatBackend>(
     Ok(chats.into_iter().find(|c| &c.id == chat_id))
 }
 
-/// Whether the ChatContact `contact_id` takes part in `chat`: the
+/// Whether the [`ChatContact`] `contact_id` takes part in `chat`: the
 /// direct Chat's `contactId`, a group member, or a member of a channel's
 /// Space.
 pub(crate) async fn is_participant<B: ChatBackend>(
@@ -408,10 +408,10 @@ pub(crate) async fn is_participant<B: ChatBackend>(
 ///   rejected request fetches nothing.
 /// - Identities in `senderUserId`, `mentions` and the `assigneeIds` of a
 ///   `urn:ietf:params:jmap:chat:cap:task` action resolve per §User References in Peer
-///   Methods. Placeholder ChatContacts are created
+///   Methods. Placeholder [`ChatContact`]s are created
 ///   only once the request is accepted. A backend that limits them
 ///   rejects the create with `rateLimit`, which becomes `rateLimited`
-///   (§Placeholder ChatContact Creation); the placeholders the request
+///   (§Placeholder `ChatContact` Creation); the placeholders the request
 ///   already created are destroyed first.
 /// - A `senderMsgId` already stored in the Chat answers with the stored
 ///   Message and stores nothing ("the receiver MAY silently discard the
@@ -419,7 +419,7 @@ pub(crate) async fn is_participant<B: ChatBackend>(
 /// - Expiry is stored on the Message (`senderExpiresAt`, `burnOnRead`,
 ///   `expiresAfterReadSeconds`) for [`jmap_chat_server::sweep_expired`].
 ///
-/// ponytail: Chats, ChatContacts, SpaceBans and Messages are read in full
+/// ponytail: Chats, `ChatContact`s, [`SpaceBan`]s and Messages are read in full
 /// per call, and the writes are separate backend calls, not one
 /// transaction. A rejection happens before the first write. A backend
 /// failure between writes returns `serverFail`; the peer's retry reuses
@@ -540,13 +540,13 @@ enum Payload<'a> {
 pub(crate) enum Who<'a> {
     /// The receiving server's own `ownerUserId`.
     Owner,
-    /// The ChatContact with that `identity`.
+    /// The [`ChatContact`] with that `identity`.
     Contact(&'a ChatContact),
-    /// No local user yet; a placeholder ChatContact stands in.
+    /// No local user yet; a placeholder [`ChatContact`] stands in.
     Unknown,
 }
 
-/// The owner's identity and the account's ChatContacts.
+/// The owner's identity and the account's [`ChatContact`]s.
 pub(crate) struct Identities {
     owner: Option<String>,
     contacts: Vec<ChatContact>,
@@ -709,7 +709,7 @@ async fn resolve_chat<B: FederationBackend>(
     }
 }
 
-/// Step 4: an active SpaceBan for the sender in the channel's Space.
+/// Step 4: an active [`SpaceBan`] for the sender in the channel's Space.
 ///
 /// A ban whose `expiresAt` does not parse counts as active.
 async fn is_banned<B: ChatBackend>(
@@ -909,12 +909,12 @@ impl<'a, B: FederationBackend> Commit<'a, B> {
     }
 
     /// The local id of the user `identity` names, creating a placeholder
-    /// ChatContact for an unknown one (§User References in Peer Methods
+    /// [`ChatContact`] for an unknown one (§User References in Peer Methods
     /// rules 1 to 3).
     ///
     /// A placeholder for a peer identity of the request (the bound caller
     /// identity, or any identity whose host is the authenticated peer
-    /// domain) gets `serverUrl` `https://<peer domain>/`: §ChatContact
+    /// domain) gets `serverUrl` `https://<peer domain>/`: §`ChatContact`
     /// Type Extensions for Federation defines it as the "Base HTTPS URL
     /// of this contact's mailbox. Used for outbound delivery and for
     /// probing `/.well-known/jmap`" and says "Servers populate this field
@@ -922,7 +922,7 @@ impl<'a, B: FederationBackend> Commit<'a, B> {
     /// "`https://<peer-domain>/.well-known/jmap`". A placeholder for any
     /// other identity gets none: the peer domain does not speak for it,
     /// and "The placeholder's other properties are learned through later
-    /// interactions". An existing ChatContact is not changed; the draft
+    /// interactions". An existing `ChatContact` is not changed; the draft
     /// updates `serverUrl` only "when a more recent value is discovered
     /// via `/.well-known/jmap`".
     pub(crate) async fn local_id(&mut self, identity: &str) -> Result<Id, JmapError> {
@@ -975,7 +975,7 @@ impl<'a, B: FederationBackend> Commit<'a, B> {
     /// Destroy the placeholders this request created. A placeholder
     /// limit "rejects, with `rateLimited`, any request that would exceed
     /// it, and that request creates no placeholders" (§Placeholder
-    /// ChatContact Creation); placeholders are the first writes of a
+    /// [`ChatContact`] Creation); placeholders are the first writes of a
     /// request, so nothing else is undone.
     async fn discard_placeholders(&mut self) -> Result<(), JmapError> {
         for (_, id) in self.created.drain() {
@@ -1006,7 +1006,7 @@ impl<'a, B: FederationBackend> Commit<'a, B> {
     /// §Federation: "the receiving server maps each identity to its local
     /// id"). An action whose `uri` is a JMAP object URI is removed first,
     /// keeping the order of the rest (§User References in Peer Methods:
-    /// "A receiving server removes every MessageAction ... whose `uri` is
+    /// "A receiving server removes every [`MessageAction`] ... whose `uri` is
     /// a JMAP object URI"); an empty result is an absent `actions`. Every
     /// other action, key and value is stored as received.
     async fn actions(
@@ -1074,7 +1074,7 @@ impl<'a, B: FederationBackend> Commit<'a, B> {
 }
 
 /// Map a write failure: a placeholder limit (`rateLimit`) is `rateLimited`
-/// (§Placeholder ChatContact Creation); anything else is `serverFail`.
+/// (§Placeholder [`ChatContact`] Creation); anything else is `serverFail`.
 pub(crate) fn set_failure<E: std::fmt::Display>(e: BackendSetError<E>) -> JmapError {
     match e {
         BackendSetError::SetError(s) if s.error_type == SetErrorType::RateLimit => {
@@ -1121,7 +1121,7 @@ fn check_broadcast_mentions(broadcast: Option<&[BroadcastMention]>) -> Result<()
 }
 
 /// Each Mention `id` must be usable as a placeholder's `identity` and
-/// `login`, which draft-atwood-jmap-chat-00 §ChatContact requires to
+/// `login`, which draft-atwood-jmap-chat-00 §`ChatContact` requires to
 /// hold "at least one non-whitespace character".
 fn check_mention_ids(mentions: Option<&[PeerMention]>) -> Result<(), JmapError> {
     if mentions

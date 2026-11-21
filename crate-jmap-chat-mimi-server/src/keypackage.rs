@@ -20,7 +20,7 @@ use tls_codec::{Deserialize as _, Serialize as _};
 use crate::helpers::{SetAccumulators, finalize_set_response};
 use crate::{MimiBackend, NewKeyPackage};
 
-/// An `invalidProperties` SetError naming `property`.
+/// An `invalidProperties` [`SetError`] naming `property`.
 fn invalid(property: &str, description: &str) -> SetError {
     SetError::new(SetErrorType::InvalidProperties)
         .with_properties([property])
@@ -28,33 +28,47 @@ fn invalid(property: &str, description: &str) -> SetError {
 }
 
 /// Check one `KeyPackage/set` create against
-/// draft-atwood-jmap-chat-mimi-00 §KeyPackage/set and §KeyPackage Object
+/// draft-atwood-jmap-chat-mimi-00 §KeyPackage/set and §`KeyPackage` Object
 /// Fields.
 ///
 /// "On create, the server MUST reject the record with `invalidProperties`
-/// naming `keyPackage` if `keyPackage` does not parse as a KeyPackage, if
+/// naming `keyPackage` if `keyPackage` does not parse as a `KeyPackage`, if
 /// its signature does not verify, if its cipher suite is not in
 /// `cipherSuites`, if its leaf node lifetime has expired, if its credential
 /// is not a Basic credential, or if the credential identity is not
-/// `userUri`." `lastResort` is derived from the KeyPackage's
+/// `userUri`." `lastResort` is derived from the `KeyPackage`'s
 /// `app_data_dictionary` extension: `true` when it holds a
 /// `last_resort_key_package` component (draft-ietf-mls-extensions-10 §6.4);
 /// a create whose `lastResort` differs is refused with `invalidProperties`
 /// naming `lastResort`.
 ///
-/// "Does not parse" covers trailing octets and a KeyPackage wrapped in an
-/// MLSMessage: `keyPackage` is the bare RFC 9420 §10 structure. "Signature
+/// "Does not parse" covers trailing octets and a `KeyPackage` wrapped in an
+/// `MLSMessage`: `keyPackage` is the bare RFC 9420 §10 structure. "Signature
 /// does not verify" covers every RFC 9420 §10.1 validity failure openmls
-/// reports: the leaf node and KeyPackage signatures, the protocol version,
+/// reports: the leaf node and `KeyPackage` signatures, the protocol version,
 /// an `init_key` equal to the encryption key, and an extension missing from
 /// the leaf node capabilities. openmls checks the lifetime against the
 /// system clock, and also rejects a lifetime whose `not_before` is in the
 /// future.
 ///
-/// The KeyPackageRef is computed over the exact `keyPackage` octets. The
-/// account-wide rules (signature-key binding, KeyPackageRef reuse,
+/// The `KeyPackageRef` is computed over the exact `keyPackage` octets. The
+/// account-wide rules (signature-key binding, `KeyPackageRef` reuse,
 /// `maxKeyPackages`, last-resort replacement) are
 /// [`MimiBackend::create_key_package`]'s.
+///
+/// # Errors
+///
+/// An `invalidProperties` [`SetError`] naming `keyPackage` when it does not
+/// parse as a `KeyPackage`, does not verify, has a cipher suite not in
+/// `cipherSuites`, or has a credential that is not a Basic credential for
+/// `userUri`; one naming `lastResort` when the claimed `lastResort` differs
+/// from the derived value; and a `serverFail` [`SetError`] when computing the
+/// `KeyPackageRef` fails.
+///
+/// # Panics
+///
+/// Does not panic: the `expect` on the encoded `KeyPackageRef` holds because
+/// unpadded base64url encoder output is always valid [`Base64Url`].
 // SetError is the type every `/set` refusal takes; boxing it buys nothing.
 pub fn check_key_package_create<C: OpenMlsCrypto>(
     crypto: &C,
@@ -179,6 +193,16 @@ fn decode_create(value: Value) -> Result<KeyPackageCreate, Box<SetError>> {
 
 /// Handle `KeyPackage/get` (draft-atwood-jmap-chat-mimi-00 §KeyPackage/get):
 /// "Standard JMAP `/get` (RFC 8620 §5.1)".
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `ids` or `properties` is malformed or names an unknown property;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `ids` holds more than `maxObjectsInGet` ids;
+/// - `serverFail` when the backend fails.
 pub async fn handle_key_package_get<B: MimiBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -190,10 +214,25 @@ pub async fn handle_key_package_get<B: MimiBackend>(
 /// Handle `KeyPackage/set` (draft-atwood-jmap-chat-mimi-00 §KeyPackage/set).
 ///
 /// Standard RFC 8620 §5.3 `/set`, "except that `update` is not supported:
-/// the server MUST reject every update with a SetError of type
+/// the server MUST reject every update with a [`SetError`] of type
 /// `forbidden`". Create runs [`check_key_package_create`], then
 /// [`MimiBackend::create_key_package`]; destroy calls
 /// [`MimiBackend::destroy_key_package`].
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `create`, `update` or `destroy` is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `create`, `update` and `destroy` together hold
+///   more than `maxObjectsInSet` objects;
+/// - `stateMismatch` when `ifInState` is not the current state;
+/// - `serverFail` when the backend fails.
+///
+/// A create, update or destroy that fails on its own is a [`SetError`] in
+/// the response, not an `Err`.
 pub async fn handle_key_package_set<B: MimiBackend>(
     backend: &B,
     caller: &B::CallerCtx,

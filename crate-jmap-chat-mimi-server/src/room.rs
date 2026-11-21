@@ -167,13 +167,19 @@ fn decode(value: &Base64Url, name: &str) -> Result<Vec<u8>, JmapError> {
 /// a ratchet tree whose leaf nodes are invalid. A `groupInfo` or
 /// `ratchetTree` that does not parse, a credential that is not a Basic
 /// credential, and a missing component are `invalidArguments` too. A
-/// `hubSender` in `capability` that is not an ExternalSender is
+/// `hubSender` in `capability` that is not an [`ExternalSender`] is
 /// `serverFail`.
 ///
 /// The returned [`NewRoom::room_name`] is the `room_name` of the room
 /// metadata, or the empty string when it is not UTF-8 (§Chat.roomId: "The
 /// server sets `name` to the `room_name` of the room metadata ... when it
 /// knows it and to the empty string otherwise").
+///
+/// # Errors
+///
+/// `invalidArguments` when `groupInfo` or `ratchetTree` does not decode or
+/// parse, or when any of the checks above fails; `serverFail` when
+/// `hubSender` in `capability` is not a base64url [`ExternalSender`].
 // JmapError is the type every method-level refusal takes.
 pub fn check_room_create<C: OpenMlsCrypto>(
     crypto: &C,
@@ -298,6 +304,17 @@ pub fn check_room_create<C: OpenMlsCrypto>(
 /// and `chatId`. Every refusal is the method-level error "reject the call
 /// with `invalidArguments`"; an unknown `accountId` is `accountNotFound`
 /// (RFC 8620 §3.6.2).
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `groupInfo` or `ratchetTree` is not an unpadded base64url string, or a
+///   [`check_room_create`] or [`MimiBackend::create_room`] check fails;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `serverFail` when the backend fails or `hubSender` is not an
+///   [`ExternalSender`].
 pub async fn handle_room_create<B: MimiBackend>(
     backend: &B,
     caller: &B::CallerCtx,

@@ -25,10 +25,10 @@ use serde_json::{Value, json};
 /// Name lookups the conversion needs; the bridge implements it over its
 /// mapping.
 pub trait Directory {
-    /// The ChatContact id (or the accountId for the owner) and display
+    /// The `ChatContact` id (or the accountId for the owner) and display
     /// name of Slack user `slack_user`.
     fn contact(&self, slack_user: &str) -> Option<(Id, String)>;
-    /// The Slack user id of ChatContact (or accountId) `id`.
+    /// The Slack user id of `ChatContact` (or accountId) `id`.
     fn slack_user(&self, id: &Id) -> Option<String>;
     /// The name of Slack channel `channel`.
     fn channel_name(&self, channel: &str) -> Option<String> {
@@ -46,7 +46,7 @@ pub struct Converted {
     /// `bodyType`: `text/plain` when the text has no markup, mention or
     /// link; `application/jmap-chat-rich` otherwise.
     pub body_type: BodyType,
-    /// `mentions`: the ChatContact ids of the `<@U…>` users the
+    /// `mentions`: the `ChatContact` ids of the `<@U…>` users the
     /// [`Directory`] knows, in order, without repeats.
     pub mentions: Vec<Id>,
     /// `broadcastMentions`: `<!here>` → `here`; `<!channel>` and
@@ -407,7 +407,7 @@ pub enum RenderError {
     /// A `bodyType` other than `text/plain` and `application/jmap-chat-rich`.
     #[error("bodyType has no Slack form")]
     UnsupportedBodyType,
-    /// An `application/jmap-chat-rich` body that is not a RichBody.
+    /// An `application/jmap-chat-rich` body that is not a [`RichBody`].
     #[error("body is not a valid application/jmap-chat-rich object")]
     InvalidRichBody,
 }

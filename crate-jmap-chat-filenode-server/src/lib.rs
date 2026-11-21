@@ -1,4 +1,4 @@
-//! Chat binding for the JMAP FileNode method handlers: the rules of
+//! Chat binding for the JMAP [`FileNode`] method handlers: the rules of
 //! draft-atwood-jmap-chat-filenode-00 that apply when a server offers
 //! `urn:ietf:params:jmap:chat:filenode` together with
 //! `urn:ietf:params:jmap:chat` and `urn:ietf:params:jmap:filenode`.
@@ -16,7 +16,7 @@
 //! | `FileNodeBackend::destroy_object::<FileNode>`, before the removal | [`check_space_destroy`] |
 //! | `FileNodeBackend::may_destroy`, `true` when it passes | [`check_space_destroy`] |
 //! | `FileNodeBackend::files_rights`, which `FileNode/get` and the `FileNode/set` and `FileNode/copy` `created` entries report as `myRights` | return [`space_files_rights`] |
-//! | `JmapReads::get_objects::<FileNode>` and the other FileNode reads, to leave out nodes with no flag | [`space_files_rights`] |
+//! | `JmapReads::get_objects::<FileNode>` and the other `FileNode` reads, to leave out nodes with no flag | [`space_files_rights`] |
 //! | The same, when advertising `maxSpaceStorageBytes` | [`check_space_quota`] |
 //! | `ChatStore::create_object::<Space>`, after the insert, when advertising `autoCreateFileTree: true` | [`create_space_file_tree`] |
 //! | `ChatResolvers::filenode_attachment` | [`resolve_filenode_attachment`] |
@@ -38,14 +38,14 @@ use jmap_filenode_types::{FileNode, FileNodeFilterCondition, FilesRights, NodeTy
 use jmap_server::{BackendQueryError, BackendSetError, QueryParams, SetError, SetErrorType};
 use jmap_types::{Filter, Id, PatchObject};
 
-/// A storage failure while checking a FileNode operation or a
+/// A storage failure while checking a [`FileNode`] operation or a
 /// `filenodeId` Attachment.
 #[non_exhaustive]
 #[derive(Debug)]
 pub enum RootCheckError<C, F> {
     /// The Chat backend failed to read the Space.
     Chat(C),
-    /// The FileNode backend failed to read the Space file tree.
+    /// The [`FileNode`] backend failed to read the Space file tree.
     Files(BackendQueryError<F>),
 }
 
@@ -75,8 +75,8 @@ where
 /// `FileNode/set` create of `node`.
 ///
 /// A node without `spaceId` passes unchecked, so this is safe to call
-/// before every FileNode insert. A node with one is a Space root, "A
-/// Directory FileNode whose `spaceId` matches the Space's `id`" (the
+/// before every [`FileNode`] insert. A node with one is a Space root, "A
+/// Directory `FileNode` whose `spaceId` matches the Space's `id`" (the
 /// `@type: "Directory"` rule is already enforced by
 /// `jmap-filenode-server`). In this order:
 ///
@@ -87,10 +87,10 @@ where
 /// - "Creating, renaming, or destroying a Space root requires
 ///   `"manage_space"` permission, whatever the root's `myRights` report"
 ///   (§Permission Mapping); without it the create fails with `forbidden`.
-///   The permissions are the union over the member's SpaceRoles plus the
+///   The permissions are the union over the member's `SpaceRole`s plus the
 ///   implicit `@everyone` role's permissions from
 ///   [`ChatSpaces::everyone_permissions`](jmap_chat_server::ChatSpaces::everyone_permissions) (draft-atwood-jmap-chat-00
-///   §Space Permission Resolution step 1). ChannelPermission overrides "do
+///   §Space Permission Resolution step 1). `ChannelPermission` overrides "do
 ///   not restrict file-tree access".
 ///
 /// "A Space has zero, one, or more Space roots ... a server MAY limit the
@@ -101,10 +101,10 @@ where
 /// The requesting user is the owner of `account_id`, named by
 /// `account_id` in Space member lists (draft-atwood-jmap-chat-00
 /// §Terminology). `account_id` is the account of both the Space and the
-/// FileNode. `files` and `files_caller` are not read.
+/// `FileNode`. `files` and `files_caller` are not read.
 ///
 /// Returns `Ok(Err(set_error))` when the create must be refused. Return
-/// that SetError from `create_object` without inserting.
+/// that [`SetError`] from `create_object` without inserting.
 ///
 /// # Errors
 ///
@@ -138,9 +138,9 @@ pub async fn check_root_create<C: ChatBackend, F: FileNodeBackend>(
 /// Check draft-atwood-jmap-chat-filenode-00 `maxSpaceStorageBytes` for a
 /// `FileNode/set` create of `node`: "When a `FileNode/set` create would
 /// cause the Space file tree to exceed this limit, the server MUST return
-/// an `overQuota` SetError".
+/// an `overQuota` [`SetError`]".
 ///
-/// The limit covers the "total blob storage in bytes across all FileNodes
+/// The limit covers the "total blob storage in bytes across all [`FileNode`]s
 /// in a single Space's file tree, counting all of its Space roots": the
 /// `size` of every Space root of the Space `node` is created in, and of
 /// every node below them, plus `node.size`. The Space is that of the
@@ -154,11 +154,11 @@ pub async fn check_root_create<C: ChatBackend, F: FileNodeBackend>(
 /// insert's lock or transaction.
 ///
 /// Returns `Ok(Err(set_error))` when the create must be refused; return
-/// that SetError from `create_object` without inserting.
+/// that `SetError` from `create_object` without inserting.
 ///
 /// # Errors
 ///
-/// Returns the storage error of the first FileNode read that fails.
+/// Returns the storage error of the first `FileNode` read that fails.
 pub async fn check_space_quota<F: FileNodeBackend>(
     files: &F,
     caller: &F::CallerCtx,
@@ -224,7 +224,7 @@ pub async fn check_space_quota<F: FileNodeBackend>(
 /// Create the Space root for a new Space, for a server advertising
 /// draft-atwood-jmap-chat-filenode-00 `autoCreateFileTree: true`: "the
 /// server automatically creates one Space root for each new Space at Space
-/// creation time and includes the new FileNode in subsequent
+/// creation time and includes the new [`FileNode`] in subsequent
 /// `FileNode/changes` responses."
 ///
 /// The root is a top-level `Directory` with `spaceId` set to `space_id`,
@@ -241,6 +241,12 @@ pub async fn check_space_quota<F: FileNodeBackend>(
 /// # Errors
 ///
 /// Returns the backend's error from `create_object`.
+///
+/// # Panics
+///
+/// Panics if `space_id` or the id the backend assigns is not a valid
+/// RFC 8620 Id (one built unchecked with `Id::from`): the root Directory is
+/// deserialized from JSON, and that validates each Id.
 // Same error type as `FileNodeBackend::create_object`, which it propagates.
 pub async fn create_space_file_tree<F: FileNodeBackend>(
     files: &F,
@@ -269,7 +275,7 @@ pub async fn create_space_file_tree<F: FileNodeBackend>(
 pub enum TreeDestroyError<E> {
     /// Finding or reading the Space file tree's nodes failed.
     Query(BackendQueryError<E>),
-    /// Clearing the role of, or destroying, a FileNode failed.
+    /// Clearing the role of, or destroying, a [`FileNode`] failed.
     Destroy(BackendSetError<E>),
 }
 
@@ -294,7 +300,7 @@ impl<E: std::error::Error + 'static> std::error::Error for TreeDestroyError<E> {
 /// Destroy the file trees of a destroyed Space, per
 /// draft-atwood-jmap-chat-filenode-00 §Space Deletion: "When a Space is
 /// destroyed via `Space/set` destroy, the server SHOULD also destroy all
-/// of its Space roots and all FileNodes within them." Call it from
+/// of its Space roots and all [`FileNode`]s within them." Call it from
 /// `ChatEvents::on_space_destroyed`.
 ///
 /// No grace period is offered (the draft's "MAY instead retain"), so the
@@ -307,7 +313,7 @@ impl<E: std::error::Error + 'static> std::error::Error for TreeDestroyError<E> {
 /// -20 §5 asks of a client; a backend that refuses to clear a role it
 /// manages fails the call. Every node goes through
 /// [`FileNodeBackend::destroy_object`], whose contract advances the
-/// FileNode state, so `FileNode/changes` lists the destroyed ids and the
+/// `FileNode` state, so `FileNode/changes` lists the destroyed ids and the
 /// push channel can emit the `FileNode` state change the draft asks for
 /// "at the moment the file tree is destroyed". A Space without a file
 /// tree destroys nothing.
@@ -401,28 +407,28 @@ async fn clear_roles<F: FileNodeBackend>(
 /// An `attachment` without `filenodeId` gives `Ok(Ok(None))`. Otherwise,
 /// in this order:
 ///
-/// - "the server MUST verify that the referenced FileNode exists and
+/// - "the server MUST verify that the referenced [`FileNode`] exists and
 ///   belongs to the same Space. If validation fails, the server MUST
-///   return a SetError of type `invalidProperties` naming `filenodeId`."
+///   return a [`SetError`] of type `invalidProperties` naming `filenodeId`."
 ///   The node's nearest Space root ancestor (a Directory with `spaceId`)
 ///   must have the Chat's `spaceId`; §Attachment filenodeId Validation: "Servers SHOULD NOT
-///   permit a `filenodeId` referencing a FileNode from a different Space
+///   permit a `filenodeId` referencing a `FileNode` from a different Space
 ///   or from outside any Space file tree". A message to a Chat that is
 ///   not a channel has no Space, so it fails the same way. A node without
 ///   a blob, such as a Directory, fails too, as "the server uses that
-///   FileNode's blob as the attachment blob".
-/// - "The sender has at least read access to the FileNode under the
+///   `FileNode`'s blob as the attachment blob".
+/// - "The sender has at least read access to the `FileNode` under the
 ///   mapping in {{permissions}}": every row of that table grants Read, so
 ///   the sender must be a Space member holding `view`, `send`,
-///   `manage_channels` or `manage_space` through a SpaceRole or the
+///   `manage_channels` or `manage_space` through a `SpaceRole` or the
 ///   implicit `@everyone` role. Otherwise
 ///   the create fails with `forbidden`, which the draft does not name.
 /// - "the server MUST populate any absent fields from the referenced
-///   FileNode's properties": `blobId`, `filename`, `contentType`, `size`
+///   `FileNode`'s properties": `blobId`, `filename`, `contentType`, `size`
 ///   and `sha256` from the node's `blobId`, `name`, `mediaType`, `size` and
 ///   `sha256`. "If the client supplies these fields, the server MAY
-///   validate them against the FileNode and MAY reject the create with an
-///   `invalidProperties` SetError naming `attachments` if they conflict":
+///   validate them against the `FileNode` and MAY reject the create with an
+///   `invalidProperties` `SetError` naming `attachments` if they conflict":
 ///   a supplied `blobId`, `size` or `sha256` that differs from the node's
 ///   is rejected, as those describe the blob; a supplied `filename` or
 ///   `contentType` is kept. A field that is neither supplied nor on the
@@ -430,14 +436,19 @@ async fn clear_roles<F: FileNodeBackend>(
 ///
 /// The sender is the owner of `account_id`, named by `account_id` in
 /// Space member lists, and `account_id` is the account of both the Space
-/// and the FileNode, as for [`check_root_create`]. The node is only read:
-/// "The FileNode is not modified when linked as an attachment."
+/// and the `FileNode`, as for [`check_root_create`]. The node is only read:
+/// "The `FileNode` is not modified when linked as an attachment."
 ///
 /// # Errors
 ///
 /// Returns [`RootCheckError::Files`] if reading the node or its ancestors
 /// fails, and [`RootCheckError::Chat`] if reading the Space or its
 /// `@everyone` permissions fails.
+///
+/// # Panics
+///
+/// Does not panic: the `expect` guards serializing an `AttachmentCreate` to
+/// JSON, which cannot fail.
 pub async fn resolve_filenode_attachment<C: ChatBackend, F: FileNodeBackend>(
     chat: &C,
     chat_caller: &C::CallerCtx,
@@ -549,7 +560,7 @@ pub async fn resolve_filenode_attachment<C: ChatBackend, F: FileNodeBackend>(
 /// `FilesRights` flags ... the server reports in the `myRights` of every
 /// Directory in the Space file tree, including the tree root, and
 /// enforces". "Each row includes the grants of the rows above it", and the
-/// member's permissions are the union over their SpaceRoles plus the
+/// member's permissions are the union over their `SpaceRole`s plus the
 /// `@everyone` role, as for [`check_root_create`]:
 ///
 /// | Highest permission held | Flags `true` |
@@ -561,8 +572,8 @@ pub async fn resolve_filenode_attachment<C: ChatBackend, F: FileNodeBackend>(
 /// "A flag no applicable row grants is `false`", so `mayShare` and any
 /// flag a later draft adds are always `false`, and a non-member, who
 /// "SHOULD NOT be granted access", gets no flag at all. Every Directory in
-/// the tree, the root included, gets the same flags. "A File or SymLink
-/// takes its rights from its parent Directory", so a File or SymLink gets
+/// the tree, the root included, gets the same flags. "A File or `SymLink`
+/// takes its rights from its parent Directory", so a File or `SymLink` gets
 /// them too: these are the rights the `FileNode/set` gates check for it.
 /// A Space root's flags "do not decide who may destroy, rename, or move the
 /// Space root itself": [`check_space_update`] and [`check_space_destroy`]
@@ -637,7 +648,7 @@ pub async fn space_files_rights<C: ChatBackend, F: FileNodeBackend>(
 ///
 /// A Space root (a node with `spaceId`) is left to [`check_root_create`],
 /// as is a node whose parent is not stored or not in a Space file tree. Without the right the create fails with
-/// `forbidden`; return that SetError from `create_object` without
+/// `forbidden`; return that [`SetError`] from `create_object` without
 /// inserting.
 ///
 /// # Errors
@@ -686,7 +697,7 @@ pub async fn check_space_create<C: ChatBackend, F: FileNodeBackend>(
 /// - `shareWith`: refused for every member, as "No role is granted
 ///   `mayShare`" and "the server rejects a `FileNode/set` update that
 ///   changes `shareWith` on a node in a Space file tree with a `forbidden`
-///   SetError". A patch setting the whole of `shareWith` to its stored
+///   [`SetError`]". A patch setting the whole of `shareWith` to its stored
 ///   value changes nothing and passes.
 /// - `name` and `parentId`: `mayRename`, "rename or move this node". On
 ///   a Space root a changed `name` instead needs the `"manage_space"`
@@ -707,12 +718,17 @@ pub async fn check_space_create<C: ChatBackend, F: FileNodeBackend>(
 /// A `parentId` naming a new parent in a Space file tree also needs
 /// `mayAddChildren` on that parent, as a node moved there is a new child
 /// of it. Without a needed right the update fails with `forbidden`; return
-/// that SetError from `update_object` without writing.
+/// that `SetError` from `update_object` without writing.
 ///
 /// # Errors
 ///
 /// As for [`space_files_rights`], plus [`RootCheckError::Files`] if
 /// reading the new parent fails.
+///
+/// # Panics
+///
+/// Does not panic: the `expect` guards serializing the node's `shareWith`,
+/// a map with string keys, to JSON, which cannot fail.
 pub async fn check_space_update<C: ChatBackend, F: FileNodeBackend>(
     chat: &C,
     chat_caller: &C::CallerCtx,
@@ -800,7 +816,7 @@ pub async fn check_space_update<C: ChatBackend, F: FileNodeBackend>(
 /// go through this check.
 ///
 /// Call it from `FileNodeBackend::destroy_object::<FileNode>`, before the
-/// removal, as the atomic check: without the right, return its SetError
+/// removal, as the atomic check: without the right, return its [`SetError`]
 /// without removing the node. Call it from `FileNodeBackend::may_destroy`
 /// too, answering `true` when it returns `Ok(())`. A Space root's
 /// `myRights` grant `mayDelete` to a `"manage_channels"` member, so
@@ -881,8 +897,8 @@ async fn may_add_children<C: ChatBackend, F: FileNodeBackend>(
 /// `node`), or `None` if neither `node` nor any ancestor is one.
 ///
 /// draft-atwood-jmap-chat-filenode-00 §Terminology: a Space root is "A
-/// Directory FileNode whose `spaceId` matches the Space's `id`", and the
-/// Space file tree is "its Space roots and every FileNode below them".
+/// Directory [`FileNode`] whose `spaceId` matches the Space's `id`", and the
+/// Space file tree is "its Space roots and every `FileNode` below them".
 fn space_of(node: &FileNode, ancestors: &[FileNode]) -> Option<Id> {
     let by_id: std::collections::HashMap<&Id, &FileNode> =
         ancestors.iter().map(|n| (&n.id, n)).collect();
@@ -931,11 +947,11 @@ const TIERS: [ChatPermission; 4] = [
 ];
 
 /// The Space permissions `account_id` holds as a member of `space`: the
-/// union over the member's SpaceRoles plus the implicit `@everyone`
+/// union over the member's `SpaceRole`s plus the implicit `@everyone`
 /// role's permissions from [`ChatSpaces::everyone_permissions`](jmap_chat_server::ChatSpaces::everyone_permissions)
 /// (draft-atwood-jmap-chat-00 §Space Permission Resolution step 1).
 /// `None` if `space` is `None` or `account_id` is not a member, without
-/// asking the backend. ChannelPermission overrides are not applied: they
+/// asking the backend. `ChannelPermission` overrides are not applied: they
 /// "do not restrict file-tree access" (draft-atwood-jmap-chat-filenode-00
 /// §Permission Mapping). Permissions compare by variant, so a
 /// `ChatPermission::Other` spelling of a known name grants nothing, as in
@@ -965,7 +981,7 @@ async fn member_permissions<C: ChatBackend>(
     Ok(Some(permissions))
 }
 
-/// A `forbidden` SetError with `description`.
+/// A `forbidden` [`SetError`] with `description`.
 fn forbidden(description: &str) -> SetError {
     SetError::new(SetErrorType::Forbidden).with_description(description)
 }

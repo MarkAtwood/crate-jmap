@@ -28,7 +28,7 @@ use crate::deliver::{
 ///   else `forbidden`. The group Chat is stored under `chatId` through
 ///   [`FederationBackend::create_chat`], with each member's `id` and
 ///   `invitedBy` resolved per §User References in Peer Methods
-///   (placeholder ChatContacts for unknown identities), `name` and
+///   (placeholder `ChatContact`s for unknown identities), `name` and
 ///   `description` as sent, and the fetched `avatar`. A `chatId` already
 ///   in use is `forbidden`, except by an open group Chat the sender is a member
 ///   of, which answers a retried create without writing; a closed one is
@@ -45,7 +45,7 @@ use crate::deliver::{
 ///   `"updateMetadata"` sets the `name`, `description` and `avatar`
 ///   present; `avatar: null` removes `avatarBlobId`. `"leave"` removes
 ///   the sender. `"close"` removes the sender and sets `closedAt`.
-/// - A ChatMember `role` in `members` or `addedMembers`, or an
+/// - A [`ChatMember`] `role` in `members` or `addedMembers`, or an
 ///   `updatedRoles` `role`, other than `"admin"` or `"member"` is
 ///   `invalidArguments`; it is not normalized.
 /// - Every rejection, including a missing required array, an empty
@@ -251,7 +251,7 @@ fn required<'a, T>(value: Option<&'a [T]>, name: &str) -> Result<&'a [T], JmapEr
 }
 
 /// Each member `id` and `invitedBy` must be usable as a placeholder's
-/// `identity` and `login`, which draft-atwood-jmap-chat-00 §ChatContact
+/// `identity` and `login`, which draft-atwood-jmap-chat-00 §`ChatContact`
 /// requires to hold "at least one non-whitespace character", and each
 /// `role` must pass [`check_role`].
 fn check_members(members: &[PeerChatMember]) -> Result<(), JmapError> {
@@ -267,10 +267,10 @@ fn check_members(members: &[PeerChatMember]) -> Result<(), JmapError> {
     members.iter().try_for_each(|m| check_role(&m.role))
 }
 
-/// A ChatMember `role` must be `"admin"` or `"member"`, else
+/// A [`ChatMember`] `role` must be `"admin"` or `"member"`, else
 /// `invalidArguments`.
 ///
-/// draft-atwood-jmap-chat-00 §ChatMember `role`: "Either `"admin"` or
+/// draft-atwood-jmap-chat-00 §`ChatMember` `role`: "Either `"admin"` or
 /// `"member"`"; draft-atwood-jmap-chat-federation-00 §Peer/groupUpdate
 /// `updatedRoles`: "`role` (String, the new role value: `"admin"` or
 /// `"member"`)". Neither draft maps any other value to one of these, so
@@ -286,7 +286,7 @@ fn check_role(role: &ChatMemberRole) -> Result<(), JmapError> {
     }
 }
 
-/// Whether the ChatContact `id` is a member of `chat`.
+/// Whether the `ChatContact` `id` is a member of `chat`.
 fn is_member(chat: &Chat, id: Option<&Id>) -> bool {
     id.is_some_and(|id| chat.members.iter().flatten().any(|m| &m.id == id))
 }

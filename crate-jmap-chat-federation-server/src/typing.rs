@@ -21,13 +21,13 @@ use crate::deliver::{Identities, Who, authenticate, get_chat, is_participant, ro
 ///   contact, a group member, or a member of the channel's Space), else
 ///   `forbidden` ("If it is not a member, the server SHOULD return a
 ///   `forbidden` method error"). An unknown Chat or an identity with no
-///   ChatContact is not a membership, and creates nothing.
-/// - A sender whose ChatContact is `blocked`, and every event that
+///   `ChatContact` is not a membership, and creates nothing.
+/// - A sender whose `ChatContact` is `blocked`, and every event that
 ///   [`should_deliver_typing`] refuses (`receiveTypingIndicators: false`
 ///   on a direct or group Chat, a sender the backend reports blocked), is
 ///   dropped silently: success, nothing forwarded.
 /// - Otherwise the event goes to [`FederationBackend::forward_typing`]
-///   with the sender's ChatContact id as `senderId`. Nothing is stored.
+///   with the sender's `ChatContact` id as `senderId`. Nothing is stored.
 ///
 /// # Errors
 ///

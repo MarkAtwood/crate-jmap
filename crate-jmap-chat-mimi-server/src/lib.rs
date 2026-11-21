@@ -23,8 +23,8 @@
 //! verified with openmls, and the account-wide rules the backend applies
 //! atomically in [`MimiBackend::create_key_package`].
 //!
-//! KeyPackage hand-out (draft §Handing Out KeyPackages):
-//! [`MimiBackend::claim_key_packages`] claims KeyPackages atomically,
+//! `KeyPackage` hand-out (draft §Handing Out KeyPackages):
+//! [`MimiBackend::claim_key_packages`] claims `KeyPackage`s atomically,
 //! judged by [`KeyMaterialRequirements::fit`].
 //!
 //! `Room/create` (draft §Room/create): the seven checks, those that need
@@ -44,18 +44,18 @@
 //! `"application/mimi-fanout"` in `supportedBodyTypes`"), in
 //! `ChatLimits::server_reserved_body_types` ("Only servers create such
 //! Messages; the server MUST reject a `Message/set` create with this body
-//! type with an `invalidProperties` SetError naming `bodyType`", draft
+//! type with an `invalidProperties` `SetError` naming `bodyType`", draft
 //! §application/mimi-fanout) and in `ChatLimits::encrypted_body_types`
 //! ("It is an encrypted body type for the purposes of" JMAP Chat, draft
 //! §MLS Messages). `jmap-chat-server` then refuses a
 //! client's fanout create in every Chat, room-bound or not.
 //!
-//! FanoutMessages (draft §application/mimi-fanout, §Chat.roomId): a
+//! `FanoutMessage`s (draft §application/mimi-fanout, §Chat.roomId): a
 //! `/notify` handler rejects a sender that [`notify_from_hub`] says is not
 //! the room's hub, splits the body with [`parse_fanout_messages`] and
 //! hands each [`Fanout`] to [`MimiBackend::store_fanout`], which routes
 //! Welcomes, drops duplicates and attributes Messages to the hub's
-//! ChatContact. [`MimiBackend::unbind_room`] ends a Chat's binding.
+//! `ChatContact`. [`MimiBackend::unbind_room`] ends a Chat's binding.
 //!
 //! `KeyMaterial/fetch`, `Room/update`, `Room/send`, `Room/unbind` and
 //! `GroupInfo/fetch` (draft §KeyMaterial/fetch, §Rooms, §GroupInfo/fetch):
@@ -64,7 +64,7 @@
 //! others reach the hub, or the target provider, through
 //! [`MimiBackend::mimi_request`], where [`HubUnavailable`] is
 //! `serverUnavailable`. `Room/update` and `Room/send` store the accepted
-//! FanoutMessage with [`MimiBackend::store_fanout`].
+//! `FanoutMessage` with [`MimiBackend::store_fanout`].
 //!
 //! # Public dependency on openmls
 //!
@@ -187,7 +187,7 @@ where
 /// The dispatcher reads preconditions through each type's `/get` and runs
 /// each call in the scope `backend` opens
 /// ([`ConditionalBackend::begin_set`]).
-/// Under `atomic` that scope must check KeyPackageRef reuse and
+/// Under `atomic` that scope must check `KeyPackageRef` reuse and
 /// `maxKeyPackages` on the final state and hold hub requests until
 /// commit; the memory backend does.
 /// Advertise `urn:ietf:params:jmap:conditional` only once

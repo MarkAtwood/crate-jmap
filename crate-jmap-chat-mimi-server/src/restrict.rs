@@ -21,6 +21,12 @@ fn property(patch_key: &str) -> &str {
 /// update on such a Chat that sets `name`, `description`, or
 /// `avatarBlobId` or that uses the `addMembers`, `removeMembers`, or
 /// `updateMemberRoles` patch key".
+///
+/// # Errors
+///
+/// A `forbidden` [`SetError`] when the Chat has a `roomId` and `patch_keys`
+/// sets `name`, `description` or `avatarBlobId` or uses `addMembers`,
+/// `removeMembers` or `updateMemberRoles`.
 // SetError is the type every `/set` refusal takes.
 pub fn may_update_room_chat(
     chat_extra: &Map<String, Value>,
@@ -48,7 +54,11 @@ pub fn may_update_room_chat(
 /// For `ChatRestrictions::may_create_message`.
 ///
 /// §message/mls: "The server MUST reject a `Message/set` create in a Chat
-/// with a `roomId` with a `forbidden` SetError."
+/// with a `roomId` with a `forbidden` [`SetError`]."
+///
+/// # Errors
+///
+/// A `forbidden` [`SetError`] when the Chat has a `roomId`.
 pub fn may_create_room_message(chat_extra: &Map<String, Value>) -> Result<(), Box<SetError>> {
     if chat_room_id(chat_extra).is_some() {
         return Err(Box::new(
@@ -63,9 +73,15 @@ pub fn may_create_room_message(chat_extra: &Map<String, Value>) -> Result<(), Bo
 ///
 /// §message/mls: "The server MUST reject a `Message/set` update that
 /// changes `body`, `bodyType`, or `reactions` of a Message in a Chat with
-/// a `roomId` with an `invalidProperties` SetError naming the changed
+/// a `roomId` with an `invalidProperties` [`SetError`] naming the changed
 /// properties." A patch key below one of them, such as
 /// `reactions/<senderReactionId>`, changes that property.
+///
+/// # Errors
+///
+/// An `invalidProperties` [`SetError`] naming the changed properties when
+/// the Chat has a `roomId` and `patch_keys` changes `body`, `bodyType` or
+/// `reactions`.
 pub fn may_update_room_message(
     chat_extra: &Map<String, Value>,
     patch_keys: &[&str],

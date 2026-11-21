@@ -21,10 +21,10 @@ use crate::deliver::{Identities, Who, authenticate, get_chat, is_participant, ro
 ///   request's; with none, `invalidArguments`. The reader must be a
 ///   participant of its Chat (the direct Chat's contact, a group member,
 ///   or a member of the channel's Space), else `forbidden`. An identity
-///   with no ChatContact is no participant, so no placeholder is created.
+///   with no `ChatContact` is no participant, so no placeholder is created.
 /// - The receipt is stored in `deliveryReceipts` under the reader's
-///   ChatContact id ("the receiver updates the per-recipient delivery
-///   receipt in `deliveryReceipts` under that user's local ChatContact
+///   `ChatContact` id ("the receiver updates the per-recipient delivery
+///   receipt in `deliveryReceipts` under that user's local `ChatContact`
 ///   `id`"), for every Chat kind: a direct Chat has no other place for the
 ///   `readDisposition` the draft requires to be stored. Fields the request
 ///   carries replace the stored ones. `readAt` without `readDisposition`

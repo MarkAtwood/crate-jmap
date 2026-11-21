@@ -58,14 +58,14 @@ pub async fn outbound_reference<B: ChatBackend>(
         .map(|m| m.sender_msg_id))
 }
 
-/// The ChatContact ids of every participant of `chat` other than the
+/// The [`ChatContact`] ids of every participant of `chat` other than the
 /// owner `account_id`: the recipients of `Peer/deliver` and of
 /// `Peer/retract` (§Peer/retract "Sender Behavior": "the server of every
 /// other participant in the Chat").
 ///
 /// A direct Chat's participant is its `contactId`, a group Chat's are its
 /// `members`, and a channel's are the `members` of its Space, passed as
-/// `space` (draft-atwood-jmap-chat-00 §SpaceMember). A channel with no
+/// `space` (draft-atwood-jmap-chat-00 §`SpaceMember`). A channel with no
 /// `space`, or a Chat kind this crate does not know, has none.
 pub fn other_participants(chat: &Chat, space: Option<&Space>, account_id: &Id) -> Vec<Id> {
     let ids: Vec<&Id> = match chat.kind {
@@ -103,7 +103,7 @@ impl<'a> SenderIdentities<'a> {
     }
 
     /// The identity string for a local user id: the accountId maps to
-    /// `ownerUserId`, a ChatContact id to that contact's `identity`.
+    /// `ownerUserId`, a [`ChatContact`] id to that contact's `identity`.
     ///
     /// # Errors
     ///
@@ -128,7 +128,7 @@ impl<'a> SenderIdentities<'a> {
     /// # Errors
     ///
     /// [`OutboundError::UnknownUser`] when an entry names neither the
-    /// owner nor a stored ChatContact, or is not a string.
+    /// owner nor a stored [`ChatContact`], or is not a string.
     pub fn actions(&self, actions: &[MessageAction]) -> Result<Vec<MessageAction>, OutboundError> {
         let mut out = actions.to_vec();
         for action in &mut out {
@@ -159,8 +159,8 @@ impl<'a> SenderIdentities<'a> {
     }
 }
 
-/// The `assigneeIds` array of a `urn:ietf:params:jmap:chat:cap:task` MessageAction's
-/// `metadata`, the user-reference field inside MessageAction metadata
+/// The `assigneeIds` array of a `urn:ietf:params:jmap:chat:cap:task` [`MessageAction`]'s
+/// `metadata`, the user-reference field inside `MessageAction` metadata
 /// that draft-atwood-jmap-chat-federation-00 §User References in Peer
 /// Methods names. `None` for another action type, or when the key is
 /// absent or not an array.
@@ -179,17 +179,17 @@ pub(crate) fn task_assignee_ids(action: &mut MessageAction) -> Option<&mut Vec<V
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum OutboundError {
-    /// A user id names neither the owner nor a stored ChatContact.
+    /// A user id names neither the owner nor a stored [`ChatContact`].
     UnknownUser(Id),
     /// A `GroupUpdateAction` this crate does not know how to send.
     UnknownAction,
     /// The group has an `avatarBlobId` but no `avatar` object was given
     /// for it.
     MissingAvatar,
-    /// The ChatContact's `identity` has a host that is not a domain name
+    /// The [`ChatContact`]'s `identity` has a host that is not a domain name
     /// (an IP literal, a host with a port), so no peer domain hosts it.
     InvalidHost(Id),
-    /// The ChatContact's `identity` has no host and the ChatContact has no
+    /// The [`ChatContact`]'s `identity` has no host and the `ChatContact` has no
     /// `serverUrl`, so there is nowhere to send its calls.
     NoServerUrl(Id),
 }
@@ -216,7 +216,7 @@ impl std::error::Error for OutboundError {}
 pub enum PeerDestination {
     /// The peer domain that is the host of each recipient's identity.
     Domain(PeerDomain),
-    /// The `serverUrl` of each recipient's ChatContact, for recipients
+    /// The `serverUrl` of each recipient's [`ChatContact`], for recipients
     /// whose identity has no host.
     ServerUrl(String),
 }
@@ -227,12 +227,12 @@ pub enum PeerDestination {
 pub struct PeerBatch {
     /// Where the request goes.
     pub destination: PeerDestination,
-    /// Each recipient's ChatContact id and its identity, the call's
+    /// Each recipient's [`ChatContact`] id and its identity, the call's
     /// `recipientUserId`, in the order they were passed.
     pub recipients: Vec<(Id, String)>,
 }
 
-/// Groups the ChatContacts `recipients` into one [`PeerBatch`] per
+/// Groups the [`ChatContact`]s `recipients` into one [`PeerBatch`] per
 /// destination, in the order each destination first appears.
 ///
 /// "The sending server sends the call to the peer domain that is the host
@@ -242,7 +242,7 @@ pub struct PeerBatch {
 /// L404). Hosts are grouped as §Identity Binding compares them (L335), so
 /// `bob@B.Example` and `carol@b.example` share a batch. For an identity
 /// with no host, such as a `did:key` DID, this crate's choice is the
-/// ChatContact's `serverUrl`. A sending server with calls for several
+/// `ChatContact`'s `serverUrl`. A sending server with calls for several
 /// mailboxes on one peer domain "MAY send them in one request, one method
 /// call per recipient" (L406); a deployment that sends each call alone
 /// iterates the recipients of each batch.
@@ -291,7 +291,7 @@ pub fn peer_batches(
 /// the mailbox of the member whose identity string is `recipient_user_id`
 /// (`recipientUserId`, §Server-to-Server Methods).
 ///
-/// `senderUserId` is the owner's `ownerUserId`, and every ChatMember
+/// `senderUserId` is the owner's `ownerUserId`, and every [`ChatMember`]
 /// `id` and `invitedBy` becomes an identity string. `"create"` carries
 /// the full `members` list with `name`, `description` and `avatar`;
 /// `"updateMetadata"` carries those three; `"addMembers"`,

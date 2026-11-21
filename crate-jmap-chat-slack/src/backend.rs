@@ -76,7 +76,7 @@ fn store_fail(what: &str) -> BackendSetError<MemoryError> {
     BackendSetError::Other(MemoryError::new(what))
 }
 
-/// The SetError a failed Slack call surfaces as (README "How failures
+/// The [`SetError`] a failed Slack call surfaces as (README "How failures
 /// surface"). Transport failures, 5xx and unknown Slack codes are
 /// [`BackendSetError::Other`], which the handlers report as `serverFail`.
 pub(crate) fn slack_set_error(e: &SlackError) -> BackendSetError<MemoryError> {

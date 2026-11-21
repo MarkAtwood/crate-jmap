@@ -7,7 +7,7 @@
 //! follows it is undefined.
 //!
 //! Everything is read with the `std::io::Read`-based [`Deserialize`]:
-//! tls_codec 0.5.0's `DeserializeBytes` for a truncated `opaque<V>`
+//! `tls_codec` 0.5.0's `DeserializeBytes` for a truncated `opaque<V>`
 //! trips a `debug_assert_eq!` instead of returning an error.
 
 use openmls::messages::group_info::VerifiableGroupInfo;
@@ -55,7 +55,7 @@ fn utf8(bytes: VLBytes, what: &str) -> Result<String, String> {
     String::from_utf8(bytes.as_slice().to_vec()).map_err(|_| format!("{what} is not UTF-8"))
 }
 
-/// The parts of a KeyMaterialRequest (§5.2) the server reads.
+/// The parts of a [`KeyMaterialRequest`] (§5.2) the server reads.
 pub(crate) struct KeyMaterialRequest {
     pub(crate) requesting_user: Vec<u8>,
     pub(crate) target_user: Vec<u8>,
@@ -89,7 +89,7 @@ pub(crate) fn key_material_request(bytes: &[u8]) -> Result<KeyMaterialRequest, S
     })
 }
 
-/// One `ClientKeyMaterial` of a KeyMaterialResponse (§5.2).
+/// One `ClientKeyMaterial` of a [`KeyMaterialResponse`] (§5.2).
 pub(crate) struct ClientMaterial {
     /// `KeyMaterialClientCode`: `success(0)`, `keyMaterialExhausted(1)`,
     /// `nothingCompatible(2)`.
@@ -101,7 +101,7 @@ pub(crate) struct ClientMaterial {
     pub(crate) capabilities: Option<Vec<u8>>,
 }
 
-/// The parts of a KeyMaterialResponse (§5.2).
+/// The parts of a [`KeyMaterialResponse`] (§5.2).
 pub(crate) struct KeyMaterialResponse {
     /// `KeyMaterialUserCode`, `success(0)` to `userDeleted(7)`.
     pub(crate) user_status: u8,
@@ -162,11 +162,11 @@ fn client_key_material(bytes: &[u8]) -> Parsed<'_, ClientMaterial> {
     Ok((client, rest))
 }
 
-/// An UpdateRequest (§5.3) reduced to what its FanoutMessage takes.
+/// An [`UpdateRequest`] (§5.3) reduced to what its `FanoutMessage` takes.
 pub(crate) struct UpdateRequest {
-    /// The `proposalOrCommit` MLSMessage octets.
+    /// The `proposalOrCommit` `MLSMessage` octets.
     pub(crate) proposal_or_commit: Vec<u8>,
-    /// What follows the MLSMessage in the FanoutMessage (§5.5): the
+    /// What follows the `MLSMessage` in the `FanoutMessage` (§5.5): the
     /// request's `moreProposals<V>` for a proposal, an empty
     /// `externalProposals<V>` for a commit.
     pub(crate) fanout_tail: Vec<u8>,
@@ -224,7 +224,7 @@ fn group_info_option(bytes: &[u8]) -> Result<&[u8], String> {
     }
 }
 
-/// Skip a RatchetTreeOption (draft-mahy-mls-ratchet-tree-options-04 §3):
+/// Skip a `RatchetTreeOption` (draft-mahy-mls-ratchet-tree-options-04 §3):
 /// `full(1)` carries `Node ratchet_tree<V>`, `httpsUrl(2)` `opaque
 /// ratchet_tree_url<V>`, `outOfBand(3)` and `distributionService(4)`
 /// nothing.
@@ -236,7 +236,7 @@ fn ratchet_tree_option(bytes: &[u8]) -> Result<&[u8], String> {
     }
 }
 
-/// An UpdateRoomResponse (§5.3).
+/// An `UpdateRoomResponse` (§5.3).
 pub(crate) enum UpdateResponse {
     Success {
         error_description: String,
@@ -251,7 +251,7 @@ pub(crate) enum UpdateResponse {
     },
     InvalidProposal {
         error_description: String,
-        /// Each ProposalRef with its length prefix.
+        /// Each `ProposalRef` with its length prefix.
         invalid_proposals: Vec<Vec<u8>>,
     },
 }
@@ -304,7 +304,7 @@ pub(crate) fn update_response(bytes: &[u8]) -> Result<UpdateResponse, String> {
     Ok(response)
 }
 
-/// Check that `bytes` is an MLSMessage of wire format PrivateMessage and
+/// Check that `bytes` is an `MLSMessage` of wire format `PrivateMessage` and
 /// content type application (draft-atwood-jmap-chat-mimi-00 §Room/send).
 pub(crate) fn application_message(bytes: &[u8]) -> Result<(), String> {
     let (message, rest) = read::<MlsMessageIn>(bytes, "message")?;
@@ -326,7 +326,7 @@ pub(crate) fn submit_message_request(app_message: &[u8], sending_uri: &str) -> V
     [&[MLS10][..], app_message, &uri].concat()
 }
 
-/// A SubmitMessageResponse (§5.4).
+/// A `SubmitMessageResponse` (§5.4).
 pub(crate) enum SubmitResponse {
     Accepted {
         accepted_timestamp: u64,

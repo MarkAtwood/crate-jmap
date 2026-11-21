@@ -89,7 +89,7 @@ use crate::{
     signature_key_bound_elsewhere,
 };
 
-/// One stored KeyPackage record and the signature key of its client.
+/// One stored [`KeyPackage`] record and the signature key of its client.
 #[derive(Clone)]
 struct Record {
     key_package: KeyPackage,
@@ -110,13 +110,13 @@ struct RoomChat {
     bound: bool,
     chat: serde_json::Value,
     messages: Vec<serde_json::Value>,
-    /// The FanoutMessage `message` octets of each stored Message.
+    /// The `FanoutMessage` `message` octets of each stored Message.
     mls_messages: Vec<Vec<u8>>,
 }
 
 impl RoomChat {
     /// Whether the Chat already stores `fanout`: a Message with its
-    /// `senderMsgId` or a FanoutMessage with byte-identical `message`.
+    /// `senderMsgId` or a `FanoutMessage` with byte-identical `message`.
     fn holds(&self, fanout: &Fanout) -> bool {
         self.messages
             .iter()
@@ -140,17 +140,17 @@ struct Inner {
     accounts: HashMap<String, MimiCapability>,
     /// `account_id` → `id → record`.
     records: HashMap<String, HashMap<Id, Record>>,
-    /// `account_id` → KeyPackage state counter.
+    /// `account_id` → [`KeyPackage`] state counter.
     states: HashMap<String, u64>,
     /// Signature key → the account it is bound to.
     bindings: HashMap<Vec<u8>, Binding>,
-    /// KeyPackageRef of every KeyPackage handed out → its account.
+    /// `KeyPackageRef` of every [`KeyPackage`] handed out → its account.
     handed_out: HashMap<String, String>,
     /// Room ID → hosted room.
     rooms: HashMap<String, Room>,
     /// Chat id → a room Chat.
     room_chats: HashMap<Id, RoomChat>,
-    /// `(account_id, hub provider URI)` → the hub's ChatContact.
+    /// `(account_id, hub provider URI)` → the hub's `ChatContact`.
     hub_contacts: HashMap<(String, String), serde_json::Value>,
     /// Replies `mimi_request` returns, in order.
     hub_replies: VecDeque<Result<HubReply, HubUnavailable>>,
@@ -221,7 +221,7 @@ impl Inner {
             .is_some_and(|c| c["blocked"] == true)
     }
 
-    /// The id of `account`'s ChatContact for `hub_uri`, created if absent.
+    /// The id of `account`'s `ChatContact` for `hub_uri`, created if absent.
     fn hub_contact_id(&mut self, account: &str, hub_uri: &str) -> serde_json::Value {
         let key = (account.to_owned(), hub_uri.to_owned());
         if let Some(contact) = self.hub_contacts.get(&key) {
@@ -875,7 +875,7 @@ impl<P: OpenMlsCrypto + Send + Sync + 'static, C: MemoryCaller> MimiBackend
 /// account, and an atomic rollback restores records, states, bindings and
 /// the queued hub requests together, so no hub request goes out for a
 /// change that never happened (§4.3). Under an atomic scope the
-/// KeyPackageRef and `maxKeyPackages` checks move to the commit, which
+/// `KeyPackageRef` and `maxKeyPackages` checks move to the commit, which
 /// checks the final state (`final_state_failures`).
 impl<P: Send + Sync + 'static, C: MemoryCaller> ConditionalBackend for MemoryBackend<P, C>
 where
@@ -890,9 +890,9 @@ where
     }
 }
 
-/// The KeyPackage creates of an atomic scope that break an account-wide
+/// The [`KeyPackage`] creates of an atomic scope that break an account-wide
 /// rule in the state it would commit (conditional-02 §4.2;
-/// draft-atwood-jmap-chat-mimi-00 §KeyPackage/set): a KeyPackageRef held
+/// draft-atwood-jmap-chat-mimi-00 §KeyPackage/set): a `KeyPackageRef` held
 /// by another stored record or already handed out
 /// ([`key_package_ref_in_use`]), or more records than the account's
 /// `maxKeyPackages` ([`key_package_over_quota`]).

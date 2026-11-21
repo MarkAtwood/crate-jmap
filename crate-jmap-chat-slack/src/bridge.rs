@@ -143,7 +143,7 @@ pub struct SkippedConversation {
 #[non_exhaustive]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct SyncReport {
-    /// ChatContacts created.
+    /// [`ChatContact`]s created.
     pub contacts: usize,
     /// Chats created.
     pub conversations: usize,
@@ -190,7 +190,7 @@ pub(crate) struct MsgEntry {
 /// The Slack ↔ JMAP id mapping.
 #[derive(Debug, Default)]
 pub(crate) struct MapState {
-    /// Slack user or bot id → ChatContact id (accountId for the owner).
+    /// Slack user or bot id → [`ChatContact`] id (accountId for the owner).
     pub(crate) users: HashMap<String, Id>,
     pub(crate) contact_users: HashMap<Id, String>,
     pub(crate) names: HashMap<String, String>,
@@ -464,7 +464,7 @@ impl SlackBridge {
     // Contacts and the Space
     // -----------------------------------------------------------------
 
-    /// Create or refresh the ChatContact of `user`; `true` when created.
+    /// Create or refresh the [`ChatContact`] of `user`; `true` when created.
     async fn upsert_contact(
         &self,
         st: &mut MapState,
@@ -518,7 +518,7 @@ impl SlackBridge {
             .ok_or_else(|| BridgeError::Store("contact not recorded".to_owned()))
     }
 
-    /// The ChatContact of a bot that posts without a user id.
+    /// The [`ChatContact`] of a bot that posts without a user id.
     async fn ensure_bot(
         &self,
         st: &mut MapState,
@@ -791,7 +791,7 @@ impl SlackBridge {
         Ok(None)
     }
 
-    /// Make sure every `<@U…>` in `text` has a ChatContact, so mentions
+    /// Make sure every `<@U…>` in `text` has a [`ChatContact`], so mentions
     /// resolve. A user Slack will not describe stays an unresolved mention.
     async fn ensure_mentioned(&self, st: &mut MapState, text: &str) {
         let mut rest = text;
@@ -1040,9 +1040,9 @@ impl SlackBridge {
     /// | `channel_rename`, `group_rename` | Chat `name` |
     /// | `channel_archive`, `group_archive` / `…_unarchive` | new Messages refused / allowed again |
     /// | `channel_deleted`, `group_deleted` | Chat and its Messages destroyed |
-    /// | `member_joined_channel` | owner: the conversation is imported with its history; others: ChatContact, group `members` |
+    /// | `member_joined_channel` | owner: the conversation is imported with its history; others: [`ChatContact`], group `members` |
     /// | `member_left_channel` | owner: Chat destroyed; others: group `members` |
-    /// | `team_join`, `user_change` | ChatContact created / `login` refreshed |
+    /// | `team_join`, `user_change` | `ChatContact` created / `login` refreshed |
     ///
     /// Everything else is [`EventOutcome::Ignored`].
     ///

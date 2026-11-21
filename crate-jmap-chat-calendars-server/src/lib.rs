@@ -91,7 +91,7 @@ pub fn space_extension_properties(capability: &ChatCalendarsCapability) -> &'sta
 /// Space's creator is its first member.
 ///
 /// Returns `Ok(Err(set_error))` when the value must be refused; return
-/// that SetError without storing the Space.
+/// that [`SetError`] without storing the Space.
 ///
 /// # Errors
 ///
@@ -151,6 +151,11 @@ pub async fn check_calendar_id<K: CalendarsBackend>(
 /// # Errors
 ///
 /// Returns the backend's error from `create_object`.
+///
+/// # Panics
+///
+/// Does not panic: the `expect` guards deserializing a fixed Calendar object
+/// that has every required field.
 // Same error type as `CalendarsBackend::create_object`, which it propagates.
 pub async fn create_space_calendar<K: CalendarsBackend>(
     calendars: &K,
@@ -192,7 +197,7 @@ pub async fn create_space_calendar<K: CalendarsBackend>(
     Ok(calendar_id)
 }
 
-/// An `invalidProperties` SetError naming `calendarId`.
+/// An `invalidProperties` [`SetError`] naming `calendarId`.
 fn invalid(description: &str) -> SetError {
     SetError::new(SetErrorType::InvalidProperties)
         .with_properties([SPACE_CALENDAR_ID_PROPERTY])

@@ -1,9 +1,9 @@
-//! MimiBackend trait and supporting types for the MIMI provider handlers.
+//! [`MimiBackend`] trait and supporting types for the MIMI provider handlers.
 //!
 //! Read-side operations (`get_objects`, `get_state`) are defined on the
 //! [`jmap_server::JmapBackend`] supertrait. This module adds the MLS crypto
-//! provider, the account-level capability object, the KeyPackage writes,
-//! the KeyPackage hand-out, rooms, FanoutMessage storage and the MIMI
+//! provider, the account-level capability object, the `KeyPackage` writes,
+//! the `KeyPackage` hand-out, rooms, `FanoutMessage` storage and the MIMI
 //! requests sent to a room's hub.
 //!
 //! Every public item here is re-exported once at the crate root; the
@@ -19,7 +19,7 @@ use openmls::prelude::OpenMlsCrypto;
 use crate::fanout::Fanout;
 use crate::handout::KeyMaterialRequirements;
 
-/// A KeyPackage that passed the per-KeyPackage checks of
+/// A `KeyPackage` that passed the per-KeyPackage checks of
 /// draft-atwood-jmap-chat-mimi-00 §KeyPackage/set, ready for
 /// [`MimiBackend::create_key_package`].
 ///
@@ -30,13 +30,13 @@ pub struct NewKeyPackage {
     /// The client's `keyPackage`, verbatim (§Conventions and Definitions:
     /// "Servers MUST NOT re-encode these octets").
     pub key_package: Base64Url,
-    /// The KeyPackageRef of `key_package` (RFC 9420 §5.2), with its
+    /// The `KeyPackageRef` of `key_package` (RFC 9420 §5.2), with its
     /// length prefix.
     pub key_package_ref: Base64Url,
     /// The `lastResort` value derived from `key_package`.
     pub last_resort: bool,
     /// The leaf node's signature key, which "identifies the client and
-    /// binds the KeyPackage to the account".
+    /// binds the `KeyPackage` to the account".
     pub signature_key: Vec<u8>,
 }
 
@@ -68,17 +68,17 @@ pub struct NewRoom {
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MimiEndpoint {
-    /// `POST /keyMaterial/{targetUser}` (§5.2), with the KeyMaterialRequest
+    /// `POST /keyMaterial/{targetUser}` (§5.2), with the `KeyMaterialRequest`
     /// `targetUser`.
     KeyMaterial {
         /// The target user URI.
         target_user: String,
     },
-    /// `POST /update/{roomId}` (§5.3), with an UpdateRequest.
+    /// `POST /update/{roomId}` (§5.3), with an `UpdateRequest`.
     Update,
-    /// `POST /submitMessage/{roomId}` (§5.4), with a SubmitMessageRequest.
+    /// `POST /submitMessage/{roomId}` (§5.4), with a `SubmitMessageRequest`.
     SubmitMessage,
-    /// `POST /groupInfo/{roomId}` (§5.6), with a GroupInfoRequest.
+    /// `POST /groupInfo/{roomId}` (§5.6), with a `GroupInfoRequest`.
     GroupInfo,
 }
 
@@ -92,8 +92,8 @@ pub struct HubReply {
     /// Messages that `Room/update` and `Room/send` store are attributed to
     /// (draft-atwood-jmap-chat-mimi-00 §application/mimi-fanout).
     pub provider_uri: String,
-    /// The response body: a KeyMaterialResponse, UpdateRoomResponse,
-    /// SubmitMessageResponse or GroupInfoResponse.
+    /// The response body: a `KeyMaterialResponse`, `UpdateRoomResponse`,
+    /// `SubmitMessageResponse` or `GroupInfoResponse`.
     pub body: Vec<u8>,
 }
 
@@ -147,11 +147,11 @@ pub fn group_id_in_use() -> JmapError {
     JmapError::invalid_arguments("a room this server hosts uses that group ID")
 }
 
-/// The `invalidProperties` SetError for a KeyPackage whose signature key
+/// The `invalidProperties` [`SetError`] for a `KeyPackage` whose signature key
 /// is bound to another account.
 ///
 /// draft-atwood-jmap-chat-mimi-00 §KeyPackage/set: "The server SHOULD
-/// reject, with `invalidProperties` naming `keyPackage`, a KeyPackage whose
+/// reject, with `invalidProperties` naming `keyPackage`, a `KeyPackage` whose
 /// signature key is bound to another account."
 pub fn signature_key_bound_elsewhere() -> SetError {
     SetError::new(SetErrorType::InvalidProperties)
@@ -159,13 +159,13 @@ pub fn signature_key_bound_elsewhere() -> SetError {
         .with_description("The KeyPackage signature key is bound to another account.")
 }
 
-/// The `invalidProperties` SetError for a KeyPackage whose KeyPackageRef
+/// The `invalidProperties` [`SetError`] for a `KeyPackage` whose `KeyPackageRef`
 /// is already in use.
 ///
 /// draft-atwood-jmap-chat-mimi-00 §KeyPackage/set (jmap-chat-spec 77c3474
 /// L204): "The server SHOULD reject, with `invalidProperties` naming
-/// `keyPackage`, a KeyPackage whose KeyPackageRef equals that of a
-/// KeyPackage it stores or has handed out". This crate performs the
+/// `keyPackage`, a `KeyPackage` whose `KeyPackageRef` equals that of a
+/// `KeyPackage` it stores or has handed out". This crate performs the
 /// recommended rejection by choice.
 pub fn key_package_ref_in_use() -> SetError {
     SetError::new(SetErrorType::InvalidProperties)
@@ -173,7 +173,7 @@ pub fn key_package_ref_in_use() -> SetError {
         .with_description("A KeyPackage with this KeyPackageRef is stored or was handed out.")
 }
 
-/// The `overQuota` SetError for a create beyond `maxKeyPackages`.
+/// The `overQuota` [`SetError`] for a create beyond `maxKeyPackages`.
 ///
 /// draft-atwood-jmap-chat-mimi-00 §KeyPackage/set: the server "MUST reject
 /// a create that would exceed `maxKeyPackages` with `overQuota`".
@@ -189,8 +189,8 @@ pub fn key_package_over_quota() -> SetError {
 /// supertrait methods). Use `Arc<impl MimiBackend>` when sharing across
 /// tasks.
 pub trait MimiBackend: JmapBackend {
-    /// The MLS crypto provider that verifies KeyPackage signatures and
-    /// computes KeyPackageRefs, for example
+    /// The MLS crypto provider that verifies `KeyPackage` signatures and
+    /// computes `KeyPackageRef`s, for example
     /// [`openmls_rust_crypto::RustCrypto`](crate::openmls_rust_crypto::RustCrypto).
     type Crypto: OpenMlsCrypto;
 
@@ -216,7 +216,7 @@ pub trait MimiBackend: JmapBackend {
         account_id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = Result<MimiCapability, Self::Error>> + Send;
 
-    /// Store a KeyPackage record.
+    /// Store a `KeyPackage` record.
     ///
     /// The handler has run the per-KeyPackage checks. The backend MUST, in
     /// one atomic step, applying the first rule that fails:
@@ -224,16 +224,16 @@ pub trait MimiBackend: JmapBackend {
     /// - refuse with [`signature_key_bound_elsewhere`] when
     ///   `key_package.signature_key` is bound to an account other than
     ///   `account_id`; otherwise bind it to `account_id` ("the first
-    ///   KeyPackage the server accepts with a given signature key binds
+    ///   `KeyPackage` the server accepts with a given signature key binds
     ///   that signature key to the account"). The draft says SHOULD; a
     ///   deployment that skips this check documents why;
     /// - refuse with [`key_package_ref_in_use`] when
-    ///   `key_package.key_package_ref` equals that of a KeyPackage it
+    ///   `key_package.key_package_ref` equals that of a `KeyPackage` it
     ///   stores, in any account, or has handed out;
     /// - when `key_package.last_resort` is `true`, destroy the stored
     ///   last-resort record with the same signature key in `account_id`,
-    ///   if any ("Creating a last-resort KeyPackage for a client destroys
-    ///   that client's previous last-resort KeyPackage"), recording a
+    ///   if any ("Creating a last-resort `KeyPackage` for a client destroys
+    ///   that client's previous last-resort `KeyPackage`"), recording a
     ///   `destroyed` change;
     /// - refuse with [`key_package_over_quota`] when the account would then
     ///   hold more than `max_key_packages` records, last-resort records
@@ -250,8 +250,8 @@ pub trait MimiBackend: JmapBackend {
         max_key_packages: u64,
     ) -> impl std::future::Future<Output = Result<jmap_types::Id, BackendSetError<Self::Error>>> + Send;
 
-    /// Hand out the owner's KeyPackages for one key material request
-    /// (draft-atwood-jmap-chat-mimi-00 §Handing Out KeyPackages).
+    /// Hand out the owner's `KeyPackage`s for one key material request
+    /// (draft-atwood-jmap-chat-mimi-00 §Handing Out `KeyPackage`s).
     ///
     /// The backend MUST, in one atomic step, return one
     /// [`ClientKeyMaterial`] for each signature key bound to `account_id`
@@ -259,9 +259,9 @@ pub trait MimiBackend: JmapBackend {
     /// [`KeyMaterialRequirements::fit`] over [`MimiBackend::mls_crypto`]:
     ///
     /// - `success` with a compatible record that is not last-resort,
-    ///   destroying that record so that "no KeyPackage is handed out
+    ///   destroying that record so that "no `KeyPackage` is handed out
     ///   twice", recording a `destroyed` change and advancing the state
-    ///   ("A destroyed record appears in a new state for the KeyPackage
+    ///   ("A destroyed record appears in a new state for the `KeyPackage`
     ///   type");
     /// - otherwise `success` with the client's compatible last-resort
     ///   record, which it keeps;
@@ -269,16 +269,16 @@ pub trait MimiBackend: JmapBackend {
     ///   is [`KeyPackageFit::Incompatible`](crate::KeyPackageFit), and
     ///   `keyMaterialExhausted` when it has none.
     ///
-    /// Concurrent calls never return the same non-last-resort KeyPackage.
+    /// Concurrent calls never return the same non-last-resort `KeyPackage`.
     ///
     /// `clientUri` is the backend's choice but "MUST be stable and unique
     /// per leaf": the same in every response for a given signature key and
     /// different for different signature keys.
     ///
-    /// The backend MUST keep the KeyPackageRef of every KeyPackage it
+    /// The backend MUST keep the `KeyPackageRef` of every `KeyPackage` it
     /// returns, with `account_id`, "until a Welcome naming it has been
     /// delivered or its leaf node lifetime has passed", and
-    /// [`MimiBackend::create_key_package`] refuses that KeyPackageRef
+    /// [`MimiBackend::create_key_package`] refuses that `KeyPackageRef`
     /// while it is kept.
     fn claim_key_packages(
         &self,
@@ -313,13 +313,13 @@ pub trait MimiBackend: JmapBackend {
         room: NewRoom,
     ) -> impl std::future::Future<Output = Result<Result<jmap_types::Id, JmapError>, Self::Error>> + Send;
 
-    /// Store one FanoutMessage the server received or originated for
+    /// Store one `FanoutMessage` the server received or originated for
     /// `room_id` (draft-atwood-jmap-chat-mimi-00 §application/mimi-fanout).
     ///
     /// `hub_uri` is "the hub's provider URI as authenticated by the MIMI
     /// transport". For a `/notify`, call it only when
     /// [`crate::notify_from_hub`] accepts `room_id` from `hub_uri`: the
-    /// server "MUST NOT store its FanoutMessages, unless the MIMI transport
+    /// server "MUST NOT store its `FanoutMessage`s, unless the MIMI transport
     /// authenticated the sender as" the room's hub. Call it once per
     /// [`Fanout`] of [`crate::parse_fanout_messages`], in the order
     /// received. The backend MUST, in one atomic step:
@@ -328,23 +328,23 @@ pub trait MimiBackend: JmapBackend {
     ///   a local account bound to that room"; for
     ///   [`FanoutRecipients::Welcome`], one Chat in each account that
     ///   [`MimiBackend::claim_key_packages`] handed out a named
-    ///   KeyPackageRef for, binding that account's unbound Chat for the
+    ///   `KeyPackageRef` for, binding that account's unbound Chat for the
     ///   room again or, "if it has none", creating a Chat bound to the
     ///   room, as [`MimiBackend::create_room`] does, with `name` the empty
     ///   string; an unbound Chat that already stores this Welcome (as
     ///   below) stays unbound, since a repeated `/notify` is not "a later
     ///   Welcome";
-    /// - skip an account in which the ChatContact of the hub is
-    ///   `blocked`: "blocking the hub drops every FanoutMessage of the
+    /// - skip an account in which the `ChatContact` of the hub is
+    ///   `blocked`: "blocking the hub drops every `FanoutMessage` of the
     ///   rooms it hosts", so nothing is stored, bound or created there;
     /// - skip a Chat that holds a Message with `fanout.sender_msg_id`
     ///   ("so a repeated `/notify` yields one Message") or one whose
-    ///   FanoutMessage `message` octets equal `fanout.message`;
+    ///   `FanoutMessage` `message` octets equal `fanout.message`;
     /// - otherwise store a Message in the Chat with `bodyType`
     ///   `"application/mimi-fanout"`, `body` `fanout.body`, `senderMsgId`
     ///   `fanout.sender_msg_id`, `sentAt` `fanout.sent_at` and `senderId`
-    ///   the id of the account's ChatContact "whose `identity` and `login`
-    ///   are" `hub_uri`, creating that ChatContact if it does not exist.
+    ///   the id of the account's `ChatContact` "whose `identity` and `login`
+    ///   are" `hub_uri`, creating that `ChatContact` if it does not exist.
     ///
     /// [`FanoutRecipients::Room`]: crate::FanoutRecipients::Room
     /// [`FanoutRecipients::Welcome`]: crate::FanoutRecipients::Welcome
@@ -359,7 +359,7 @@ pub trait MimiBackend: JmapBackend {
     /// is bound (draft-atwood-jmap-chat-mimi-00 §Chat.roomId).
     ///
     /// "An unbound Chat keeps its `roomId` and its Messages. The server
-    /// stores no further FanoutMessage in it" until "a later Welcome for
+    /// stores no further `FanoutMessage` in it" until "a later Welcome for
     /// the account binds the Chat again". Returns `false` when no Chat in
     /// the account has that `roomId`.
     fn unbind_room(
@@ -387,7 +387,7 @@ pub trait MimiBackend: JmapBackend {
     /// server is the hub of `room_id`; otherwise `None`.
     ///
     /// draft-atwood-jmap-chat-mimi-00 §KeyMaterial/fetch: "When this
-    /// server is the room's hub, it answers from its own KeyPackage store
+    /// server is the room's hub, it answers from its own `KeyPackage` store
     /// ... if the target user is local". For `Some`, `KeyMaterial/fetch`
     /// answers with [`MimiBackend::claim_key_packages`] for that account;
     /// for `None` it sends the request with [`MimiBackend::mimi_request`].
@@ -410,7 +410,7 @@ pub trait MimiBackend: JmapBackend {
     /// means the provider "cannot be reached"; the outer `Err` is a
     /// storage failure (`serverFail`).
     ///
-    /// The handlers store the `Room/update` and `Room/send` FanoutMessage
+    /// The handlers store the `Room/update` and `Room/send` `FanoutMessage`
     /// themselves with [`MimiBackend::store_fanout`]; a backend that
     /// processes the request as hub does not also store it for this
     /// server's accounts.
@@ -423,7 +423,7 @@ pub trait MimiBackend: JmapBackend {
         body: &[u8],
     ) -> impl std::future::Future<Output = Result<Result<HubReply, HubUnavailable>, Self::Error>> + Send;
 
-    /// Destroy a KeyPackage record by id. Unknown `id` is `notFound`; the
+    /// Destroy a `KeyPackage` record by id. Unknown `id` is `notFound`; the
     /// state advances only when the destroy commits. The signature-key
     /// binding stays.
     fn destroy_key_package(

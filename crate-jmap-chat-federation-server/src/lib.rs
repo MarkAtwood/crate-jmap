@@ -29,7 +29,7 @@
 //! [`handle_peer_subscribe_presence`] records a subscription and answers
 //! with the owner's presence, never `"invisible"`;
 //! [`handle_peer_unsubscribe_presence`] cancels one. [`handle_peer_presence`]
-//! updates the sender's ChatContact `presence`, `lastActiveAt`,
+//! updates the sender's `ChatContact` `presence`, `lastActiveAt`,
 //! `statusText` and `statusEmoji`, drops the update silently for a blocked
 //! contact, and fires the local presence event. A deployment that does not
 //! offer them leaves them unregistered, so callers get `unknownMethod`.
@@ -65,7 +65,7 @@
 //! Every call names its recipient's identity in `recipientUserId`, and
 //! [`peer_batches`] groups the recipients by the server each call goes
 //! to: the peer domain that hosts the identity, or for a host-less
-//! identity the ChatContact's `serverUrl`.
+//! identity the `ChatContact`'s `serverUrl`.
 //! [`is_transient`] classifies a failed call for retry ([`DeliveryFailure`],
 //! §Retry and Backoff), and [`aggregate_delivery_state`] combines the
 //! recipients' states into the Message's `deliveryState` (§Delivery State

@@ -24,11 +24,11 @@
 //! (§Lifecycle: "When a Task is destroyed (via `Task/set` destroy), the
 //! referenced Chat is NOT automatically destroyed").
 //!
-//! Space destroy needs no call: this crate never destroys a TaskList
-//! (§Binding and unbinding: "the bound TaskList SHOULD NOT be
+//! Space destroy needs no call: this crate never destroys a [`TaskList`]
+//! (§Binding and unbinding: "the bound `TaskList` SHOULD NOT be
 //! automatically destroyed unless explicitly requested by the destroying
 //! member"). The draft gives the destroying member no way to make that
-//! request on `Space/set`, so the TaskList always persists; a member who
+//! request on `Space/set`, so the `TaskList` always persists; a member who
 //! wants it gone destroys it with `TaskList/set`.
 
 #![cfg_attr(docsrs, feature(doc_cfg))]
@@ -72,7 +72,7 @@ pub fn may_advertise<'a>(account_capabilities: impl IntoIterator<Item = &'a str>
 /// otherwise.
 ///
 /// With `mayBindTaskList: false` (draft L103: "`true` if accounts on this
-/// server may associate a TaskList with a Space, `false` otherwise") no
+/// server may associate a [`TaskList`] with a Space, `false` otherwise") no
 /// Space is bound: the `Space/set` handler does not store `taskListId` on create
 /// and rejects it in an update patch as `invalidProperties`. With `true`,
 /// the handler stores it on create and routes a `taskListId` patch through
@@ -92,27 +92,27 @@ pub fn space_extension_properties(capability: &ChatTasksCapability) -> &'static 
 /// Space on `account_id`.
 ///
 /// - `null` unbinds the Space (§Binding and unbinding: "setting it to
-///   `null` unbinds the Space") and passes. The TaskList is not touched:
+///   `null` unbinds the Space") and passes. The [`TaskList`] is not touched:
 ///   it "may be unbound from the Space without being deleted".
-/// - Any other value must be an `Id` naming a TaskList that `tasks`
-///   returns for `account_id`: "The bound TaskList MUST belong to the same
+/// - Any other value must be an `Id` naming a `TaskList` that `tasks`
+///   returns for `account_id`: "The bound `TaskList` MUST belong to the same
 ///   account that owns the Space" (§taskListId). Otherwise the result is
 ///   `invalidProperties` naming `taskListId` (§Binding and unbinding: "If
-///   the `taskListId` value does not reference an existing TaskList on the
-///   same account, the server MUST return a SetError of type
+///   the `taskListId` value does not reference an existing `TaskList` on the
+///   same account, the server MUST return a [`SetError`] of type
 ///   `invalidProperties` naming `taskListId`").
 ///
-/// `caller` is the requesting user's Tasks context, so a TaskList the
+/// `caller` is the requesting user's Tasks context, so a `TaskList` the
 /// user cannot see is refused like a missing one. Call this after the
 /// `manage_space` gate of `apply_space_metadata_patch`; on create, the
 /// Space's creator is its first member.
 ///
 /// Returns `Ok(Err(set_error))` when the value must be refused; return
-/// that SetError without storing the Space.
+/// that `SetError` without storing the Space.
 ///
 /// # Errors
 ///
-/// Returns the Tasks backend's error if reading the TaskList fails.
+/// Returns the Tasks backend's error if reading the `TaskList` fails.
 pub async fn check_task_list_id<K: TasksBackend>(
     tasks: &K,
     caller: &K::CallerCtx,
@@ -151,32 +151,38 @@ pub async fn check_task_list_id<K: TasksBackend>(
     })
 }
 
-/// Auto-bind on create: create a TaskList for the new `space` on
+/// Auto-bind on create: create a [`TaskList`] for the new `space` on
 /// `account_id` and set the Space's `taskListId` to it, for a server
 /// advertising `mayBindTaskList: true` that binds every new Space.
 ///
 /// §Binding and unbinding: "Servers MAY automatically create a new
-/// TaskList when a Space is created and bind it ... When this is done, the
-/// server MUST set `taskListId` to the new TaskList's id at Space creation
+/// `TaskList` when a Space is created and bind it ... When this is done, the
+/// server MUST set `taskListId` to the new `TaskList`'s id at Space creation
 /// time." Call it from `ChatStore::create_object::<Space>` before the
 /// insert, so the stored Space and the `Space/set` `created` entry carry
 /// the binding.
 ///
-/// A `space` that already names a TaskList (the client supplied a
+/// A `space` that already names a `TaskList` (the client supplied a
 /// non-null `taskListId`, checked with [`check_task_list_id`]) is left as
 /// it is and nothing is created.
 ///
-/// The TaskList is named after the Space, subscribed, without a role, and
+/// The `TaskList` is named after the Space, subscribed, without a role, and
 /// with every right for the account owner. It is built by the
 /// [`TasksBackend::create_object`] builder for the id the backend assigns,
 /// and the backend records the create for `TaskList/changes`. `caller` is
 /// a server context.
 ///
-/// Returns the bound TaskList's id.
+/// Returns the bound `TaskList`'s id.
 ///
 /// # Errors
 ///
 /// Returns the backend's error from `create_object`.
+///
+/// # Panics
+///
+/// Panics if the id the backend assigns is not a valid RFC 8620 Id (one
+/// built unchecked with `Id::from`): the `TaskList` is deserialized from
+/// JSON, and that validates the Id.
 // Same error type as `TasksBackend::create_object`, which it propagates.
 pub async fn create_space_task_list<K: TasksBackend>(
     tasks: &K,
@@ -217,9 +223,9 @@ pub async fn create_space_task_list<K: TasksBackend>(
 }
 
 /// Clear `taskListId` on every Space of `account_id` bound to the
-/// destroyed TaskList `task_list_id`.
+/// destroyed [`TaskList`] `task_list_id`.
 ///
-/// §taskListId: "When a TaskList referenced by `Space.taskListId` is
+/// §taskListId: "When a `TaskList` referenced by `Space.taskListId` is
 /// destroyed, the server MUST clear the field (so that it is absent) as
 /// part of the destroy operation." Call it from
 /// `TasksBackend::destroy_object::<TaskList>` once the destroy succeeds,
@@ -228,8 +234,8 @@ pub async fn create_space_task_list<K: TasksBackend>(
 /// through [`ChatStore::update_object`](jmap_chat_server::ChatStore::update_object), which advances the Space state
 /// so `Space/changes` lists it.
 ///
-/// The Space and the TaskList are on the same account (§taskListId: "The
-/// bound TaskList MUST belong to the same account that owns the Space"),
+/// The Space and the `TaskList` are on the same account (§taskListId: "The
+/// bound `TaskList` MUST belong to the same account that owns the Space"),
 /// so only `account_id`'s Spaces are read. `caller` is a server context.
 ///
 /// # Errors
@@ -334,7 +340,7 @@ pub async fn clear_task_chat_ids<K: TasksBackend>(
 ///
 /// # Errors
 ///
-/// Returns an `invalidProperties` SetError naming `chatId` when the value
+/// Returns an `invalidProperties` [`SetError`] naming `chatId` when the value
 /// must be refused; return it without storing the Task.
 // The SetError is the refusal itself, returned verbatim in `notCreated`
 // or `notUpdated`.
@@ -465,7 +471,7 @@ fn clear_patch(property: &str) -> PatchObject {
     patch
 }
 
-/// An `invalidProperties` SetError naming `property`.
+/// An `invalidProperties` [`SetError`] naming `property`.
 fn invalid(property: &str, description: &str) -> SetError {
     SetError::new(SetErrorType::InvalidProperties)
         .with_properties([property])

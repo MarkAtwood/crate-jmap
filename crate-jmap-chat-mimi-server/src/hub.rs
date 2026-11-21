@@ -103,7 +103,7 @@ fn utc_date(ms: u64) -> Result<UTCDate, JmapError> {
         .ok_or_else(|| JmapError::server_fail("accepted_timestamp is past year 9999"))
 }
 
-/// Store the FanoutMessage `timestamp`, `message`, `tail` in every Chat of
+/// Store the `FanoutMessage` `timestamp`, `message`, `tail` in every Chat of
 /// a local account bound to `room_id`, from the hub `hub_uri`.
 async fn store_own<B: MimiBackend>(
     backend: &B,
@@ -142,7 +142,7 @@ const CLIENT_CODES: [KeyMaterialClientCode; 3] = [
     KeyMaterialClientCode::NothingCompatible,
 ];
 
-/// The `userStatus` of a KeyMaterialResponse this server answers itself:
+/// The `userStatus` of a `KeyMaterialResponse` this server answers itself:
 /// `success` "for every client of the target user", `partialSuccess` "for
 /// at least one client", and otherwise `noCompatibleMaterial`, the one
 /// failure code that may list the clients (draft-ietf-mimi-protocol-06
@@ -162,13 +162,27 @@ fn local_user_status(clients: &[ClientKeyMaterial]) -> KeyMaterialUserCode {
 /// §KeyMaterial/fetch).
 ///
 /// "The server MUST reject the call with `invalidArguments` if `request`
-/// does not parse as a KeyMaterialRequest, if its `requestingUser` is not
+/// does not parse as a `KeyMaterialRequest`, if its `requestingUser` is not
 /// `userUri`, if its `roomId` is not `roomId`, or if no Chat in the
 /// account is bound to that `roomId`." When
 /// [`MimiBackend::local_key_material_account`] names the target's account,
 /// the answer comes from [`MimiBackend::claim_key_packages`]; otherwise
 /// the request goes out with [`MimiBackend::mimi_request`], and an
 /// unreachable provider is `serverUnavailable`.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `roomId` or `request` is missing or malformed, `request` does not parse
+///   as a `KeyMaterialRequest`, its `requestingUser` is not `userUri`, its
+///   `roomId` is not `roomId`, its `targetUser` is not an RFC 3986 URI, or
+///   no Chat in the account is bound to `roomId`;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `serverUnavailable` when the provider cannot be reached;
+/// - `serverFail` when the backend fails or the reply does not parse as a
+///   `KeyMaterialResponse`.
 pub async fn handle_key_material_fetch<B: MimiBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -259,15 +273,27 @@ pub async fn handle_key_material_fetch<B: MimiBackend>(
 /// Handle `Room/update` (draft-atwood-jmap-chat-mimi-00 §Room/update).
 ///
 /// "The server MUST reject the call with `invalidArguments` if `request`
-/// does not parse as an UpdateRequest or if no Chat in the account is
+/// does not parse as an `UpdateRequest` or if no Chat in the account is
 /// bound to `roomId`. Otherwise it processes the request as hub, or
 /// submits it to the hub, and returns `serverUnavailable` if the hub
-/// cannot be reached." On `success` it stores the FanoutMessage "with
+/// cannot be reached." On `success` it stores the `FanoutMessage` "with
 /// `timestamp` set to `accepted_timestamp`, `message` set to
 /// `proposalOrCommit`, and `moreProposals` copied from the request (or an
 /// empty `externalProposals` for a commit)" through
 /// [`MimiBackend::store_fanout`]. A hub response that does not parse is
 /// `serverFail`.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `roomId` or `request` is missing or malformed, `request` does not parse
+///   as an `UpdateRequest`, or no Chat in the account is bound to `roomId`;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `serverUnavailable` when the hub cannot be reached;
+/// - `serverFail` when the backend fails, the hub response does not parse,
+///   or its `accepted_timestamp` is past the year 9999.
 pub async fn handle_room_update<B: MimiBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -347,15 +373,28 @@ pub async fn handle_room_update<B: MimiBackend>(
 /// Handle `Room/send` (draft-atwood-jmap-chat-mimi-00 §Room/send).
 ///
 /// "The server MUST reject the call with `invalidArguments` if `message`
-/// does not parse as such an MLSMessage or if no Chat in the account is
+/// does not parse as such an `MLSMessage` or if no Chat in the account is
 /// bound to `roomId`. Otherwise it submits the message to the hub as a
-/// SubmitMessageRequest with `sendingUri` set to `userUri`, or processes
+/// `SubmitMessageRequest` with `sendingUri` set to `userUri`, or processes
 /// it as hub, and returns `serverUnavailable` if the hub cannot be
-/// reached." When the hub accepts, it stores the FanoutMessage "with
+/// reached." When the hub accepts, it stores the `FanoutMessage` "with
 /// `timestamp` set to `accepted_timestamp`, `message` set to `message`,
 /// and `frank` copied from the response when present" through
 /// [`MimiBackend::store_fanout`]. A hub response that does not parse is
 /// `serverFail`.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `roomId` or `message` is missing or malformed, `message` does not parse
+///   as an application `MLSMessage`, or no Chat in the account is bound to
+///   `roomId`;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `serverUnavailable` when the hub cannot be reached;
+/// - `serverFail` when the backend fails, the hub response does not parse,
+///   or its `accepted_timestamp` is past the year 9999.
 pub async fn handle_room_send<B: MimiBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -423,6 +462,16 @@ pub async fn handle_room_send<B: MimiBackend>(
 /// "The server MUST reject the call with `invalidArguments` if no Chat in
 /// the account has that `roomId`. Otherwise it unbinds the Chat, if it is
 /// bound", through [`MimiBackend::unbind_room`].
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `roomId` is missing or not a string, or no Chat in the account has that
+///   `roomId`;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `serverFail` when the backend fails.
 pub async fn handle_room_unbind<B: MimiBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -446,12 +495,24 @@ pub async fn handle_room_unbind<B: MimiBackend>(
 /// §GroupInfo/fetch).
 ///
 /// "The server MUST reject the call with `invalidArguments` if `request`
-/// does not parse as a GroupInfoRequest or if no Chat in the account is
+/// does not parse as a `GroupInfoRequest` or if no Chat in the account is
 /// bound to `roomId`. Otherwise it answers as hub, or forwards the request
 /// to the hub, and returns `serverUnavailable` if the hub cannot be
-/// reached." The response carries the GroupInfoResponse `status` and "The
-/// whole GroupInfoResponse, unchanged". A hub response that does not parse
+/// reached." The response carries the `GroupInfoResponse` `status` and "The
+/// whole `GroupInfoResponse`, unchanged". A hub response that does not parse
 /// is `serverFail`.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `roomId` or `request` is missing or malformed, `request` does not parse
+///   as a `GroupInfoRequest`, or no Chat in the account is bound to
+///   `roomId`;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `serverUnavailable` when the hub cannot be reached;
+/// - `serverFail` when the backend fails or the hub response does not parse.
 pub async fn handle_group_info_fetch<B: MimiBackend>(
     backend: &B,
     caller: &B::CallerCtx,
