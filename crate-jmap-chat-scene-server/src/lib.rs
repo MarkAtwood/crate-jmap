@@ -54,12 +54,20 @@ use jmap_types::Id;
 /// hosting account; an event naming another account is not delivered.
 /// `recipient_account_id` is the recipient's own account, whose Chat
 /// capability the blocked-sender check consults; `caller` is the
-/// recipient, whose ChatContact records it consults, as
+/// recipient, whose `ChatContact` records it consults, as
 /// [`jmap_scene_server::should_deliver`] takes them.
 ///
 /// # Errors
 ///
 /// Returns the backend's error from [`jmap_scene_server::should_deliver`].
+///
+/// # Panics
+///
+/// Does not panic: the `expect` on the `"scene"` path's catch-all
+/// subscription holds because
+/// [`SceneEphemeralSubscription::replace_with`] fails only on an
+/// `eventTypes` array with no recognized value, and the default
+/// [`SceneStreamEnable`] has `eventTypes` `null`.
 pub async fn should_deliver_scene<B: SceneBackend>(
     backend: &B,
     caller: &B::CallerCtx,
