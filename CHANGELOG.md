@@ -12,6 +12,14 @@ wire behaviour that a conforming peer can observe.
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-11-21
+
+A compatible release on the 0.6 line: additions and fixes only, no
+changes to existing public API (every new trait method has a default
+body; every type that gained a field or variant is `#[non_exhaustive]`).
+Two crates are new on crates.io: `jmap-vtc-ffmpeg` and
+`jmap-vtc-livekit`.
+
 ### Added
 
 - **jmap-chat-server**: `websocket` feature (off by default; pulls in

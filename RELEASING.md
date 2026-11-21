@@ -314,7 +314,7 @@ after their dependencies are published.
 
 ## Version bump conventions
 
-All publishable crates share one version (currently `0.6.0`) and are
+All publishable crates share one version (currently `0.6.1`) and are
 versioned together. Bumping a `*-types` crate is a
 potential SemVer event for every consumer that re-exports its types — see
 the canonical-template propagation rule in `AGENTS.md`. When in doubt,
@@ -373,6 +373,13 @@ the VTC capability's required `livestreamPushSchemes` and `layouts`, the
 Tasks query and sort changes, `jmap-mime` on mime-tree 0.6 with the MIME
 writer moved there), so the shared line is now `0.6.x` and the workspace
 dependency requirements are `"0.6"`. `CHANGELOG.md` lists every break.
+
+The 0.6.1 release is a compatible release on the 0.6 line: additions and
+fixes only (the jmap-websocket extension hook and close handle, the chat,
+VTC and Scene stream handlers, the Scene observer, broadcast and
+visibility features, the `/copy` and panic fixes, the rustdoc sweep). It
+adds two crates to crates.io, `jmap-vtc-ffmpeg` and `jmap-vtc-livekit`;
+the workspace dependency requirements stay `"0.6"`.
 
 ### Third-party majors in public APIs
 
