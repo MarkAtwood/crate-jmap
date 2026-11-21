@@ -5,6 +5,9 @@ use std::collections::BTreeMap;
 
 use jmap_scene_types::SceneRegion;
 use jmap_scene_types::SceneRegionComparator;
+use jmap_scene_types::{
+    SceneRegionBroadcast, SceneRegionBroadcastRequest, SceneRegionBroadcastResponse,
+};
 use jmap_types::{Filter, Id, PatchObject, State};
 use serde::Serialize;
 
@@ -185,5 +188,42 @@ impl super::SessionClient {
             calculate_total,
         )
         .await
+    }
+
+    /// `SceneRegion/broadcast` (draft-atwood-jmap-scene-00 at
+    /// jmap-chat-spec 93f2258, §SceneRegion/broadcast).
+    ///
+    /// Sends region events, keyed by client-chosen ids: "ephemeral,
+    /// deployment-defined announcements about a region as a whole".
+    /// Only the region owner and administrators may broadcast, and only on
+    /// an account whose capability has `supportsRegionBroadcast`
+    /// ([`SceneCapability::supports_region_broadcast`](jmap_scene_types::SceneCapability::supports_region_broadcast));
+    /// otherwise the server answers `unknownMethod`. Each id comes back in
+    /// `accepted` or, with a `SetError` (`notFound`, `forbidden`,
+    /// `rateLimit`, `invalidProperties`), in `notAccepted`. Accepted events
+    /// reach the region's WebSocket subscribers as
+    /// [`SceneWsFrame::Region`](crate::SceneWsFrame::Region).
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:scene`.
+    /// - [`ClientError::Serialize`](jmap_base_client::ClientError::Serialize)
+    ///   if serializing a caller-supplied value fails.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call), including
+    ///   [`MethodError`](jmap_base_client::ClientError::MethodError) for
+    ///   RFC 8620 §3.6.2 method-level errors such as `unknownMethod`.
+    pub async fn scene_region_broadcast(
+        &self,
+        events: BTreeMap<String, SceneRegionBroadcast>,
+    ) -> Result<SceneRegionBroadcastResponse, jmap_base_client::ClientError> {
+        let (api_url, account_id) = self.session_parts()?;
+        let args = jmap_base_client::to_args(&SceneRegionBroadcastRequest::new(
+            Id::from(account_id),
+            events,
+        ))?;
+        self.invoke(api_url, "SceneRegion/broadcast", args).await
     }
 }

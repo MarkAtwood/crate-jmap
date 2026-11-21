@@ -82,6 +82,15 @@ pub struct SceneCapability {
     /// predating the field keeps `SceneAsset` enabled. Always serialized.
     #[serde(default = "crate::query::default_true")]
     pub supports_scene_asset: bool,
+    /// `true` if the server supports the `SceneRegion/broadcast` method on
+    /// this account. "When `false`, a call to that method returns an
+    /// `unknownMethod` error" (draft-atwood-jmap-scene-00 at jmap-chat-spec
+    /// 93f2258, §Account-Level Capability Object).
+    ///
+    /// Optional: "An absent field has the same meaning as `false`". Left
+    /// out when `false`.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub supports_region_broadcast: bool,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
@@ -135,6 +144,21 @@ mod tests {
             serde_json::to_value(&cap).unwrap()["supportsSceneAsset"],
             json!(true)
         );
+    }
+
+    #[test]
+    fn optional_feature_fields_default_false_and_are_omitted() {
+        // Oracle: jmap-chat-spec 93f2258 §Account-Level Capability Object:
+        // "The following fields are optional. An absent field has the same
+        // meaning as `false`".
+        let cap: SceneCapability = serde_json::from_value(sample()).unwrap();
+        assert!(!cap.supports_region_broadcast);
+        assert_eq!(serde_json::to_value(&cap).unwrap(), sample());
+        let mut raw = sample();
+        raw["supportsRegionBroadcast"] = json!(true);
+        let cap: SceneCapability = serde_json::from_value(raw.clone()).unwrap();
+        assert!(cap.supports_region_broadcast);
+        assert_eq!(serde_json::to_value(&cap).unwrap(), raw);
     }
 
     #[test]

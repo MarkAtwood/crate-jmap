@@ -335,6 +335,29 @@ async fn object_updates_hold_the_latest_until_the_window_reopens() {
     nothing(&mut alice, "s2").await;
 }
 
+/// jmap-chat-spec 93f2258 §SceneRegionEvent: "Every subscriber of the
+/// region receives the same event"; `eventTypes` selects it by
+/// `"SceneRegionEvent"`.
+#[tokio::test]
+async fn region_events_reach_every_subscriber() {
+    let hub = SceneEventHub::new(64);
+    let addr = server(hub.clone(), SceneStreamLimits::default()).await;
+    let mut alice = connect(addr).await;
+    let mut bob = connect(addr).await;
+    enable(&mut alice, json!({"eventTypes": ["SceneRegionEvent"]})).await;
+    enable(&mut bob, json!({"eventTypes": ["SceneAvatarEvent"]})).await;
+    let raw = json!({
+        "@type": "SceneRegionEvent",
+        "accountId": ACCOUNT,
+        "regionId": R1,
+        "event": "com.example.game.round-start",
+        "data": {"round": 6, "buyTimeSeconds": 20}
+    });
+    hub.publish(event(raw.clone()));
+    assert_eq!(recv(&mut alice).await, raw);
+    nothing(&mut bob, "s1").await;
+}
+
 /// §SceneStreamEnable: "If `eventTypes` is an empty array or contains only
 /// unrecognized values, the server MUST respond with a `RequestError`
 /// ... `invalidArguments` and MUST NOT update the current ephemeral

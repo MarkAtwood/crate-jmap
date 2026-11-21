@@ -13,6 +13,7 @@ use jmap_server::{BackendSetError, JmapBackend, JmapObject, SetObject};
 
 use jmap_scene_types::{
     SceneAsset, SceneAvatar, SceneCapability, SceneInteractionEvent, SceneObject, SceneRegion,
+    SceneRegionEvent,
 };
 
 /// A SceneRegion binding property, the reference
@@ -687,6 +688,42 @@ pub trait SceneBackend: JmapBackend {
         caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         event: &SceneInteractionEvent,
+    ) -> impl std::future::Future<Output = Result<bool, Self::Error>> + Send {
+        let _ = (caller, account_id, event);
+        async { Ok(true) }
+    }
+
+    /// Accept a region event that passed the `SceneRegion/broadcast`
+    /// checks, or refuse it for its rate (draft-atwood-jmap-scene-00 at
+    /// jmap-chat-spec 93f2258, §SceneRegion/broadcast).
+    ///
+    /// The handler calls this only when the account's
+    /// [`SceneCapability::supports_region_broadcast`] is `true`, the caller
+    /// has access to the region ([`Self::may_access_region`]) and is its
+    /// owner or an administrator ([`Self::may_update_region`]: "Only the
+    /// region owner and users with deployment-defined administrative
+    /// privileges may broadcast to a region"). `Ok(false)` means "The
+    /// caller has exceeded a deployment-defined rate for region events" and
+    /// the handler reports `rateLimit`. `Ok(true)` accepts it: count it
+    /// against the rate and, when the WebSocket capability is supported,
+    /// hand `event` to the transport, which "delivers a `SceneRegionEvent`
+    /// to the WebSocket subscribers of the region", filtered per recipient
+    /// by [`crate::should_deliver`] (with the `websocket` feature,
+    /// `websocket::SceneEventHub::publish`).
+    ///
+    /// Server-originated region events ("The server itself MAY also
+    /// originate region events") do not pass through here; the deployment
+    /// publishes them to the transport directly.
+    ///
+    /// # Default implementation
+    ///
+    /// Returns `Ok(true)` and delivers nothing: no rate limit (fail-open,
+    /// bd:JMAP-bghk) and no WebSocket transport.
+    fn accept_region_event(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        event: &SceneRegionEvent,
     ) -> impl std::future::Future<Output = Result<bool, Self::Error>> + Send {
         let _ = (caller, account_id, event);
         async { Ok(true) }

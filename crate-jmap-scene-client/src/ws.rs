@@ -8,7 +8,7 @@
 use jmap_base_client::{ClientError, Session, WsFrame, WsSession};
 use jmap_scene_types::{
     SCENE_EVENT_TYPES, SceneAvatarEvent, SceneEvent, SceneInteractionEvent, SceneObjectEvent,
-    SceneStreamDisable, SceneStreamEnable, SceneStreamMessage,
+    SceneRegionEvent, SceneStreamDisable, SceneStreamEnable, SceneStreamMessage,
 };
 use serde::Deserialize as _;
 
@@ -24,6 +24,10 @@ pub enum SceneWsFrame {
     Object(SceneObjectEvent),
     /// `SceneInteractionEvent`: a user interacted with an object.
     Interaction(SceneInteractionEvent),
+    /// `SceneRegionEvent`: the region owner, an administrator or the
+    /// server announced an event about a region as a whole
+    /// (jmap-chat-spec 93f2258).
+    Region(SceneRegionEvent),
     /// Any other frame, unchanged.
     ///
     /// Scene events "are interleaved with `StateChange`, `Response`, and
@@ -38,7 +42,8 @@ pub enum SceneWsFrame {
 /// Promote a base-client [`WsFrame`] to a [`SceneWsFrame`].
 ///
 /// A [`WsFrame::Unknown`] whose `@type` is `SceneAvatarEvent`,
-/// `SceneObjectEvent` or `SceneInteractionEvent` and whose body parses
+/// `SceneObjectEvent`, `SceneInteractionEvent` or `SceneRegionEvent` and
+/// whose body parses
 /// becomes the matching typed variant; every other frame becomes
 /// [`SceneWsFrame::Other`]. One malformed frame never fails the
 /// connection.
@@ -53,6 +58,7 @@ pub fn parse_scene_ws_frame(frame: WsFrame) -> SceneWsFrame {
         Ok(SceneEvent::Avatar(e)) => SceneWsFrame::Avatar(e),
         Ok(SceneEvent::Object(e)) => SceneWsFrame::Object(e),
         Ok(SceneEvent::Interaction(e)) => SceneWsFrame::Interaction(e),
+        Ok(SceneEvent::Region(e)) => SceneWsFrame::Region(e),
         _ => SceneWsFrame::Other(frame),
     }
 }

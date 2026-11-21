@@ -1,6 +1,6 @@
 //! draft-atwood-jmap-scene-wss-00 §Ephemeral Event Types — the
-//! `SceneAvatarEvent`, `SceneObjectEvent` and `SceneInteractionEvent`
-//! WebSocket frames.
+//! `SceneAvatarEvent`, `SceneObjectEvent`, `SceneInteractionEvent` and
+//! `SceneRegionEvent` WebSocket frames.
 //!
 //! The event structs carry no `@type`; [`SceneEvent`] adds and dispatches
 //! on it. Events "are not persisted as JMAP objects and carry no state
@@ -179,6 +179,57 @@ impl SceneInteractionEvent {
     }
 }
 
+/// The region owner, an administrator or the server announced an event
+/// about a region as a whole, "such as a round starting, a timer expiring,
+/// or a game-over result" (draft-atwood-jmap-scene-wss-00 at jmap-chat-spec
+/// 93f2258, §`SceneRegionEvent`). Server→client only.
+///
+/// "The event has no originating user, avatar, or object." "Every
+/// subscriber of the region receives the same event", so it carries only
+/// what every user with access to the region may see; it is not filtered
+/// by visibility or blocked-sender suppression.
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SceneRegionEvent {
+    /// The region's hosting account: "the account in which the `SceneRegion`
+    /// was created and which holds its `SceneObject` and `SceneAvatar` records"
+    /// (draft-atwood-jmap-scene-wss-00 §Ephemeral Event Types). Region ids
+    /// are unique only within it.
+    pub account_id: Id,
+    /// The `SceneRegion`.
+    pub region_id: Id,
+    /// "The event name, in reverse-domain notation (e.g.,
+    /// `\"com.example.game.round-start\"`). This specification defines no
+    /// event names. Clients MUST ignore unrecognized values." Kept verbatim.
+    pub event: String,
+    /// "Event-specific payload. Opaque to this specification; the server
+    /// relays it without interpretation. `null` when no additional data is
+    /// needed."
+    pub data: Option<serde_json::Map<String, serde_json::Value>>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
+}
+
+impl SceneRegionEvent {
+    /// Construct a [`SceneRegionEvent`] from its required fields.
+    ///
+    /// `data` defaults to `None` (`null`).
+    pub fn new(account_id: Id, region_id: Id, event: String) -> Self {
+        Self {
+            account_id,
+            region_id,
+            event,
+            data: None,
+            extra: serde_json::Map::new(),
+        }
+    }
+}
+
 /// A Scene ephemeral event frame, discriminated by its `@type`.
 ///
 /// Unrecognised `@type` values deserialize to [`SceneEvent::Unknown`],
@@ -194,6 +245,8 @@ pub enum SceneEvent {
     Object(SceneObjectEvent),
     /// `"SceneInteractionEvent"`.
     Interaction(SceneInteractionEvent),
+    /// `"SceneRegionEvent"`.
+    Region(SceneRegionEvent),
     /// Any `@type` not recognized by this version of the library.
     Unknown {
         /// The original wire value of `@type`.
@@ -206,6 +259,7 @@ pub enum SceneEvent {
 pub(crate) const AVATAR: &str = "SceneAvatarEvent";
 pub(crate) const OBJECT: &str = "SceneObjectEvent";
 pub(crate) const INTERACTION: &str = "SceneInteractionEvent";
+pub(crate) const REGION: &str = "SceneRegionEvent";
 
 impl SceneEvent {
     /// The event's `@type`, such as `"SceneAvatarEvent"`; for
@@ -215,6 +269,7 @@ impl SceneEvent {
             SceneEvent::Avatar(_) => AVATAR,
             SceneEvent::Object(_) => OBJECT,
             SceneEvent::Interaction(_) => INTERACTION,
+            SceneEvent::Region(_) => REGION,
             SceneEvent::Unknown { type_name, .. } => type_name,
         }
     }
@@ -226,6 +281,7 @@ impl Serialize for SceneEvent {
             SceneEvent::Avatar(e) => serde_json::to_value(e),
             SceneEvent::Object(e) => serde_json::to_value(e),
             SceneEvent::Interaction(e) => serde_json::to_value(e),
+            SceneEvent::Region(e) => serde_json::to_value(e),
             SceneEvent::Unknown { payload, .. } => Ok(serde_json::Value::Object(payload.clone())),
         };
         let body = body.map_err(serde::ser::Error::custom)?;
@@ -244,6 +300,7 @@ impl<'de> Deserialize<'de> for SceneEvent {
             AVATAR => SceneEvent::Avatar(from_map::<_, D>(map)?),
             OBJECT => SceneEvent::Object(from_map::<_, D>(map)?),
             INTERACTION => SceneEvent::Interaction(from_map::<_, D>(map)?),
+            REGION => SceneEvent::Region(from_map::<_, D>(map)?),
             _ => SceneEvent::Unknown {
                 type_name,
                 payload: map,
@@ -427,6 +484,57 @@ mod tests {
             }),
         ] {
             assert!(serde_json::from_value::<SceneEvent>(raw).is_err());
+        }
+    }
+
+    #[test]
+    fn region_event_matches_draft_round_start_example() {
+        // Oracle: draft-atwood-jmap-scene-wss-00 (jmap-chat-spec 93f2258)
+        // §SceneRegionEvent, "Example — a round starts".
+        let raw = json!({
+            "@type": "SceneRegionEvent",
+            "accountId": "account-xyz",
+            "regionId": "01J5ABC0000000000000000001",
+            "event": "com.example.game.round-start",
+            "data": {"round": 6, "buyTimeSeconds": 20}
+        });
+        let SceneEvent::Region(e) = parse(raw.clone()) else {
+            panic!("wrong variant")
+        };
+        assert_eq!(e.event, "com.example.game.round-start");
+        assert_eq!(e.data.as_ref().unwrap()["buyTimeSeconds"], 20);
+        let mut built = SceneRegionEvent::new(
+            Id::from("account-xyz"),
+            Id::from("01J5ABC0000000000000000001"),
+            "com.example.game.round-start".to_owned(),
+        );
+        built.data = e.data.clone();
+        assert_eq!(built, e);
+        let msg = SceneEvent::Region(e);
+        assert_eq!(msg.type_name(), "SceneRegionEvent");
+        assert_eq!(serde_json::to_value(msg).unwrap(), raw);
+    }
+
+    #[test]
+    fn region_event_requires_its_fields() {
+        // Oracle: §SceneRegionEvent lists `regionId` (String) and `event`
+        // (String) without "optional", and "Every event carries an
+        // `accountId`". An absent `data` reads as `null`, as for
+        // `SceneInteractionEvent`.
+        let full = json!({
+            "@type": "SceneRegionEvent",
+            "accountId": "A",
+            "regionId": "R1",
+            "event": "com.example.game.over",
+            "data": null
+        });
+        for field in ["accountId", "regionId", "event"] {
+            let mut raw = full.clone();
+            raw.as_object_mut().unwrap().remove(field);
+            assert!(
+                serde_json::from_value::<SceneEvent>(raw).is_err(),
+                "missing {field}"
+            );
         }
     }
 

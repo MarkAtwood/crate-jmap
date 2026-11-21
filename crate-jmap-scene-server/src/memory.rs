@@ -44,6 +44,8 @@
 //! [`SceneBackend::accept_interaction`] refuses the interactions of users
 //! registered with `rate_limit_interactions` and records the rest, read
 //! back with `accepted_interactions`.
+//! [`SceneBackend::accept_region_event`] does the same for region events
+//! with `rate_limit_region_events` and `accepted_region_events`.
 //!
 //! # Visibility
 //!
@@ -110,7 +112,7 @@ use std::marker::PhantomData;
 use jmap_object_history_server::{ChangeEvent, ChangeKind, fold_restore};
 use jmap_scene_types::{
     AccessPolicy, SceneAsset, SceneAvatar, SceneCapability, SceneInteractionEvent, SceneObject,
-    SceneRegion,
+    SceneRegion, SceneRegionEvent,
 };
 use jmap_scene_types::{
     SceneAssetComparator, SceneAssetFilter, SceneAvatarComparator, SceneAvatarFilter,
@@ -188,6 +190,12 @@ struct Inner {
     rate_limited: HashSet<String>,
     /// Interactions [`SceneBackend::accept_interaction`] accepted, in order.
     interactions: Vec<SceneInteractionEvent>,
+    /// UserIds whose region events [`SceneBackend::accept_region_event`]
+    /// refuses as over the rate.
+    region_event_limited: HashSet<String>,
+    /// Region events [`SceneBackend::accept_region_event`] accepted, in
+    /// order.
+    region_events: Vec<SceneRegionEvent>,
     /// `(blocking userId, blocked userId)` pairs.
     blocked: HashSet<(String, String)>,
     /// `(userId, region id)` pairs: regions whose avatars that user may
@@ -641,6 +649,20 @@ impl<C: MemoryCaller> MemoryBackend<C> {
     #[doc(hidden)]
     pub fn accepted_interactions(&self) -> Vec<SceneInteractionEvent> {
         self.lock().interactions.clone()
+    }
+
+    /// Refuse every region event `user` broadcasts as over the rate, for
+    /// [`SceneBackend::accept_region_event`].
+    #[doc(hidden)]
+    pub fn rate_limit_region_events(&self, user: &str) {
+        self.lock().region_event_limited.insert(user.to_owned());
+    }
+
+    /// The region events [`SceneBackend::accept_region_event`] accepted,
+    /// in order: what a WebSocket transport would deliver.
+    #[doc(hidden)]
+    pub fn accepted_region_events(&self) -> Vec<SceneRegionEvent> {
+        self.lock().region_events.clone()
     }
 
     /// Reserve avatar display name `name`, for
@@ -1458,6 +1480,21 @@ impl<C: MemoryCaller> SceneBackend for MemoryBackend<C> {
             return Ok(false);
         }
         inner.interactions.push(event.clone());
+        Ok(true)
+    }
+
+    async fn accept_region_event(
+        &self,
+        caller: &C,
+        account_id: &Id,
+        event: &SceneRegionEvent,
+    ) -> Result<bool, MemoryError> {
+        let caller = acting_user(caller, account_id);
+        let mut inner = self.locked().await;
+        if inner.region_event_limited.contains(&caller) {
+            return Ok(false);
+        }
+        inner.region_events.push(event.clone());
         Ok(true)
     }
 

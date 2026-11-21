@@ -159,7 +159,7 @@ impl SceneEphemeralSubscription {
 ///
 /// Delivery needs an active subscription whose `eventTypes` includes the
 /// event's `@type`; an unrecognized `@type` is never delivered. All
-/// three events are per-region (§Event Summary): the event's region must
+/// four events are per-region (§Event Summary): the event's region must
 /// be in the subscription's [`RegionScope`], the recipient must have
 /// access to it ([`SceneBackend::may_access_region`]) and an active
 /// avatar (`leftAt` `null`) in it. Then:
@@ -176,6 +176,8 @@ impl SceneEphemeralSubscription {
 ///   `"destroyed"` event whose object the backend no longer returns has
 ///   no record to check and needs region access only; any other event
 ///   for an object the backend does not return is dropped.
+/// - `SceneRegionEvent` (jmap-chat-spec 93f2258) has no object and no
+///   originating user: it needs nothing beyond the region checks above.
 /// - When the recipient's account has `urn:ietf:params:jmap:chat`
 ///   ([`SceneBackend::has_capability`]), the event is dropped if the
 ///   recipient blocked its originating user
@@ -232,6 +234,10 @@ pub async fn should_deliver<B: SceneBackend>(
             Some((&e.object_id, false)),
             Some(e.user_id.as_str()),
         ),
+        // "A `SceneRegionEvent` has no originating user and is not subject
+        // to blocked-sender suppression"; it "is not filtered by
+        // visibility".
+        SceneEvent::Region(e) => (&e.account_id, &e.region_id, None, None),
         _ => return Ok(false),
     };
     if event_account != hosting_account_id

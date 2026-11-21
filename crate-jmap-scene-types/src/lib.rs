@@ -35,6 +35,9 @@
 //! - [`SceneInteraction`], [`SceneObjectInteractRequest`],
 //!   [`SceneObjectInteractResponse`] — the `SceneObject/interact` method
 //!   (draft §SceneObject/interact).
+//! - [`SceneRegionBroadcast`], [`SceneRegionBroadcastRequest`],
+//!   [`SceneRegionBroadcastResponse`] — the optional `SceneRegion/broadcast`
+//!   method (draft §SceneRegion/broadcast, jmap-chat-spec 93f2258).
 //! - `query` — the `/query` filters, including the `withinRadius` and
 //!   `withinBounds` spatial filters, and comparators of the four types.
 //! - `set_error` — the `contentPolicy` `SetError` type (draft §Content
@@ -42,8 +45,8 @@
 //! - [`JMAP_SCENE_WEBSOCKET_URI`] — the WebSocket capability
 //!   (scene-wss draft §Capability).
 //! - [`SceneEvent`], [`SceneAvatarEvent`], [`SceneObjectEvent`],
-//!   [`SceneInteractionEvent`] — the ephemeral events (scene-wss draft
-//!   §Ephemeral Event Types).
+//!   [`SceneInteractionEvent`], [`SceneRegionEvent`] — the ephemeral events
+//!   (scene-wss draft §Ephemeral Event Types).
 //! - [`SceneStreamMessage`], [`SceneStreamEnable`], [`SceneStreamDisable`],
 //!   [`SceneEventType`], [`SCENE_EVENT_TYPES`] — the stream control frames (scene-wss draft
 //!   §Scene Stream Control Messages).
@@ -80,6 +83,7 @@
 mod asset;
 mod avatar;
 mod backend;
+mod broadcast;
 mod capability;
 mod coordinates;
 mod event;
@@ -93,13 +97,16 @@ mod wire;
 
 pub use asset::SceneAsset;
 pub use avatar::SceneAvatar;
+pub use broadcast::{
+    SceneRegionBroadcast, SceneRegionBroadcastRequest, SceneRegionBroadcastResponse,
+};
 pub use capability::{JMAP_SCENE_URI, JMAP_SCENE_WEBSOCKET_URI, SceneCapability};
 pub use coordinates::{
     IDENTITY_ORIENTATION, IDENTITY_SCALE, Orientation, Position, Scale, SceneBounds,
 };
 pub use event::{
     AvatarEventKind, ObjectEventKind, SceneAvatarEvent, SceneEvent, SceneInteractionEvent,
-    SceneObjectEvent,
+    SceneObjectEvent, SceneRegionEvent,
 };
 pub use interact::{SceneInteraction, SceneObjectInteractRequest, SceneObjectInteractResponse};
 pub use object::{PhysicsMode, SceneObject};

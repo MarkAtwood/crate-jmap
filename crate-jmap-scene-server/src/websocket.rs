@@ -4,8 +4,9 @@
 //!
 //! - The deployment keeps one [`SceneEventHub`] and publishes every Scene
 //!   event to it with [`SceneEventHub::publish`]: avatar and object
-//!   events, and the interactions accepted by `SceneObject/interact`.
-//!   Every event carries `accountId`, "the id of the region's hosting
+//!   events, the interactions accepted by `SceneObject/interact`, and the
+//!   region events accepted by `SceneRegion/broadcast` or originated by
+//!   the server. Every event carries `accountId`, "the id of the region's hosting
 //!   account" (§Ephemeral Event Types).
 //! - For each WebSocket connection it builds a [`SceneStreamHandler`] with
 //!   the connection's caller and the caller's own account, and registers
@@ -290,6 +291,7 @@ fn hosting_account(event: &SceneEvent) -> Option<&Id> {
         SceneEvent::Avatar(e) => &e.account_id,
         SceneEvent::Object(e) => &e.account_id,
         SceneEvent::Interaction(e) => &e.account_id,
+        SceneEvent::Region(e) => &e.account_id,
         _ => return None,
     })
 }

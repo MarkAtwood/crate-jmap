@@ -9,15 +9,16 @@
 use jmap_types::{Id, impl_string_enum};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::event::{AVATAR, INTERACTION, OBJECT};
+use crate::event::{AVATAR, INTERACTION, OBJECT, REGION};
 
 /// The recognized values of [`SceneStreamEnable::event_types`]
-/// (draft-atwood-jmap-scene-wss-00 §[`SceneStreamEnable`]).
+/// (draft-atwood-jmap-scene-wss-00 §[`SceneStreamEnable`]), including
+/// `"SceneRegionEvent"` (jmap-chat-spec 93f2258).
 ///
 /// "Unrecognized values in `eventTypes` that appear alongside recognized
 /// values MUST be silently ignored"; an `eventTypes` that is empty or holds
 /// only unrecognized values is an `invalidArguments` `RequestError`.
-pub const SCENE_EVENT_TYPES: &[&str] = &[AVATAR, OBJECT, INTERACTION];
+pub const SCENE_EVENT_TYPES: &[&str] = &[AVATAR, OBJECT, INTERACTION, REGION];
 
 /// One [`SceneStreamEnable::event_types`] value
 /// (draft-atwood-jmap-scene-wss-00 §[`SceneStreamEnable`]); the recognized
@@ -36,6 +37,8 @@ pub enum SceneEventType {
     Object,
     /// `"SceneInteractionEvent"`.
     Interaction,
+    /// `"SceneRegionEvent"`.
+    Region,
     /// Any value this version does not recognize.
     ///
     /// **Forging caveat**: `Other("SceneAvatarEvent".into())` is unequal to
@@ -49,6 +52,7 @@ impl_string_enum!(SceneEventType, "a SceneStreamEnable eventTypes string",
     "SceneAvatarEvent" => Avatar,
     "SceneObjectEvent" => Object,
     "SceneInteractionEvent" => Interaction,
+    "SceneRegionEvent" => Region,
 );
 
 /// Client→server: start or replace the ephemeral Scene event subscription
@@ -251,10 +255,12 @@ mod tests {
         // L446-447 "Recognized values are: `\"SceneAvatarEvent\"`,
         // `\"SceneObjectEvent\"`, and `\"SceneInteractionEvent\"`."; none
         // may land in `Other`.
+        // jmap-chat-spec 93f2258 adds `"SceneRegionEvent"`.
         for wire in [
             "SceneAvatarEvent",
             "SceneObjectEvent",
             "SceneInteractionEvent",
+            "SceneRegionEvent",
         ] {
             let t: SceneEventType = serde_json::from_value(json!(wire)).unwrap();
             assert!(!matches!(t, SceneEventType::Other(_)), "{wire}");
@@ -265,14 +271,16 @@ mod tests {
 
     #[test]
     fn event_types_vocabulary_matches_draft() {
-        // Oracle: L400-401 "Recognized values are: `\"SceneAvatarEvent\"`,
-        // `\"SceneObjectEvent\"`, and `\"SceneInteractionEvent\"`."
+        // Oracle: jmap-chat-spec 93f2258 §SceneStreamEnable "Recognized
+        // values are: `\"SceneAvatarEvent\"`, `\"SceneObjectEvent\"`,
+        // `\"SceneInteractionEvent\"`, and `\"SceneRegionEvent\"`."
         assert_eq!(
             SCENE_EVENT_TYPES,
             [
                 "SceneAvatarEvent",
                 "SceneObjectEvent",
-                "SceneInteractionEvent"
+                "SceneInteractionEvent",
+                "SceneRegionEvent"
             ]
         );
     }

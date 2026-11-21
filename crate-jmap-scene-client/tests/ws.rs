@@ -403,3 +403,40 @@ async fn events_with_unknown_fields_are_tolerated() {
     assert!(ws.next_scene_frame().await.is_none());
     assert!(server.await.unwrap().is_empty());
 }
+
+/// draft-atwood-jmap-scene-wss-00 at jmap-chat-spec 93f2258,
+/// §SceneRegionEvent "Example — a round starts".
+const ROUND_START: &str = r#"{
+  "@type": "SceneRegionEvent",
+  "accountId": "account-xyz",
+  "regionId": "01J5ABC0000000000000000001",
+  "event": "com.example.game.round-start",
+  "data": {"round": 6, "buyTimeSeconds": 20}
+}"#;
+
+/// A `SceneRegionEvent` frame arrives as [`SceneWsFrame::Region`]; one
+/// without its required `event` arrives untyped in `Other`.
+#[tokio::test]
+async fn region_event_is_typed() {
+    let (mut ws, server) = serve(vec![
+        Step::Send(ROUND_START),
+        Step::Send(
+            r#"{"@type":"SceneRegionEvent","accountId":"account-xyz","regionId":"01J5ABC0000000000000000001","data":null}"#,
+        ),
+    ])
+    .await;
+    match next(&mut ws).await {
+        SceneWsFrame::Region(e) => {
+            assert_eq!(e.region_id, Id::from("01J5ABC0000000000000000001"));
+            assert_eq!(e.event, "com.example.game.round-start");
+            assert_eq!(e.data.as_ref().unwrap()["round"], 6);
+        }
+        other => panic!("expected SceneRegionEvent, got {other:?}"),
+    }
+    assert!(matches!(
+        next(&mut ws).await,
+        SceneWsFrame::Other(WsFrame::Unknown { .. })
+    ));
+    assert!(ws.next_scene_frame().await.is_none());
+    assert!(server.await.unwrap().is_empty());
+}

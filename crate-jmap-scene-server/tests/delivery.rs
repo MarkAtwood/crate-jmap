@@ -539,3 +539,54 @@ async fn interaction_for_another_hosting_account_is_discarded() {
     e.account_id = Id::from("acct-002");
     assert!(!relayable(&backend, ALICE, &e).await);
 }
+
+/// The `SceneRegionEvent` example of draft-atwood-jmap-scene-wss-00 at
+/// jmap-chat-spec 93f2258 ("a round starts"), in [`ACCOUNT`] and `region`.
+fn region_event(region: &str) -> SceneEvent {
+    event(json!({
+        "@type": "SceneRegionEvent",
+        "accountId": ACCOUNT,
+        "regionId": region,
+        "event": "com.example.game.round-start",
+        "data": {"round": 6, "buyTimeSeconds": 20}
+    }))
+}
+
+/// jmap-chat-spec 93f2258 §Event Summary: `SceneRegionEvent` is
+/// "per-region", so it needs the region in scope, region access and an
+/// active avatar like the others, and `eventTypes` can select it.
+#[tokio::test]
+async fn region_events_are_per_region() {
+    let backend = scene();
+    let e = region_event(R1);
+    assert!(delivers(&backend, BOB, &all(), &e).await);
+    // ADMIN's avatar in R1 has left.
+    assert!(!delivers(&backend, ADMIN, &all(), &e).await);
+    let only = subscription(json!({
+        "@type": "SceneStreamEnable",
+        "regionIds": [R1],
+        "eventTypes": ["SceneRegionEvent"]
+    }));
+    assert!(delivers(&backend, BOB, &only, &e).await);
+    assert!(!delivers(&backend, BOB, &only, &avatar_event(ALICE, "entered")).await);
+    let objects = subscription(json!({
+        "@type": "SceneStreamEnable",
+        "eventTypes": ["SceneObjectEvent"]
+    }));
+    assert!(!delivers(&backend, BOB, &objects, &e).await);
+    // CAROL has no avatar in VAULT.
+    assert!(!delivers(&backend, CAROL, &all(), &region_event(VAULT)).await);
+}
+
+/// jmap-chat-spec 93f2258 §Blocked-Sender Suppression: "A
+/// `SceneRegionEvent` has no originating user and is not subject to
+/// blocked-sender suppression"; §Visibility Filtering: "`SceneRegionEvent`
+/// is not filtered by visibility".
+#[tokio::test]
+async fn region_events_are_not_suppressed() {
+    let backend = scene();
+    backend.advertise(&Id::from(ACCOUNT), CHAT);
+    backend.block(BOB, ALICE);
+    backend.hide_region_avatars(BOB, R1);
+    assert!(delivers(&backend, BOB, &all(), &region_event(R1)).await);
+}

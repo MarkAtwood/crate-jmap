@@ -736,6 +736,63 @@ async fn scene_region_query_world_state_equals_matches_example() {
     assert_eq!(resp.ids, vec![Id::from("01J5ABC0000000000000000001")]);
 }
 
+/// draft-atwood-jmap-scene-00 at jmap-chat-spec 93f2258,
+/// §SceneRegion/broadcast: the request arguments `accountId` and `events`
+/// (`regionId`, `event`, `data`) and a response "the shape of the
+/// `SceneObject/interact` response".
+#[tokio::test]
+async fn scene_region_broadcast_sends_the_draft_shape() {
+    let server = MockServer::start().await;
+    respond(
+        &server,
+        "SceneRegion/broadcast",
+        json!({
+            "accountId": "account-xyz",
+            "accepted": ["e0"],
+            "notAccepted": {"e1": {"type": "forbidden"}}
+        }),
+    )
+    .await;
+    let region = Id::from("01J5ABC0000000000000000001");
+    let mut start = jmap_scene_types::SceneRegionBroadcast::new(
+        region.clone(),
+        "com.example.game.round-start".to_owned(),
+    );
+    start.data = Some(serde_json::Map::from_iter([("round".to_owned(), json!(6))]));
+    let over = jmap_scene_types::SceneRegionBroadcast::new(region, "com.example.game.over".into());
+    let sc = make_client(&server, "account-xyz");
+    let resp = sc
+        .scene_region_broadcast(BTreeMap::from([
+            ("e0".to_owned(), start),
+            ("e1".to_owned(), over),
+        ]))
+        .await
+        .expect("SceneRegion/broadcast must succeed");
+    assert_eq!(
+        sent_invocation(&server).await,
+        json!(["SceneRegion/broadcast", {
+            "accountId": "account-xyz",
+            "events": {
+                "e0": {
+                    "regionId": "01J5ABC0000000000000000001",
+                    "event": "com.example.game.round-start",
+                    "data": {"round": 6}
+                },
+                "e1": {
+                    "regionId": "01J5ABC0000000000000000001",
+                    "event": "com.example.game.over",
+                    "data": null
+                }
+            }
+        }])
+    );
+    assert_eq!(resp.accepted, Some(vec!["e0".to_owned()]));
+    assert_eq!(
+        resp.not_accepted.expect("notAccepted")["e1"].error_type,
+        SetErrorType::Forbidden
+    );
+}
+
 /// L1378 sort property `activeAvatarCount`.
 #[tokio::test]
 async fn scene_region_query_changes_sends_rfc8620_shape() {

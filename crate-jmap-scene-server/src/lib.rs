@@ -45,6 +45,14 @@
 //! [`SceneBackend::accept_interaction`], which may refuse it with
 //! `rateLimit` and otherwise delivers the `SceneInteractionEvent`.
 //!
+//! `SceneRegion/broadcast` (draft §SceneRegion/broadcast, jmap-chat-spec
+//! 93f2258), on accounts whose capability has `supportsRegionBroadcast`
+//! (otherwise `unknownMethod`): each region event is checked for its
+//! properties (`invalidProperties`), region access (`notFound`) and the
+//! owner-or-admin rule ([`SceneBackend::may_update_region`], `forbidden`),
+//! then passed to [`SceneBackend::accept_region_event`], which may refuse
+//! it with `rateLimit` and otherwise delivers the `SceneRegionEvent`.
+//!
 //! The `SceneAvatar/*` methods (draft §SceneAvatar Methods): `/set` create
 //! enters a region (one avatar record per user and region, `alreadyExists`
 //! with `existingId` when the user has a present or departed record there,
@@ -120,6 +128,7 @@ use jmap_server::{
 mod asset;
 mod avatar;
 mod backend;
+mod broadcast;
 mod ephemeral;
 mod helpers;
 mod history;
@@ -146,6 +155,7 @@ pub use avatar::{
     handle_scene_avatar_query_changes, handle_scene_avatar_set,
 };
 pub use backend::{BindingProperty, BindingTarget, SceneBackend};
+pub use broadcast::handle_scene_region_broadcast;
 pub use ephemeral::{
     RegionScope, SceneEphemeralSubscription, SceneStreamFilter, should_deliver,
     validate_interaction,
@@ -170,7 +180,9 @@ pub use jmap_scene_types::JMAP_SCENE_URI;
 ///
 /// After this call the dispatcher handles `/get`, `/changes`, `/set`,
 /// `/query` and `/queryChanges` of `SceneAsset`, `SceneRegion`,
-/// `SceneObject` and `SceneAvatar`, and `SceneObject/interact`.
+/// `SceneObject` and `SceneAvatar`, `SceneObject/interact` and
+/// `SceneRegion/broadcast` (which answers `unknownMethod` on an account
+/// without `supportsRegionBroadcast`).
 /// [`Dispatcher::register`] silently replaces an existing handler of the
 /// same name, so register overrides afterwards.
 ///
@@ -237,6 +249,7 @@ where
         handle_scene_object_query_changes
     );
     reg!("SceneObject/interact", handle_scene_object_interact);
+    reg!("SceneRegion/broadcast", handle_scene_region_broadcast);
     reg!("SceneAvatar/get", handle_scene_avatar_get);
     reg!("SceneAvatar/changes", handle_scene_avatar_changes);
     reg!("SceneAvatar/set", handle_scene_avatar_set, ids);
