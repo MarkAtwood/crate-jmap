@@ -35,9 +35,9 @@ use jmap_scene_types::{
 };
 use jmap_types::{Id, JmapError};
 
-use crate::SceneBackend;
-use crate::helpers::is_visible;
+use crate::helpers::{avatar_view, is_visible};
 use crate::region::JMAP_CHAT_URI;
+use crate::{AvatarView, SceneBackend};
 
 /// Which regions a subscription covers.
 #[non_exhaustive]
@@ -169,7 +169,9 @@ impl SceneEphemeralSubscription {
 ///   E2EE VTCCall suppresses them toward non-participants
 ///   (draft-atwood-jmap-scene-00 at 6bcd9d8, L2654), through
 ///   `SceneStreamEnable` and `ChatStreamEnable` alike
-///   (draft-atwood-jmap-scene-wss-00 at 6bcd9d8, L1233-1234).
+///   (draft-atwood-jmap-scene-wss-00 at 6bcd9d8, L1233-1234). It is also
+///   dropped when [`SceneBackend::avatar_view`] hides the named avatar
+///   from the recipient (jmap-chat-spec 93f2258 §Visibility Filtering).
 /// - `SceneObjectEvent` and `SceneInteractionEvent` need the named object
 ///   to pass the `SceneObject/get` visibility contract for the recipient
 ///   ([`SceneBackend::is_object_visible`]; §Visibility Filtering). A
@@ -256,6 +258,25 @@ pub async fn should_deliver<B: SceneBackend>(
         && !backend
             .may_see_region_avatars(caller, hosting_account_id, region_id)
             .await?
+    {
+        return Ok(false);
+    }
+    // "a `SceneAvatarEvent` about an avatar hidden from the recipient
+    // ({{JMAP-SCENE}}, Avatar Visibility) is not delivered to that
+    // recipient" (jmap-chat-spec 93f2258).
+    if let SceneEvent::Avatar(e) = event
+        && let Some(avatar) = backend
+            .get_objects::<SceneAvatar>(
+                caller,
+                hosting_account_id,
+                Some(std::slice::from_ref(&e.avatar_id)),
+                None,
+            )
+            .await?
+            .0
+            .into_iter()
+            .next()
+        && avatar_view(backend, caller, hosting_account_id, &avatar).await? == AvatarView::Hidden
     {
         return Ok(false);
     }

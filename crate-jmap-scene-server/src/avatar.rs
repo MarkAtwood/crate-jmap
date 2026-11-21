@@ -21,13 +21,13 @@ use jmap_scene_types::{SceneAvatar, SceneRegion};
 use jmap_types::{Id, JmapError, PatchObject, SetObject};
 use serde_json::{Map, Value, json};
 
-use crate::SceneBackend;
-use crate::helpers::resolve_refs;
 use crate::helpers::{
     SetAccumulators, check_region_filter, default_sort, enforce_max_objects_in_set,
     extract_account_id, fetch_one, finalize_set_response, finite3, forbidden, handle_get_visible,
     invalid, normalized_quaternion, not_found, orientation_ok, reject_unsupported_sort,
 };
+use crate::helpers::{avatar_view, resolve_refs};
+use crate::{AvatarView, SceneBackend};
 use jmap_server::{
     HandlerOutput, SetError, SetErrorType, apply_patch_object, backend_set_error_value,
     now_utc_string, reject_server_set, server_fail_from_backend, server_fail_value_from_backend,
@@ -58,7 +58,10 @@ const REGION_STATE: &str = "regionState";
 /// caller blocked ([`SceneBackend::is_user_blocked`]) or in a region whose
 /// avatars the caller may not see ([`SceneBackend::may_see_region_avatars`],
 /// a region bound to an E2EE call) reported as `notFound` (§Region Access,
-/// §Blocked-Contact Spatial Presence, §Security Considerations).
+/// §Blocked-Contact Spatial Presence, §Security Considerations). Another
+/// user's avatar that [`SceneBackend::avatar_view`] hides is `notFound`
+/// too, and one it redacts is returned with the withheld properties
+/// replaced or left out (jmap-chat-spec 93f2258 §Avatar Visibility).
 pub async fn handle_scene_avatar_get<B: SceneBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -607,6 +610,16 @@ async fn update_avatar<B: SceneBackend>(
         .may_access_region(caller, account_id, &avatar.region_id)
         .await
         .map_err(|e| server_fail_value_from_backend(&e))?
+    {
+        return Err(not_found());
+    }
+    // "A hidden avatar is treated as if it did not exist: ... a
+    // `SceneAvatar/set` update of it returns `notFound`" (jmap-chat-spec
+    // 93f2258 §Avatar Visibility).
+    if avatar_view(backend, caller, account_id, &avatar)
+        .await
+        .map_err(|e| server_fail_value_from_backend(&e))?
+        == AvatarView::Hidden
     {
         return Err(not_found());
     }

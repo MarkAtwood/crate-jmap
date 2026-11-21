@@ -65,6 +65,17 @@
 //! `/query` omits the regions, objects and avatars those hooks hide from
 //! the caller; `activeAvatarCount` stays the true count.
 //!
+//! [`SceneBackend::avatar_view`] follows per-account rules: `hide_avatar`
+//! hides one avatar from one viewer, `withhold_avatar` withholds an
+//! [`AvatarRedaction`](crate::AvatarRedaction)'s properties, and
+//! `reveal_avatar` undoes either. Each advances the account's SceneAvatar
+//! state. The avatar's own user, the region owner and the admins always
+//! see it in full. `SceneAvatar/query` leaves hidden avatars out and
+//! matches the redacted values. Once an account has a rule,
+//! `SceneAvatar/changes` answers from the caller's view, from snapshots
+//! kept per state; a state from before the first rule is
+//! `cannotCalculateChanges`.
+//!
 //! # Companion capabilities and bindings
 //!
 //! `advertise` records a capability URI for an account, for
@@ -131,7 +142,7 @@ use crate::query::{
     asset_matches, avatar_matches, compare_assets, compare_avatars, compare_objects,
     compare_regions, object_matches, region_local_position, region_matches,
 };
-use crate::{BindingProperty, BindingTarget, SceneBackend};
+use crate::{AvatarRedaction, AvatarView, BindingProperty, BindingTarget, SceneBackend};
 use jmap_server::{
     BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
     JmapAccounts, JmapObject, JmapReads, QueryChangesParams, QueryChangesResult, QueryObject,
@@ -155,6 +166,26 @@ type Keyed<V> = HashMap<&'static str, HashMap<String, V>>;
 /// The avatar changes and the regions to recount that [`Inner::admit`]
 /// leaves for its caller to commit.
 type Admitted = (Vec<(Id, Change)>, Vec<Id>);
+
+/// The per-avatar visibility rules of one account (§Avatar Visibility).
+#[derive(Default, Clone)]
+struct AvatarRules {
+    /// `(viewer userId, avatar id)` pairs: the avatar is hidden from the
+    /// viewer.
+    hidden: HashSet<(String, Id)>,
+    /// `(viewer userId, avatar id)` → the properties withheld from the
+    /// viewer.
+    withheld: HashMap<(String, Id), AvatarRedaction>,
+}
+
+/// One SceneAvatar state of an account with [`AvatarRules`]: what every
+/// caller's view at that state is computed from.
+#[derive(Clone)]
+struct AvatarSnapshot {
+    state: u64,
+    avatars: HashMap<Id, Value>,
+    rules: AvatarRules,
+}
 
 /// The store, behind a [`ScopedState`] so a conditional Foo/set can isolate
 /// and roll it back (docs/design/conditional.md §7).
@@ -203,6 +234,14 @@ struct Inner {
     hidden_avatars: HashSet<(String, Id)>,
     /// Reserved avatar display names.
     reserved_names: Vec<String>,
+    /// Account → the per-avatar visibility rules of
+    /// [`SceneBackend::avatar_view`]. An account appears here once a rule
+    /// is set, and from then on answers `SceneAvatar/changes` from each
+    /// caller's view.
+    avatar_rules: HashMap<String, AvatarRules>,
+    /// Account → one snapshot per SceneAvatar state since the first rule:
+    /// the state, the stored avatars and the rules then in force.
+    avatar_views: HashMap<String, Vec<AvatarSnapshot>>,
     /// Object history, once `MemoryBackend::with_object_history` turns it
     /// on.
     history: Option<jmap_object_history_server::HistoryStore>,
@@ -247,6 +286,169 @@ impl Inner {
             .entry(account_id.as_ref().to_owned())
             .or_default()
             .extend(changes.into_iter().map(|(id, c)| (state, id, c)));
+        if type_name == SceneAvatar::TYPE_NAME {
+            self.snapshot_avatars(account_id);
+        }
+    }
+
+    /// Record the account's current avatars and rules under its current
+    /// SceneAvatar state, once the account has avatar rules.
+    fn snapshot_avatars(&mut self, account_id: &Id) {
+        let Some(rules) = self.avatar_rules.get(account_id.as_ref()).cloned() else {
+            return;
+        };
+        let snapshot = AvatarSnapshot {
+            state: self.state(SceneAvatar::TYPE_NAME, account_id),
+            avatars: self
+                .objects(SceneAvatar::TYPE_NAME, account_id)
+                .cloned()
+                .unwrap_or_default(),
+            rules,
+        };
+        self.avatar_views
+            .entry(account_id.as_ref().to_owned())
+            .or_default()
+            .push(snapshot);
+    }
+
+    /// Change the account's avatar rules with `change`, then advance the
+    /// SceneAvatar state: "Whenever the caller's view changes, the server
+    /// advances the SceneAvatar state string". The first rule also records
+    /// the view before it, so `/changes` from that state still works.
+    fn change_avatar_rules(&mut self, account_id: &Id, change: impl FnOnce(&mut AvatarRules)) {
+        if !self.avatar_rules.contains_key(account_id.as_ref()) {
+            self.avatar_rules
+                .insert(account_id.as_ref().to_owned(), AvatarRules::default());
+            self.snapshot_avatars(account_id);
+        }
+        if let Some(rules) = self.avatar_rules.get_mut(account_id.as_ref()) {
+            change(rules);
+        }
+        self.commit(SceneAvatar::TYPE_NAME, account_id, Vec::new());
+    }
+
+    /// [`SceneBackend::avatar_view`] of `avatar` for `viewer` under
+    /// `rules`: whole for the avatar's own user, the admins and the region
+    /// owner ("The server SHOULD NOT hide avatars, or withhold their
+    /// properties, from the region owner and administrators"), else as the
+    /// rules say.
+    fn avatar_view(
+        &self,
+        viewer: &str,
+        account_id: &Id,
+        avatar: &SceneAvatar,
+        rules: Option<&AvatarRules>,
+    ) -> AvatarView {
+        let Some(rules) = rules else {
+            return AvatarView::Full;
+        };
+        if avatar.user_id == viewer
+            || self.admins.contains(viewer)
+            || self.owns_region(viewer, account_id, &avatar.region_id)
+        {
+            return AvatarView::Full;
+        }
+        let key = (viewer.to_owned(), avatar.id.clone());
+        if rules.hidden.contains(&key) {
+            return AvatarView::Hidden;
+        }
+        match rules.withheld.get(&key) {
+            Some(r) => AvatarView::Redacted(r.clone()),
+            None => AvatarView::Full,
+        }
+    }
+
+    /// `avatar` as `viewer` sees it under `rules`, or `None` when hidden.
+    fn viewed_avatar(
+        &self,
+        viewer: &str,
+        account_id: &Id,
+        mut avatar: SceneAvatar,
+        rules: Option<&AvatarRules>,
+    ) -> Option<SceneAvatar> {
+        match self.avatar_view(viewer, account_id, &avatar, rules) {
+            AvatarView::Hidden => None,
+            AvatarView::Redacted(r) => {
+                r.apply(&mut avatar);
+                Some(avatar)
+            }
+            _ => Some(avatar),
+        }
+    }
+
+    /// The avatars of `snapshot` as `viewer` sees them, by id.
+    fn view_at(
+        &self,
+        viewer: &str,
+        account_id: &Id,
+        snapshot: &AvatarSnapshot,
+    ) -> HashMap<Id, Value> {
+        snapshot
+            .avatars
+            .iter()
+            .filter_map(|(id, v)| {
+                let a = decode::<SceneAvatar>(v).ok()?;
+                let seen = self.viewed_avatar(viewer, account_id, a, Some(&snapshot.rules))?;
+                Some((id.clone(), serde_json::to_value(seen).ok()?))
+            })
+            .collect()
+    }
+
+    /// `SceneAvatar/changes` from `viewer`'s view (§Avatar Visibility): an
+    /// avatar that became visible is `created`, one that became hidden
+    /// `destroyed`, one whose returned value changed `updated`. `None`
+    /// when `since` predates the account's first snapshot.
+    fn avatar_changes_for(
+        &self,
+        viewer: &str,
+        account_id: &Id,
+        since: u64,
+        max_changes: Option<u64>,
+    ) -> Option<Result<ChangesResult, BackendChangesError<MemoryError>>> {
+        let snapshots = self.avatar_views.get(account_id.as_ref())?;
+        let start = snapshots.iter().position(|s| s.state == since)?;
+        let base = self.view_at(viewer, account_id, &snapshots[start]);
+        let diff = |now: &HashMap<Id, Value>| {
+            let mut created = Vec::new();
+            let mut updated = Vec::new();
+            let mut destroyed = Vec::new();
+            for (id, v) in now {
+                match base.get(id) {
+                    None => created.push(id.clone()),
+                    Some(old) if old != v => updated.push(id.clone()),
+                    Some(_) => {}
+                }
+            }
+            for id in base.keys().filter(|id| !now.contains_key(*id)) {
+                destroyed.push(id.clone());
+            }
+            (created, updated, destroyed)
+        };
+        let current = self.state(SceneAvatar::TYPE_NAME, account_id);
+        let mut result = (Vec::new(), Vec::new(), Vec::new());
+        let mut upto = since;
+        for snapshot in &snapshots[start + 1..] {
+            let next = diff(&self.view_at(viewer, account_id, snapshot));
+            let count = (next.0.len() + next.1.len() + next.2.len()) as u64;
+            if let Some(max) = max_changes
+                && count > max
+            {
+                if upto == since {
+                    return Some(Err(BackendChangesError::TooManyChanges { limit: max }));
+                }
+                break;
+            }
+            result = next;
+            upto = snapshot.state;
+        }
+        let (created, updated, destroyed) = result;
+        Some(Ok(ChangesResult::new(
+            created,
+            updated,
+            destroyed,
+            upto < current,
+            State::from(upto.to_string()),
+        )))
     }
 
     /// Set each of `regions`' `activeAvatarCount` to its number of avatars
@@ -637,6 +839,47 @@ impl<C: MemoryCaller> MemoryBackend<C> {
             .insert((user.to_owned(), Id::from(region_id)));
     }
 
+    /// Hide avatar `avatar_id` of `account_id` from `viewer`, for
+    /// [`SceneBackend::avatar_view`], and advance the account's
+    /// SceneAvatar state.
+    #[doc(hidden)]
+    pub fn hide_avatar(&self, account_id: &Id, viewer: &str, avatar_id: &str) {
+        let key = (viewer.to_owned(), Id::from(avatar_id));
+        self.lock().change_avatar_rules(account_id, |rules| {
+            rules.withheld.remove(&key);
+            rules.hidden.insert(key);
+        });
+    }
+
+    /// Withhold the properties of `redaction` of avatar `avatar_id` of
+    /// `account_id` from `viewer`, for [`SceneBackend::avatar_view`], and
+    /// advance the account's SceneAvatar state.
+    #[doc(hidden)]
+    pub fn withhold_avatar(
+        &self,
+        account_id: &Id,
+        viewer: &str,
+        avatar_id: &str,
+        redaction: AvatarRedaction,
+    ) {
+        let key = (viewer.to_owned(), Id::from(avatar_id));
+        self.lock().change_avatar_rules(account_id, |rules| {
+            rules.hidden.remove(&key);
+            rules.withheld.insert(key, redaction);
+        });
+    }
+
+    /// Show avatar `avatar_id` of `account_id` to `viewer` in full again,
+    /// and advance the account's SceneAvatar state.
+    #[doc(hidden)]
+    pub fn reveal_avatar(&self, account_id: &Id, viewer: &str, avatar_id: &str) {
+        let key = (viewer.to_owned(), Id::from(avatar_id));
+        self.lock().change_avatar_rules(account_id, |rules| {
+            rules.hidden.remove(&key);
+            rules.withheld.remove(&key);
+        });
+    }
+
     /// Refuse every interaction of `user` as over the rate, for
     /// [`SceneBackend::accept_interaction`].
     #[doc(hidden)]
@@ -829,10 +1072,11 @@ impl<C: MemoryCaller> JmapReads for MemoryBackend<C> {
 
     async fn get_changes<O: JmapObject + Send + Sync>(
         &self,
-        _caller: &C,
+        caller: &C,
         account_id: &Id,
         params: jmap_server::ChangesParams<'_>,
     ) -> Result<ChangesResult, BackendChangesError<MemoryError>> {
+        let viewer = acting_user(caller, account_id);
         let since_state = params.since_state;
         let max_changes = params.max_changes;
         let inner = self.locked().await;
@@ -843,6 +1087,16 @@ impl<C: MemoryCaller> JmapReads for MemoryBackend<C> {
         let current = inner.state(O::TYPE_NAME, account_id);
         if since > current {
             return Err(BackendChangesError::CannotCalculate);
+        }
+        // §Avatar Visibility: once the account has avatar rules, answer
+        // from the caller's view; a state before the first rule cannot be
+        // calculated.
+        if O::TYPE_NAME == SceneAvatar::TYPE_NAME
+            && inner.avatar_rules.contains_key(account_id.as_ref())
+        {
+            return inner
+                .avatar_changes_for(&viewer, account_id, since, max_changes)
+                .unwrap_or(Err(BackendChangesError::CannotCalculate));
         }
 
         let window = || {
@@ -974,8 +1228,13 @@ impl<C: MemoryCaller> JmapReads for MemoryBackend<C> {
         } else if O::TYPE_NAME == SceneAvatar::TYPE_NAME {
             let filter: Option<SceneAvatarFilter> = filter.map(recode).transpose()?;
             let sort: Vec<SceneAvatarComparator> = recode(&sort)?;
+            // §Avatar Visibility: hidden avatars are left out and the
+            // filters and sorts see "the values returned to the caller".
+            let rules = inner.avatar_rules.get(account_id.as_ref());
             sorted_ids(
-                inner.all::<SceneAvatar>(account_id),
+                inner
+                    .all::<SceneAvatar>(account_id)
+                    .filter_map(|a| inner.viewed_avatar(caller, account_id, a, rules)),
                 |a| {
                     inner.may_access(caller, account_id, &a.region_id)
                         && !inner.blocked.contains(&(caller.clone(), a.user_id.clone()))
@@ -1446,6 +1705,18 @@ impl<C: MemoryCaller> SceneBackend for MemoryBackend<C> {
             .lock()
             .hidden_avatars
             .contains(&(caller.clone(), region_id.clone())))
+    }
+
+    async fn avatar_view(
+        &self,
+        caller: &C,
+        account_id: &Id,
+        avatar: &SceneAvatar,
+    ) -> Result<AvatarView, MemoryError> {
+        let viewer = acting_user(caller, account_id);
+        let inner = self.locked().await;
+        let rules = inner.avatar_rules.get(account_id.as_ref());
+        Ok(inner.avatar_view(&viewer, account_id, avatar, rules))
     }
 
     async fn reserved_display_names(

@@ -12,8 +12,8 @@
 use jmap_server::{BackendSetError, JmapBackend, JmapObject, SetObject};
 
 use jmap_scene_types::{
-    SceneAsset, SceneAvatar, SceneCapability, SceneInteractionEvent, SceneObject, SceneRegion,
-    SceneRegionEvent,
+    Orientation, Position, SceneAsset, SceneAvatar, SceneCapability, SceneInteractionEvent,
+    SceneObject, SceneRegion, SceneRegionEvent,
 };
 
 /// A SceneRegion binding property, the reference
@@ -68,6 +68,98 @@ pub enum BindingTarget {
     Inaccessible,
 }
 
+/// What [`SceneBackend::avatar_view`] lets a caller see of one
+/// SceneAvatar (draft-atwood-jmap-scene-00 at jmap-chat-spec 93f2258,
+/// §Avatar Visibility): "The server hides an avatar from a caller as a
+/// whole, or withholds some of its properties".
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Default)]
+pub enum AvatarView {
+    /// The whole avatar, as stored. The default.
+    #[default]
+    Full,
+    /// The avatar with the [`AvatarRedaction`]'s properties withheld.
+    Redacted(AvatarRedaction),
+    /// "A hidden avatar is treated as if it did not exist:
+    /// `SceneAvatar/get` reports it in `notFound`, `SceneAvatar/query` does
+    /// not return it, and a `SceneAvatar/set` update of it returns
+    /// `notFound`."
+    Hidden,
+}
+
+/// The properties of one SceneAvatar withheld from a caller
+/// (jmap-chat-spec 93f2258 §Avatar Visibility): "Only `position`,
+/// `orientation`, `worldState`, and `regionState` can be withheld."
+///
+/// For `position` and `orientation` the deployment supplies the value
+/// returned instead, one "that tells the caller nothing it may not know,
+/// such as the region's `spawnPosition` and `spawnOrientation`, or the
+/// values at the time the avatar was last visible to the caller". For
+/// `worldState` and `regionState` "the server leaves out the withheld
+/// top-level keys". The default withholds nothing.
+///
+/// ```
+/// use jmap_scene_server::AvatarRedaction;
+///
+/// let mut redaction = AvatarRedaction::default();
+/// redaction.position = Some([0.0, 0.0, 5.0]);
+/// redaction.region_state_keys = vec!["money".to_owned()];
+/// assert_eq!(redaction.withheld(), ["position", "regionState"]);
+/// ```
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct AvatarRedaction {
+    /// The `position` returned instead of the stored one; `None` to
+    /// return the stored one.
+    pub position: Option<Position>,
+    /// The `orientation` returned instead of the stored one; `None` to
+    /// return the stored one.
+    pub orientation: Option<Orientation>,
+    /// The top-level `worldState` keys left out.
+    pub world_state_keys: Vec<String>,
+    /// The top-level `regionState` keys left out.
+    pub region_state_keys: Vec<String>,
+}
+
+impl AvatarRedaction {
+    /// Apply this redaction to `avatar`: replace `position` and
+    /// `orientation` where set, and remove the listed `worldState` and
+    /// `regionState` keys. A `null` or absent state object is left as it
+    /// is.
+    pub fn apply(&self, avatar: &mut SceneAvatar) {
+        if let Some(p) = self.position {
+            avatar.position = p;
+        }
+        if let Some(o) = self.orientation {
+            avatar.orientation = o;
+        }
+        if let Some(ws) = &mut avatar.world_state {
+            for k in &self.world_state_keys {
+                ws.remove(k);
+            }
+        }
+        if let Some(Some(rs)) = &mut avatar.region_state {
+            for k in &self.region_state_keys {
+                rs.remove(k);
+            }
+        }
+    }
+
+    /// The SceneAvatar property names this redaction withholds, in the
+    /// order `position`, `orientation`, `worldState`, `regionState`.
+    pub fn withheld(&self) -> Vec<&'static str> {
+        [
+            ("position", self.position.is_some()),
+            ("orientation", self.orientation.is_some()),
+            ("worldState", !self.world_state_keys.is_empty()),
+            ("regionState", !self.region_state_keys.is_empty()),
+        ]
+        .into_iter()
+        .filter_map(|(name, on)| on.then_some(name))
+        .collect()
+    }
+}
+
 /// Storage backend for the JMAP Scene method handlers
 /// (draft-atwood-jmap-scene-00).
 ///
@@ -87,7 +179,11 @@ pub enum BindingTarget {
 /// A `/changes` result may therefore name an id that `/get` then hides: "A
 /// server MAY report an object hidden from the caller in `notFound` from
 /// `/get`". Unlike draft-atwood-jmap-graph-00, Scene does not ask `/changes`
-/// to omit what the caller may not read.
+/// to omit what the caller may not read, with one exception: a backend
+/// that hides SceneAvatars or withholds their properties to protect
+/// information ([`Self::avatar_view`]) SHOULD answer `SceneAvatar/changes`
+/// from the caller's view (jmap-chat-spec 93f2258 §Avatar Visibility).
+/// `get_changes` receives the caller for that.
 ///
 /// This trait is not object-safe by design (generic methods). Use
 /// `Arc<impl SceneBackend>` when sharing across tasks.
@@ -665,6 +761,61 @@ pub trait SceneBackend: JmapBackend {
     ) -> impl std::future::Future<Output = Result<bool, Self::Error>> + Send {
         let _ = (caller, account_id, region_id);
         async { Ok(true) }
+    }
+
+    /// What the caller may see of `avatar`, another user's avatar
+    /// (draft-atwood-jmap-scene-00 at jmap-chat-spec 93f2258, §Avatar
+    /// Visibility): "A server MAY also limit which SceneAvatar records, and
+    /// which of their properties, each caller sees: for example, to keep
+    /// opponents' positions from players during a competitive round". The
+    /// rule is deployment-defined.
+    ///
+    /// The handlers never ask about the caller's own avatar: "A caller
+    /// always sees their own avatar in full". The hook "SHOULD NOT hide
+    /// avatars, or withhold their properties, from the region owner and
+    /// administrators", which is the implementation's to honor. It is
+    /// consulted after region access, the blocked-contact filter and
+    /// [`Self::may_see_region_avatars`], which stay separate.
+    ///
+    /// - `SceneAvatar/get` reports an [`AvatarView::Hidden`] avatar in
+    ///   `notFound` and returns a [`AvatarView::Redacted`] one with its
+    ///   [`AvatarRedaction`] applied; the withheld properties are
+    ///   unreadable to a draft-ietf-jmap-conditional-02 precondition.
+    /// - `SceneAvatar/set` refuses an update of a hidden avatar with
+    ///   `notFound`.
+    /// - [`crate::should_deliver`] drops a `SceneAvatarEvent` about a
+    ///   hidden avatar: "an event about an avatar hidden from the
+    ///   recipient is not delivered to that recipient".
+    /// - `query_objects` must apply the same view, since the handlers
+    ///   cannot filter a page they did not cut: leave hidden avatars out
+    ///   and evaluate filters and sorts "against the values returned to
+    ///   the caller, so a spatial query cannot locate an avatar whose
+    ///   position is withheld".
+    /// - `get_changes` (and `query_changes`) of a backend that hides
+    ///   avatars "to protect information, rather than only for blocked
+    ///   contacts or end-to-end encrypted calls, SHOULD answer `/changes`
+    ///   and `/queryChanges` from the caller's view": an avatar that
+    ///   becomes visible is `created`, one that becomes hidden is
+    ///   `destroyed`, and one is `updated` "only when a value returned to
+    ///   the caller changes". The state string stays one per account and
+    ///   advances "Whenever the caller's view changes", so push notifies the
+    ///   caller. The handlers pass the caller to `get_changes`; the
+    ///   per-caller log is the backend's.
+    ///
+    /// `activeAvatarCount` still counts hidden avatars.
+    ///
+    /// # Default implementation
+    ///
+    /// Returns `Ok(AvatarView::Full)`: every avatar is visible in full,
+    /// today's behavior (fail-open, bd:JMAP-bghk).
+    fn avatar_view(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        avatar: &SceneAvatar,
+    ) -> impl std::future::Future<Output = Result<AvatarView, Self::Error>> + Send {
+        let _ = (caller, account_id, avatar);
+        async { Ok(AvatarView::Full) }
     }
 
     /// Accept an interaction that passed the `SceneObject/interact`

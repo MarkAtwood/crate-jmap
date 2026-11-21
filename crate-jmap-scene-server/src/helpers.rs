@@ -7,7 +7,7 @@ use serde_json::{Map, Value, json};
 
 use jmap_scene_types::{SceneAvatar, SceneObject, SceneRegion};
 
-use crate::SceneBackend;
+use crate::{AvatarView, SceneBackend};
 use jmap_server::{
     HandlerOutput, enforce_max_objects_in_get, not_found_json, optional_arg, serialize_value,
     server_fail_from_backend, server_fail_value_from_backend,
@@ -264,10 +264,9 @@ pub(crate) trait Visible: GetObject + Send + Sync {
         backend: &B,
         caller: &B::CallerCtx,
         account_id: &Id,
-    ) -> impl std::future::Future<Output = Result<(Self, &'static [&'static str]), B::Error>> + Send
-    {
+    ) -> impl std::future::Future<Output = Result<(Self, Vec<&'static str>), B::Error>> + Send {
         let _ = (backend, caller, account_id);
-        async { Ok((self, &[][..])) }
+        async { Ok((self, Vec::new())) }
     }
 }
 
@@ -301,12 +300,12 @@ impl Visible for SceneRegion {
         backend: &B,
         caller: &B::CallerCtx,
         account_id: &Id,
-    ) -> Result<(Self, &'static [&'static str]), B::Error> {
+    ) -> Result<(Self, Vec<&'static str>), B::Error> {
         if backend.may_update_region(caller, account_id, &self).await? {
-            return Ok((self, &[]));
+            return Ok((self, Vec::new()));
         }
         self.invited_user_ids.clear();
-        Ok((self, &["invitedUserIds"]))
+        Ok((self, vec!["invitedUserIds"]))
     }
 }
 
@@ -347,8 +346,42 @@ impl Visible for SceneAvatar {
         Ok(!backend.is_user_blocked(caller, &self.user_id).await?
             && backend
                 .may_see_region_avatars(caller, account_id, &self.region_id)
-                .await?)
+                .await?
+            && avatar_view(backend, caller, account_id, self).await? != AvatarView::Hidden)
     }
+
+    /// §Avatar Visibility (jmap-chat-spec 93f2258): the
+    /// [`AvatarRedaction`](crate::AvatarRedaction) of [`SceneBackend::avatar_view`] applied, its
+    /// withheld properties unreadable.
+    async fn redact<B: SceneBackend>(
+        mut self,
+        backend: &B,
+        caller: &B::CallerCtx,
+        account_id: &Id,
+    ) -> Result<(Self, Vec<&'static str>), B::Error> {
+        match avatar_view(backend, caller, account_id, &self).await? {
+            AvatarView::Redacted(r) => {
+                r.apply(&mut self);
+                Ok((self, r.withheld()))
+            }
+            _ => Ok((self, Vec::new())),
+        }
+    }
+}
+
+/// [`SceneBackend::avatar_view`] of `avatar` for the caller, who "always
+/// sees their own avatar in full" (jmap-chat-spec 93f2258 §Avatar
+/// Visibility): the hook is asked only about other users' avatars.
+pub(crate) async fn avatar_view<B: SceneBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    avatar: &SceneAvatar,
+) -> Result<AvatarView, B::Error> {
+    if backend.caller_user_id(caller, account_id).await? == avatar.user_id {
+        return Ok(AvatarView::Full);
+    }
+    backend.avatar_view(caller, account_id, avatar).await
 }
 
 /// `true` if the caller may see `o`: region access first, then the type's

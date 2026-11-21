@@ -79,6 +79,15 @@
 //! true count, blocked users included, as the draft says deployments
 //! "SHOULD prefer".
 //!
+//! Avatar Visibility (draft §Avatar Visibility, jmap-chat-spec 93f2258):
+//! [`SceneBackend::avatar_view`] hides another user's avatar from the
+//! caller ([`AvatarView::Hidden`]: `notFound` from `SceneAvatar/get` and
+//! from a `SceneAvatar/set` update, no `SceneAvatarEvent`) or withholds
+//! its `position`, `orientation` and `worldState` / `regionState` keys
+//! ([`AvatarRedaction`]). The default shows everything. The backend applies
+//! the same view in `/query` and, when it hides to protect information, in
+//! `SceneAvatar/changes`.
+//!
 //! Push (draft §Push Notifications): [`SCENE_DATA_TYPES`], the four types
 //! that participate in RFC 8620 state changes, and [`push_urgency`], the
 //! §Push Urgency suggestion for a `StateChange`, including the
@@ -154,7 +163,7 @@ pub use avatar::{
     handle_scene_avatar_changes, handle_scene_avatar_get, handle_scene_avatar_query,
     handle_scene_avatar_query_changes, handle_scene_avatar_set,
 };
-pub use backend::{BindingProperty, BindingTarget, SceneBackend};
+pub use backend::{AvatarRedaction, AvatarView, BindingProperty, BindingTarget, SceneBackend};
 pub use broadcast::handle_scene_region_broadcast;
 pub use ephemeral::{
     RegionScope, SceneEphemeralSubscription, SceneStreamFilter, should_deliver,
