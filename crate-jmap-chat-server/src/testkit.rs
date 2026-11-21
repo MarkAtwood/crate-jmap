@@ -119,7 +119,7 @@ pub fn run<F: Future>(test: F) -> F::Output {
 /// backend from `$make`.
 ///
 /// `$make` is any expression callable with no arguments that returns a
-/// [`ConformanceBackend`](crate::testkit::ConformanceBackend), such as a
+/// [`ConformanceBackend`], such as a
 /// constructor path or a closure. Invoke it at most once per module.
 ///
 /// ```rust,ignore

@@ -22,7 +22,7 @@ use crate::start::{Start, compute_digest, start};
 /// `created_ids` are the request's creation ids so far, for
 /// `#creationId` references to blobs created by earlier calls; `using` is
 /// the request's capability list, which selects blob2 or RFC 9404
-/// behaviour ([`BlobMode`](crate::BlobMode)).
+/// behaviour ([`BlobMode`]).
 ///
 /// Every `ids` entry the caller cannot see, and every `#creationId` with
 /// no creation, is listed in `notFound` as sent. `data`, `data:asText`,

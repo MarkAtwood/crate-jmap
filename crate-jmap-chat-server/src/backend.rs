@@ -18,7 +18,7 @@ use jmap_server::{BackendSetError, JmapBackend, JmapObject, SetError, SetErrorTy
 // Space/set structural-mutation result
 // ---------------------------------------------------------------------------
 
-/// The outcome of a single [`SpacePatchOp`](crate::SpacePatchOp) applied by
+/// The outcome of a single [`SpacePatchOp`] applied by
 /// [`ChatSpaces::apply_space_patch`].
 ///
 /// `op_index` is the zero-based index of the op within the input `Vec`, used
@@ -613,7 +613,7 @@ pub trait ChatStore: ChatEvents {
     /// (draft-atwood-jmap-chat §Terminology). Implementors MUST verify that
     /// `caller` may act as the owner of `account_id` before performing the
     /// mutation, and MUST return [`BackendSetError::SetError`] carrying
-    /// [`SetErrorType::Forbidden`](jmap_server::SetErrorType::Forbidden) otherwise. Handlers in this crate do no
+    /// [`SetErrorType::Forbidden`] otherwise. Handlers in this crate do no
     /// account-access checking, so a backend that trusts the handler lets any
     /// caller write any account. Space permission and role-hierarchy gates
     /// resolve against the owner's member entry through the `may_*` hooks (for
@@ -830,7 +830,7 @@ pub trait ChatStore: ChatEvents {
     ///
     /// Implementors MUST verify that `caller` may act as the owner of
     /// `account_id` before applying the patch and MUST return [`BackendSetError::SetError`]
-    /// with [`SetErrorType::Forbidden`](jmap_server::SetErrorType::Forbidden) otherwise. See [`Self::create_object`]
+    /// with [`SetErrorType::Forbidden`] otherwise. See [`Self::create_object`]
     /// for the workspace-canonical rationale; the same rule applies here.
     ///
     /// # Patch format
@@ -887,7 +887,7 @@ pub trait ChatStore: ChatEvents {
     ///
     /// Implementors MUST verify that `caller` may act as the owner of
     /// `account_id` before destroying it and MUST return [`BackendSetError::SetError`]
-    /// with [`SetErrorType::Forbidden`](jmap_server::SetErrorType::Forbidden) otherwise. See [`Self::create_object`]
+    /// with [`SetErrorType::Forbidden`] otherwise. See [`Self::create_object`]
     /// for the workspace-canonical rationale; the same rule applies here.
     ///
     /// # Errors
@@ -1115,14 +1115,14 @@ pub trait ChatSpaces: JmapBackend {
     /// (`addRoles`, `removeRoles`, `addMembers`, …) rather than RFC 8620
     /// JSON Pointer patches. The handler in `space::handle_space_set`
     /// parses the wire object, unfolds each array entry into a
-    /// [`SpacePatchOp`](crate::SpacePatchOp) value, then calls this method with the resulting
+    /// [`SpacePatchOp`] value, then calls this method with the resulting
     /// ordered `Vec`.
     ///
     /// # Authorisation contract
     ///
     /// Implementors MUST verify that `caller` may act as the owner of
     /// `account_id` before applying any op, and MUST return
-    /// [`BackendSetError::SetError`] with [`SetErrorType::Forbidden`](jmap_server::SetErrorType::Forbidden)
+    /// [`BackendSetError::SetError`] with [`SetErrorType::Forbidden`]
     /// for the whole call otherwise; the handler reports it in `notUpdated`.
     /// The per-op permission and role-hierarchy gates under "Per-op error
     /// semantics" are also enforced here, atomically with the mutation. See
@@ -1344,7 +1344,7 @@ pub trait ChatSpaces: JmapBackend {
     ///
     /// Implementors MUST verify that `caller` may act as the owner of
     /// `account_id` before applying the patch and MUST return [`BackendSetError::SetError`]
-    /// with [`SetErrorType::Forbidden`](jmap_server::SetErrorType::Forbidden) otherwise. See [`ChatStore::create_object`]
+    /// with [`SetErrorType::Forbidden`] otherwise. See [`ChatStore::create_object`]
     /// for the workspace-canonical rationale; the same rule applies here.
     ///
     /// # Permission and atomicity
@@ -2495,7 +2495,7 @@ pub trait ChatMessageLifecycle: JmapBackend {
     ///
     /// Implementors MUST verify that `caller` may act as the owner of
     /// `account_id` before setting `readAt` and deleting the Message and MUST return [`BackendSetError::SetError`]
-    /// with [`SetErrorType::Forbidden`](jmap_server::SetErrorType::Forbidden) otherwise. See [`ChatStore::create_object`]
+    /// with [`SetErrorType::Forbidden`] otherwise. See [`ChatStore::create_object`]
     /// for the workspace-canonical rationale; the same rule applies here.
     ///
     /// # Atomicity contract

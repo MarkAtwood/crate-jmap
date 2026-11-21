@@ -955,7 +955,7 @@ async fn check_space_count_limits<B: ChatBackend>(
 /// alone is enough for a client to know which collection to retry
 /// without; numeric counts and caps are deployment-private. Byte-
 /// identical to the backend-canonical description in
-/// [`crate::memory::check_count_caps`] for response-shape parity.
+/// `memory::check_count_caps` for response-shape parity.
 fn count_exceeded(description: &'static str, current: u32, add: u32, cap: u32) -> Option<SetError> {
     if add == 0 {
         return None;
