@@ -1,10 +1,10 @@
-//! SceneAsset/* method handlers (draft-atwood-jmap-scene-00 §SceneAsset
+//! `SceneAsset/*` method handlers (draft-atwood-jmap-scene-00 §`SceneAsset`
 //! Methods).
 //!
 //! `/get`, `/changes` and `/queryChanges` are the standard RFC 8620 §5.1,
-//! §5.2 and §5.6 methods. `/set` applies §SceneAsset/set and its §SetError
+//! §5.2 and §5.6 methods. `/set` applies §`SceneAsset/set` and its §`SetError`
 //! Conditions: required `blobId` and `mediaType`, the server-set
-//! properties (including `ownerId`, the caller's userId), the media-type
+//! properties (including `ownerId`, the caller's `userId`), the media-type
 //! rule with glTF as the mandatory-to-implement format,
 //! `invalidProperties` for a missing blob, `overQuota` above `maxAssetSizeBytes`, the immutable
 //! properties on update and the owner-or-admin rule on update and destroy.
@@ -13,7 +13,7 @@
 //!
 //! Every handler first returns `unknownMethod` when the account's
 //! [`SceneCapability::supports_scene_asset`] is `false`: "When `false`, a
-//! call to any SceneAsset method returns an `unknownMethod` error"
+//! call to any `SceneAsset` method returns an `unknownMethod` error"
 //! (§Account-Level Capability Object).
 
 use jmap_scene_types::SceneAssetComparator;
@@ -81,8 +81,20 @@ async fn ensure_scene_asset_supported<B: SceneBackend>(
     Ok(())
 }
 
-/// Handle `SceneAsset/get` (draft-atwood-jmap-scene-00 §SceneAsset/get):
+/// Handle `SceneAsset/get` (draft-atwood-jmap-scene-00 §`SceneAsset/get`):
 /// standard RFC 8620 §5.1 `/get`.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `ids` or `properties` is malformed;
+/// - `unknownMethod` when the account's [`SceneBackend::scene_capability`]
+///   has `supportsSceneAsset: false`;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `ids` holds more than `maxObjectsInGet` ids;
+/// - `serverFail` when the backend fails.
 pub async fn handle_scene_asset_get<B: SceneBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -93,7 +105,20 @@ pub async fn handle_scene_asset_get<B: SceneBackend>(
 }
 
 /// Handle `SceneAsset/changes` (draft-atwood-jmap-scene-00
-/// §SceneAsset/changes): standard RFC 8620 §5.2 `/changes`.
+/// §`SceneAsset/changes`): standard RFC 8620 §5.2 `/changes`.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `sinceState` is missing, or `maxChanges` is not a positive integer;
+/// - `unknownMethod` when the account's [`SceneBackend::scene_capability`]
+///   has `supportsSceneAsset: false`;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `cannotCalculateChanges` when the backend cannot compute the changes
+///   since `sinceState`;
+/// - `serverFail` when the backend fails.
 pub async fn handle_scene_asset_changes<B: SceneBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -104,13 +129,30 @@ pub async fn handle_scene_asset_changes<B: SceneBackend>(
 }
 
 /// Handle `SceneAsset/query` (draft-atwood-jmap-scene-00
-/// §SceneAsset/query).
+/// §`SceneAsset/query`).
 ///
 /// Supplies the "Default sort: `createdAt` descending" and refuses any
 /// other sort property with `unsupportedSort`; an unknown filter property
 /// is `unsupportedFilter`. The backend evaluates the filter;
 /// [`crate::query::asset_matches`] and [`crate::query::compare_assets`]
 /// implement it.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   when `filter`, `sort`, `position`, `anchor`, `anchorOffset` or `limit`
+///   is malformed;
+/// - `unknownMethod` when the account's [`SceneBackend::scene_capability`]
+///   has `supportsSceneAsset: false`;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `unsupportedFilter` when the filter does not decode as a `SceneAsset` filter;
+/// - `unsupportedSort` when `sort` names a property this server does not
+///   define;
+/// - `anchorNotFound` when `anchor` is not in the results;
+/// - `serverFail` when the backend fails, or any other RFC 8620 §5.5 error
+///   the backend returns.
 pub async fn handle_scene_asset_query<B: SceneBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -121,8 +163,26 @@ pub async fn handle_scene_asset_query<B: SceneBackend>(
 }
 
 /// Handle `SceneAsset/queryChanges` (draft-atwood-jmap-scene-00
-/// §SceneAsset/queryChanges). RFC 8620 §5.6: the `filter` and `sort` are
+/// §`SceneAsset/queryChanges`). RFC 8620 §5.6: the `filter` and `sort` are
 /// those of the original query, so the `/query` rules apply here too.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `sinceQueryState` is missing, or `filter`, `sort`, `maxChanges` or
+///   `upToId` is malformed;
+/// - `unknownMethod` when the account's [`SceneBackend::scene_capability`]
+///   has `supportsSceneAsset: false`;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `unsupportedFilter` when the filter does not decode as a `SceneAsset` filter;
+/// - `unsupportedSort` when `sort` names a property this server does not
+///   define;
+/// - `cannotCalculateChanges` when the backend cannot compute the changes
+///   since `sinceQueryState`;
+/// - `serverFail` when the backend fails, or any other RFC 8620 §5.6 error
+///   the backend returns.
 pub async fn handle_scene_asset_query_changes<B: SceneBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -143,7 +203,7 @@ fn prepare_query(mut args: Value) -> Result<Value, JmapError> {
     Ok(args)
 }
 
-/// Handle `SceneAsset/set` (draft-atwood-jmap-scene-00 §SceneAsset/set).
+/// Handle `SceneAsset/set` (draft-atwood-jmap-scene-00 §`SceneAsset/set`).
 ///
 /// Create validates the arguments, looks the blob up with
 /// [`SceneBackend::blob_size`], applies `maxAssetSizeBytes` and hands the
@@ -153,6 +213,23 @@ fn prepare_query(mut args: Value) -> Result<Value, JmapError> {
 /// A `#creationId` `blobId` needs the request's creation ids, which this
 /// function does not take: [`register_scene_handlers`](crate::register_scene_handlers)
 /// resolves them (RFC 8620 §5.3).
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   an element of `destroy` is not a string;
+/// - `unknownMethod` when the account's [`SceneBackend::scene_capability`]
+///   has `supportsSceneAsset: false`;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `create`, `update` and `destroy` together hold
+///   more than `maxObjectsInSet` objects;
+/// - `stateMismatch` when `ifInState` is not the current state;
+/// - `serverFail` when the backend fails.
+///
+/// A create, update or destroy that fails on its own is a [`SetError`] in
+/// the response, not an `Err`.
 pub async fn handle_scene_asset_set<B: SceneBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -322,7 +399,7 @@ async fn set_destroy<B: SceneBackend>(
     Ok(mutated)
 }
 
-/// `true` if the server accepts `media_type` for a SceneAsset: "MUST be a
+/// `true` if the server accepts `media_type` for a `SceneAsset`: "MUST be a
 /// value present in the account-level `supportedVisualTypes` or a
 /// recognized audio/image type", with [`GLTF_BINARY`] always supported.
 ///
@@ -346,7 +423,7 @@ fn is_lowercase_sha256(s: &str) -> bool {
 }
 
 /// The offending names among `mediaType` and the optional string
-/// properties present in `m`, for an `invalidProperties` SetError.
+/// properties present in `m`, for an `invalidProperties` `SetError`.
 ///
 /// A `mediaType` key must hold a string the server supports. The optional
 /// properties must be a string or `null`, and `sha256` lowercase hex.
@@ -389,7 +466,7 @@ async fn capability<B: SceneBackend>(
         .map_err(|e| server_fail_value_from_backend(&e))
 }
 
-/// One §SceneAsset/set create. The `Ok` value is the `created` entry: the
+/// One §`SceneAsset/set` create. The `Ok` value is the `created` entry: the
 /// server-set `id`, `accountId`, `ownerId` (the caller's
 /// [`SceneBackend::caller_user_id`]), `size` and `createdAt`.
 async fn create_asset<B: SceneBackend>(
@@ -506,7 +583,7 @@ async fn fetch_modifiable<B: SceneBackend>(
     Ok(asset)
 }
 
-/// One §SceneAsset/set update. `Ok` is the `updated` echo.
+/// One §`SceneAsset/set` update. `Ok` is the `updated` echo.
 /// Vendor extension properties stay patchable and the spec-defined immutable
 /// or server-set ones do not, unless sent with their stored value (RFC 8620
 /// §5.3) (§Extension Properties in Updates,
@@ -565,7 +642,7 @@ async fn update_asset<B: SceneBackend>(
     }
 }
 
-/// One §SceneAsset/set destroy, under the "Same permission model as
+/// One §`SceneAsset/set` destroy, under the "Same permission model as
 /// update".
 async fn destroy_asset<B: SceneBackend>(
     backend: &B,

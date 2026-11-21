@@ -1,7 +1,7 @@
-//! Object history for SceneAsset, SceneRegion and SceneObject in the
+//! Object history for `SceneAsset`, `SceneRegion` and `SceneObject` in the
 //! memory backend (draft-ietf-jmap-object-history-03 with the -04 editor's
 //! copy changes; docs/design/object-history.md §7; docs/design/DECISIONS.md
-//! decision 22). SceneAvatar keeps none.
+//! decision 22). `SceneAvatar` keeps none.
 //!
 //! Off until [`MemoryBackend::with_object_history`]. Versions live in a
 //! `jmap_object_history_server::HistoryStore` inside the scoped state, so a
@@ -58,7 +58,7 @@ impl Inner {
     }
 
     /// Record the destruction of `id` with `last` as its final state; every
-    /// route counts (§3), so the SceneRegion and SceneObject cascades too.
+    /// route counts (§3), so the `SceneRegion` and `SceneObject` cascades too.
     pub(super) fn record_destroy(&mut self, type_name: &str, account: &Id, id: &Id, last: Value) {
         if let Some(h) = self.history.as_mut() {
             h.record_destroy(type_name, account, id, last);
@@ -105,7 +105,7 @@ impl Inner {
 
 impl<C: MemoryCaller> MemoryBackend<C> {
     /// Keep object history for the types `capability.supportedTypes` lists
-    /// (SceneAsset, SceneRegion, SceneObject) in every account, with `retention`;
+    /// (`SceneAsset`, `SceneRegion`, `SceneObject`) in every account, with `retention`;
     /// `capability` is also what
     /// [`ObjectHistoryBackend::object_history_capability`] advertises.
     ///

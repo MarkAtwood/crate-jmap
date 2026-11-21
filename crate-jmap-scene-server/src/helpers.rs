@@ -23,8 +23,8 @@ pub(crate) fn numbers(v: &Value, n: usize) -> Option<Vec<f64>> {
 }
 
 /// ponytail: "Servers MAY reject quaternions whose magnitude deviates from
-/// 1.0 by more than a deployment-defined epsilon"; for SceneObject and
-/// SceneAvatar `orientation` and SceneRegion `spawnOrientation` this one
+/// 1.0 by more than a deployment-defined epsilon"; for `SceneObject` and
+/// `SceneAvatar` `orientation` and `SceneRegion` `spawnOrientation` this one
 /// is 1e-3, which accepts the draft's
 /// own three-decimal examples (L1461 `[0, 0.707, 0, 0.707]`, magnitude
 /// 0.99985; L1488 `[0, 0.383, 0, 0.924]`, 1.00023). Accepted values are
@@ -62,8 +62,8 @@ pub(crate) fn normalized_quaternion(m: &Map<String, Value>, key: &str) -> Option
     Some(json!(q))
 }
 
-/// The `/query` §Filter Validation shared by SceneObject and SceneAvatar,
-/// in every condition of a FilterOperator tree, then `condition` on each
+/// The `/query` §Filter Validation shared by `SceneObject` and `SceneAvatar`,
+/// in every condition of a `FilterOperator` tree, then `condition` on each
 /// condition.
 ///
 /// ponytail: "If `regionId` is absent, the server MUST return
@@ -199,7 +199,7 @@ pub(crate) fn parents_first(
     }
 }
 
-/// An `invalidProperties` SetError naming `properties` (none when empty).
+/// An `invalidProperties` `SetError` naming `properties` (none when empty).
 pub(crate) fn invalid(properties: &[&str], description: &str) -> Value {
     let err = SetError::new(SetErrorType::InvalidProperties).with_description(description);
     serde_json::Value::from(&if properties.is_empty() {
@@ -209,17 +209,17 @@ pub(crate) fn invalid(properties: &[&str], description: &str) -> Value {
     })
 }
 
-/// A `forbidden` SetError.
+/// A `forbidden` `SetError`.
 pub(crate) fn forbidden(description: &str) -> Value {
     serde_json::Value::from(&SetError::new(SetErrorType::Forbidden).with_description(description))
 }
 
-/// A `notFound` SetError.
+/// A `notFound` `SetError`.
 pub(crate) fn not_found() -> Value {
     serde_json::Value::from(&SetError::new(SetErrorType::NotFound))
 }
 
-/// An `overQuota` SetError.
+/// An `overQuota` `SetError`.
 pub(crate) fn over_quota(description: &str) -> Value {
     serde_json::Value::from(&SetError::new(SetErrorType::OverQuota).with_description(description))
 }
@@ -246,8 +246,8 @@ pub(crate) trait Visible: GetObject + Send + Sync {
     /// The region whose access [`SceneBackend::may_access_region`] decides.
     fn region(&self) -> &Id;
 
-    /// The type's check after region access: the SceneObject visibility
-    /// set, or the SceneAvatar blocked-contact and E2EE-call filters.
+    /// The type's check after region access: the `SceneObject` visibility
+    /// set, or the `SceneAvatar` blocked-contact and E2EE-call filters.
     fn visible<B: SceneBackend>(
         &self,
         backend: &B,
@@ -489,7 +489,7 @@ pub(crate) async fn handle_get_visible<O: Visible, B: SceneBackend>(
     .with_unreadable(unreadable))
 }
 
-/// The sortable part of a UTCDate: `YYYY-MM-DDTHH:MM:SS`.
+/// The sortable part of a `UTCDate`: `YYYY-MM-DDTHH:MM:SS`.
 ///
 /// Fractional seconds are dropped so that values with and without them
 /// compare chronologically; for well-formed UTC timestamps the ASCII

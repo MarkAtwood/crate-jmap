@@ -1,9 +1,9 @@
-//! SceneRegion/* method handlers (draft-atwood-jmap-scene-00 §SceneRegion
+//! `SceneRegion/*` method handlers (draft-atwood-jmap-scene-00 §`SceneRegion`
 //! Methods).
 //!
 //! `/get`, `/changes` and `/queryChanges` are the standard RFC 8620 §5.1,
 //! §5.2 and §5.6 methods. `/set` applies §Creating a Region, §Updating a
-//! Region, §Destroying a Region and §SetError Conditions: the required
+//! Region, §Destroying a Region and §`SetError` Conditions: the required
 //! `name` and `bounds`, `min <= max`, the `accessPolicy`, `spawnOrientation`
 //! and binding rules, `mayCreateRegion`, the owner-or-admin rule on update
 //! and the owner rule on destroy. `/query` supplies the "Default sort:
@@ -47,12 +47,22 @@ const BINDINGS: &[(BindingProperty, &str)] = &[
 /// `\"invite\"`, `\"space\"`" is `invalidProperties`.
 const ACCESS_POLICIES: &[&str] = &["public", "invite", "space"];
 
-/// Handle `SceneRegion/get` (draft-atwood-jmap-scene-00 §SceneRegion/get):
+/// Handle `SceneRegion/get` (draft-atwood-jmap-scene-00 §`SceneRegion/get`):
 /// standard RFC 8620 §5.1 `/get`, with a region the caller has no access
 /// to ([`SceneBackend::may_access_region`]) reported as `notFound`
 /// (§Region Access). Of `invitedUserIds`, "The server returns the list
 /// only to callers who may update the region; for every other caller, the
 /// server returns `[]`" ([`SceneBackend::may_update_region`]).
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `ids` or `properties` is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `ids` holds more than `maxObjectsInGet` ids;
+/// - `serverFail` when the backend fails.
 pub async fn handle_scene_region_get<B: SceneBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -62,7 +72,18 @@ pub async fn handle_scene_region_get<B: SceneBackend>(
 }
 
 /// Handle `SceneRegion/changes` (draft-atwood-jmap-scene-00
-/// §SceneRegion/changes): standard RFC 8620 §5.2 `/changes`.
+/// §`SceneRegion/changes`): standard RFC 8620 §5.2 `/changes`.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `sinceState` is missing, or `maxChanges` is not a positive integer;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `cannotCalculateChanges` when the backend cannot compute the changes
+///   since `sinceState`;
+/// - `serverFail` when the backend fails.
 pub async fn handle_scene_region_changes<B: SceneBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -72,7 +93,7 @@ pub async fn handle_scene_region_changes<B: SceneBackend>(
 }
 
 /// Handle `SceneRegion/query` (draft-atwood-jmap-scene-00
-/// §SceneRegion/query).
+/// §`SceneRegion/query`).
 ///
 /// Supplies the "Default sort: `createdAt` descending", refuses any other
 /// sort property with `unsupportedSort` and an `accessPolicy` filter value
@@ -80,6 +101,23 @@ pub async fn handle_scene_region_changes<B: SceneBackend>(
 /// an unknown filter property is `unsupportedFilter`. The backend
 /// evaluates the filter; [`crate::query::region_matches`] and
 /// [`crate::query::compare_regions`] implement it.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, when
+///   `filter`, `sort`, `position`, `anchor`, `anchorOffset` or `limit` is
+///   malformed, or when a filter condition has an `accessPolicy` other than
+///   `"public"`, `"invite"` or `"space"`, or a `worldStateEquals` that is not
+///   an object of String, Number or Boolean values;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `unsupportedFilter` when the filter does not decode as a `SceneRegion` filter;
+/// - `unsupportedSort` when `sort` names a property this server does not
+///   define;
+/// - `anchorNotFound` when `anchor` is not in the results;
+/// - `serverFail` when the backend fails, or any other RFC 8620 §5.5 error
+///   the backend returns.
 pub async fn handle_scene_region_query<B: SceneBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -89,8 +127,26 @@ pub async fn handle_scene_region_query<B: SceneBackend>(
 }
 
 /// Handle `SceneRegion/queryChanges` (draft-atwood-jmap-scene-00
-/// §SceneRegion/queryChanges). RFC 8620 §5.6: the `filter` and `sort` are
+/// §`SceneRegion/queryChanges`). RFC 8620 §5.6: the `filter` and `sort` are
 /// those of the original query, so the `/query` rules apply here too.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `sinceQueryState` is missing, or `filter`, `sort`, `maxChanges` or
+///   `upToId` is malformed, or when a filter condition has an `accessPolicy`
+///   other than `"public"`, `"invite"` or `"space"`, or a `worldStateEquals`
+///   that is not an object of String, Number or Boolean values;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `unsupportedFilter` when the filter does not decode as a `SceneRegion` filter;
+/// - `unsupportedSort` when `sort` names a property this server does not
+///   define;
+/// - `cannotCalculateChanges` when the backend cannot compute the changes
+///   since `sinceQueryState`;
+/// - `serverFail` when the backend fails, or any other RFC 8620 §5.6 error
+///   the backend returns.
 pub async fn handle_scene_region_query_changes<B: SceneBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -141,11 +197,11 @@ fn check_filter_values(filter: &Value) -> Result<(), JmapError> {
     }
 }
 
-/// The SceneRegion properties that hold the id of another record, which a
+/// The `SceneRegion` properties that hold the id of another record, which a
 /// client may set to a `#creationId` reference (RFC 8620 §5.3).
 const REGION_ID_PROPERTIES: &[&str] = &["chatId", "spaceId", "channelId", "activeCallId"];
 
-/// Handle `SceneRegion/set` (draft-atwood-jmap-scene-00 §SceneRegion/set).
+/// Handle `SceneRegion/set` (draft-atwood-jmap-scene-00 §`SceneRegion/set`).
 ///
 /// Create requires `mayCreateRegion`, validates the region and its
 /// bindings ([`SceneBackend::has_capability`],
@@ -163,6 +219,21 @@ const REGION_ID_PROPERTIES: &[&str] = &["chatId", "spaceId", "channelId", "activ
 /// and resolves against `created_ids` (pass
 /// [`jmap_server::CallContext::created_ids`]; RFC 8620 §5.3); an unknown
 /// reference is `invalidProperties` naming the property.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   an element of `destroy` is not a string;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `create`, `update` and `destroy` together hold
+///   more than `maxObjectsInSet` objects;
+/// - `stateMismatch` when `ifInState` is not the current state;
+/// - `serverFail` when the backend fails.
+///
+/// A create, update or destroy that fails on its own is a [`SetError`] in
+/// the response, not an `Err`.
 pub async fn handle_scene_region_set<B: SceneBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -331,7 +402,7 @@ async fn set_destroy<B: SceneBackend>(
     Ok(mutated)
 }
 
-/// SceneBounds: `min` and `max` are "a 3-element numeric array" and
+/// `SceneBounds`: `min` and `max` are "a 3-element numeric array" and
 /// "Each component of `min` MUST be less than or equal to the
 /// corresponding component of `max`."
 fn bounds_ok(v: &Value) -> bool {
@@ -475,7 +546,7 @@ fn capability_errors<B: SceneBackend>(
 }
 
 /// Ask [`SceneBackend::region_binding`] about each non-null binding in
-/// `touched` and map the answer to the draft's SetError: `invalidProperties`
+/// `touched` and map the answer to the draft's `SetError`: `invalidProperties`
 /// naming the property, except `forbidden` for an `activeCallId` the
 /// caller lacks access to. Then ask [`SceneBackend::channel_in_space`]
 /// whether a non-null `channelId` "is a channel of the Space named by
@@ -673,7 +744,7 @@ async fn create_region<B: SceneBackend>(
 /// One §Updating a Region. `Ok` is the `updated` echo: the server-set
 /// `updatedAt` and a normalized `spawnOrientation` (RFC 8620 §5.3: "any
 /// properties that changed in a way not explicitly requested by the
-/// PatchObject").
+/// `PatchObject`").
 /// Vendor extension properties stay patchable and the spec-defined immutable
 /// or server-set ones do not (§Extension Properties in Updates,
 /// jmap-chat-spec 77c3474 L736: "MAY also accept patches to them";

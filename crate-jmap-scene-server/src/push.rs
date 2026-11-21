@@ -7,7 +7,7 @@
 //! the subscription's `types`, and picks the Web Push `Urgency` header
 //! (RFC 8030 §5.3) for it with [`push_urgency`].
 //!
-//! Coalescing rapid SceneAvatar and SceneObject mutations (§State-Change
+//! Coalescing rapid `SceneAvatar` and `SceneObject` mutations (§State-Change
 //! Frequency, jmap-chat-spec 77c3474 L2840-2842: the server "MAY coalesce",
 //! "for example, 1-5 seconds") needs a clock and a delivery queue, so it is
 //! the consumer's job.
@@ -22,8 +22,8 @@ pub use jmap_types::Urgency;
 
 /// The data types that participate in the state-change mechanism.
 ///
-/// §State-Change Events: "All four Scene data types -- SceneRegion,
-/// SceneObject, SceneAvatar, and SceneAsset -- participate in the RFC 8620
+/// §State-Change Events: "All four Scene data types -- `SceneRegion`,
+/// `SceneObject`, `SceneAvatar`, and `SceneAsset` -- participate in the RFC 8620
 /// state-change mechanism".
 pub const SCENE_DATA_TYPES: &[&str] = &[
     SceneRegion::TYPE_NAME,
@@ -43,7 +43,7 @@ pub const SCENE_DATA_TYPES: &[&str] = &[
 #[non_exhaustive]
 pub enum SceneEvent {
     /// `SceneRegion/set destroy` of a region in which the receiving user
-    /// had SceneObject records: `high`.
+    /// had `SceneObject` records: `high`.
     RegionDestroyedWithOwnObjects,
     /// A user entered or left a region the receiving user is present in:
     /// `normal`, or `low` when `bound_chat_notified`.
@@ -57,11 +57,11 @@ pub enum SceneEvent {
     /// user is an active participant in: `normal`.
     RegionChangedForParticipant,
     /// A region owner or deployment admin destroyed the receiving user's
-    /// SceneObject: `low`.
+    /// `SceneObject`: `low`.
     ObjectDestroyedByAdmin,
-    /// A SceneAsset change: `very-low`.
+    /// A `SceneAsset` change: `very-low`.
     AssetChanged,
-    /// A SceneObject or SceneAvatar position or property update from
+    /// A `SceneObject` or `SceneAvatar` position or property update from
     /// periodic simulation-layer reconciliation: `very-low`.
     PositionReconciliation,
 }
@@ -71,7 +71,7 @@ impl SceneEvent {
     ///
     /// For an avatar enter or leave already announced by a Chat push,
     /// §Avatar Enter and Chat Member Join says the server "SHOULD NOT set
-    /// `Urgency: normal` or higher on the SceneAvatar `StateChange`"; this
+    /// `Urgency: normal` or higher on the `SceneAvatar` `StateChange`"; this
     /// returns `low`, the highest urgency that rule leaves, so the state
     /// change itself is not held back further.
     pub const fn urgency(self) -> Urgency {

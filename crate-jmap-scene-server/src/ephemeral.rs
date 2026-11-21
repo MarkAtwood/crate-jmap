@@ -1,5 +1,5 @@
 //! Ephemeral Scene event subscription state (draft-atwood-jmap-scene-wss-00
-//! §SceneStreamEnable).
+//! §`SceneStreamEnable`).
 //!
 //! A WebSocket transport keeps one [`SceneEphemeralSubscription`] per
 //! connection, starting from [`SceneEphemeralSubscription::default`]
@@ -8,13 +8,13 @@
 //! normalizes it, and replaces the whole subscription. A
 //! `SceneStreamDisable` frame resets it to the default, which "MUST
 //! silently succeed if no ephemeral Scene subscription is currently
-//! active" (§SceneStreamDisable).
+//! active" (§`SceneStreamDisable`).
 //!
 //! # Active avatars are checked at delivery
 //!
 //! `regionIds` is kept as sent. An entry naming a region in which the user
 //! has no active avatar "produces no events but is retained in the
-//! subscription record" (§SceneStreamEnable, Semantics), so whether a
+//! subscription record" (§`SceneStreamEnable`, Semantics), so whether a
 //! region produces events is decided per event at delivery time, not here.
 //! That lets events "begin (or resume) without a new `SceneStreamEnable`"
 //! when the user enters or re-enters a listed region.
@@ -120,7 +120,7 @@ impl SceneEphemeralSubscription {
     /// The new frame "REPLACES any previous `SceneStreamEnable`
     /// subscription in its entirety"; nothing is merged from it.
     /// Unrecognized `eventTypes` values next to recognized ones are dropped
-    /// (draft-atwood-jmap-scene-wss-00 §SceneStreamEnable, Semantics).
+    /// (draft-atwood-jmap-scene-wss-00 §`SceneStreamEnable`, Semantics).
     ///
     /// # Errors
     ///
@@ -230,7 +230,7 @@ impl SceneEphemeralSubscription {
 ///
 /// - `SceneAvatarEvent` needs the recipient to see the region's avatars
 ///   ([`SceneBackend::may_see_region_avatars`]): a region bound to an
-///   E2EE VTCCall suppresses them toward non-participants
+///   E2EE `VTCCall` suppresses them toward non-participants
 ///   (draft-atwood-jmap-scene-00 at 6bcd9d8, L2654), through
 ///   `SceneStreamEnable` and `ChatStreamEnable` alike
 ///   (draft-atwood-jmap-scene-wss-00 at 6bcd9d8, L1233-1234). It is also
@@ -256,12 +256,12 @@ impl SceneEphemeralSubscription {
 /// read from. It must be the event's `accountId`, "the id of the region's
 /// hosting account ... Other users reach that account as a shared
 /// account" (draft-atwood-jmap-scene-wss-00 at 33702a5, L178-181); an
-/// event whose `accountId` differs is not delivered, since "SceneRegion
-/// and SceneObject ids are unique only within an account".
+/// event whose `accountId` differs is not delivered, since "`SceneRegion`
+/// and `SceneObject` ids are unique only within an account".
 /// `recipient_account_id` is the recipient's own account: the Chat
 /// capability is checked there ("available for the receiving account",
 /// L791-792). `caller` is the recipient, so
-/// [`SceneBackend::is_user_blocked`] consults "the recipient's ChatContact
+/// [`SceneBackend::is_user_blocked`] consults "the recipient's `ChatContact`
 /// records" (L793-795).
 ///
 /// This function does not rate-limit; the §Rate Limiting SHOULD rules are
@@ -269,7 +269,7 @@ impl SceneEphemeralSubscription {
 ///
 /// # Errors
 ///
-/// Returns the backend's error if reading the recipient's userId, its
+/// Returns the backend's error if reading the recipient's `userId`, its
 /// avatars, the object, region access, visibility, avatar visibility or
 /// block status fails.
 pub async fn should_deliver<B: SceneBackend>(
@@ -374,11 +374,11 @@ pub async fn should_deliver<B: SceneBackend>(
 /// `caller` is the sending connection's authenticated identity and
 /// `account_id` the account the region and object are read from. "The
 /// server sets `userId` on the relayed event to the authenticated user's
-/// userId; a `userId` supplied in the frame is ignored", so the returned
+/// `userId`; a `userId` supplied in the frame is ignored", so the returned
 /// event is `event` with `userId` replaced by the caller's. The frame is
 /// relayable when its `accountId` is `account_id`, the caller has an
 /// active avatar (`leftAt` `null`) "in the region identified by
-/// `accountId` and `regionId`", and its `objectId` is a SceneObject in that
+/// `accountId` and `regionId`", and its `objectId` is a `SceneObject` in that
 /// region with `interactable` `true`. On `None` the server "discards the
 /// frame and returns no error to the sender"; on `Some` it relays the
 /// returned event, filtered per recipient by [`should_deliver`].
@@ -389,7 +389,7 @@ pub async fn should_deliver<B: SceneBackend>(
 ///
 /// # Errors
 ///
-/// Returns the backend's error if reading the caller's userId, its
+/// Returns the backend's error if reading the caller's `userId`, its
 /// avatars or the object fails.
 pub async fn validate_interaction<B: SceneBackend>(
     backend: &B,
@@ -500,7 +500,7 @@ async fn fetch_region<B: SceneBackend>(
 
 /// `true` if `user_id` has an avatar in `region_id` with `leftAt` `null`.
 ///
-/// ponytail: reads every SceneAvatar in the account; O(avatars) per
+/// ponytail: reads every `SceneAvatar` in the account; O(avatars) per
 /// check. Upgrade: a backend hook for the user's active avatar once a
 /// deployment needs it.
 pub(crate) async fn has_active_avatar<B: SceneBackend>(

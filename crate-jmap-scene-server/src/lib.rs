@@ -18,34 +18,34 @@
 //!
 //! # Scope
 //!
-//! The `SceneAsset/*` methods (draft §SceneAsset Methods): standard
+//! The `SceneAsset/*` methods (draft §`SceneAsset` Methods): standard
 //! `/get`, `/changes` and `/queryChanges`; `/set` with the create, update
-//! and destroy SetError conditions, glTF (`model/gltf-binary`) as the
+//! and destroy `SetError` conditions, glTF (`model/gltf-binary`) as the
 //! mandatory-to-implement format and the `maxAssetSizeBytes` quota; and
 //! `/query` with the draft's default sort.
 //!
-//! The `SceneRegion/*` methods (draft §SceneRegion Methods): `/set` with
-//! the create, update and destroy SetError conditions, `mayCreateRegion`,
+//! The `SceneRegion/*` methods (draft §`SceneRegion` Methods): `/set` with
+//! the create, update and destroy `SetError` conditions, `mayCreateRegion`,
 //! `maxRegionsPerAccount`, the binding checks through
 //! [`SceneBackend::region_binding`] and the destroy cascade; and `/query`
 //! with the draft's default sort and `accessPolicy` filter check.
 //!
-//! The `SceneObject/*` methods (draft §SceneObject Methods): `/set` with
-//! the create, update and destroy SetError conditions, `mayCreateObject`,
+//! The `SceneObject/*` methods (draft §`SceneObject` Methods): `/set` with
+//! the create, update and destroy `SetError` conditions, `mayCreateObject`,
 //! `maxObjectsPerRegion`, a region-scoped acyclic scene graph at most 16
 //! levels deep, [`SceneBackend::may_modify_object`] and the recursive
 //! destroy; and `/query` with the draft's default sort, the §Filter
 //! Validation checks and the `withinRadius` and `withinBounds` spatial
 //! filters over region-local positions.
 //!
-//! `SceneObject/interact` (draft §SceneObject/interact): each interaction
+//! `SceneObject/interact` (draft §`SceneObject/interact`): each interaction
 //! is checked for its properties (`invalidProperties`), region access,
 //! existence and the visibility set (`notFound`), an active avatar and
 //! `interactable` (`forbidden`), then passed to
 //! [`SceneBackend::accept_interaction`], which may refuse it with
 //! `rateLimit` and otherwise delivers the `SceneInteractionEvent`.
 //!
-//! `SceneRegion/broadcast` (draft §SceneRegion/broadcast, jmap-chat-spec
+//! `SceneRegion/broadcast` (draft §`SceneRegion/broadcast`, jmap-chat-spec
 //! 93f2258), on accounts whose capability has `supportsRegionBroadcast`
 //! (otherwise `unknownMethod`): each region event is checked for its
 //! properties (`invalidProperties`), region access (`notFound`) and the
@@ -53,7 +53,7 @@
 //! then passed to [`SceneBackend::accept_region_event`], which may refuse
 //! it with `rateLimit` and otherwise delivers the `SceneRegionEvent`.
 //!
-//! The `SceneAvatar/*` methods (draft §SceneAvatar Methods): `/set` create
+//! The `SceneAvatar/*` methods (draft §`SceneAvatar` Methods): `/set` create
 //! enters a region (one avatar record per user and region, `alreadyExists`
 //! with `existingId` when the user has a present or departed record there,
 //! auto-eject from another region, `maxAvatarsPerRegion` and
@@ -66,7 +66,7 @@
 //! `/query` with the draft's default sort and §Filter Validation.
 //!
 //! Visibility (draft §Visibility Contract, §Region Access, §Blocked-Contact
-//! Spatial Presence): `/get` of SceneRegion, SceneObject and SceneAvatar
+//! Spatial Presence): `/get` of `SceneRegion`, `SceneObject` and `SceneAvatar`
 //! reports a record in a region the caller has no access to
 //! ([`SceneBackend::may_access_region`]), an object outside the caller's
 //! visibility set ([`SceneBackend::is_object_visible`]), an avatar of a
@@ -95,7 +95,7 @@
 //! announced by a bound Chat's push is not sent at `normal` or higher.
 //!
 //! Ephemeral subscriptions (draft-atwood-jmap-scene-wss-00
-//! §SceneStreamEnable): [`SceneEphemeralSubscription`] holds the per-connection
+//! §`SceneStreamEnable`): [`SceneEphemeralSubscription`] holds the per-connection
 //! subscription a `SceneStreamEnable` frame replaces in its entirety, with
 //! a dynamic ([`RegionScope::All`]) or static ([`RegionScope::Only`])
 //! region scope and the `invalidArguments` check on `eventTypes`;

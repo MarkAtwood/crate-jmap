@@ -1,9 +1,9 @@
-//! SceneAvatar/* method handlers (draft-atwood-jmap-scene-00 §SceneAvatar
+//! `SceneAvatar/*` method handlers (draft-atwood-jmap-scene-00 §`SceneAvatar`
 //! Methods).
 //!
 //! `/get`, `/changes` and `/queryChanges` are the standard RFC 8620 §5.1,
 //! §5.2 and §5.6 methods. `/set` applies §Entering a Region, §Updating
-//! Avatar State, §Leaving a Region, §Re-entering a Region and §SetError
+//! Avatar State, §Leaving a Region, §Re-entering a Region and §`SetError`
 //! Conditions: create enters a region, an update that sets `leftAt`
 //! leaves it (or, by a region owner or administrator, ejects another
 //! user), an update that clears `leftAt` re-enters it, and destroy is
@@ -34,7 +34,7 @@ use jmap_server::{
     strip_read_only_patch,
 };
 
-/// "The server sets `id`, `userId` (to the caller's userId), `position`
+/// "The server sets `id`, `userId` (to the caller's `userId`), `position`
 /// (to the region's `spawnPosition`), `orientation` (to the region's
 /// `spawnOrientation`), `joinedAt`, and `leftAt` (to `null`)." A client
 /// "MUST omit any properties that may only be set by the server" (RFC 8620
@@ -52,7 +52,7 @@ const EJECT_PROPERTIES: &[&str] = &["leftAt"];
 /// owner or administrator may patch on another user's avatar.
 const REGION_STATE: &str = "regionState";
 
-/// Handle `SceneAvatar/get` (draft-atwood-jmap-scene-00 §SceneAvatar/get):
+/// Handle `SceneAvatar/get` (draft-atwood-jmap-scene-00 §`SceneAvatar/get`):
 /// standard RFC 8620 §5.1 `/get`, with an avatar in a region the caller
 /// has no access to ([`SceneBackend::may_access_region`]), of a user the
 /// caller blocked ([`SceneBackend::is_user_blocked`]) or in a region whose
@@ -62,6 +62,16 @@ const REGION_STATE: &str = "regionState";
 /// user's avatar that [`SceneBackend::avatar_view`] hides is `notFound`
 /// too, and one it redacts is returned with the withheld properties
 /// replaced or left out (jmap-chat-spec 93f2258 §Avatar Visibility).
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `ids` or `properties` is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `ids` holds more than `maxObjectsInGet` ids;
+/// - `serverFail` when the backend fails.
 pub async fn handle_scene_avatar_get<B: SceneBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -71,7 +81,18 @@ pub async fn handle_scene_avatar_get<B: SceneBackend>(
 }
 
 /// Handle `SceneAvatar/changes` (draft-atwood-jmap-scene-00
-/// §SceneAvatar/changes): standard RFC 8620 §5.2 `/changes`.
+/// §`SceneAvatar/changes`): standard RFC 8620 §5.2 `/changes`.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `sinceState` is missing, or `maxChanges` is not a positive integer;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `cannotCalculateChanges` when the backend cannot compute the changes
+///   since `sinceState`;
+/// - `serverFail` when the backend fails.
 pub async fn handle_scene_avatar_changes<B: SceneBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -81,7 +102,7 @@ pub async fn handle_scene_avatar_changes<B: SceneBackend>(
 }
 
 /// Handle `SceneAvatar/query` (draft-atwood-jmap-scene-00
-/// §SceneAvatar/query).
+/// §`SceneAvatar/query`).
 ///
 /// Supplies the "Default sort: `joinedAt` ascending" and refuses any other
 /// sort property with `unsupportedSort`. Returns `invalidArguments` when
@@ -90,6 +111,23 @@ pub async fn handle_scene_avatar_changes<B: SceneBackend>(
 /// filter property is `unsupportedFilter`. The backend evaluates the
 /// filter; [`crate::query::avatar_matches`] and
 /// [`crate::query::compare_avatars`] implement it.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, when
+///   `filter`, `sort`, `position`, `anchor`, `anchorOffset` or `limit` is
+///   malformed, or when `filter` is absent or a condition of it (every one, in
+///   a `FilterOperator` tree) lacks `regionId`, has a `withinRadius.radius`
+///   that is zero or negative, or a `withinBounds.max` component below `min`;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `unsupportedFilter` when the filter does not decode as a `SceneAvatar` filter;
+/// - `unsupportedSort` when `sort` names a property this server does not
+///   define;
+/// - `anchorNotFound` when `anchor` is not in the results;
+/// - `serverFail` when the backend fails, or any other RFC 8620 §5.5 error
+///   the backend returns.
 pub async fn handle_scene_avatar_query<B: SceneBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -99,8 +137,27 @@ pub async fn handle_scene_avatar_query<B: SceneBackend>(
 }
 
 /// Handle `SceneAvatar/queryChanges` (draft-atwood-jmap-scene-00
-/// §SceneAvatar/queryChanges). RFC 8620 §5.6: the `filter` and `sort` are
+/// §`SceneAvatar/queryChanges`). RFC 8620 §5.6: the `filter` and `sort` are
 /// those of the original query, so the `/query` rules apply here too.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `sinceQueryState` is missing, or `filter`, `sort`, `maxChanges` or
+///   `upToId` is malformed, or when `filter` is absent or a condition of it
+///   (every one, in a `FilterOperator` tree) lacks `regionId`, has a
+///   `withinRadius.radius` that is zero or negative, or a `withinBounds.max`
+///   component below `min`;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `unsupportedFilter` when the filter does not decode as a `SceneAvatar` filter;
+/// - `unsupportedSort` when `sort` names a property this server does not
+///   define;
+/// - `cannotCalculateChanges` when the backend cannot compute the changes
+///   since `sinceQueryState`;
+/// - `serverFail` when the backend fails, or any other RFC 8620 §5.6 error
+///   the backend returns.
 pub async fn handle_scene_avatar_query_changes<B: SceneBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -126,11 +183,11 @@ fn prepare_query(mut args: Value) -> Result<Value, JmapError> {
     Ok(args)
 }
 
-/// The SceneAvatar properties that hold the id of another record, which a
+/// The `SceneAvatar` properties that hold the id of another record, which a
 /// client may set to a `#creationId` reference (RFC 8620 §5.3).
 const AVATAR_ID_PROPERTIES: &[&str] = &["regionId"];
 
-/// Handle `SceneAvatar/set` (draft-atwood-jmap-scene-00 §SceneAvatar/set).
+/// Handle `SceneAvatar/set` (draft-atwood-jmap-scene-00 §`SceneAvatar/set`).
 ///
 /// Create enters a region: it validates the request, requires an
 /// existing region the caller has access to
@@ -159,10 +216,25 @@ const AVATAR_ID_PROPERTIES: &[&str] = &["regionId"];
 /// owner or admin may combine it with an eject on another user's avatar
 /// and patch nothing else.
 ///
-/// A `regionId` that is a `#creationId` reference names a SceneRegion
+/// A `regionId` that is a `#creationId` reference names a `SceneRegion`
 /// created earlier in the request and resolves against `created_ids` (pass
 /// [`jmap_server::CallContext::created_ids`]; RFC 8620 §5.3); an unknown
 /// reference is `invalidProperties` naming `regionId`.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   an element of `destroy` is not a string;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `create`, `update` and `destroy` together hold
+///   more than `maxObjectsInSet` objects;
+/// - `stateMismatch` when `ifInState` is not the current state;
+/// - `serverFail` when the backend fails.
+///
+/// A create or update that fails on its own, and every destroy, is a
+/// [`SetError`] in the response, not an `Err`.
 pub async fn handle_scene_avatar_set<B: SceneBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -315,7 +387,7 @@ fn set_destroy(args: &mut Map<String, Value>, acc: &mut SetAccumulators) -> Resu
     Ok(())
 }
 
-/// `true` if `s` has the RFC 8620 §1.4 UTCDate shape
+/// `true` if `s` has the RFC 8620 §1.4 `UTCDate` shape
 /// `YYYY-MM-DDTHH:MM:SS[.fraction]Z`. Field ranges are not checked.
 fn utc_date_shaped(s: &str) -> bool {
     let b = s.as_bytes();

@@ -1,9 +1,9 @@
 //! `SceneObject/interact` (draft-atwood-jmap-scene-00
-//! §SceneObject/interact).
+//! §`SceneObject/interact`).
 //!
 //! Interactions are ephemeral: the handler changes no record or state
 //! string. Each entry of `interactions` is checked on its own, in this
-//! order, and the first failure is its SetError:
+//! order, and the first failure is its `SetError`:
 //!
 //! 1. a missing or wrongly typed `regionId`, `objectId`, `action` or
 //!    `data` is `invalidProperties` naming it;
@@ -12,7 +12,7 @@
 //!    or is in another region, and an object outside the caller's
 //!    visibility set ([`SceneBackend::is_object_visible`]) are `notFound`,
 //!    so the error never confirms that a hidden object exists;
-//! 3. no active SceneAvatar of the caller in the region, or an object
+//! 3. no active `SceneAvatar` of the caller in the region, or an object
 //!    with `interactable: false`, is `forbidden`;
 //! 4. [`SceneBackend::accept_interaction`] returning `false` is
 //!    `rateLimit`; `true` accepts the interaction.
@@ -29,7 +29,7 @@ use jmap_server::{HandlerOutput, SetError, SetErrorType, server_fail_value_from_
 /// Handle `SceneObject/interact`.
 ///
 /// The response is `accountId`, `accepted` (the accepted client ids, or
-/// `null` if none) and `notAccepted` (client id to SetError, or `null` if
+/// `null` if none) and `notAccepted` (client id to `SetError`, or `null` if
 /// none). An accepted interaction goes to
 /// [`SceneBackend::accept_interaction`] as a [`SceneInteractionEvent`]
 /// whose `userId` is [`SceneBackend::caller_user_id`].
@@ -85,7 +85,7 @@ pub async fn handle_scene_object_interact<B: SceneBackend>(
 }
 
 /// Check one interaction and hand it to
-/// [`SceneBackend::accept_interaction`]; `Err` is its SetError JSON.
+/// [`SceneBackend::accept_interaction`]; `Err` is its `SetError` JSON.
 async fn interact<B: SceneBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -143,7 +143,7 @@ async fn interact<B: SceneBackend>(
     Ok(())
 }
 
-/// Decode one SceneInteraction: "`invalidProperties` | A property is
+/// Decode one `SceneInteraction`: "`invalidProperties` | A property is
 /// missing or has the wrong type; `properties` names it."
 fn parse(raw: Value) -> Result<SceneInteraction, Value> {
     let Value::Object(m) = &raw else {

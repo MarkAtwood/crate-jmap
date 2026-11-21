@@ -1,4 +1,4 @@
-//! SceneBackend trait and supporting types for the JMAP Scene method
+//! The [`SceneBackend`] trait and supporting types for the JMAP Scene method
 //! handlers.
 //!
 //! Read-side operations (`get_objects`, `get_state`, `get_changes`,
@@ -16,7 +16,7 @@ use jmap_scene_types::{
     SceneObject, SceneRegion, SceneRegionEvent,
 };
 
-/// A SceneRegion binding property, the reference
+/// A `SceneRegion` binding property, the reference
 /// [`SceneBackend::region_binding`] is asked about
 /// (draft-atwood-jmap-scene-00 §Creating a Region, §Updating a Region).
 #[non_exhaustive]
@@ -28,12 +28,12 @@ pub enum BindingProperty {
     SpaceId,
     /// `channelId`, a channel of a Space (`urn:ietf:params:jmap:chat`).
     ChannelId,
-    /// `activeCallId`, a VTCCall (`urn:ietf:params:jmap:vtc`).
+    /// `activeCallId`, a `VTCCall` (`urn:ietf:params:jmap:vtc`).
     ActiveCallId,
 }
 
 impl BindingProperty {
-    /// The SceneRegion property name, e.g. `"activeCallId"`.
+    /// The `SceneRegion` property name, e.g. `"activeCallId"`.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::ChatId => "chatId",
@@ -45,18 +45,18 @@ impl BindingProperty {
 }
 
 /// What [`SceneBackend::region_binding`] knows about the object a
-/// SceneRegion binding property references.
+/// `SceneRegion` binding property references.
 ///
-/// `SceneRegion/set` maps it to the SetError the draft requires
+/// `SceneRegion/set` maps it to the `SetError` the draft requires
 /// (draft-atwood-jmap-scene-00 §Creating a Region, §Updating a Region).
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BindingTarget {
     /// The object exists and the caller may bind it: for `activeCallId`,
-    /// the VTCCall is not `"ended"` and the caller is a participant in or
+    /// the `VTCCall` is not `"ended"` and the caller is a participant in or
     /// moderator of it, or an administrator.
     Usable,
-    /// The object does not exist; for `activeCallId`, also a VTCCall in
+    /// The object does not exist; for `activeCallId`, also a `VTCCall` in
     /// state `"ended"`. `SceneRegion/set` returns `invalidProperties`
     /// naming the property.
     Missing,
@@ -224,13 +224,13 @@ pub trait SceneBackend: JmapBackend {
     /// Create an object.
     ///
     /// The handler has validated the create against
-    /// draft-atwood-jmap-scene-00 §SceneAsset/set and filled the server-set
+    /// draft-atwood-jmap-scene-00 §`SceneAsset/set` and filled the server-set
     /// properties other than `id`. The backend MUST, in one atomic step,
     /// mint a ULID `id` ("A ULID assigned at creation"), call `build(&id)`
     /// once for the object carrying it, and store that object.
     ///
     /// For a `SceneAsset` the backend also enforces the deployment-defined
-    /// rules of §SetError Conditions atomically with the insert: refuse
+    /// rules of §`SetError` Conditions atomically with the insert: refuse
     /// with `overQuota` for "Account asset storage quota
     /// exceeded", and with `forbidden` when the "Deployment restricts
     /// shared-asset creation to administrators" and the caller is not one.
@@ -241,7 +241,7 @@ pub trait SceneBackend: JmapBackend {
     /// exceeded"), counted atomically with the insert.
     ///
     /// For a `SceneObject` the backend sets `ownerId` to the caller's
-    /// userId ("The userId of the user who created this object"; the
+    /// `userId` ("The `userId` of the user who created this object"; the
     /// handler sends `null`) and refuses with `overQuota` when the object's
     /// region already holds `maxObjectsPerRegion` objects ("The server MUST
     /// return `overQuota` when `maxObjectsPerRegion` would be exceeded"),
@@ -255,7 +255,7 @@ pub trait SceneBackend: JmapBackend {
     /// 1. refuses with `alreadyExists` and `existingId` naming the record
     ///    when the user already has an avatar in the region, present or
     ///    departed ("the server MUST NOT create a second record and MUST
-    ///    return an `alreadyExists` SetError ... with `existingId` set to
+    ///    return an `alreadyExists` `SetError` ... with `existingId` set to
     ///    the id of that record");
     /// 2. refuses with `overQuota` when the region already holds
     ///    `maxAvatarsPerRegion` avatars with `leftAt` `null`;
@@ -264,7 +264,7 @@ pub trait SceneBackend: JmapBackend {
     ///    previous avatar before creating the new one");
     /// 4. keeps each affected region's `activeAvatarCount` ("Number of
     ///    avatars currently present in the region") equal to its avatars
-    ///    with `leftAt` `null`, advancing the SceneRegion state.
+    ///    with `leftAt` `null`, advancing the `SceneRegion` state.
     ///
     /// Returns the assigned id and the stored object. `create_id` is the
     /// client's creation id. Error mapping, state-counter and change-log
@@ -282,7 +282,7 @@ pub trait SceneBackend: JmapBackend {
         O: SetObject + Send + Sync,
         F: FnOnce(&jmap_types::Id) -> O + Send;
 
-    /// Apply an RFC 8620 §5.3 PatchObject to an existing object.
+    /// Apply an RFC 8620 §5.3 `PatchObject` to an existing object.
     ///
     /// `Ok(Some(o))` echoes server-changed properties; `Ok(None)` means the
     /// patch applied verbatim. Both MUST advance the state and record an
@@ -290,12 +290,12 @@ pub trait SceneBackend: JmapBackend {
     /// `invalidPatch`; a result that no longer decodes is
     /// `invalidProperties`. Apply the whole patch or none of it.
     ///
-    /// For a `SceneAvatar` whose patch sets `leftAt` to a UTCDate, the
+    /// For a `SceneAvatar` whose patch sets `leftAt` to a `UTCDate`, the
     /// backend refuses with `invalidProperties` naming `leftAt` when the
     /// stored `leftAt` is already non-null ("double-leave is invalid"), and
     /// otherwise decrements the region's `activeAvatarCount` in the same
     /// atomic step ("The server decrements the region's
-    /// `activeAvatarCount`"), advancing the SceneRegion state.
+    /// `activeAvatarCount`"), advancing the `SceneRegion` state.
     ///
     /// A patch that sets `leftAt` to `null` re-enters the region
     /// (§Re-entering a Region); the handler has added `joinedAt` (now),
@@ -318,20 +318,20 @@ pub trait SceneBackend: JmapBackend {
     /// advances only when the destroy commits. The handler has already
     /// applied the permission check.
     ///
-    /// Destroying a `SceneRegion` "removes the SceneRegion and all
-    /// SceneObject and SceneAvatar records in it; `SceneObject/changes` and
+    /// Destroying a `SceneRegion` "removes the `SceneRegion` and all
+    /// `SceneObject` and `SceneAvatar` records in it; `SceneObject/changes` and
     /// `SceneAvatar/changes` report those records as destroyed"
     /// (draft-atwood-jmap-scene-00 §Destroying a Region): in the same atomic
-    /// step the backend destroys every SceneObject and SceneAvatar whose
+    /// step the backend destroys every `SceneObject` and `SceneAvatar` whose
     /// `regionId` is `id` and records each as a destroyed change of its
-    /// type. It does not end a VTCCall the
+    /// type. It does not end a `VTCCall` the
     /// region's `activeCallId` references ("the server MUST NOT
-    /// automatically end the referenced VTCCall").
+    /// automatically end the referenced `VTCCall`").
     ///
-    /// Destroying a `SceneObject` "removes the SceneObject and all its
+    /// Destroying a `SceneObject` "removes the `SceneObject` and all its
     /// children (objects whose `parentId` references this object,
     /// recursively)": in the same atomic step the backend destroys every
-    /// descendant and records each as a destroyed SceneObject change.
+    /// descendant and records each as a destroyed `SceneObject` change.
     fn destroy_object<O: SetObject + Send + Sync>(
         &self,
         caller: &Self::CallerCtx,
@@ -341,7 +341,7 @@ pub trait SceneBackend: JmapBackend {
 
     /// `true` if the caller may update or destroy `asset`: "Only the asset
     /// owner or an admin may modify asset metadata"
-    /// (draft-atwood-jmap-scene-00 §SceneAsset/set Update Errors; Destroy
+    /// (draft-atwood-jmap-scene-00 §`SceneAsset/set` Update Errors; Destroy
     /// Errors use the "Same permission model as update").
     ///
     /// `SceneAsset/set` returns `forbidden` for an update or destroy when
@@ -365,7 +365,7 @@ pub trait SceneBackend: JmapBackend {
     /// `true` if the consumer advertises the capability `uri` for
     /// `account_id`.
     ///
-    /// The SceneRegion binding properties "are present only when the
+    /// The `SceneRegion` binding properties "are present only when the
     /// corresponding companion capability is advertised on the same
     /// account": `chatId`, `spaceId` and `channelId` need
     /// `urn:ietf:params:jmap:chat`, `activeCallId` needs
@@ -385,7 +385,7 @@ pub trait SceneBackend: JmapBackend {
     /// draft-atwood-jmap-scene-00 §Creating a Region ("the server MUST
     /// verify that the referenced object exists and the caller has access
     /// to it") and §Updating a Region (for `activeCallId`: "(a) the
-    /// referenced VTCCall exists, (b) its state is not `\"ended\"`, and (c)
+    /// referenced `VTCCall` exists, (b) its state is not `\"ended\"`, and (c)
     /// the caller is a participant in or moderator of the referenced call,
     /// or has deployment-defined administrative privileges").
     ///
@@ -437,7 +437,7 @@ pub trait SceneBackend: JmapBackend {
 
     /// `true` if the caller may update `region`: "Only the owner or an
     /// admin may modify region properties" (draft-atwood-jmap-scene-00
-    /// §SceneRegion/set Update Errors).
+    /// §`SceneRegion/set` Update Errors).
     ///
     /// The same owner-or-admin rule gates `SceneRegion/broadcast` and
     /// changes to `SceneAvatar.regionState` on the region's avatars
@@ -459,7 +459,7 @@ pub trait SceneBackend: JmapBackend {
 
     /// `true` if the caller may destroy `region`: "Only the region owner
     /// or an admin may destroy a region" (draft-atwood-jmap-scene-00
-    /// §SceneRegion/set Destroy Errors).
+    /// §`SceneRegion/set` Destroy Errors).
     ///
     /// # Default implementation
     ///
@@ -478,7 +478,7 @@ pub trait SceneBackend: JmapBackend {
     /// `true` if the caller may update or destroy `object`: "Only the
     /// object's `ownerId`, the region owner, or a deployment-admin may
     /// modify another user's object" (draft-atwood-jmap-scene-00
-    /// §SceneObject/set Update Errors; Destroy Errors use the "Same
+    /// §`SceneObject/set` Update Errors; Destroy Errors use the "Same
     /// permission model as update").
     ///
     /// `SceneObject/set` returns `forbidden` for an update or destroy when
@@ -498,8 +498,8 @@ pub trait SceneBackend: JmapBackend {
         async { Ok(true) }
     }
 
-    /// The caller's userId: "The authenticated user identity string"
-    /// (draft-atwood-jmap-scene-00 §SceneAvatar `userId`).
+    /// The caller's `userId`: "The authenticated user identity string"
+    /// (draft-atwood-jmap-scene-00 §`SceneAvatar` `userId`).
     ///
     /// `SceneAvatar/set` stores it as a created avatar's `userId` ("The
     /// server sets `userId` from the authenticated identity") and compares
@@ -514,7 +514,7 @@ pub trait SceneBackend: JmapBackend {
 
     /// The `displayName` of a new avatar for `user_id` when the create
     /// supplies none: "the server sets it from the user profile or
-    /// ChatContact when {{JMAP-CHAT}} is present".
+    /// `ChatContact` when {{JMAP-CHAT}} is present".
     ///
     /// # Default implementation
     ///
@@ -608,8 +608,8 @@ pub trait SceneBackend: JmapBackend {
     /// (draft-atwood-jmap-scene-00 §Region Access): "A user has access to a
     /// region when its `accessPolicy` admits the user, when the user is the
     /// region owner, when the user has deployment-defined administrative
-    /// privileges, or when the user has an active SceneAvatar in it."
-    /// `"invite"` admits "The users whose userIds are listed in
+    /// privileges, or when the user has an active `SceneAvatar` in it."
+    /// `"invite"` admits "The users whose `userIds` are listed in
     /// `invitedUserIds`", and "Servers MAY admit users to an `\"invite\"`
     /// region by other mechanisms as well".
     ///
@@ -627,10 +627,10 @@ pub trait SceneBackend: JmapBackend {
     ///
     /// The handlers cannot filter a `/query` page they did not cut, so
     /// `query_objects` should omit what `/get` would hide: "The server
-    /// SHOULD NOT include a SceneObject in a `SceneObject/get` response or
+    /// SHOULD NOT include a `SceneObject` in a `SceneObject/get` response or
     /// `SceneObject/query` result if the authenticated user does not have
-    /// access to the object's containing SceneRegion" (§Visibility
-    /// Contract, L2577). The same applies to SceneRegion and SceneAvatar
+    /// access to the object's containing `SceneRegion`" (§Visibility
+    /// Contract, L2577). The same applies to `SceneRegion` and `SceneAvatar`
     /// results (L2606).
     ///
     /// `query_changes` is not filtered per caller: visibility filtering
@@ -683,13 +683,13 @@ pub trait SceneBackend: JmapBackend {
 
     /// `true` if `user_id` is blocked on the caller's own contact list
     /// (draft-atwood-jmap-scene-00 at 33702a5 §Blocked-Contact Spatial
-    /// Presence, L2672): "SceneAvatar records belonging to a blocked
-    /// ChatContact SHOULD be excluded from `SceneAvatar/get` responses and
+    /// Presence, L2672): "`SceneAvatar` records belonging to a blocked
+    /// `ChatContact` SHOULD be excluded from `SceneAvatar/get` responses and
     /// `SceneAvatar/query` results delivered to the blocking user".
     ///
     /// The list is the caller's, whatever account the request names: the
-    /// server "removes any SceneAvatar records whose `userId` corresponds
-    /// to a ChatContact with `blocked: true` on the requesting user's
+    /// server "removes any `SceneAvatar` records whose `userId` corresponds
+    /// to a `ChatContact` with `blocked: true` on the requesting user's
     /// contact list" (L2676). A request on a shared region names the
     /// region's hosting account, which holds the host's contacts, not the
     /// requester's, so the hook takes no account id; an implementation
@@ -707,7 +707,7 @@ pub trait SceneBackend: JmapBackend {
     ///
     /// [`crate::should_deliver`] asks this at delivery time with the
     /// recipient as the caller, since suppression consults "the
-    /// recipient's ChatContact records" (draft-atwood-jmap-scene-wss-00 at
+    /// recipient's `ChatContact` records" (draft-atwood-jmap-scene-wss-00 at
     /// 33702a5, L793-795).
     ///
     /// The Chat lookup (`ChatContact.blocked`) lives in the binding crate:
@@ -727,12 +727,12 @@ pub trait SceneBackend: JmapBackend {
         async { Ok(false) }
     }
 
-    /// `true` if the caller may see the SceneAvatar records of region
+    /// `true` if the caller may see the `SceneAvatar` records of region
     /// `region_id` (draft-atwood-jmap-scene-00 at 6bcd9d8, L2654): "When a
-    /// SceneRegion's `activeCallId` references a VTCCall with
+    /// `SceneRegion`'s `activeCallId` references a `VTCCall` with
     /// `e2eeEnabled` set to `true`, the server SHOULD NOT expose the
-    /// region's SceneAvatar records to users who are not participants in
-    /// the bound VTCCall: for such users it SHOULD return `notFound` for
+    /// region's `SceneAvatar` records to users who are not participants in
+    /// the bound `VTCCall`: for such users it SHOULD return `notFound` for
     /// `SceneAvatar/get`, exclude the records from `SceneAvatar/query`, and
     /// suppress `SceneAvatarEvent` ... delivery (`entered`, `left`, and
     /// `ejected`)."
@@ -929,9 +929,9 @@ pub trait SceneBackend: JmapBackend {
 
     /// Accept an interaction that passed the `SceneObject/interact`
     /// checks, or refuse it for its rate (draft-atwood-jmap-scene-00
-    /// §SceneObject/interact).
+    /// §`SceneObject/interact`).
     ///
-    /// `event` carries the interaction and the caller's userId from
+    /// `event` carries the interaction and the caller's `userId` from
     /// [`Self::caller_user_id`]. `Ok(false)` means "The caller has exceeded
     /// a deployment-defined interaction rate" and the handler reports
     /// `rateLimit`; draft-atwood-jmap-scene-wss-00 §Rate Limiting suggests
@@ -939,7 +939,7 @@ pub trait SceneBackend: JmapBackend {
     /// `Ok(true)` accepts it: count it against the rate and, when the
     /// WebSocket capability is supported, hand `event` to the transport,
     /// which "delivers a `SceneInteractionEvent` carrying the interaction
-    /// and the caller's userId to the WebSocket subscribers of the region",
+    /// and the caller's `userId` to the WebSocket subscribers of the region",
     /// filtered per recipient by [`crate::should_deliver`]. Counting and
     /// delivering in this one call keeps them atomic.
     ///
@@ -959,7 +959,7 @@ pub trait SceneBackend: JmapBackend {
 
     /// Accept a region event that passed the `SceneRegion/broadcast`
     /// checks, or refuse it for its rate (draft-atwood-jmap-scene-00 at
-    /// jmap-chat-spec 93f2258, §SceneRegion/broadcast).
+    /// jmap-chat-spec 93f2258, §`SceneRegion/broadcast`).
     ///
     /// The handler calls this only when the account's
     /// [`SceneCapability::supports_region_broadcast`] is `true`, the caller
@@ -996,7 +996,7 @@ pub trait SceneBackend: JmapBackend {
     /// Per-backend capability probe: `true` if this backend supports the
     /// JMAP object type `O` for `account_id`. Not called by the handlers;
     /// consumers use it when assembling their Session capabilities
-    /// ("Deployments ... MAY omit support for SceneAsset methods").
+    /// ("Deployments ... MAY omit support for `SceneAsset` methods").
     fn supports_type<O: JmapObject>(
         &self,
         caller: &Self::CallerCtx,

@@ -1,9 +1,9 @@
-//! Object history for SceneAsset, SceneRegion and SceneObject
+//! Object history for `SceneAsset`, `SceneRegion` and `SceneObject`
 //! (draft-ietf-jmap-object-history-03 with the -04 editor's copy changes;
 //! docs/design/object-history.md; docs/design/DECISIONS.md decision 22).
-//! SceneAvatar keeps none.
+//! `SceneAvatar` keeps none.
 //!
-//! §8.2: "History MUST respect current access". SceneRegion and SceneObject
+//! §8.2: "History MUST respect current access". `SceneRegion` and `SceneObject`
 //! entries pass the same region-access and visibility checks as current
 //! objects ([`is_visible`]) and the same redaction (`invitedUserIds` only
 //! for a caller who may update the region); an entry the caller may not see
@@ -184,7 +184,7 @@ where
 }
 
 /// [`register_scene_handlers`], then history-aware `/get`, `/set`,
-/// `/query` and `/queryChanges` of SceneAsset, SceneRegion and SceneObject,
+/// `/query` and `/queryChanges` of `SceneAsset`, `SceneRegion` and `SceneObject`,
 /// each wrapping the unchanged plain handler, through
 /// `Dispatcher::register_history_aware` (docs/design/DECISIONS.md decision
 /// 1). `SceneObject/interact` is not a `/set` and is unchanged.

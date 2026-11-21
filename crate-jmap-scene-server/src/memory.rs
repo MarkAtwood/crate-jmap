@@ -11,7 +11,7 @@
 //!
 //! `CallerCtx` is a type implementing [`MemoryCaller`](jmap_server::MemoryCaller):
 //! the caller's Principal id ([`Id`](jmap_types::Id), the default), whose
-//! string is the caller's userId, or `()` for a deployment without
+//! string is the caller's `userId`, or `()` for a deployment without
 //! identity, whose every caller acts as the user named by the account id.
 //! The owner of an asset or
 //! a region is its `ownerId`;
@@ -214,9 +214,9 @@ struct Inner {
     accounts: HashMap<String, SceneCapability>,
     /// `(account_id, blob_id)` → blob size in bytes.
     blobs: HashMap<(String, String), u64>,
-    /// Account → total SceneAsset storage limit in bytes.
+    /// Account → total `SceneAsset` storage limit in bytes.
     storage_quota: HashMap<String, u64>,
-    /// UserIds with admin privileges.
+    /// User ids with admin privileges.
     admins: HashSet<String>,
     /// Account → advertised capability URIs.
     capabilities: HashMap<String, HashSet<String>>,
@@ -229,7 +229,7 @@ struct Inner {
     bans: HashSet<(String, String)>,
     /// `(userId, object id)` pairs outside that user's visibility set.
     hidden: HashSet<(String, Id)>,
-    /// UserIds whose interactions [`SceneBackend::accept_interaction`]
+    /// User ids whose interactions [`SceneBackend::accept_interaction`]
     /// refuses as over the rate.
     rate_limited: HashSet<String>,
     /// Interactions [`SceneBackend::accept_interaction`] accepted, in order.
@@ -643,7 +643,7 @@ impl Inner {
     /// region when its `accessPolicy` admits the user, when the user is
     /// the region owner, when the user has deployment-defined
     /// administrative privileges, or when the user has an active
-    /// SceneAvatar in it"; `"invite"` admits "The users whose userIds are
+    /// `SceneAvatar` in it"; `"invite"` admits "The users whose `userIds` are
     /// listed in `invitedUserIds`" and those given a grant.
     fn admits(&self, caller: &str, account_id: &Id, region: &SceneRegion) -> bool {
         region.access_policy != AccessPolicy::Invite
@@ -722,7 +722,7 @@ impl MemoryBackend {
     }
 }
 
-/// The userId `caller` acts as in `account_id`: its Principal id, or, for
+/// The `userId` `caller` acts as in `account_id`: its Principal id, or, for
 /// a caller without identity, the account id.
 fn acting_user<C: MemoryCaller>(caller: &C, account_id: &Id) -> String {
     caller.principal().unwrap_or(account_id).as_ref().to_owned()

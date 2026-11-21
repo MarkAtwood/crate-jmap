@@ -1,9 +1,9 @@
-//! SceneObject/* method handlers (draft-atwood-jmap-scene-00 §SceneObject
+//! `SceneObject/*` method handlers (draft-atwood-jmap-scene-00 §`SceneObject`
 //! Methods).
 //!
 //! `/get`, `/changes` and `/queryChanges` are the standard RFC 8620 §5.1,
 //! §5.2 and §5.6 methods. `/set` applies §Creating an Object, §Updating an
-//! Object, §Destroying an Object and §SetError Conditions: `mayCreateObject`,
+//! Object, §Destroying an Object and §`SetError` Conditions: `mayCreateObject`,
 //! the required `regionId` and `position`, the coordinate, `physicsMode`
 //! and `visualRef`/`visualType` rules, the region-scoped, acyclic,
 //! depth-limited scene graph, the immutable `regionId` and the
@@ -44,11 +44,21 @@ const PHYSICS_MODES: &[&str] = &["static", "dynamic", "kinematic", "none"];
 /// its own `SceneObject/set`.
 const MAX_DEPTH: usize = 16;
 
-/// Handle `SceneObject/get` (draft-atwood-jmap-scene-00 §SceneObject/get):
+/// Handle `SceneObject/get` (draft-atwood-jmap-scene-00 §`SceneObject/get`):
 /// standard RFC 8620 §5.1 `/get`, with an object in a region the caller
 /// has no access to ([`SceneBackend::may_access_region`]) or outside its
 /// visibility set ([`SceneBackend::is_object_visible`]) reported as
 /// `notFound` (§Visibility Contract, §Region Access).
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   when `ids` or `properties` is malformed;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `ids` holds more than `maxObjectsInGet` ids;
+/// - `serverFail` when the backend fails.
 pub async fn handle_scene_object_get<B: SceneBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -58,7 +68,18 @@ pub async fn handle_scene_object_get<B: SceneBackend>(
 }
 
 /// Handle `SceneObject/changes` (draft-atwood-jmap-scene-00
-/// §SceneObject/changes): standard RFC 8620 §5.2 `/changes`.
+/// §`SceneObject/changes`): standard RFC 8620 §5.2 `/changes`.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `sinceState` is missing, or `maxChanges` is not a positive integer;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `cannotCalculateChanges` when the backend cannot compute the changes
+///   since `sinceState`;
+/// - `serverFail` when the backend fails.
 pub async fn handle_scene_object_changes<B: SceneBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -68,7 +89,7 @@ pub async fn handle_scene_object_changes<B: SceneBackend>(
 }
 
 /// Handle `SceneObject/query` (draft-atwood-jmap-scene-00
-/// §SceneObject/query).
+/// §`SceneObject/query`).
 ///
 /// Supplies the "Default sort: `createdAt` ascending" and refuses any
 /// other sort property with `unsupportedSort`. Returns `invalidArguments`
@@ -78,6 +99,24 @@ pub async fn handle_scene_object_changes<B: SceneBackend>(
 /// property is `unsupportedFilter`. The backend evaluates the filter;
 /// [`crate::query::object_matches`], [`crate::query::region_local_position`]
 /// and [`crate::query::compare_objects`] implement it.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, when
+///   `filter`, `sort`, `position`, `anchor`, `anchorOffset` or `limit` is
+///   malformed, or when `filter` is absent or a condition of it (every one, in
+///   a `FilterOperator` tree) lacks `regionId`, has a `physicsMode` outside the
+///   defined set, a `withinRadius.radius` that is zero or negative, or a
+///   `withinBounds.max` component below `min`;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `unsupportedFilter` when the filter does not decode as a `SceneObject` filter;
+/// - `unsupportedSort` when `sort` names a property this server does not
+///   define;
+/// - `anchorNotFound` when `anchor` is not in the results;
+/// - `serverFail` when the backend fails, or any other RFC 8620 §5.5 error
+///   the backend returns.
 pub async fn handle_scene_object_query<B: SceneBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -87,8 +126,27 @@ pub async fn handle_scene_object_query<B: SceneBackend>(
 }
 
 /// Handle `SceneObject/queryChanges` (draft-atwood-jmap-scene-00
-/// §SceneObject/queryChanges). RFC 8620 §5.6: the `filter` and `sort` are
+/// §`SceneObject/queryChanges`). RFC 8620 §5.6: the `filter` and `sort` are
 /// those of the original query, so the `/query` rules apply here too.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   `sinceQueryState` is missing, or `filter`, `sort`, `maxChanges` or
+///   `upToId` is malformed, or when `filter` is absent or a condition of it
+///   (every one, in a `FilterOperator` tree) lacks `regionId`, has a
+///   `physicsMode` outside the defined set, a `withinRadius.radius` that is
+///   zero or negative, or a `withinBounds.max` component below `min`;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `unsupportedFilter` when the filter does not decode as a `SceneObject` filter;
+/// - `unsupportedSort` when `sort` names a property this server does not
+///   define;
+/// - `cannotCalculateChanges` when the backend cannot compute the changes
+///   since `sinceQueryState`;
+/// - `serverFail` when the backend fails, or any other RFC 8620 §5.6 error
+///   the backend returns.
 pub async fn handle_scene_object_query_changes<B: SceneBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -128,11 +186,11 @@ fn check_filter(filter: &Value) -> Result<(), JmapError> {
     })
 }
 
-/// The SceneObject properties that hold the id of another record, which a
+/// The `SceneObject` properties that hold the id of another record, which a
 /// client may set to a `#creationId` reference (RFC 8620 §5.3).
 const OBJECT_ID_PROPERTIES: &[&str] = &["regionId", "parentId"];
 
-/// Handle `SceneObject/set` (draft-atwood-jmap-scene-00 §SceneObject/set).
+/// Handle `SceneObject/set` (draft-atwood-jmap-scene-00 §`SceneObject/set`).
 ///
 /// Create requires `mayCreateObject`, validates the object, its region,
 /// its `visualRef` blob ([`SceneBackend::blob_size`]) and its parent, and
@@ -147,6 +205,21 @@ const OBJECT_ID_PROPERTIES: &[&str] = &["regionId", "parentId"];
 /// `created_ids` (pass [`jmap_server::CallContext::created_ids`]) or
 /// against a create of this call, which runs parents first (RFC 8620
 /// §5.3). An unknown reference is `invalidProperties` naming the property.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id, or
+///   an element of `destroy` is not a string;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `requestTooLarge` when `create`, `update` and `destroy` together hold
+///   more than `maxObjectsInSet` objects;
+/// - `stateMismatch` when `ifInState` is not the current state;
+/// - `serverFail` when the backend fails.
+///
+/// A create, update or destroy that fails on its own is a [`SetError`] in
+/// the response, not an `Err`.
 pub async fn handle_scene_object_set<B: SceneBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -427,7 +500,7 @@ async fn check_visual_ref<B: SceneBackend>(
 /// subtree is `height` levels tall, walking the parent chain to the root.
 ///
 /// `invalidProperties` naming `parentId` when "`parentId` does not
-/// reference an existing SceneObject", for a parent "in a different
+/// reference an existing `SceneObject`", for a parent "in a different
 /// region", for a chain that reaches `self_id` ("the object is its own
 /// ancestor (directly or transitively)") and for a chain that would put
 /// any object deeper than [`MAX_DEPTH`].
@@ -481,7 +554,7 @@ async fn check_parent<B: SceneBackend>(
 /// The number of levels in the subtree rooted at `id`: 1 for an object
 /// without children.
 ///
-/// ponytail: reads every SceneObject of the account to find the
+/// ponytail: reads every `SceneObject` of the account to find the
 /// descendants, O(objects) per re-parenting update. A backend with a
 /// `parentId` index can serve a faster `SceneObject/set`. The walk stops
 /// past [`MAX_DEPTH`] levels, so a corrupt cycle cannot loop.
@@ -671,7 +744,7 @@ async fn fetch_modifiable<B: SceneBackend>(
 /// One §Updating an Object. `Ok` is the `updated` echo: the server-set
 /// `updatedAt` and a normalized `orientation` (RFC 8620 §5.3: "any
 /// properties that changed in a way not explicitly requested by the
-/// PatchObject").
+/// `PatchObject`").
 /// Vendor extension properties stay patchable and the spec-defined immutable
 /// or server-set ones do not (§Extension Properties in Updates,
 /// jmap-chat-spec 77c3474 L736: "MAY also accept patches to them";

@@ -1,7 +1,7 @@
-//! `/query` filter evaluation and ordering for SceneAsset, SceneRegion,
-//! SceneObject and SceneAvatar (draft-atwood-jmap-scene-00
-//! §SceneAsset/query, §SceneRegion/query, §SceneObject/query,
-//! §SceneAvatar/query).
+//! `/query` filter evaluation and ordering for `SceneAsset`, `SceneRegion`,
+//! `SceneObject` and `SceneAvatar` (draft-atwood-jmap-scene-00
+//! §`SceneAsset/query`, §`SceneRegion/query`, §`SceneObject/query`,
+//! §`SceneAvatar/query`).
 //!
 //! Pure functions a backend's `query_objects` can apply to its stored
 //! objects; the reference `MemoryBackend` uses them.
@@ -42,7 +42,7 @@ fn name_contains(name: &str, query: &str) -> bool {
     name.to_lowercase().contains(&query.to_lowercase())
 }
 
-/// `true` if `asset` matches `filter` (§SceneAsset/query): "All filter
+/// `true` if `asset` matches `filter` (§`SceneAsset/query`): "All filter
 /// properties are combined with logical AND."
 ///
 /// `mediaType` is an exact match, ignoring ASCII case (media type names
@@ -98,7 +98,7 @@ pub fn compare_assets(a: &SceneAsset, b: &SceneAsset, sort: &[SceneAssetComparat
         .unwrap_or_else(|| a.id.as_ref().cmp(b.id.as_ref()))
 }
 
-/// `true` if `region` matches `filter` (§SceneRegion/query): "All filter
+/// `true` if `region` matches `filter` (§`SceneRegion/query`): "All filter
 /// properties are combined with logical AND."
 ///
 /// `name` is a "Substring match on region name", ignoring case as
@@ -137,7 +137,7 @@ pub fn region_matches(filter: &SceneRegionFilter, region: &SceneRegion) -> bool 
     })
 }
 
-/// `worldStateEquals` (jmap-chat-spec 93f2258 §SceneRegion/query): `true`
+/// `worldStateEquals` (jmap-chat-spec 93f2258 §`SceneRegion/query`): `true`
 /// when `world_state` has every key of `want` "with an equal value: the
 /// same JSON type, and for Strings the same sequence of characters, for
 /// Numbers the same numeric value". An empty `want` matches every region,
@@ -255,7 +255,7 @@ fn rotate(q: [f64; 4], v: Position) -> Position {
 }
 
 /// `true` if `object`, whose region-local position is `position` (see
-/// [`region_local_position`]), matches `filter` (§SceneObject/query):
+/// [`region_local_position`]), matches `filter` (§`SceneObject/query`):
 /// "All filter properties are combined with logical AND."
 ///
 /// `name` is a case-insensitive substring match, as [`asset_matches`]
@@ -311,7 +311,7 @@ fn in_bounds(b: &WithinBounds, p: Position) -> bool {
     (0..3).all(|i| b.min[i] <= p[i] && p[i] <= b.max[i])
 }
 
-/// `true` if `avatar` matches `filter` (§SceneAvatar/query): "All filter
+/// `true` if `avatar` matches `filter` (§`SceneAvatar/query`): "All filter
 /// properties are combined with logical AND."
 ///
 /// `isActive` `true` selects "avatars with `leftAt == null`", `false`

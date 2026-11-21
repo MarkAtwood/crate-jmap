@@ -1,5 +1,5 @@
 //! `SceneRegion/broadcast` (draft-atwood-jmap-scene-00 at jmap-chat-spec
-//! 93f2258, §SceneRegion/broadcast).
+//! 93f2258, §`SceneRegion/broadcast`).
 //!
 //! Region events are ephemeral: the handler changes no record or state
 //! string. The method mirrors `SceneObject/interact`. Each entry of

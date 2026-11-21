@@ -98,7 +98,7 @@ const DISABLE: &str = "SceneStreamDisable";
 /// The `@type` of a client-submitted interaction.
 const INTERACTION: &str = "SceneInteractionEvent";
 
-/// Interaction limiter key: (accountId, regionId, userId).
+/// Interaction limiter key: (`accountId`, `regionId`, `userId`).
 type InteractionKey = (Id, Id, String);
 
 /// The server-wide source of Scene ephemeral events: the deployment
@@ -389,6 +389,13 @@ impl<B: SceneBackend> SceneStreamHandler<B> {
     /// interactions to `hub`.
     ///
     /// The default [`SceneStreamLimits`] apply.
+    ///
+    /// # Panics
+    ///
+    /// Does not panic: the `expect` on the catch-all subscription holds
+    /// because [`SceneEphemeralSubscription::replace_with`] fails only on an
+    /// `eventTypes` array with no recognized value, and the default
+    /// [`SceneStreamEnable`] has `eventTypes` `null`.
     pub fn new(
         backend: Arc<B>,
         caller: B::CallerCtx,
@@ -559,7 +566,7 @@ impl<B: SceneBackend> Drop for SceneStreamHandler<B> {
     }
 }
 
-/// Object-update limiter key: (accountId, objectId).
+/// Object-update limiter key: (`accountId`, `objectId`).
 type ObjectKey = (Id, Id);
 
 /// Delivers the hub's events to one connection until it closes.
@@ -648,8 +655,8 @@ mod tests {
         );
     }
 
-    /// §SceneStreamEnable: a new message "replaces the previous ephemeral
-    /// subscription in its entirety"; §SceneStreamDisable "MUST silently
+    /// §`SceneStreamEnable`: a new message "replaces the previous ephemeral
+    /// subscription in its entirety"; §`SceneStreamDisable` "MUST silently
     /// succeed if no ephemeral Scene subscription is currently active".
     #[tokio::test]
     async fn enable_replaces_and_disable_clears() {
@@ -671,7 +678,7 @@ mod tests {
         h.handle(message(DISABLE, json!({}))).await.unwrap();
     }
 
-    /// §SceneStreamEnable: only unrecognized `eventTypes` is
+    /// §`SceneStreamEnable`: only unrecognized `eventTypes` is
     /// `invalidArguments` and "MUST NOT update the current ephemeral
     /// subscription state". Without `supportsObserve`, `observe` is not
     /// recognized: `observe: true` with `regionIds: null` is not the
