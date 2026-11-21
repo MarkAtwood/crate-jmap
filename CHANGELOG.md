@@ -122,7 +122,7 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
-- jmap-chat-vtc-server: `eject_banned_user` no longer panics when the
+- **jmap-chat-vtc-server**: `eject_banned_user` no longer panics when the
   account id or a stored call or participant id was built unchecked with
   `Id::from`; the `"left"` events carry those ids as given (JMAP-ifb2).
 
