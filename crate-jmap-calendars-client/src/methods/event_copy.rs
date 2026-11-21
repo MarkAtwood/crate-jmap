@@ -1,4 +1,4 @@
-//! JMAP Calendars — CalendarEvent/copy method implementation on SessionClient.
+//! JMAP Calendars — CalendarEvent/copy method implementation on `SessionClient`.
 //!
 //! CalendarEvent/copy copies events between accounts (draft-ietf-jmap-calendars-34 §5.10).
 
@@ -38,6 +38,12 @@ impl super::SessionClient {
     ///   RFC 8620 §5.4 /copy adds method-level errors
     ///   `fromAccountNotFound`, `fromAccountNotSupportedByMethod`, and
     ///   `anchorNotFound`.
+    ///
+    /// # Panics
+    ///
+    /// Does not panic in practice. The one `expect` is on the method arguments
+    /// being a JSON object when caller extras are merged in; they are built
+    /// with `json!({ ... })` and only ever have keys assigned, so it cannot fail.
     pub async fn calendar_event_copy(
         &self,
         params: CalendarEventCopyParams,

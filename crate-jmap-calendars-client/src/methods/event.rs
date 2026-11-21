@@ -1,6 +1,6 @@
-//! JMAP Calendars — CalendarEvent/* method implementations on SessionClient.
+//! JMAP Calendars — `CalendarEvent`/* method implementations on `SessionClient`.
 //!
-//! Note: CalendarEvent/copy lives in event_copy.rs.
+//! Note: CalendarEvent/copy lives in `event_copy.rs`.
 
 use std::collections::BTreeMap;
 
@@ -40,6 +40,12 @@ impl super::SessionClient {
     ///   [`ResponseTooLarge`](jmap_base_client::ClientError::ResponseTooLarge),
     ///   or
     ///   [`UnexpectedResponse`](jmap_base_client::ClientError::UnexpectedResponse).
+    ///
+    /// # Panics
+    ///
+    /// Does not panic in practice. The one `expect` is on the method arguments
+    /// being a JSON object when caller extras are merged in; they are built
+    /// with `json!({ ... })` and only ever have keys assigned, so it cannot fail.
     pub async fn calendar_event_get(
         &self,
         ids: Option<&[Id]>,
@@ -163,6 +169,12 @@ impl super::SessionClient {
     /// - Any transport / protocol variant returned by
     ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
     ///   the matching error list on [`Self::calendar_event_get`].
+    ///
+    /// # Panics
+    ///
+    /// Does not panic in practice. The one `expect` is on the method arguments
+    /// being a JSON object when caller extras are merged in; they are built
+    /// with `json!({ ... })` and only ever have keys assigned, so it cannot fail.
     pub async fn calendar_event_set(
         &self,
         create: Option<serde_json::Value>,

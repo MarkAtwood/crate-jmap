@@ -1,4 +1,4 @@
-//! Typed JMAP Tasks method wrappers — response types, SessionClient,
+//! Typed JMAP Tasks method wrappers — response types, [`SessionClient`],
 //! constants, and helpers.
 //!
 //! Response types mirror RFC 8620 standard shapes (§5.1 /get, §5.5 /query,
@@ -37,10 +37,10 @@ pub use jmap_types::{
 #[derive(Debug, Default, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TaskListSetParams {
-    /// If `true`, destroying a TaskList also destroys all its Tasks
+    /// If `true`, destroying a `TaskList` also destroys all its Tasks
     /// (draft-ietf-jmap-tasks-06 §3.7). Server default: false (the
-    /// server MUST reject a destroy on a TaskList with tasks,
-    /// returning the `taskListHasTasks` SetError).
+    /// server MUST reject a destroy on a `TaskList` with tasks,
+    /// returning the `taskListHasTasks` [`SetError`]).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub on_destroy_remove_tasks: Option<bool>,
 
@@ -90,7 +90,7 @@ pub struct TaskGetParams {
 pub struct TaskQueryParams {
     /// `expandRecurrences` (default `false`): one result id per instance
     /// of a recurring task. With `true` the filter MUST be one
-    /// FilterCondition with both `before` and `after`, or the server
+    /// `FilterCondition` with both `before` and `after`, or the server
     /// answers `invalidArguments`; a window over the account's
     /// `maxExpandedQueryDuration` is `expandDurationTooLarge`.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -284,9 +284,12 @@ impl SessionClient {
         &self.session
     }
 
-    /// Return the primary account id for `urn:ietf:params:jmap:tasks`,
-    /// or `Err(InvalidSession)` if the session has no primary account for
-    /// that capability.
+    /// Return the primary account id for `urn:ietf:params:jmap:tasks`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    /// if the session has no primary account for that capability.
     pub fn tasks_account_id(&self) -> Result<&jmap_types::Id, jmap_base_client::ClientError> {
         self.session
             .primary_account_id(jmap_tasks_types::JMAP_TASKS_URI)

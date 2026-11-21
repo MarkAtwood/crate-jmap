@@ -1,4 +1,4 @@
-//! JMAP Contacts — AddressBook/* method implementations on SessionClient.
+//! JMAP Contacts — `AddressBook`/* method implementations on `SessionClient`.
 //!
 //! Each method follows the standard five-step pattern:
 //!   1. Validate arguments (defence-in-depth empty-state guards).
@@ -15,9 +15,9 @@ use jmap_types::{Id, PatchObject, State};
 use super::{AddressBookSetParams, ChangesResponse, GetResponse, PartialObject, SetResponse};
 
 impl super::SessionClient {
-    /// Fetch AddressBook objects by IDs (RFC 9610 §2.1).
+    /// Fetch `AddressBook` objects by IDs (RFC 9610 §2.1).
     ///
-    /// If `ids` is `None`, the server returns all AddressBooks for the account,
+    /// If `ids` is [`None`], the server returns all `AddressBook`s for the account,
     /// SUBJECT TO the server's `maxObjectsInGet` cap (RFC 8620 §5.1).
     /// For production use, scope the result set via the corresponding
     /// /query method first and pass explicit ids here to avoid
@@ -70,7 +70,7 @@ impl super::SessionClient {
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 
-    /// Fetch changes to AddressBook objects since `since_state`
+    /// Fetch changes to `AddressBook` objects since `since_state`
     /// (RFC 9610 §2.2).
     ///
     /// If `has_more_changes` is true in the response, call again with
@@ -116,7 +116,7 @@ impl super::SessionClient {
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 
-    /// Create, update, or destroy AddressBook objects
+    /// Create, update, or destroy `AddressBook` objects
     /// (RFC 9610 §2.3).
     ///
     /// Pass `create`, `update`, and/or `destroy` as needed. All three are
@@ -152,6 +152,12 @@ impl super::SessionClient {
     /// - Any transport / protocol variant returned by
     ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
     ///   the matching error list on [`Self::address_book_get`].
+    ///
+    /// # Panics
+    ///
+    /// Does not panic in practice. The one `expect` is on the method arguments
+    /// being a JSON object when caller extras are merged in; they are built
+    /// with `json!({ ... })` and only ever have keys assigned, so it cannot fail.
     pub async fn address_book_set(
         &self,
         create: Option<serde_json::Value>,

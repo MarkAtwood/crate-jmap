@@ -1,4 +1,4 @@
-//! jmap-filenode-client — JMAP FileNode method implementations.
+//! jmap-filenode-client — JMAP `FileNode` method implementations.
 //!
 //! Depends on jmap-base-client for transport, auth, and session.
 //! See PLAN.md for the full implementation plan.
@@ -41,11 +41,11 @@ pub use methods::{
     SessionClient, SetError, SetResponse,
 };
 
-/// Extension trait adding JMAP FileNode methods to [`jmap_base_client::JmapClient`].
+/// Extension trait adding JMAP `FileNode` methods to [`jmap_base_client::JmapClient`].
 ///
 /// Import this trait to use: `use jmap_filenode_client::JmapFilenodeExt;`
 ///
-/// All JMAP FileNode method calls are made through the [`SessionClient`] returned
+/// All JMAP `FileNode` method calls are made through the [`SessionClient`] returned
 /// by [`with_filenode_session`](JmapFilenodeExt::with_filenode_session).
 /// This trait is **sealed**: implementations outside this crate are not
 /// permitted. The crate adds an `impl` only for
@@ -55,7 +55,7 @@ pub use methods::{
 pub trait JmapFilenodeExt: sealed::Sealed {
     /// Create a [`SessionClient`] bound to this client and session.
     ///
-    /// All JMAP FileNode method calls are made through the returned [`SessionClient`].
+    /// All JMAP `FileNode` method calls are made through the returned [`SessionClient`].
     ///
     /// # Deferred session-capability validation
     ///

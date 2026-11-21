@@ -64,7 +64,7 @@ fn comment_at_type_default() -> String {
     "Comment".to_owned()
 }
 
-/// A person reference used in CheckItem assignee and Comment author fields
+/// A person reference used in [`CheckItem`] assignee and Comment author fields
 /// (draft-tasks-06 §4.2.3).
 ///
 /// Either `uri` or `principal_id` MUST be set per the spec; this is enforced
@@ -129,7 +129,7 @@ pub struct CheckItem {
     #[serde(default)]
     pub sort_order: u32,
 
-    /// When this item was last updated (UTCDateTime).
+    /// When this item was last updated (`UTCDateTime`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub updated: Option<UTCDate>,
 
@@ -195,11 +195,11 @@ pub struct Comment {
     /// The comment text.
     pub message: String,
 
-    /// When this comment was created (UTCDateTime).
+    /// When this comment was created (`UTCDateTime`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub created: Option<UTCDate>,
 
-    /// When this comment was last updated (UTCDateTime).
+    /// When this comment was last updated (`UTCDateTime`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub updated: Option<UTCDate>,
 
@@ -238,8 +238,8 @@ pub struct Comment {
 ///
 /// ## Complex sub-objects
 ///
-/// JSCalendar sub-objects that are deeply nested (Location, VirtualLocation,
-/// Link, Alert, Participant, RecurrenceRule, TimeZone) are stored as
+/// JSCalendar sub-objects that are deeply nested (Location, `VirtualLocation`,
+/// Link, Alert, Participant, `RecurrenceRule`, `TimeZone`) are stored as
 /// `serde_json::Value` to preserve the wire shape (including vendor
 /// extensions permitted by RFC 8984 §3.3) and avoid coupling this crate to
 /// a full JSCalendar type library.
@@ -259,7 +259,7 @@ pub struct Task {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub id: Option<Id>,
 
-    /// Id of the single TaskList this task belongs to.
+    /// Id of the single `TaskList` this task belongs to.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub task_list_id: Option<Id>,
 
@@ -278,7 +278,7 @@ pub struct Task {
 
     /// `UTCDate|null`: the task's `due` converted to UTC using its time
     /// zone, or `null` if `due` is not set (jmapio/jmap PR #464; -06 said
-    /// "from the start/timeZone/duration properties", but a JSTask has no
+    /// "from the start/timeZone/duration properties", but a `JSTask` has no
     /// `duration`). Not in the default response.
     #[serde(rename = "utcDue", skip_serializing_if = "Option::is_none")]
     pub utc_due: Option<UTCDate>,
@@ -287,7 +287,7 @@ pub struct Task {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sort_order: Option<u32>,
 
-    /// Current workflow status.  Must be one of the TaskList's
+    /// Current workflow status.  Must be one of the `TaskList`'s
     /// `workflowStatuses`. In place of -06's "If set, `progress` MUST be
     /// null", the server mirrors an RFC 8984 progress value into `progress`
     /// and leaves it null for any other value (docs/design/DECISIONS.md
@@ -337,11 +337,11 @@ pub struct Task {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub prod_id: Option<String>,
 
-    /// When this task was first created (UTCDateTime; RFC 8984 §4.1.5).
+    /// When this task was first created (`UTCDateTime`; RFC 8984 §4.1.5).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub created: Option<UTCDate>,
 
-    /// When this task was last updated (UTCDateTime; RFC 8984 §4.1.6).
+    /// When this task was last updated (`UTCDateTime`; RFC 8984 §4.1.6).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub updated: Option<UTCDate>,
 
@@ -370,7 +370,7 @@ pub struct Task {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub locations: Option<serde_json::Value>,
 
-    /// Map of virtual location id → VirtualLocation objects (RFC 8984 §4.2.6).
+    /// Map of virtual location id → `VirtualLocation` objects (RFC 8984 §4.2.6).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub virtual_locations: Option<serde_json::Value>,
 
@@ -397,7 +397,7 @@ pub struct Task {
 
     // --- JSCalendar Recurrence Properties (RFC 8984 §4.3) ---
     // These fields are gated on the recurrences extension at the handler layer.
-    /// Recurrence id for a specific instance of a recurring task (LocalDateTime).
+    /// Recurrence id for a specific instance of a recurring task ([`LocalDateTime`]).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub recurrence_id: Option<String>,
 
@@ -405,15 +405,15 @@ pub struct Task {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub recurrence_id_time_zone: Option<String>,
 
-    /// List of RecurrenceRule objects (RFC 8984 §4.3.2).
+    /// List of `RecurrenceRule` objects (RFC 8984 §4.3.2).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub recurrence_rules: Option<serde_json::Value>,
 
-    /// List of RecurrenceRule objects for exclusions (RFC 8984 §4.3.3).
+    /// List of `RecurrenceRule` objects for exclusions (RFC 8984 §4.3.3).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub excluded_recurrence_rules: Option<serde_json::Value>,
 
-    /// Map of LocalDateTime → PatchObject for per-instance overrides.
+    /// Map of [`LocalDateTime`] → [`PatchObject`] for per-instance overrides.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub recurrence_overrides: Option<BTreeMap<String, PatchObject>>,
 
@@ -454,7 +454,7 @@ pub struct Task {
 
     // --- JSCalendar Alert Properties (RFC 8984 §4.5) ---
     // These fields are gated on the alerts extension at the handler layer.
-    /// If true, apply the TaskList's default alerts instead of `alerts`.
+    /// If true, apply the `TaskList`'s default alerts instead of `alerts`.
     /// Per-user.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub use_default_alerts: Option<bool>,
@@ -474,17 +474,17 @@ pub struct Task {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub time_zone: Option<String>,
 
-    /// Map of time zone id → custom TimeZone objects (RFC 8984 §4.7.2).
+    /// Map of time zone id → custom `TimeZone` objects (RFC 8984 §4.7.2).
     /// Customtimezones extension.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub time_zones: Option<serde_json::Value>,
 
     // --- JSCalendar Task-specific Properties (RFC 8984 §5.2) ---
-    /// Due date/time (LocalDateTime; RFC 8984 §5.2.1).
+    /// Due date/time ([`LocalDateTime`]; RFC 8984 §5.2.1).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub due: Option<String>,
 
-    /// Start date/time (LocalDateTime; RFC 8984 §5.2.2).
+    /// Start date/time ([`LocalDateTime`]; RFC 8984 §5.2.2).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub start: Option<String>,
 
@@ -500,7 +500,7 @@ pub struct Task {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub progress: Option<TaskProgress>,
 
-    /// When `progress` was last updated (UTCDateTime; RFC 8984 §5.2.6).
+    /// When `progress` was last updated (`UTCDateTime`; RFC 8984 §5.2.6).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub progress_updated: Option<UTCDate>,
 
@@ -591,7 +591,7 @@ pub struct Task {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TaskFilterCondition {
-    /// `inTaskLists`: the task's `taskListId` must be one of these TaskList
+    /// `inTaskLists`: the task's `taskListId` must be one of these `TaskList`
     /// ids (jmapio/jmap #456 "inTaskLists: Id\[\]"). It replaces the
     /// single-id `taskListId` condition this crate had before.
     #[serde(skip_serializing_if = "Option::is_none")]

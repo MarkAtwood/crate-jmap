@@ -819,7 +819,7 @@ pub struct CryptoKey {
     #[serde(rename = "@type", default, skip_serializing_if = "Option::is_none")]
     pub at_type: Option<String>,
 
-    /// Kind of resource (optional for CryptoKey per RFC 9553 §2.6.1).
+    /// Kind of resource (optional for [`CryptoKey`] per RFC 9553 §2.6.1).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub kind: Option<String>,
 
@@ -1361,7 +1361,7 @@ pub struct PersonalInfo {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub level: Option<String>,
 
-    /// Position in the list of PersonalInfo entries of the same kind.
+    /// Position in the list of [`PersonalInfo`] entries of the same kind.
     /// Must be > 0 when set.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub list_as: Option<u32>,

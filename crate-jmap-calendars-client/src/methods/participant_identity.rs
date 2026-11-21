@@ -1,4 +1,4 @@
-//! JMAP Calendars — ParticipantIdentity/* method implementations on SessionClient.
+//! JMAP Calendars — `ParticipantIdentity`/* method implementations on `SessionClient`.
 
 use std::collections::BTreeMap;
 
@@ -130,6 +130,12 @@ impl super::SessionClient {
     /// - Any transport / protocol variant returned by
     ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
     ///   the matching error list on [`Self::participant_identity_get`].
+    ///
+    /// # Panics
+    ///
+    /// Does not panic in practice. The one `expect` is on the method arguments
+    /// being a JSON object when caller extras are merged in; they are built
+    /// with `json!({ ... })` and only ever have keys assigned, so it cannot fail.
     pub async fn participant_identity_set(
         &self,
         create: Option<serde_json::Value>,

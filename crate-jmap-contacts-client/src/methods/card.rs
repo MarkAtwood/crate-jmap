@@ -1,4 +1,4 @@
-//! JMAP Contacts — ContactCard/* method implementations on SessionClient.
+//! JMAP Contacts — `ContactCard`/* method implementations on `SessionClient`.
 //!
 //! Each method follows the standard five-step pattern:
 //!   1. Validate arguments (defence-in-depth empty-state guards).
@@ -20,9 +20,9 @@ use super::{
 };
 
 impl super::SessionClient {
-    /// Fetch ContactCard objects by IDs (RFC 9610 §3.1).
+    /// Fetch `ContactCard` objects by IDs (RFC 9610 §3.1).
     ///
-    /// If `ids` is `None`, the server returns all ContactCards for the account,
+    /// If `ids` is [`None`], the server returns all `ContactCard`s for the account,
     /// SUBJECT TO the server's `maxObjectsInGet` cap (RFC 8620 §5.1).
     /// For production use, scope the result set via the corresponding
     /// /query method first and pass explicit ids here to avoid
@@ -69,7 +69,7 @@ impl super::SessionClient {
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 
-    /// Fetch changes to ContactCard objects since `since_state`
+    /// Fetch changes to `ContactCard` objects since `since_state`
     /// (RFC 9610 §3.2).
     ///
     /// If `has_more_changes` is true in the response, call again with
@@ -112,7 +112,7 @@ impl super::SessionClient {
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 
-    /// Create, update, or destroy ContactCard objects
+    /// Create, update, or destroy `ContactCard` objects
     /// (RFC 9610 §3.3).
     ///
     /// Pass `create`, `update`, and/or `destroy` as needed. All three are
@@ -183,7 +183,7 @@ impl super::SessionClient {
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 
-    /// Copy ContactCards from another account (RFC 8620 §5.4 /copy).
+    /// Copy `ContactCard`s from another account (RFC 8620 §5.4 /copy).
     ///
     /// `params` carries `fromAccountId`, the optional `ifFromInState` /
     /// `ifInState` state guards, the optional destroy-after-copy flags,
@@ -203,6 +203,12 @@ impl super::SessionClient {
     ///   `fromAccountNotSupportedByMethod`, and `anchorNotFound`; they
     ///   surface as
     ///   [`MethodError`](jmap_base_client::ClientError::MethodError).
+    ///
+    /// # Panics
+    ///
+    /// Does not panic in practice. The one `expect` is on the method arguments
+    /// being a JSON object when caller extras are merged in; they are built
+    /// with `json!({ ... })` and only ever have keys assigned, so it cannot fail.
     pub async fn contact_card_copy(
         &self,
         params: super::ContactCardCopyParams,
@@ -243,10 +249,10 @@ impl super::SessionClient {
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 
-    /// Query ContactCard IDs with optional filter and sort
+    /// Query `ContactCard` IDs with optional filter and sort
     /// (RFC 9610 §3.4).
     ///
-    /// Pass `filter: None` and `sort: None` to return all ContactCards with
+    /// Pass `filter: None` and `sort: None` to return all `ContactCard`s with
     /// server-default ordering. Use `params`
     /// ([`QueryParams`](jmap_base_client::QueryParams), RFC 8620 §5.5) for
     /// pagination.
@@ -292,10 +298,10 @@ impl super::SessionClient {
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 
-    /// Fetch query-result changes for ContactCard since `since_query_state`
+    /// Fetch query-result changes for `ContactCard` since `since_query_state`
     /// (RFC 9610 §3.5).
     ///
-    /// Returns which ContactCard IDs were removed from or added to the query
+    /// Returns which `ContactCard` IDs were removed from or added to the query
     /// result set since the given state. `max_changes` may be `None`.
     ///
     /// `filter` and `sort` MUST match the `filter` / `sort` passed to the

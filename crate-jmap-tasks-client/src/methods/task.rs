@@ -1,4 +1,4 @@
-//! JMAP Tasks — Task/* method implementations on SessionClient.
+//! JMAP Tasks — Task/* method implementations on `SessionClient`.
 
 use std::collections::BTreeMap;
 
@@ -188,6 +188,12 @@ impl super::SessionClient {
     ///   `fromAccountNotSupportedByMethod`, and `anchorNotFound`; they
     ///   surface as
     ///   [`MethodError`](jmap_base_client::ClientError::MethodError).
+    ///
+    /// # Panics
+    ///
+    /// Does not panic in practice. The one `expect` is on the method arguments
+    /// being a JSON object when caller extras are merged in; they are built
+    /// with `json!({ ... })` and only ever have keys assigned, so it cannot fail.
     pub async fn task_copy(
         &self,
         params: super::TaskCopyParams,

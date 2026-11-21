@@ -111,7 +111,7 @@ pub enum ContactCardProperty {
 // JmapObject impls
 // ---------------------------------------------------------------------------
 
-/// draft-atwood-jmap-updates-00 §5.3: AddressBook `name` and
+/// draft-atwood-jmap-updates-00 §5.3: `AddressBook` `name` and
 /// `description` are localizable.
 impl JmapObject for crate::AddressBook {
     const TYPE_NAME: &'static str = "AddressBook";
@@ -150,7 +150,7 @@ impl SetObject for crate::AddressBook {
 
 // AddressBook does NOT implement QueryObject — spec has no AddressBook/query.
 
-/// ContactCard is deliberately NOT localizable under
+/// `ContactCard` is deliberately NOT localizable under
 /// draft-atwood-jmap-updates-00 (§5.3): it is a JSContact Card with its
 /// own `language` and `localizations` (RFC 9553 §2.1.5, §2.7.1), and the
 /// `language` argument does not apply to `ContactCard/get`.

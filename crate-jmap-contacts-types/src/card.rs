@@ -1,6 +1,6 @@
-//! RFC 9610 §3 — ContactCard object and filter types.
+//! RFC 9610 §3 — [`ContactCard`] object and filter types.
 //!
-//! A ContactCard is a JMAP wrapper around a JSContact Card (RFC 9553 §2),
+//! A [`ContactCard`] is a JMAP wrapper around a JSContact Card (RFC 9553 §2),
 //! with two JMAP-specific additions: `id` and `addressBookIds`.
 //!
 //! Complex JSContact sub-objects (addresses, phones, emails, etc.) are
@@ -58,7 +58,7 @@ const CONTACT_CARD_TYPED_FIELDS: &[&str] = &[
     "privateMetadata",
 ];
 
-/// A JMAP ContactCard object (RFC 9610 §3).
+/// A JMAP [`ContactCard`] object (RFC 9610 §3).
 ///
 /// Wraps the JSContact Card format (RFC 9553 §2) with two JMAP-specific
 /// additions: [`id`](ContactCard::id) and
@@ -116,7 +116,7 @@ pub struct ContactCard {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub id: Option<Id>,
 
-    /// Set of AddressBook ids this card belongs to (JMAP addition; wire
+    /// Set of `AddressBook` ids this card belongs to (JMAP addition; wire
     /// name `addressBookIds`).
     ///
     /// Represented as `BTreeMap<Id, bool>` because the JMAP wire format
@@ -125,7 +125,7 @@ pub struct ContactCard {
     /// value MUST be true" — the type does not enforce that constraint,
     /// so callers (and `jmap-contacts-server`) MUST reject `false`
     /// values with `invalidProperties` per RFC 8620 §5.3. The map shape
-    /// is also used in PatchObject updates (RFC 8620 §5.3) where a
+    /// is also used in [`PatchObject`] updates (RFC 8620 §5.3) where a
     /// `null` value removes an entry.
     ///
     /// This shape matches the canonical `Email.mailbox_ids` precedent
@@ -138,13 +138,13 @@ pub struct ContactCard {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub version: Option<String>,
 
-    /// Date and time when the Card was created (RFC 8620 UTCDate format:
+    /// Date and time when the Card was created (RFC 8620 [`UTCDate`] format:
     /// `YYYY-MM-DDTHH:MM:SS[.SSS]Z`, exactly the `Z` UTC suffix).
     ///
     /// [`UTCDate`] is a transparent `String` newtype in `jmap-types`; it
     /// performs **no parse validation** at construction. Callers building a
     /// `ContactCard/set` argument MUST supply a syntactically valid
-    /// UTCDate; the handler layer rejects malformed values with
+    /// [`UTCDate`]; the handler layer rejects malformed values with
     /// `invalidProperties`. JMAP-glx8.18.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub created: Option<UTCDate>,
@@ -165,7 +165,7 @@ pub struct ContactCard {
     /// be true" — the type does not enforce that constraint, so callers
     /// (and `jmap-contacts-server`) MUST reject `false` values with
     /// `invalidProperties` per RFC 8620 §5.3. The map shape is also
-    /// used in PatchObject updates (RFC 8620 §5.3) where a `null` value
+    /// used in [`PatchObject`] updates (RFC 8620 §5.3) where a `null` value
     /// removes an entry. JMAP-glx8.11.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub members: Option<BTreeMap<String, bool>>,
@@ -182,7 +182,7 @@ pub struct ContactCard {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub uid: Option<String>,
 
-    /// Date and time when the Card was last modified (UTCDate; server-set).
+    /// Date and time when the Card was last modified ([`UTCDate`]; server-set).
     ///
     /// See [`created`](Self::created) for the format and validation
     /// contract. JMAP-glx8.18.
@@ -224,11 +224,11 @@ pub struct ContactCard {
     pub titles: Option<serde_json::Value>,
 
     // ── RFC 9553 §2.3 Contact ────────────────────────────────────────────
-    /// Email addresses map: id → EmailAddress object.
+    /// Email addresses map: id → `EmailAddress` object.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub emails: Option<serde_json::Value>,
 
-    /// Online services map: id → OnlineService object.
+    /// Online services map: id → `OnlineService` object.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub online_services: Option<serde_json::Value>,
 
@@ -236,7 +236,7 @@ pub struct ContactCard {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub phones: Option<serde_json::Value>,
 
-    /// Preferred languages map: id → LanguagePref object.
+    /// Preferred languages map: id → `LanguagePref` object.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub preferred_languages: Option<serde_json::Value>,
 
@@ -245,7 +245,7 @@ pub struct ContactCard {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub calendars: Option<serde_json::Value>,
 
-    /// Scheduling addresses map: id → SchedulingAddress object.
+    /// Scheduling addresses map: id → `SchedulingAddress` object.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub scheduling_addresses: Option<serde_json::Value>,
 
@@ -255,7 +255,7 @@ pub struct ContactCard {
     pub addresses: Option<serde_json::Value>,
 
     // ── RFC 9553 §2.6 Resources ──────────────────────────────────────────
-    /// Cryptographic keys map: id → CryptoKey object.
+    /// Cryptographic keys map: id → `CryptoKey` object.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub crypto_keys: Option<serde_json::Value>,
 
@@ -293,7 +293,7 @@ pub struct ContactCard {
     /// sibling `members` and `address_book_ids` fields. JMAP-glx8.3.
     /// Values are always `true`; the type does not enforce that
     /// constraint, so callers MUST reject `false` values per RFC 9553
-    /// §2.8.2. The map shape is also used in PatchObject updates
+    /// §2.8.2. The map shape is also used in [`PatchObject`] updates
     /// (RFC 8620 §5.3) where a `null` value removes an entry.
     /// JMAP-glx8.11.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -303,7 +303,7 @@ pub struct ContactCard {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub notes: Option<serde_json::Value>,
 
-    /// Personal information map: id → PersonalInfo object.
+    /// Personal information map: id → `PersonalInfo` object.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub personal_info: Option<serde_json::Value>,
 
@@ -380,7 +380,7 @@ impl ContactCard {
 /// Filter condition for `ContactCard/query` (RFC 9610 §3.3.1).
 ///
 /// All fields are optional; a condition with no fields set matches every
-/// ContactCard.
+/// [`ContactCard`].
 ///
 /// Note: several field names use forward-slash separators on the wire
 /// (e.g., `"name/given"`, `"name/surname"`, `"name/surname2"`).  These are
@@ -447,7 +447,7 @@ impl ContactCard {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ContactCardFilterCondition {
-    /// Card must belong to this AddressBook.
+    /// Card must belong to this `AddressBook`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub in_address_book: Option<Id>,
 
@@ -463,7 +463,7 @@ pub struct ContactCardFilterCondition {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub kind: Option<String>,
 
-    /// Card `created` must be strictly before this UTCDate
+    /// Card `created` must be strictly before this [`UTCDate`]
     /// (`YYYY-MM-DDTHH:MM:SS[.SSS]Z`).
     ///
     /// [`UTCDate`] is a transparent `String` newtype with no parse
@@ -472,21 +472,21 @@ pub struct ContactCardFilterCondition {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub created_before: Option<UTCDate>,
 
-    /// Card `created` must be equal to or after this UTCDate.
+    /// Card `created` must be equal to or after this [`UTCDate`].
     ///
     /// See [`created_before`](Self::created_before) for the format and
     /// validation contract.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub created_after: Option<UTCDate>,
 
-    /// Card `updated` must be strictly before this UTCDate.
+    /// Card `updated` must be strictly before this [`UTCDate`].
     ///
     /// See [`created_before`](Self::created_before) for the format and
     /// validation contract.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub updated_before: Option<UTCDate>,
 
-    /// Card `updated` must be equal to or after this UTCDate.
+    /// Card `updated` must be equal to or after this [`UTCDate`].
     ///
     /// See [`created_before`](Self::created_before) for the format and
     /// validation contract.
@@ -497,21 +497,21 @@ pub struct ContactCardFilterCondition {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub text: Option<String>,
 
-    /// Matches any NameComponent value or the `full` property in `name`.
+    /// Matches any `NameComponent` value or the `full` property in `name`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
 
-    /// Matches NameComponents with `kind = "given"`.
+    /// Matches `NameComponent`s with `kind = "given"`.
     /// Wire name: `name/given`.
     #[serde(rename = "name/given", skip_serializing_if = "Option::is_none")]
     pub name_given: Option<String>,
 
-    /// Matches NameComponents with `kind = "surname"`.
+    /// Matches `NameComponent`s with `kind = "surname"`.
     /// Wire name: `name/surname`.
     #[serde(rename = "name/surname", skip_serializing_if = "Option::is_none")]
     pub name_surname: Option<String>,
 
-    /// Matches NameComponents with `kind = "surname2"`.
+    /// Matches `NameComponent`s with `kind = "surname2"`.
     /// Wire name: `name/surname2`.
     #[serde(rename = "name/surname2", skip_serializing_if = "Option::is_none")]
     pub name_surname2: Option<String>,
@@ -524,7 +524,7 @@ pub struct ContactCardFilterCondition {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub organization: Option<String>,
 
-    /// Matches any EmailAddress `address` or `label` in the `emails` property.
+    /// Matches any `EmailAddress` `address` or `label` in the `emails` property.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub email: Option<String>,
 
@@ -532,12 +532,12 @@ pub struct ContactCardFilterCondition {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub phone: Option<String>,
 
-    /// Matches any OnlineService `service`, `uri`, `user`, or `label` in
+    /// Matches any `OnlineService` `service`, `uri`, `user`, or `label` in
     /// `onlineServices`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub online_service: Option<String>,
 
-    /// Matches any AddressComponent value or the `full` property in `addresses`.
+    /// Matches any `AddressComponent` value or the `full` property in `addresses`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub address: Option<String>,
 
@@ -618,11 +618,11 @@ pub enum ContactCardComparatorProperty {
     Created,
     /// Sort by the card's `updated` date.
     Updated,
-    /// Sort by the first NameComponent in `name` whose `kind` is `given`.
+    /// Sort by the first `NameComponent` in `name` whose `kind` is `given`.
     NameGiven,
-    /// Sort by the first NameComponent in `name` whose `kind` is `surname`.
+    /// Sort by the first `NameComponent` in `name` whose `kind` is `surname`.
     NameSurname,
-    /// Sort by the first NameComponent in `name` whose `kind` is `surname2`.
+    /// Sort by the first `NameComponent` in `name` whose `kind` is `surname2`.
     NameSurname2,
     /// A property not listed above, kept so it round-trips; a server
     /// answers it with `unsupportedSort` (RFC 8620 §5.5).

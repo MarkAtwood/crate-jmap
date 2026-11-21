@@ -1,4 +1,4 @@
-//! draft-ietf-jmap-filenode-20 §3.1 — FileNode object and component types.
+//! draft-ietf-jmap-filenode-20 §3.1 — [`FileNode`] object and component types.
 //!
 //! Provides [`FileNode`], [`NodeType`], [`NodeRole`], and [`FilesRights`].
 
@@ -8,7 +8,7 @@ use jmap_cid_types::Sha256;
 use jmap_types::{Id, UTCDate, impl_string_enum};
 use serde::{Deserialize, Serialize, Serializer};
 
-/// The `@type` of a FileNode (draft-ietf-jmap-filenode-20 §3.1.1, IANA "JMAP FileNode
+/// The `@type` of a [`FileNode`] (draft-ietf-jmap-filenode-20 §3.1.1, IANA "JMAP [`FileNode`]
 /// Types" registry §11.5).
 ///
 /// Values are registered strings.  Any unrecognised value is preserved as
@@ -47,7 +47,7 @@ impl NodeType {
 }
 
 /// Special role identifying a directory's common purpose
-/// (draft-ietf-jmap-filenode-20 §3.1.4, IANA "JMAP FileNode Roles" registry §11.6).
+/// (draft-ietf-jmap-filenode-20 §3.1.4, IANA "JMAP [`FileNode`] Roles" registry §11.6).
 ///
 /// Clients MUST ignore unrecognised role values (§3.1.4).  Unknown values are preserved
 /// as [`NodeRole::Other`] so they round-trip correctly.
@@ -106,7 +106,7 @@ impl NodeRole {
     }
 }
 
-/// ACL rights the authenticated user (or a shared user) holds for a FileNode
+/// ACL rights the authenticated user (or a shared user) holds for a [`FileNode`]
 /// (draft-ietf-jmap-filenode-20 §3.1.2, `myRights` description).
 ///
 /// `Default` produces all-false (no access), which is the most restrictive valid
@@ -145,7 +145,7 @@ pub struct FilesRights {
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
-/// A JMAP FileNode object (draft-ietf-jmap-filenode-20 §3.1).
+/// A JMAP [`FileNode`] object (draft-ietf-jmap-filenode-20 §3.1).
 ///
 /// ## Type-specific properties
 ///
@@ -172,7 +172,7 @@ pub struct FilesRights {
 /// ## Container properties
 ///
 /// draft-ietf-jmap-filenode-20 §3.1.2 defines `isSubscribed`, `myRights` and
-/// `shareWith` "for every FileNode whose @type permits children; of the types
+/// `shareWith` "for every [`FileNode`] whose @type permits children; of the types
 /// defined in this document, only "Directory" does.  They do not appear on
 /// other nodes, whose rights come from their parent".  A `File` or `SymLink`
 /// therefore never emits them.
@@ -194,8 +194,8 @@ pub struct FilesRights {
 ///
 /// ## `blob_id` lifetime guarantee
 ///
-/// "A blob referenced by a FileNode MUST NOT be expired or garbage collected by the
-/// server while the FileNode exists" (§3.1.3).  The server backend must enforce this invariant.
+/// "A blob referenced by a [`FileNode`] MUST NOT be expired or garbage collected by the
+/// server while the [`FileNode`] exists" (§3.1.3).  The server backend must enforce this invariant.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -225,15 +225,15 @@ pub struct FileNode {
     /// Size in bytes of the associated blob data (server-set).  `File` only.
     pub size: Option<u64>,
 
-    /// User-visible name for the FileNode.  Net-Unicode, at least 1 character.
+    /// User-visible name for the [`FileNode`].  Net-Unicode, at least 1 character.
     pub name: String,
 
     /// SHA-256 digest of the associated blob (draft-atwood-jmap-cid-00
-    /// §FileNode Extension).  `File` only.
+    /// §[`FileNode`] Extension).  `File` only.
     ///
     /// Present only when the server advertises `urn:ietf:params:jmap:cid`.
-    /// The draft says it "MUST be `null` for directory FileNodes", and a server
-    /// "MAY return `null` for a file FileNode whose digest was not computed".
+    /// The draft says it "MUST be `null` for directory `FileNode`s", and a server
+    /// "MAY return `null` for a file [`FileNode`] whose digest was not computed".
     /// `None` covers absent and `null`; check [`node_type`](Self::node_type) to
     /// tell a directory from a legacy file.  A malformed digest fails
     /// deserialization.
@@ -249,7 +249,7 @@ pub struct FileNode {
     /// Default: current server time.  Absent from wire when `None`.
     ///
     /// Uses the [`UTCDate`] newtype to make the wire-format constraint
-    /// (RFC 8620 §1.4: 20-character UTCDateTime string) explicit at the
+    /// (RFC 8620 §1.4: 20-character `UTCDateTime` string) explicit at the
     /// type level. JSON wire format is unchanged because `UTCDate` is a
     /// transparent newtype around `String`.
     pub created: Option<UTCDate>,
@@ -324,7 +324,7 @@ pub struct FileNode {
 
     /// Id of the JMAP Chat Space this node roots (draft-atwood-jmap-chat-filenode-00
     /// §The `spaceId` Extension Property).  A `Directory` with a `spaceId` is
-    /// a Space root; the property is "Absent on all FileNode objects that are
+    /// a Space root; the property is "Absent on all [`FileNode`] objects that are
     /// not Space roots" and immutable.  Absent from wire when `None`.
     pub space_id: Option<Id>,
 

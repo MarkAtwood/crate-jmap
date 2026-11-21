@@ -10,7 +10,7 @@ use crate::filenode::{NodeRole, NodeType};
 
 /// Filter condition for `FileNode/query` (draft-ietf-jmap-filenode-20 §3.2.5).
 ///
-/// All fields are optional; a condition with no fields set matches every FileNode.
+/// All fields are optional; a condition with no fields set matches every `FileNode`.
 /// A node matches only when every provided field matches.
 ///
 /// # Excluded from extras preservation
@@ -89,27 +89,27 @@ pub struct FileNodeFilterCondition {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub is_executable: Option<bool>,
 
-    /// The node's `created` date must be strictly before this UTCDate.
+    /// The node's `created` date must be strictly before this [`UTCDate`].
     #[serde(skip_serializing_if = "Option::is_none")]
     pub created_before: Option<UTCDate>,
 
-    /// The node's `created` date must be on or after this UTCDate.
+    /// The node's `created` date must be on or after this [`UTCDate`].
     #[serde(skip_serializing_if = "Option::is_none")]
     pub created_after: Option<UTCDate>,
 
-    /// The node's `modified` date must be strictly before this UTCDate.
+    /// The node's `modified` date must be strictly before this [`UTCDate`].
     #[serde(skip_serializing_if = "Option::is_none")]
     pub modified_before: Option<UTCDate>,
 
-    /// The node's `modified` date must be on or after this UTCDate.
+    /// The node's `modified` date must be on or after this [`UTCDate`].
     #[serde(skip_serializing_if = "Option::is_none")]
     pub modified_after: Option<UTCDate>,
 
-    /// The node's `accessed` date must be strictly before this UTCDate.
+    /// The node's `accessed` date must be strictly before this [`UTCDate`].
     #[serde(skip_serializing_if = "Option::is_none")]
     pub accessed_before: Option<UTCDate>,
 
-    /// The node's `accessed` date must be on or after this UTCDate.
+    /// The node's `accessed` date must be on or after this [`UTCDate`].
     #[serde(skip_serializing_if = "Option::is_none")]
     pub accessed_after: Option<UTCDate>,
 

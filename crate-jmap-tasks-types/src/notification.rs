@@ -1,8 +1,8 @@
-//! TaskNotification object and related types.
+//! [`TaskNotification`] object and related types.
 //!
 //! Normative reference: draft-ietf-jmap-tasks-06 §5.
 //!
-//! TaskNotification records changes made by external entities to tasks in
+//! [`TaskNotification`] records changes made by external entities to tasks in
 //! task lists the user is subscribed to.  Notifications are stored in the
 //! same Account as the Task that was changed.
 
@@ -31,7 +31,7 @@ impl_string_enum!(NotificationType, "a JMAP TaskNotification type string",
     "destroyed" => Destroyed,
 );
 
-/// A JMAP TaskNotification object (draft-tasks-06 §5.1).
+/// A JMAP [`TaskNotification`] object (draft-tasks-06 §5.1).
 ///
 /// Records a change made by an external entity to a task in a subscribed
 /// task list.  Only destroyed notifications may be explicitly managed via
@@ -50,7 +50,7 @@ pub struct TaskNotification {
     /// Server-assigned identifier for this notification.
     pub id: Id,
 
-    /// When this notification was created (UTCDate).
+    /// When this notification was created ([`UTCDate`]).
     pub created: UTCDate,
 
     /// Who made the change (Person object as defined in draft-tasks-06 §4.2.3).
@@ -100,7 +100,7 @@ pub struct TaskNotification {
 /// Filter condition for `TaskNotification/query` (draft-tasks-06 §5.5.1).
 ///
 /// All fields are optional; a condition with no fields set matches every
-/// TaskNotification.
+/// [`TaskNotification`].
 ///
 /// # Excluded from extras preservation
 ///
@@ -132,11 +132,11 @@ pub struct TaskNotification {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TaskNotificationFilterCondition {
-    /// Notification `created` time must be on or after this UTCDate.
+    /// Notification `created` time must be on or after this [`UTCDate`].
     #[serde(skip_serializing_if = "Option::is_none")]
     pub after: Option<UTCDate>,
 
-    /// Notification `created` time must be before this UTCDate.
+    /// Notification `created` time must be before this [`UTCDate`].
     #[serde(skip_serializing_if = "Option::is_none")]
     pub before: Option<UTCDate>,
 

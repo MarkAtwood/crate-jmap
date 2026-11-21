@@ -1,4 +1,4 @@
-//! Typed JMAP FileNode method wrappers — response types, SessionClient,
+//! Typed JMAP `FileNode` method wrappers — response types, [`SessionClient`],
 //! constants, and helpers.
 //!
 //! Response types mirror RFC 8620 standard shapes (§5.1 /get, §5.5 /query,
@@ -29,7 +29,7 @@ pub use jmap_types::{
 /// [`build_request`]. Pass directly to `jmap_base_client::extract_response`.
 pub(crate) const CALL_ID: &str = "r1";
 
-/// Capability URIs for JMAP FileNode method calls (draft-ietf-jmap-filenode-20).
+/// Capability URIs for JMAP `FileNode` method calls (draft-ietf-jmap-filenode-20).
 pub(crate) const USING_FILENODE: &[&str] = &[
     "urn:ietf:params:jmap:core",
     jmap_filenode_types::JMAP_FILENODE_URI,
@@ -63,7 +63,7 @@ pub(crate) fn build_request(
 /// A `JmapClient` bound to a JMAP session.
 ///
 /// Obtain via [`JmapFilenodeExt::with_filenode_session`](crate::JmapFilenodeExt::with_filenode_session).
-/// All JMAP FileNode methods are available on this type without needing to pass
+/// All JMAP `FileNode` methods are available on this type without needing to pass
 /// `&Session` on every call.
 ///
 /// # Session lifecycle
@@ -141,9 +141,12 @@ impl SessionClient {
         &self.session
     }
 
-    /// Return the primary account id for `urn:ietf:params:jmap:filenode`,
-    /// or `Err(InvalidSession)` if the session has no primary account for
-    /// that capability.
+    /// Return the primary account id for `urn:ietf:params:jmap:filenode`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    /// if the session has no primary account for that capability.
     pub fn filenode_account_id(&self) -> Result<&jmap_types::Id, jmap_base_client::ClientError> {
         self.session
             .primary_account_id(jmap_filenode_types::JMAP_FILENODE_URI)

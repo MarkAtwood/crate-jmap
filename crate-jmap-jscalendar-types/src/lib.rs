@@ -449,7 +449,7 @@ pub struct RecurrenceRule {
     pub count: Option<u64>,
 
     /// The recurrence ends on or before this `LocalDateTime`
-    /// (RFC 8984 §4.3.3 — `until` is a LocalDateTime, NOT a UTC date-time).
+    /// (RFC 8984 §4.3.3 — `until` is a [`LocalDateTime`], NOT a UTC date-time).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub until: Option<LocalDateTime>,
 
@@ -1109,10 +1109,10 @@ pub struct TimeZoneRule {
     pub recurrence_rules: Option<Vec<RecurrenceRule>>,
 
     /// RDATE properties from iCalendar — additional explicit transition
-    /// dates. Keys are LocalDateTime strings; the PatchObject value MUST
+    /// dates. Keys are [`LocalDateTime`] strings; the [`PatchObject`] value MUST
     /// be the empty JSON object (`{}`) per RFC 8984 §4.7.2.
     ///
-    /// The type permits non-empty PatchObject values that the wire spec
+    /// The type permits non-empty [`PatchObject`] values that the wire spec
     /// forbids — this is deliberate for round-trip preservation of
     /// in-flight data.  Consumers check that every value is the empty
     /// patch themselves (bd:JMAP-ops7.38).
@@ -1139,7 +1139,7 @@ pub struct TimeZoneRule {
 /// A time-zone definition embedded in `CalendarEvent.timeZones` or
 /// `Task.timeZones` (RFC 8984 §4.7.2).
 ///
-/// Maps to a VTIMEZONE component from iCalendar. A valid TimeZone MUST
+/// Maps to a VTIMEZONE component from iCalendar. A valid [`TimeZone`] MUST
 /// define at least one transition rule in `standard` or `daylight`.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

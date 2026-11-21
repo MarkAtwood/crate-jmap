@@ -1,4 +1,4 @@
-//! JMAP Calendars — CalendarEventNotification/* method implementations.
+//! JMAP Calendars — `CalendarEventNotification`/* method implementations.
 //!
 //! CalendarEventNotification/set is destroy-only per draft-ietf-jmap-calendars-34 §7.3.
 //! The server must reject create and update operations with `forbidden`.
@@ -110,7 +110,7 @@ impl super::SessionClient {
     /// Destroy `CalendarEventNotification` objects (draft-ietf-jmap-calendars-34 §7.3).
     ///
     /// CalendarEventNotification/set is destroy-only: the server rejects create
-    /// and update operations with `forbidden` `SetErrors`. This method only sends
+    /// and update operations with `forbidden` `SetError`s. This method only sends
     /// `destroy` to prevent constructing invalid requests.
     ///
     /// **Network call is unconditional.** Both `destroy: None` and

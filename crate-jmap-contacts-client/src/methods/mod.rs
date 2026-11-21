@@ -1,4 +1,4 @@
-//! Typed JMAP Contacts method wrappers — response types, SessionClient,
+//! Typed JMAP Contacts method wrappers — response types, [`SessionClient`],
 //! constants, and helpers.
 //!
 //! Response types mirror RFC 8620 standard shapes (§5.1 /get, §5.5 /query,
@@ -34,14 +34,14 @@ pub use jmap_types::{
 #[derive(Debug, Default, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AddressBookSetParams {
-    /// If `true`, ContactCards that belong *only* to a destroyed AddressBook
+    /// If `true`, `ContactCard`s that belong *only* to a destroyed `AddressBook`
     /// are also destroyed. Cards shared with other books are simply detached.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub on_destroy_remove_contents: Option<bool>,
 
-    /// AddressBook to make the default once every create, update and
+    /// `AddressBook` to make the default once every create, update and
     /// destroy in the call succeeds (RFC 9610 §2.3,
-    /// `onSuccessSetIsDefault: Id|null`): an existing AddressBook id, or
+    /// `onSuccessSetIsDefault: Id|null`): an existing `AddressBook` id, or
     /// `"#"` followed by a creation id from this call's `create` map. A
     /// `String`, not [`jmap_types::Id`], because `#` is not a valid `Id`
     /// character. The server ignores an id it cannot find or a change it
@@ -228,9 +228,12 @@ impl SessionClient {
         &self.session
     }
 
-    /// Return the primary account id for `urn:ietf:params:jmap:contacts`,
-    /// or `Err(InvalidSession)` if the session has no primary account for
-    /// that capability.
+    /// Return the primary account id for `urn:ietf:params:jmap:contacts`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    /// if the session has no primary account for that capability.
     pub fn contacts_account_id(&self) -> Result<&jmap_types::Id, jmap_base_client::ClientError> {
         self.session
             .primary_account_id(jmap_contacts_types::JMAP_CONTACTS_URI)

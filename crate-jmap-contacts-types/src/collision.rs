@@ -7,7 +7,7 @@
 //! wire-format field names produces a **duplicate JSON object key** on
 //! serialize. RFC 8259 §4 leaves duplicate-key handling
 //! implementation-defined; cross-implementation behavior varies
-//! (serde_json last-wins, some validators reject, audit-log scrapers
+//! (`serde_json` last-wins, some validators reject, audit-log scrapers
 //! may sample the first occurrence).
 //!
 //! The `validate_extras()` method on each affected type is a defensive

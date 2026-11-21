@@ -1,4 +1,4 @@
-//! CalendarEventNotification, Person, and NotificationType.
+//! [`CalendarEventNotification`], Person, and [`NotificationType`].
 //!
 //! Normative reference: draft-ietf-jmap-calendars-34 §7.
 
@@ -21,7 +21,7 @@ pub struct Person {
     /// the change came from an external entity (e.g. an iTIP invitation).
     pub principal_id: Option<Id>,
 
-    /// CalendarAddress URI of the person, or `null`.
+    /// `CalendarAddress` URI of the person, or `null`.
     pub calendar_address: Option<String>,
 
     /// Catch-all for vendor / site / private extension fields not covered
@@ -53,7 +53,7 @@ impl_string_enum!(NotificationType, "a JMAP CalendarEventNotification type strin
     "destroyed" => Destroyed,
 );
 
-/// A JMAP CalendarEventNotification object
+/// A JMAP [`CalendarEventNotification`] object
 /// (draft-ietf-jmap-calendars-34 §7).
 ///
 /// Records a change made to a calendar event by an external entity or
@@ -89,7 +89,7 @@ pub struct CalendarEventNotification {
     #[serde(rename = "type")]
     pub notification_type: NotificationType,
 
-    /// Id of the stored CalendarEvent this notification is about, never a
+    /// Id of the stored `CalendarEvent` this notification is about, never a
     /// synthetic id for one instance (draft-ietf-jmap-calendars-34 §7).
     ///
     /// This is the base event's id, even when the change affects a single
@@ -102,11 +102,11 @@ pub struct CalendarEventNotification {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub is_draft: Option<bool>,
 
-    /// The CalendarEvent data before the change (for `updated` or `destroyed`),
+    /// The `CalendarEvent` data before the change (for `updated` or `destroyed`),
     /// or the data after creation (for `created`).
     pub event: serde_json::Value,
 
-    /// A PatchObject encoding the change between `event` and the state after
+    /// A [`PatchObject`] encoding the change between `event` and the state after
     /// the update.  Present for `updated` notifications only.
     ///
     /// Wire format is byte-identical to a plain JSON object via
@@ -138,7 +138,7 @@ fn calendar_alert_at_type_default() -> String {
 /// (draft-ietf-jmap-calendars-34 §6.4).
 ///
 /// Sent over the JMAP push channel when the server determines that an alert
-/// for a CalendarEvent should fire.  Clients receiving this payload should
+/// for a `CalendarEvent` should fire.  Clients receiving this payload should
 /// trigger the appropriate local notification (e.g. an OS alert).
 ///
 /// `recurrenceId` is `null` only when the stored event is neither recurring
@@ -161,7 +161,7 @@ pub struct CalendarAlert {
     /// The account that owns the calendar event.
     pub account_id: Id,
 
-    /// Id of the stored CalendarEvent for which this alert is firing, never
+    /// Id of the stored `CalendarEvent` for which this alert is firing, never
     /// a synthetic id for one instance (draft-ietf-jmap-calendars-34 §6.4).
     ///
     /// For a recurring event this is the base event's id. If only specific
@@ -175,7 +175,7 @@ pub struct CalendarAlert {
     /// The recurrence id of the instance for which the alert is firing
     /// (draft-ietf-jmap-calendars-34 §6.4).
     ///
-    /// `None` (wire `null`) only if the stored CalendarEvent has a null
+    /// [`None`] (wire `null`) only if the stored `CalendarEvent` has a null
     /// `recurrenceId` and no `recurrenceRule` or `recurrenceOverrides`, that
     /// is, it is not recurring and is not a single instance of a recurring
     /// event. An alert on a stored instance carries that instance's
@@ -190,7 +190,7 @@ pub struct CalendarAlert {
     /// to this field.** Adding it would silently break the spec contract:
     /// per draft-ietf-jmap-calendars-34 §6.4, `recurrenceId` is a required
     /// `LocalDateTime|null` member, `null` only when the stored
-    /// CalendarEvent has a null `recurrenceId` and no recurrence rule or
+    /// `CalendarEvent` has a null `recurrenceId` and no recurrence rule or
     /// overrides. An omitted field is indistinguishable from a sender that
     /// forgot to include it; an explicit `null` carries that signal. This is the
     /// same "required-and-nullable" wire shape used by
@@ -205,7 +205,7 @@ pub struct CalendarAlert {
     /// bd:JMAP-1rwf.7.
     pub recurrence_id: Option<String>,
 
-    /// Id of the [`Alert`](crate::Alert) object within the CalendarEvent that is firing.
+    /// Id of the [`Alert`](crate::Alert) object within the `CalendarEvent` that is firing.
     pub alert_id: String,
 
     /// Catch-all for vendor / site / private extension fields not covered
@@ -220,7 +220,7 @@ pub struct CalendarAlert {
 /// (draft-ietf-jmap-calendars-34 §7.4.1).
 ///
 /// All fields are optional; a condition with no fields set matches every
-/// CalendarEventNotification.
+/// [`CalendarEventNotification`].
 ///
 /// # Excluded from extras preservation
 ///
@@ -252,11 +252,11 @@ pub struct CalendarAlert {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct NotificationFilterCondition {
-    /// Notification `created` time must be on or after this UTCDate.
+    /// Notification `created` time must be on or after this [`UTCDate`].
     #[serde(skip_serializing_if = "Option::is_none")]
     pub after: Option<UTCDate>,
 
-    /// Notification `created` time must be before this UTCDate.
+    /// Notification `created` time must be before this [`UTCDate`].
     #[serde(skip_serializing_if = "Option::is_none")]
     pub before: Option<UTCDate>,
 

@@ -74,89 +74,89 @@ pub enum TaskProperty {
     MayInviteOthers,
     /// The `hideAttendees` property (draft-ietf-jmap-tasks-06 §4.5.3.3).
     HideAttendees,
-    /// The `@type` property, inherited from the JSCalendar JSTask object (RFC 8984 §4.1.1).
+    /// The `@type` property, inherited from the JSCalendar `JSTask` object (RFC 8984 §4.1.1).
     AtType,
-    /// The `uid` property, inherited from the JSCalendar JSTask object (RFC 8984 §4.1.2).
+    /// The `uid` property, inherited from the JSCalendar `JSTask` object (RFC 8984 §4.1.2).
     Uid,
-    /// The `relatedTo` property, inherited from the JSCalendar JSTask object (RFC 8984 §4.1.3).
+    /// The `relatedTo` property, inherited from the JSCalendar `JSTask` object (RFC 8984 §4.1.3).
     RelatedTo,
-    /// The `prodId` property, inherited from the JSCalendar JSTask object (RFC 8984 §4.1.4).
+    /// The `prodId` property, inherited from the JSCalendar `JSTask` object (RFC 8984 §4.1.4).
     ProdId,
-    /// The `created` property, inherited from the JSCalendar JSTask object (RFC 8984 §4.1.5).
+    /// The `created` property, inherited from the JSCalendar `JSTask` object (RFC 8984 §4.1.5).
     Created,
-    /// The `updated` property, inherited from the JSCalendar JSTask object (RFC 8984 §4.1.6).
+    /// The `updated` property, inherited from the JSCalendar `JSTask` object (RFC 8984 §4.1.6).
     Updated,
-    /// The `sequence` property, inherited from the JSCalendar JSTask object (RFC 8984 §4.1.7).
+    /// The `sequence` property, inherited from the JSCalendar `JSTask` object (RFC 8984 §4.1.7).
     Sequence,
-    /// The `title` property, inherited from the JSCalendar JSTask object (RFC 8984 §4.2.1).
+    /// The `title` property, inherited from the JSCalendar `JSTask` object (RFC 8984 §4.2.1).
     Title,
-    /// The `description` property, inherited from the JSCalendar JSTask object (RFC 8984 §4.2.2).
+    /// The `description` property, inherited from the JSCalendar `JSTask` object (RFC 8984 §4.2.2).
     Description,
-    /// The `descriptionContentType` property, inherited from the JSCalendar JSTask object (RFC 8984 §4.2.3).
+    /// The `descriptionContentType` property, inherited from the JSCalendar `JSTask` object (RFC 8984 §4.2.3).
     DescriptionContentType,
-    /// The `showWithoutTime` property, inherited from the JSCalendar JSTask object (RFC 8984 §4.2.4).
+    /// The `showWithoutTime` property, inherited from the JSCalendar `JSTask` object (RFC 8984 §4.2.4).
     ShowWithoutTime,
-    /// The `locations` property, inherited from the JSCalendar JSTask object (RFC 8984 §4.2.5).
+    /// The `locations` property, inherited from the JSCalendar `JSTask` object (RFC 8984 §4.2.5).
     Locations,
-    /// The `virtualLocations` property, inherited from the JSCalendar JSTask object (RFC 8984 §4.2.6).
+    /// The `virtualLocations` property, inherited from the JSCalendar `JSTask` object (RFC 8984 §4.2.6).
     VirtualLocations,
-    /// The `links` property, inherited from the JSCalendar JSTask object (RFC 8984 §4.2.7).
+    /// The `links` property, inherited from the JSCalendar `JSTask` object (RFC 8984 §4.2.7).
     Links,
-    /// The `locale` property, inherited from the JSCalendar JSTask object (RFC 8984 §4.2.8).
+    /// The `locale` property, inherited from the JSCalendar `JSTask` object (RFC 8984 §4.2.8).
     Locale,
-    /// The `keywords` property, inherited from the JSCalendar JSTask object (RFC 8984 §4.2.9).
+    /// The `keywords` property, inherited from the JSCalendar `JSTask` object (RFC 8984 §4.2.9).
     Keywords,
-    /// The `categories` property, inherited from the JSCalendar JSTask object (RFC 8984 §4.2.10).
+    /// The `categories` property, inherited from the JSCalendar `JSTask` object (RFC 8984 §4.2.10).
     Categories,
-    /// The `color` property, inherited from the JSCalendar JSTask object (RFC 8984 §4.2.11).
+    /// The `color` property, inherited from the JSCalendar `JSTask` object (RFC 8984 §4.2.11).
     Color,
-    /// The `recurrenceId` property, inherited from the JSCalendar JSTask object (RFC 8984 §4.3.1).
+    /// The `recurrenceId` property, inherited from the JSCalendar `JSTask` object (RFC 8984 §4.3.1).
     RecurrenceId,
-    /// The `recurrenceIdTimeZone` property, inherited from the JSCalendar JSTask object (RFC 8984 §4.3.2).
+    /// The `recurrenceIdTimeZone` property, inherited from the JSCalendar `JSTask` object (RFC 8984 §4.3.2).
     RecurrenceIdTimeZone,
-    /// The `recurrenceRules` property, inherited from the JSCalendar JSTask object (RFC 8984 §4.3.3).
+    /// The `recurrenceRules` property, inherited from the JSCalendar `JSTask` object (RFC 8984 §4.3.3).
     RecurrenceRules,
-    /// The `excludedRecurrenceRules` property, inherited from the JSCalendar JSTask object (RFC 8984 §4.3.4).
+    /// The `excludedRecurrenceRules` property, inherited from the JSCalendar `JSTask` object (RFC 8984 §4.3.4).
     ExcludedRecurrenceRules,
-    /// The `recurrenceOverrides` property, inherited from the JSCalendar JSTask object (RFC 8984 §4.3.5).
+    /// The `recurrenceOverrides` property, inherited from the JSCalendar `JSTask` object (RFC 8984 §4.3.5).
     RecurrenceOverrides,
-    /// The `excluded` property, inherited from the JSCalendar JSTask object (RFC 8984 §4.3.6).
+    /// The `excluded` property, inherited from the JSCalendar `JSTask` object (RFC 8984 §4.3.6).
     Excluded,
-    /// The `priority` property, inherited from the JSCalendar JSTask object (RFC 8984 §4.4.1).
+    /// The `priority` property, inherited from the JSCalendar `JSTask` object (RFC 8984 §4.4.1).
     Priority,
-    /// The `freeBusyStatus` property, inherited from the JSCalendar JSTask object (RFC 8984 §4.4.2).
+    /// The `freeBusyStatus` property, inherited from the JSCalendar `JSTask` object (RFC 8984 §4.4.2).
     FreeBusyStatus,
-    /// The `privacy` property, inherited from the JSCalendar JSTask object (RFC 8984 §4.4.3).
+    /// The `privacy` property, inherited from the JSCalendar `JSTask` object (RFC 8984 §4.4.3).
     Privacy,
-    /// The `replyTo` property, inherited from the JSCalendar JSTask object (RFC 8984 §4.4.4).
+    /// The `replyTo` property, inherited from the JSCalendar `JSTask` object (RFC 8984 §4.4.4).
     ReplyTo,
-    /// The `sentBy` property, inherited from the JSCalendar JSTask object (RFC 8984 §4.4.5).
+    /// The `sentBy` property, inherited from the JSCalendar `JSTask` object (RFC 8984 §4.4.5).
     SentBy,
-    /// The `participants` property, inherited from the JSCalendar JSTask object (RFC 8984 §4.4.6).
+    /// The `participants` property, inherited from the JSCalendar `JSTask` object (RFC 8984 §4.4.6).
     Participants,
-    /// The `requestStatus` property, inherited from the JSCalendar JSTask object (RFC 8984 §4.4.7).
+    /// The `requestStatus` property, inherited from the JSCalendar `JSTask` object (RFC 8984 §4.4.7).
     RequestStatus,
-    /// The `useDefaultAlerts` property, inherited from the JSCalendar JSTask object (RFC 8984 §4.5.1).
+    /// The `useDefaultAlerts` property, inherited from the JSCalendar `JSTask` object (RFC 8984 §4.5.1).
     UseDefaultAlerts,
-    /// The `alerts` property, inherited from the JSCalendar JSTask object (RFC 8984 §4.5.2).
+    /// The `alerts` property, inherited from the JSCalendar `JSTask` object (RFC 8984 §4.5.2).
     Alerts,
-    /// The `localizations` property, inherited from the JSCalendar JSTask object (RFC 8984 §4.6.1).
+    /// The `localizations` property, inherited from the JSCalendar `JSTask` object (RFC 8984 §4.6.1).
     Localizations,
-    /// The `timeZone` property, inherited from the JSCalendar JSTask object (RFC 8984 §4.7.1).
+    /// The `timeZone` property, inherited from the JSCalendar `JSTask` object (RFC 8984 §4.7.1).
     TimeZone,
-    /// The `timeZones` property, inherited from the JSCalendar JSTask object (RFC 8984 §4.7.2).
+    /// The `timeZones` property, inherited from the JSCalendar `JSTask` object (RFC 8984 §4.7.2).
     TimeZones,
-    /// The `due` property, inherited from the JSCalendar JSTask object (RFC 8984 §5.2.1).
+    /// The `due` property, inherited from the JSCalendar `JSTask` object (RFC 8984 §5.2.1).
     Due,
-    /// The `start` property, inherited from the JSCalendar JSTask object (RFC 8984 §5.2.2).
+    /// The `start` property, inherited from the JSCalendar `JSTask` object (RFC 8984 §5.2.2).
     Start,
-    /// The `estimatedDuration` property, inherited from the JSCalendar JSTask object (RFC 8984 §5.2.3).
+    /// The `estimatedDuration` property, inherited from the JSCalendar `JSTask` object (RFC 8984 §5.2.3).
     EstimatedDuration,
-    /// The `percentComplete` property, inherited from the JSCalendar JSTask object (RFC 8984 §5.2.4).
+    /// The `percentComplete` property, inherited from the JSCalendar `JSTask` object (RFC 8984 §5.2.4).
     PercentComplete,
-    /// The `progress` property, inherited from the JSCalendar JSTask object (RFC 8984 §5.2.5).
+    /// The `progress` property, inherited from the JSCalendar `JSTask` object (RFC 8984 §5.2.5).
     Progress,
-    /// The `progressUpdated` property, inherited from the JSCalendar JSTask object (RFC 8984 §5.2.6).
+    /// The `progressUpdated` property, inherited from the JSCalendar `JSTask` object (RFC 8984 §5.2.6).
     ProgressUpdated,
     /// The `estimatedWork` property (draft-ietf-jmap-tasks-06 §4.2.1).
     EstimatedWork,

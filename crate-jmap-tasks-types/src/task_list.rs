@@ -1,4 +1,4 @@
-//! TaskList object, TaskRights, and TaskListRole.
+//! [`TaskList`] object, [`TaskRights`], and [`TaskListRole`].
 //!
 //! Normative reference: draft-ietf-jmap-tasks-06 §3.
 
@@ -7,11 +7,11 @@ use std::collections::BTreeMap;
 use jmap_types::{Id, impl_string_enum};
 use serde::{Deserialize, Serialize};
 
-/// Special role of a TaskList (draft-tasks-06 §3).
+/// Special role of a [`TaskList`] (draft-tasks-06 §3).
 ///
-/// A TaskList may optionally hold one well-known role that identifies its
+/// A [`TaskList`] may optionally hold one well-known role that identifies its
 /// common purpose.  Roles map to iCalendar special-use mailbox semantics.
-/// An account MUST NOT have more than one TaskList with any given role.
+/// An account MUST NOT have more than one [`TaskList`] with any given role.
 ///
 /// An unrecognised role is preserved via `Other(String)` so the wire value
 /// round-trips without loss and can be echoed back to the server.
@@ -42,7 +42,7 @@ impl TaskListRole {
     }
 }
 
-/// Access control rights the authenticated user holds for a TaskList
+/// Access control rights the authenticated user holds for a [`TaskList`]
 /// (draft-tasks-06 §3).
 ///
 /// `Default` produces all-false (no access), which is the most restrictive
@@ -82,7 +82,7 @@ pub struct TaskRights {
 
     /// User may modify `participationStatus`, `participationComment`, and
     /// `expectReply` on Participant objects that correspond to their own
-    /// ParticipantIdentity objects.
+    /// `ParticipantIdentity` objects.
     ///
     /// A participant corresponds to an identity when their
     /// `calendarAddress` values match (draft-ietf-jmap-calendars-34 §3),
@@ -114,10 +114,10 @@ pub struct TaskRights {
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
-/// A JMAP TaskList object (draft-tasks-06 §3).
+/// A JMAP [`TaskList`] object (draft-tasks-06 §3).
 ///
-/// A TaskList is a named collection of tasks.  All tasks belong to exactly
-/// one TaskList.  The `id` is immutable and server-set.
+/// A [`TaskList`] is a named collection of tasks.  All tasks belong to exactly
+/// one [`TaskList`].  The `id` is immutable and server-set.
 ///
 /// ## Per-user properties
 ///

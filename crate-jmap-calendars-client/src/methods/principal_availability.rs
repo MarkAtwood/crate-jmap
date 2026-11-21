@@ -39,6 +39,12 @@ impl SessionClient {
     ///   [`ResponseTooLarge`](ClientError::ResponseTooLarge),
     ///   or
     ///   [`UnexpectedResponse`](ClientError::UnexpectedResponse).
+    ///
+    /// # Panics
+    ///
+    /// Does not panic in practice. The one `expect` is on the method arguments
+    /// being a JSON object when caller extras are merged in; they are built
+    /// with `json!({ ... })` and only ever have keys assigned, so it cannot fail.
     pub async fn principal_get_availability(
         &self,
         principal_id: &Id,

@@ -1,4 +1,4 @@
-//! Calendar object, CalendarRights, and IncludeInAvailability.
+//! Calendar object, [`CalendarRights`], and [`IncludeInAvailability`].
 //!
 //! Normative reference: draft-ietf-jmap-calendars-34 §4.
 
@@ -66,7 +66,7 @@ pub struct CalendarRights {
     pub may_update_private: bool,
 
     /// User may modify participant status and related scheduling fields for
-    /// their own ParticipantIdentity objects.
+    /// their own `ParticipantIdentity` objects.
     #[serde(rename = "mayRSVP")]
     pub may_rsvp: bool,
 
@@ -93,7 +93,7 @@ pub struct CalendarRights {
 
 /// A JMAP Calendar object (draft-ietf-jmap-calendars-34 §4).
 ///
-/// A Calendar is a named collection of CalendarEvents.  All events are
+/// A Calendar is a named collection of `CalendarEvent`s.  All events are
 /// associated with at least one calendar.  The `id` is immutable and
 /// server-set.
 ///

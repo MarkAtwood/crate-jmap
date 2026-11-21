@@ -1,4 +1,4 @@
-//! BusyPeriod and related types for `Principal/getAvailability`.
+//! [`BusyPeriod`] and related types for `Principal/getAvailability`.
 //!
 //! Normative reference: draft-ietf-jmap-calendars-34 §2.2.
 

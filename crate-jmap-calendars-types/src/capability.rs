@@ -45,13 +45,13 @@ pub struct CalendarsAccountCapability {
     /// for no limit.
     pub max_calendars_per_event: Option<u64>,
 
-    /// Earliest UTC date-time value the server accepts for any CalendarEvent
+    /// Earliest UTC date-time value the server accepts for any `CalendarEvent`
     /// date property. A floating `LocalDateTime` (no associated time zone)
     /// is compared as though it were in UTC (draft-ietf-jmap-calendars-34
     /// §1.5.1).
     pub min_date_time: UTCDate,
 
-    /// Latest UTC date-time value the server accepts for any CalendarEvent
+    /// Latest UTC date-time value the server accepts for any `CalendarEvent`
     /// date property. A floating `LocalDateTime` is compared as though it
     /// were in UTC (draft-ietf-jmap-calendars-34 §1.5.1).
     pub max_date_time: UTCDate,

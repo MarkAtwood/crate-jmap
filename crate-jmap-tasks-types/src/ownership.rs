@@ -1,4 +1,4 @@
-//! Who owns a Task, for the TaskList `mayWriteOwn` right.
+//! Who owns a Task, for the `TaskList` `mayWriteOwn` right.
 //!
 //! draft-ietf-jmap-tasks-06 §3 defines a task owner through a
 //! "participant" property and the "chair" role. A Task has no
@@ -52,13 +52,13 @@ pub fn task_has_owner(task: &Task) -> bool {
     owner_participants(task).next().is_some()
 }
 
-/// `true` if the user whose ParticipantIdentity `calendarAddress` values
+/// `true` if the user whose `ParticipantIdentity` `calendarAddress` values
 /// are `user_calendar_addresses` is an owner of `task`: some participant
 /// has the `"owner"` role and a `calendarAddress` equal to one of them.
 ///
 /// See the module docs for the definition (draft-ietf-jmap-calendars-34
 /// §4, jmapio/jmap #461). The backend passes the calendar addresses of
-/// the caller's ParticipantIdentity objects in the account.
+/// the caller's `ParticipantIdentity` objects in the account.
 ///
 /// Addresses compare as exact strings, as the Calendars availability
 /// helpers do. Calendars -34 §3 matches them "after syntax-based

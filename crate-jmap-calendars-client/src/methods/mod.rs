@@ -1,4 +1,4 @@
-//! Typed JMAP Calendars method wrappers — response types, SessionClient,
+//! Typed JMAP Calendars method wrappers — response types, [`SessionClient`],
 //! constants, and helpers.
 //!
 //! Response types mirror RFC 8620 standard shapes (§5.1 /get, §5.5 /query,
@@ -123,7 +123,7 @@ pub struct CalendarSetParams {
     /// If `true`, destroying a calendar also destroys all its events
     /// (draft-ietf-jmap-calendars-34 §4.4). Server default: false (the
     /// server MUST reject a destroy on a calendar with events,
-    /// returning the `calendarHasEvent` SetError).
+    /// returning the `calendarHasEvent` [`SetError`]).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub on_destroy_remove_events: Option<bool>,
 
@@ -520,9 +520,12 @@ impl SessionClient {
         &self.session
     }
 
-    /// Return the primary account id for `urn:ietf:params:jmap:calendars`,
-    /// or `Err(InvalidSession)` if the session has no primary account for
-    /// that capability.
+    /// Return the primary account id for `urn:ietf:params:jmap:calendars`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    /// if the session has no primary account for that capability.
     pub fn calendars_account_id(&self) -> Result<&jmap_types::Id, jmap_base_client::ClientError> {
         self.session
             .primary_account_id(jmap_calendars_types::JMAP_CALENDARS_URI)
@@ -573,7 +576,7 @@ impl SessionClient {
     /// `locale` and `localizations` and `/set` may write them. With
     /// `language` set, `Calendar/get` sends it as the `language` argument
     /// and returns each Calendar's view in the best-matching language
-    /// (RFC 4647 Lookup). CalendarEvent keeps JSCalendar's own
+    /// (RFC 4647 Lookup). `CalendarEvent` keeps JSCalendar's own
     /// `localizations` and takes no `language`. `None` returns the stored
     /// values with every localization.
     ///

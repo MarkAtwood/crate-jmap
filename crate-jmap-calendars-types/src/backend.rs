@@ -256,7 +256,7 @@ impl SetObject for crate::Calendar {
     const IMMUTABLE: &'static [&'static str] = &[];
 }
 
-/// CalendarEvent is deliberately NOT localizable under
+/// `CalendarEvent` is deliberately NOT localizable under
 /// draft-atwood-jmap-updates-00 (§5.5): it is a JSCalendar object with its
 /// own `locale` and `localizations` (RFC 8984 §4.2.8, §4.6.1), and the
 /// `language` argument does not apply to `CalendarEvent/get`.

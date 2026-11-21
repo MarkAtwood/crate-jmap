@@ -7,14 +7,14 @@ use serde::{Deserialize, Serialize};
 
 use crate::NodeType;
 
-/// The JMAP capability URI for the FileNode extension.
+/// The JMAP capability URI for the `FileNode` extension.
 ///
 /// Present as a key in both the session-level `capabilities` object (value:
 /// empty object) and in each account's `accountCapabilities` object (value:
 /// a [`FileNodeCapability`]).
 pub const JMAP_FILENODE_URI: &str = "urn:ietf:params:jmap:filenode";
 
-/// Account-level capability for the JMAP FileNode extension
+/// Account-level capability for the JMAP `FileNode` extension
 /// (draft-ietf-jmap-filenode-20 §2.1).
 ///
 /// -19 removed the -16 `forbiddenNodeNames` member; a capability from a
@@ -38,17 +38,17 @@ pub const JMAP_FILENODE_URI: &str = "urn:ietf:params:jmap:filenode";
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FileNodeCapability {
-    /// "The maximum number of levels in the FileNode hierarchy, or null for no
-    /// limit. A FileNode may have at most one fewer ancestors than this value,
+    /// "The maximum number of levels in the `FileNode` hierarchy, or null for no
+    /// limit. A `FileNode` may have at most one fewer ancestors than this value,
     /// so 1 allows only top-level nodes" (draft-ietf-jmap-filenode-20 §2.1).
     ///
     /// Always serialized (as `null` when `None`).
     pub max_file_node_depth: Option<u64>,
 
-    /// Maximum length, in UTF-8 octets, for a FileNode name.  MUST be ≥ 100.
+    /// Maximum length, in UTF-8 octets, for a `FileNode` name.  MUST be ≥ 100.
     pub max_size_file_node_name: u64,
 
-    /// Characters forbidden in FileNode names, each character individually forbidden.
+    /// Characters forbidden in `FileNode` names, each character individually forbidden.
     /// `null` means the server imposes no character restrictions beyond Net-Unicode.
     ///
     /// Always serialized (as `null` when `None`).
@@ -63,7 +63,7 @@ pub struct FileNodeCapability {
     /// object in `FileNode/query`.
     pub file_node_query_sort_options: Vec<String>,
 
-    /// If `true`, the user may create a FileNode with a null `parentId` in this account.
+    /// If `true`, the user may create a `FileNode` with a null `parentId` in this account.
     pub may_create_top_level_file_node: bool,
 
     /// Web URL for the folder with the `"trash"` role, or `null` if unavailable.

@@ -1,4 +1,4 @@
-//! Comparator types for Task and TaskNotification queries.
+//! Comparator types for Task and `TaskNotification` queries.
 //!
 //! Normative references:
 //!   - draft-ietf-jmap-tasks-06 §4.13 (Task/query)

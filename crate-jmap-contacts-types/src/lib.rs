@@ -47,7 +47,7 @@
 //! that interpolate values via `?` (debug) or `%` (display) emit the
 //! full record contents to the configured sink. This includes phone
 //! numbers, email addresses, postal addresses, names, notes, and
-//! CryptoKey URIs — all of which are typically regulated as
+//! [`CryptoKey`] URIs — all of which are typically regulated as
 //! personally-identifying information under GDPR Article 5, CCPA
 //! §1798.100, and similar privacy frameworks.
 //!

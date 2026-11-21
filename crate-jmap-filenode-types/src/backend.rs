@@ -65,7 +65,7 @@ impl jmap_object_history_types::HistoryObject for crate::FileNode {}
 /// draft-ietf-jmap-filenode-20 §3.1.1: `@type` is "(immutable)", `id` is
 /// "(immutable; server-set)" and `changed` is "(server-set)"; §3.1.2 and
 /// §3.1.3 mark `myRights` and `size` "(server-set)". draft-atwood-jmap-cid-00
-/// §FileNode Extension: for `sha256` "the server MUST set this to the
+/// §`FileNode` Extension: for `sha256` "the server MUST set this to the
 /// SHA-256 digest of the stored blob content". draft-atwood-jmap-chat-
 /// filenode-00 §The `spaceId` Extension Property: `spaceId` is "Supplied
 /// by the client at creation and treated as immutable thereafter".

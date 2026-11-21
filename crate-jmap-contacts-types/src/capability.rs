@@ -28,9 +28,9 @@ pub struct ContactsCapability {}
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ContactsAccountCapability {
-    /// Maximum number of AddressBooks that can be assigned to a single
-    /// ContactCard.  `null` means no limit.
+    /// Maximum number of `AddressBook`s that can be assigned to a single
+    /// `ContactCard`.  `null` means no limit.
     pub max_address_books_per_card: Option<u64>,
-    /// `true` if the user may create an AddressBook in this account.
+    /// `true` if the user may create an `AddressBook` in this account.
     pub may_create_address_book: bool,
 }

@@ -1,4 +1,4 @@
-//! CalendarEvent object and CalendarEventFilterCondition.
+//! [`CalendarEvent`] object and [`CalendarEventFilterCondition`].
 //!
 //! Normative references:
 //!   - draft-ietf-jmap-calendars-34 §5 — JMAP-specific additions
@@ -11,7 +11,7 @@ use jmap_metadata_types::MetadataTextMatch;
 use jmap_types::{Id, PatchObject, UTCDate, impl_string_enum};
 use serde::{Deserialize, Serialize};
 
-/// A JMAP CalendarEvent object (draft-ietf-jmap-calendars-34 §5; RFC 8984 §5.1).
+/// A JMAP [`CalendarEvent`] object (draft-ietf-jmap-calendars-34 §5; RFC 8984 §5.1).
 ///
 /// `CalendarEvent` is a JSCalendar Event with additional JMAP-specific properties.
 /// Every field is `Option<T>` because RFC 8620 §5.1 allows partial responses
@@ -28,11 +28,11 @@ use serde::{Deserialize, Serialize};
 /// re-exported at this crate's root (e.g. [`crate::Location`], [`crate::Participant`],
 /// [`crate::Alert`]) — defined in the `jmap-jscalendar-types` crate.
 ///
-/// ## PatchObject envelopes
+/// ## [`PatchObject`] envelopes
 ///
 /// `recurrenceOverrides` and `localizations` are typed as
 /// `Option<BTreeMap<String, jmap_types::PatchObject>>`: the outer envelope
-/// is JMAP-level (RFC 8620 §5.3 PatchObject) while the inner leaves stay
+/// is JMAP-level (RFC 8620 §5.3 [`PatchObject`]) while the inner leaves stay
 /// `serde_json::Value` to preserve per-leaf JSCalendar flexibility.  Wire
 /// format is byte-identical to the prior opaque `Option<Value>` shape via
 /// `#[serde(transparent)]` on `PatchObject`.
@@ -67,7 +67,7 @@ pub struct CalendarEvent {
     /// Computed UTC start time (not returned by default; must be requested).
     ///
     /// Uses the [`UTCDate`] newtype to make the wire-format constraint
-    /// (RFC 8620 §1.4: 20-character UTCDateTime string) explicit at the
+    /// (RFC 8620 §1.4: 20-character `UTCDateTime` string) explicit at the
     /// type level. JSON wire format is unchanged because `UTCDate` is a
     /// transparent newtype around `String`.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -224,7 +224,7 @@ pub struct CalendarEvent {
     /// Map of `LocalDateTime` string → [`PatchObject`] for per-occurrence
     /// overrides (RFC 8984 §4.3.2).
     ///
-    /// Outer envelope is typed at the JMAP level: keys are LocalDateTime
+    /// Outer envelope is typed at the JMAP level: keys are [`LocalDateTime`]
     /// strings and values are JMAP `PatchObject` (RFC 8620 §5.3) wire
     /// objects.  The inner `PatchObject` leaves remain `serde_json::Value`
     /// so per-occurrence overrides retain full JSCalendar shape flexibility
@@ -382,7 +382,7 @@ fn some_false() -> Option<bool> {
 /// (draft-ietf-jmap-calendars-34 §5.11.1).
 ///
 /// All fields are optional; a condition with no fields set matches every
-/// CalendarEvent.
+/// [`CalendarEvent`].
 ///
 /// # Excluded from extras preservation
 ///

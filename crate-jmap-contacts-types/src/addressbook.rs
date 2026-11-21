@@ -1,4 +1,4 @@
-//! RFC 9610 §2 — AddressBook object and component types.
+//! RFC 9610 §2 — [`AddressBook`] object and component types.
 //!
 //! Provides [`AddressBook`] and [`AddressBookRights`].
 //!
@@ -40,7 +40,7 @@ const ADDRESS_BOOK_TYPED_FIELDS: &[&str] = &[
     "localizations",
 ];
 
-/// Access rights a principal holds on an AddressBook (RFC 9610 §2).
+/// Access rights a principal holds on an [`AddressBook`] (RFC 9610 §2).
 ///
 /// All four rights are booleans.  `Default` produces all-false, which is the
 /// most restrictive valid value and a safe starting point when constructing
@@ -49,17 +49,17 @@ const ADDRESS_BOOK_TYPED_FIELDS: &[&str] = &[
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AddressBookRights {
-    /// User may fetch the ContactCards in this AddressBook.
+    /// User may fetch the `ContactCard`s in this [`AddressBook`].
     pub may_read: bool,
-    /// User may create, modify, or destroy all ContactCards in this AddressBook,
-    /// or move them to or from this AddressBook.
+    /// User may create, modify, or destroy all `ContactCard`s in this [`AddressBook`],
+    /// or move them to or from this [`AddressBook`].
     pub may_write: bool,
-    /// User may modify the `shareWith` property for this AddressBook.
+    /// User may modify the `shareWith` property for this [`AddressBook`].
     pub may_share: bool,
-    /// User may delete the AddressBook itself.
+    /// User may delete the [`AddressBook`] itself.
     pub may_delete: bool,
-    /// User may modify the shared metadata of this AddressBook and of the
-    /// ContactCards in it (draft-ietf-jmap-metadata-05 §4.1).
+    /// User may modify the shared metadata of this [`AddressBook`] and of the
+    /// `ContactCard`s in it (draft-ietf-jmap-metadata-05 §4.1).
     /// `None` when the server omits it: the right is present only when the
     /// metadata capability lists this type or a type it contains (§4.1).
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -100,10 +100,10 @@ impl AddressBookRights {
     }
 }
 
-/// A JMAP AddressBook object (RFC 9610 §2).
+/// A JMAP [`AddressBook`] object (RFC 9610 §2).
 ///
-/// An AddressBook is a named collection of ContactCards.  All ContactCards
-/// belong to one or more AddressBooks.
+/// An [`AddressBook`] is a named collection of `ContactCard`s.  All `ContactCard`s
+/// belong to one or more `AddressBook`s.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -123,11 +123,11 @@ pub struct AddressBook {
     /// Defaults to 0 per RFC 9610 §2.
     #[serde(default)]
     pub sort_order: u32,
-    /// True for at most one AddressBook per account; server-set.
+    /// True for at most one [`AddressBook`] per account; server-set.
     pub is_default: bool,
-    /// True if the user has subscribed to this AddressBook.
+    /// True if the user has subscribed to this [`AddressBook`].
     pub is_subscribed: bool,
-    /// Map of principal id → rights for principals this AddressBook is shared
+    /// Map of principal id → rights for principals this [`AddressBook`] is shared
     /// with.
     ///
     /// Required-and-nullable (RFC 9610 §2 type: `Id[AddressBookRights]|null`):
@@ -135,7 +135,7 @@ pub struct AddressBook {
     /// The spec §4.1 example shows `"shareWith": null` explicitly — never absent.
     #[serde(default)]
     pub share_with: Option<BTreeMap<Id, AddressBookRights>>,
-    /// ACL rights the authenticated user has on this AddressBook; server-set.
+    /// ACL rights the authenticated user has on this [`AddressBook`]; server-set.
     pub my_rights: AddressBookRights,
 
     /// Shared metadata, keyed by namespace identifier

@@ -1,4 +1,4 @@
-//! JMAP Tasks — TaskList/* method implementations on SessionClient.
+//! JMAP Tasks — `TaskList`/* method implementations on `SessionClient`.
 //!
 //! Each method follows the standard five-step pattern:
 //!   1. Validate arguments (defence-in-depth empty-state guards).
@@ -15,9 +15,9 @@ use jmap_types::{Id, PatchObject, State};
 use super::{ChangesResponse, GetResponse, PartialObject, SetResponse};
 
 impl super::SessionClient {
-    /// Fetch TaskList objects by IDs (draft-tasks-06 §3.5).
+    /// Fetch `TaskList` objects by IDs (draft-tasks-06 §3.5).
     ///
-    /// If `ids` is `None`, the server returns all TaskLists for the account,
+    /// If `ids` is [`None`], the server returns all `TaskList`s for the account,
     /// SUBJECT TO the server's `maxObjectsInGet` cap (RFC 8620 §5.1).
     /// For production use, scope the result set via the corresponding
     /// /query method first and pass explicit ids here to avoid
@@ -68,7 +68,7 @@ impl super::SessionClient {
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 
-    /// Fetch changes to TaskList objects since `since_state` (draft-tasks-06 §3.6).
+    /// Fetch changes to `TaskList` objects since `since_state` (draft-tasks-06 §3.6).
     ///
     /// If `has_more_changes` is true in the response, call again with `new_state`
     /// as `since_state` until the flag is false.
@@ -113,7 +113,7 @@ impl super::SessionClient {
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 
-    /// Create, update, or destroy TaskList objects (draft-tasks-06 §3.7).
+    /// Create, update, or destroy `TaskList` objects (draft-tasks-06 §3.7).
     ///
     /// Pass `create`, `update`, and/or `destroy` as needed. All three are
     /// optional; pass `None` to omit any operation from the request.
@@ -127,7 +127,7 @@ impl super::SessionClient {
     /// ([`TaskListSetParams`](super::TaskListSetParams)). Pass `None`
     /// (or `Some(Default::default())`) for spec-default behavior. Use
     /// [`TaskListSetParams::on_destroy_remove_tasks`](super::TaskListSetParams::on_destroy_remove_tasks)
-    /// to allow destroying a non-empty TaskList (otherwise the server
+    /// to allow destroying a non-empty `TaskList` (otherwise the server
     /// returns `taskListHasTasks`), and
     /// [`TaskListSetParams::extra`](super::TaskListSetParams::extra) for
     /// vendor / site extension fields (workspace extras-preservation
@@ -151,6 +151,12 @@ impl super::SessionClient {
     /// - Any transport / protocol variant returned by
     ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
     ///   the matching error list on [`Self::task_list_get`].
+    ///
+    /// # Panics
+    ///
+    /// Does not panic in practice. The one `expect` is on the method arguments
+    /// being a JSON object when caller extras are merged in; they are built
+    /// with `json!({ ... })` and only ever have keys assigned, so it cannot fail.
     pub async fn task_list_set(
         &self,
         create: Option<serde_json::Value>,

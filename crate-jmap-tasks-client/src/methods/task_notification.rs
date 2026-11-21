@@ -1,4 +1,4 @@
-//! JMAP Tasks — TaskNotification/* method implementations on SessionClient.
+//! JMAP Tasks — `TaskNotification`/* method implementations on `SessionClient`.
 //!
 //! TaskNotification/set is destroy-only. Any create or update entries from
 //! the client would be rejected by the server with `forbidden`, but we
@@ -13,9 +13,9 @@ use super::{
 };
 
 impl super::SessionClient {
-    /// Fetch TaskNotification objects by IDs (draft-tasks-06 §5.2).
+    /// Fetch `TaskNotification` objects by IDs (draft-tasks-06 §5.2).
     ///
-    /// If `ids` is `None`, the server returns all TaskNotifications for the account,
+    /// If `ids` is [`None`], the server returns all `TaskNotification`s for the account,
     /// SUBJECT TO the server's `maxObjectsInGet` cap (RFC 8620 §5.1).
     /// For production use, scope the result set via the corresponding
     /// /query method first and pass explicit ids here to avoid
@@ -62,7 +62,7 @@ impl super::SessionClient {
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 
-    /// Fetch changes to TaskNotification objects since `since_state`
+    /// Fetch changes to `TaskNotification` objects since `since_state`
     /// (draft-tasks-06 §5.3).
     ///
     /// # Errors
@@ -102,7 +102,7 @@ impl super::SessionClient {
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 
-    /// Destroy TaskNotification objects (draft-tasks-06 §5.4).
+    /// Destroy `TaskNotification` objects (draft-tasks-06 §5.4).
     ///
     /// **Destroy-only**: TaskNotification/set only supports `destroy`.
     /// The server creates notifications automatically; clients may only remove them.
@@ -150,7 +150,7 @@ impl super::SessionClient {
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 
-    /// Query TaskNotification IDs with optional filter and sort
+    /// Query `TaskNotification` IDs with optional filter and sort
     /// (draft-tasks-06 §5.5).
     ///
     /// `filter` is an RFC 8620 §5.5 `Filter`: a bare condition
@@ -194,7 +194,7 @@ impl super::SessionClient {
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 
-    /// Fetch query-result changes for TaskNotification since `since_query_state`
+    /// Fetch query-result changes for `TaskNotification` since `since_query_state`
     /// (draft-tasks-06 §5.6).
     ///
     /// `filter` and `sort` MUST match the `filter` / `sort` passed to the

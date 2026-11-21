@@ -151,7 +151,7 @@ pub struct TasksCustomTimeZonesAccountCapability {}
 /// Participant identity follows JMAP Calendars rather than -06. -06 §2.1
 /// gives the principal a `sendTo` map; draft-ietf-jmap-calendars-34
 /// replaced that with a single `calendarAddress` (§2.1) and matches a
-/// participant to a ParticipantIdentity by `calendarAddress` (§3). This
+/// participant to a `ParticipantIdentity` by `calendarAddress` (§3). This
 /// type carries `calendarAddress` in place of `sendTo`, as jmapio/jmap #470
 /// proposes, so a server doing both Tasks and Calendars has one way to
 /// decide whether a participant is the user.
