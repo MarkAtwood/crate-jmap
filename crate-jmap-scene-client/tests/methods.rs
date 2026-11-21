@@ -683,6 +683,59 @@ async fn scene_object_changes_sends_rfc8620_shape() {
 
 /// draft-atwood-jmap-scene-00 L1440-L1442 "Standard JMAP `/queryChanges`";
 /// request and response written by hand from RFC 8620 §5.6, with the
+/// draft-atwood-jmap-scene-00 at jmap-chat-spec 93f2258, §SceneRegion/query,
+/// "Example query -- regions whose `worldState` names a game schema, for a
+/// lobby browser", built from the typed `worldStateEquals` condition.
+#[tokio::test]
+async fn scene_region_query_world_state_equals_matches_example() {
+    let server = MockServer::start().await;
+    respond(
+        &server,
+        "SceneRegion/query",
+        json!({
+            "accountId": "account-xyz",
+            "queryState": "q1",
+            "canCalculateChanges": false,
+            "position": 0,
+            "ids": ["01J5ABC0000000000000000001"]
+        }),
+    )
+    .await;
+
+    let mut cond = jmap_scene_types::SceneRegionFilterCondition::default();
+    cond.world_state_equals = Some(serde_json::Map::from_iter([
+        ("gameSchema".to_owned(), json!("urn:game:chess:standard")),
+        ("phase".to_owned(), json!("waiting-for-players")),
+    ]));
+    let mut sort = SceneRegionComparator::new(SceneRegionSortProperty::ActiveAvatarCount);
+    sort.is_ascending = false;
+    let mut params = jmap_base_client::QueryParams::default();
+    params.position = Some(0);
+    params.limit = Some(20);
+    let sc = make_client(&server, "account-xyz");
+    let resp = sc
+        .scene_region_query(Some(&Filter::Condition(cond)), Some(&[sort]), &params)
+        .await
+        .expect("SceneRegion/query must succeed");
+
+    assert_eq!(
+        sent_invocation(&server).await,
+        json!(["SceneRegion/query", {
+            "accountId": "account-xyz",
+            "filter": {
+                "worldStateEquals": {
+                    "gameSchema": "urn:game:chess:standard",
+                    "phase": "waiting-for-players"
+                }
+            },
+            "sort": [{"property": "activeAvatarCount", "isAscending": false}],
+            "position": 0,
+            "limit": 20
+        }])
+    );
+    assert_eq!(resp.ids, vec![Id::from("01J5ABC0000000000000000001")]);
+}
+
 /// L1378 sort property `activeAvatarCount`.
 #[tokio::test]
 async fn scene_region_query_changes_sends_rfc8620_shape() {

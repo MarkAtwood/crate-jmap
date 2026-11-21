@@ -108,17 +108,27 @@ fn prepare_query(mut args: Value) -> Result<Value, JmapError> {
     }
     reject_unsupported_sort::<SceneRegionComparator>(args.get("sort"))?;
     if let Some(filter) = args.get("filter") {
-        check_access_policy_filter(filter)?;
+        check_filter_values(filter)?;
     }
     Ok(args)
 }
 
 /// "If a client provides an invalid value for `accessPolicy` (not one of
-/// the defined values), the server MUST return `invalidArguments`", in
-/// every condition of a FilterOperator tree.
-fn check_access_policy_filter(filter: &Value) -> Result<(), JmapError> {
+/// the defined values), the server MUST return `invalidArguments`" and
+/// "If `worldStateEquals` is not an object, or one of its values is not a
+/// String, Number, or Boolean, the server MUST return `invalidArguments`"
+/// (jmap-chat-spec 93f2258), in every condition of a FilterOperator tree.
+fn check_filter_values(filter: &Value) -> Result<(), JmapError> {
     if let Some(Value::Array(conditions)) = filter.get("conditions") {
-        return conditions.iter().try_for_each(check_access_policy_filter);
+        return conditions.iter().try_for_each(check_filter_values);
+    }
+    if let Some(v) = filter.get("worldStateEquals") {
+        let scalar = |v: &Value| v.is_string() || v.is_number() || v.is_boolean();
+        if !v.as_object().is_some_and(|m| m.values().all(scalar)) {
+            return Err(JmapError::invalid_arguments(
+                "filter worldStateEquals must be an object of String, Number or Boolean values",
+            ));
+        }
     }
     match filter.get("accessPolicy") {
         Some(v) if !v.as_str().is_some_and(|p| ACCESS_POLICIES.contains(&p)) => {

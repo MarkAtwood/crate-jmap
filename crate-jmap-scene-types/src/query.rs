@@ -201,6 +201,18 @@ pub struct SceneRegionFilterCondition {
     /// "Regions created before this timestamp."
     #[serde(skip_serializing_if = "Option::is_none")]
     pub created_before: Option<UTCDate>,
+    /// `worldStateEquals`: top-level `worldState` keys and the String,
+    /// Number or Boolean value each must hold. "A region matches when its
+    /// `worldState` has every one of these keys with an equal value: the
+    /// same JSON type, and for Strings the same sequence of characters, for
+    /// Numbers the same numeric value. Nested values are not compared. An
+    /// empty object matches every region."
+    ///
+    /// Not checked on deserialize: a value that is not a String, Number or
+    /// Boolean is the server's `invalidArguments`. Support is optional; a
+    /// server without it answers `unsupportedFilter`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub world_state_equals: Option<serde_json::Map<String, serde_json::Value>>,
 }
 
 /// Sort property for `SceneRegion/query`: "Sort properties: `createdAt`,
@@ -471,6 +483,27 @@ mod tests {
             Some(ViewHint::Other("com.example.isometric".to_owned()))
         );
         assert_eq!(serde_json::to_value(&cond).unwrap(), wire);
+    }
+
+    #[test]
+    fn region_world_state_equals_round_trips() {
+        // Oracle: draft-atwood-jmap-scene-00 (jmap-chat-spec 93f2258)
+        // §SceneRegion/query, the lobby-browser example filter:
+        // `"worldStateEquals": {"gameSchema": "urn:game:chess:standard",
+        // "phase": "waiting-for-players"}`.
+        let wire = json!({
+            "worldStateEquals": {
+                "gameSchema": "urn:game:chess:standard",
+                "phase": "waiting-for-players"
+            }
+        });
+        let cond: SceneRegionFilterCondition = serde_json::from_value(wire.clone()).unwrap();
+        let want = cond.world_state_equals.as_ref().unwrap();
+        assert_eq!(want["gameSchema"], "urn:game:chess:standard");
+        assert_eq!(want.len(), 2);
+        assert_eq!(serde_json::to_value(&cond).unwrap(), wire);
+        let empty = SceneRegionFilterCondition::default();
+        assert_eq!(serde_json::to_value(&empty).unwrap(), json!({}));
     }
 
     #[test]

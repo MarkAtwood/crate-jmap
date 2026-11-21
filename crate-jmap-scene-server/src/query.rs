@@ -107,6 +107,8 @@ pub fn compare_assets(a: &SceneAsset, b: &SceneAsset, sort: &[SceneAssetComparat
 /// filter. `hasSimulationUri` tests `simulationUri` for non-null,
 /// `hasActiveAvatars` tests "`activeAvatarCount > 0`". `createdAfter` is
 /// inclusive ("at or after"), `createdBefore` exclusive ("before").
+/// `worldStateEquals` compares top-level `worldState` keys with String,
+/// Number (by numeric value) and Boolean values.
 pub fn region_matches(filter: &SceneRegionFilter, region: &SceneRegion) -> bool {
     let created = utc_key(&region.created_at);
     filter_matches(filter, &|c| {
@@ -129,6 +131,43 @@ pub fn region_matches(filter: &SceneRegionFilter, region: &SceneRegion) -> bool 
             && c.created_before
                 .as_ref()
                 .is_none_or(|b| created < utc_key(b))
+            && c.world_state_equals.as_ref().is_none_or(|want| {
+                world_state_equals(want, region.world_state.as_ref().and_then(Option::as_ref))
+            })
+    })
+}
+
+/// `worldStateEquals` (jmap-chat-spec 93f2258 §SceneRegion/query): `true`
+/// when `world_state` has every key of `want` "with an equal value: the
+/// same JSON type, and for Strings the same sequence of characters, for
+/// Numbers the same numeric value". An empty `want` matches every region,
+/// a `null` or absent `worldState` included.
+///
+/// Numbers compare exactly when both are integers, so `1` equals `1.0`
+/// and large integers are not rounded through `f64`. A `want` value that
+/// is not a String, Number or Boolean matches nothing; the handler has
+/// already refused it with `invalidArguments`.
+fn world_state_equals(
+    want: &serde_json::Map<String, serde_json::Value>,
+    world_state: Option<&serde_json::Map<String, serde_json::Value>>,
+) -> bool {
+    use serde_json::Value;
+    want.iter().all(|(key, w)| {
+        let Some(have) = world_state.and_then(|m| m.get(key)) else {
+            return false;
+        };
+        match (w, have) {
+            (Value::String(a), Value::String(b)) => a == b,
+            (Value::Bool(a), Value::Bool(b)) => a == b,
+            (Value::Number(a), Value::Number(b)) => match (a.as_i64(), b.as_i64()) {
+                (Some(x), Some(y)) => x == y,
+                _ => match (a.as_u64(), b.as_u64()) {
+                    (Some(x), Some(y)) => x == y,
+                    _ => a.as_f64().zip(b.as_f64()).is_some_and(|(x, y)| x == y),
+                },
+            },
+            _ => false,
+        }
     })
 }
 
