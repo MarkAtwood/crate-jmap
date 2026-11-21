@@ -10,7 +10,7 @@
 //! | Backend method | Call |
 //! |---|---|
 //! | `VtcBackend::update_object::<VtcCall>` and `update_object_if::<VtcCall>`, after the write | [`clear_active_call_id`] |
-//! | `SceneBackend::may_see_region_avatars`, for a region with an `activeCallId` | [`may_see_region_avatars`] |
+//! | [`SceneBackend::may_see_region_avatars`], for a region with an `activeCallId` | [`may_see_region_avatars`] |
 
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
@@ -22,25 +22,25 @@ use jmap_types::{Id, PatchObject};
 use jmap_vtc_types::{CallState, VtcCall, VtcParticipant};
 use serde_json::Value;
 
-/// Clear `activeCallId` on every SceneRegion that names `call`, the
-/// VTCCall as stored after an update, once it has ended.
+/// Clear `activeCallId` on every `SceneRegion` that names `call`, the
+/// `VTCCall` as stored after an update, once it has ended.
 ///
-/// draft-atwood-jmap-scene-00 §SceneRegion `activeCallId`: "When the
-/// VTCCall referenced by `activeCallId` transitions to state `"ended"`,
+/// draft-atwood-jmap-scene-00 §`SceneRegion` `activeCallId`: "When the
+/// `VTCCall` referenced by `activeCallId` transitions to state `"ended"`,
 /// the server MUST clear this field to `null` and emit a `StateChange`
-/// for the SceneRegion type. This update is a side effect of the VTCCall
+/// for the `SceneRegion` type. This update is a side effect of the `VTCCall`
 /// state transition."
 ///
 /// A call in any state other than `"ended"` changes nothing, so this is
-/// safe to call after every VTCCall update. Both `VTCCall/set` and
+/// safe to call after every `VTCCall` update. Both `VTCCall/set` and
 /// `jmap_vtc_server::end_call` (the server's own inactivity or
 /// all-participants-left end) end a call through
-/// `VtcBackend::update_object_if`, and other VTCCall patches go through
+/// `VtcBackend::update_object_if`, and other `VTCCall` patches go through
 /// `VtcBackend::update_object`, so calling it from both covers every
 /// end. Each write goes through
-/// [`SceneBackend::update_object`], which advances the SceneRegion state,
-/// so the SceneRegion `StateChange` follows. Call it in the same atomic
-/// step as the VTCCall write.
+/// [`SceneBackend::update_object`], which advances the `SceneRegion` state,
+/// so the `SceneRegion` `StateChange` follows. Call it in the same atomic
+/// step as the `VTCCall` write.
 ///
 /// # Errors
 ///
@@ -77,26 +77,26 @@ pub async fn clear_active_call_id<S: SceneBackend>(
     Ok(())
 }
 
-/// Whether `user_id` may see the SceneAvatar records of a region whose
-/// `activeCallId` names `call`, the VTCCall as stored.
+/// Whether `user_id` may see the `SceneAvatar` records of a region whose
+/// `activeCallId` names `call`, the `VTCCall` as stored.
 ///
 /// draft-atwood-jmap-scene-00 at jmap-chat-spec 6bcd9d8, L2654: "When a
-/// SceneRegion's `activeCallId` references a VTCCall with `e2eeEnabled`
-/// set to `true`, the server SHOULD NOT expose the region's SceneAvatar
-/// records to users who are not participants in the bound VTCCall". A
-/// participant is a user with a VTCParticipant record in the call, as in
+/// `SceneRegion`'s `activeCallId` references a `VTCCall` with `e2eeEnabled`
+/// set to `true`, the server SHOULD NOT expose the region's `SceneAvatar`
+/// records to users who are not participants in the bound `VTCCall`". A
+/// participant is a user with a `VTCParticipant` record in the call, as in
 /// draft-atwood-jmap-vtc-00 at 6bcd9d8, L1644 ("users who do not have a
-/// VTCParticipant record in it"), whether or not that record has left.
+/// `VTCParticipant` record in it"), whether or not that record has left.
 ///
 /// A call with `e2eeEnabled` `false` hides nothing, and no VTC read is
 /// made. Otherwise `vtc` is the VTC storage, read as `caller`, whose
-/// userId is `user_id`, for the VTCParticipant records of `account_id`,
+/// `userId` is `user_id`, for the `VTCParticipant` records of `account_id`,
 /// the call's hosting account. A `VtcBackend` shows the caller its own
 /// record in an E2EE call, so a caller-scoped read is enough.
 ///
 /// A `SceneBackend` returns this from
 /// [`SceneBackend::may_see_region_avatars`] after loading the region and,
-/// when its `activeCallId` is set, that VTCCall; a region with no
+/// when its `activeCallId` is set, that `VTCCall`; a region with no
 /// `activeCallId` answers `true`. The Scene handlers then hide the avatars
 /// from `SceneAvatar/get` and drop their `SceneAvatarEvent`s, and the
 /// backend's `query_objects` and `query_changes` omit them.
