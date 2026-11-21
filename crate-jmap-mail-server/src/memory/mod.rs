@@ -1623,12 +1623,13 @@ impl<C: MemoryCaller> JmapReads for MemoryBackend<C> {
         } else {
             MetadataOnlyChanges::Report
         };
-        // The token is client text; the `JmapAccounts::Error` contract keeps
-        // it out of `Display` (bd:JMAP-gfqj).
+        // RFC 8620 §5.2: a token this backend never issued (not one of its
+        // counters) is one it "cannot calculate the changes from", as for
+        // `/queryChanges` below; not a server failure (bd:JMAP-cyub.4).
         let since: u64 = since_state
             .as_ref()
             .parse()
-            .map_err(|_| BackendChangesError::Other(MemoryError::new("invalid state token")))?;
+            .map_err(|_| BackendChangesError::CannotCalculate)?;
 
         // Snapshot relevant change log entries under a brief lock, then release.
         let (relevant, has_more, new_state) = {
@@ -4369,24 +4370,23 @@ mod memory_error_tests {
     /// Client-chosen text that must never reach operator logs.
     const CANARY: &str = "alice@example.com";
 
-    /// RFC 8620 §5.2: `sinceState` is client-supplied. The
-    /// `JmapAccounts::Error` contract forbids "PII shaped like an email
-    /// address" in `Display`, so an unparseable token must not be echoed
-    /// (bd:JMAP-gfqj).
+    /// RFC 8620 §5.2: `sinceState` is client-supplied; one the backend
+    /// never issued is `cannotCalculateChanges` ("The server cannot
+    /// calculate the changes from the state string given by the client"),
+    /// not a `serverFail`, and the error carries no client text
+    /// (bd:JMAP-gfqj). Found by the differential tests (bd:JMAP-cyub.4).
     #[tokio::test]
-    async fn invalid_state_token_display_omits_token() {
+    async fn invalid_state_token_cannot_calculate() {
         let backend = MemoryBackend::<()>::default();
         let since = State::from(CANARY);
         let err = backend
             .get_changes::<Email>(&(), &Id::from("account1"), ChangesParams::new(&since))
             .await
             .expect_err("a non-numeric state token is rejected");
-        let BackendChangesError::Other(e) = err else {
-            panic!("expected Other, got {err:?}");
-        };
-        let shown = e.to_string();
-        assert!(!shown.contains(CANARY), "canary leaked: {shown}");
-        assert!(shown.contains("invalid state token"), "{shown}");
+        assert!(
+            matches!(err, BackendChangesError::CannotCalculate),
+            "expected CannotCalculate, got {err:?}"
+        );
     }
 
     /// RFC 8621 §5.8: Email/parse `blobIds` are client-supplied; a missing
