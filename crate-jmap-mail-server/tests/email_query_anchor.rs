@@ -1,6 +1,8 @@
 //! Email/query anchors (RFC 8620 §5.5): "If the anchor is not found, the
 //! call is rejected with an "anchorNotFound" error", whatever the limit.
 
+mod common;
+
 use std::collections::BTreeMap;
 
 use jmap_mail_server::memory::MemoryBackend;
@@ -11,6 +13,7 @@ use serde_json::{Value, json};
 async fn backend() -> (MemoryBackend<()>, Vec<String>) {
     let b = MemoryBackend::<()>::default();
     b.register_account(&Id::from("acc"));
+    common::seed_mailboxes(&b, &Id::from("acc"), &["inbox"]);
     let create: serde_json::Map<String, Value> = (0..3)
         .map(|i| {
             (

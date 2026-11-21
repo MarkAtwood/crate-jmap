@@ -4,6 +4,8 @@
 //! calculate the changes from the state string given by the client";
 //! RFC 8620 §5.6 queryChanges "total ... only if requested".
 
+mod common;
+
 use std::collections::BTreeMap;
 
 use jmap_mail_server::memory::MemoryBackend;
@@ -14,6 +16,7 @@ use serde_json::json;
 async fn backend_with_one_email() -> MemoryBackend<()> {
     let b = MemoryBackend::<()>::default();
     b.register_account(&Id::from("acc"));
+    common::seed_mailboxes(&b, &Id::from("acc"), &["inbox"]);
     handle_email_set(
         &b,
         &(),

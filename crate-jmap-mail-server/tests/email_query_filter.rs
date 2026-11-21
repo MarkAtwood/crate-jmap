@@ -6,6 +6,8 @@
 //! field", "the size ... must be less than this number"), with the expected
 //! ids worked out by hand from the Emails created below.
 
+mod common;
+
 use std::collections::BTreeMap;
 
 use jmap_mail_server::memory::MemoryBackend;
@@ -59,6 +61,7 @@ fn sorted(mut ids: Vec<String>) -> Vec<String> {
 async fn setup() -> (MemoryBackend<()>, String, String) {
     let b = MemoryBackend::<()>::default();
     b.register_account(&Id::from(ACCOUNT));
+    common::seed_mailboxes(&b, &Id::from(ACCOUNT), &["inbox"]);
     let alice = create(&b, "Alice", "Quarterly report", "short").await;
     let bob = create(&b, "Bob", "Lunch?", &"long body ".repeat(200)).await;
     (b, alice, bob)

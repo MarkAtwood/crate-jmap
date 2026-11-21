@@ -49,6 +49,7 @@ fn assert_noop(resp: &Value, id: &str) {
 }
 
 async fn import_email(backend: &MemoryBackend<()>) -> Id {
+    common::seed_mailboxes(backend, &Id::from(ACCOUNT), &["inbox"]);
     let blob_id = Id::from("blob-server-set");
     backend.store_blob(
         &blob_id,
@@ -637,6 +638,7 @@ mod mdn {
     /// `onSuccessUpdateEmail` entry; returns the Email id and the
     /// implicit Email/set response.
     async fn send(backend: &MemoryBackend<()>, patch: impl Fn(&Id) -> Value) -> (Id, Value) {
+        common::seed_mailboxes(backend, &Id::from(ACCOUNT), &["inbox"]);
         let blob_id = Id::from("blob-mdn");
         backend.store_blob(
             &blob_id,

@@ -7,6 +7,8 @@
 //! (removing a lost account from the map); RFC 8620 §5.3 echoes and
 //! §7.2.2 verification; docs/design/DECISIONS.md decisions 9, 10 and 16.
 
+mod common;
+
 use std::sync::Arc;
 
 use jmap_mail_server::emailpush::EmailPushAccount;
@@ -28,6 +30,7 @@ impl Server {
     fn new() -> Self {
         let b = MemoryBackend::<()>::default();
         b.register_account(&Id::from(ACCOUNT));
+        common::seed_mailboxes(&b, &Id::from(ACCOUNT), &[INBOX, "archive"]);
         let mut d = Dispatcher::new();
         register_mail_handlers(&mut d, Arc::new(b.clone()));
         register_push_subscription_handlers(&mut d, Arc::new(b.clone()));

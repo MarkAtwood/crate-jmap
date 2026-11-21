@@ -67,6 +67,45 @@ pub const FAULTY_BACKEND_CANARY: &str = "BACKEND-CANARY-LEAK-DO-NOT-WIRE-7f3a2";
 /// through the handler.
 pub const INJECTED_QUERY_METHOD_ERROR_DESCRIPTION: &str = "backend cannot process this filter";
 
+// ---------------------------------------------------------------------------
+// Mailbox fixtures
+// ---------------------------------------------------------------------------
+
+/// Seed an empty Mailbox under each of `ids` in `account_id`, so a test
+/// can file Emails into a fixed id such as `"inbox"`.
+///
+/// RFC 8621 §4.1.1: `mailboxIds` is "The set of Mailbox ids this Email
+/// belongs to", so an Email write naming a Mailbox the account does not
+/// have is `invalidProperties` (bd:JMAP-91dd). Each Mailbox is named after
+/// its id, has no role and no parent, and gives the owner every right
+/// (RFC 8621 §2). Seeding registers the account, leaves the Mailbox state
+/// unchanged and records no change, as
+/// [`MemoryBackend::seed_object`] does.
+pub fn seed_mailboxes<C: jmap_server::MemoryCaller>(
+    backend: &MemoryBackend<C>,
+    account_id: &Id,
+    ids: &[&str],
+) {
+    for id in ids {
+        backend.seed_object(
+            account_id,
+            "Mailbox",
+            &Id::from(*id),
+            serde_json::json!({
+                "id": id, "name": id, "parentId": null, "role": null,
+                "sortOrder": 0, "totalEmails": 0, "unreadEmails": 0,
+                "totalThreads": 0, "unreadThreads": 0,
+                "myRights": {
+                    "mayReadItems": true, "mayAddItems": true, "mayRemoveItems": true,
+                    "maySetSeen": true, "maySetKeywords": true, "mayCreateChild": true,
+                    "mayRename": true, "mayDelete": true, "maySubmit": true
+                },
+                "isSubscribed": true
+            }),
+        );
+    }
+}
+
 pub struct FaultyBackend {
     pub inner: MemoryBackend<()>,
     failures:

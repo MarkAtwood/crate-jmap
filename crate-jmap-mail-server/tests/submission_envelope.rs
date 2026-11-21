@@ -33,6 +33,7 @@ Body.\r\n";
 async fn email(b: &MemoryBackend<()>, account: &Id) -> Id {
     let blob = Id::from("blob-e");
     b.register_account(account);
+    common::seed_mailboxes(b, account, &["mb1"]);
     b.store_blob(&blob, MESSAGE.to_vec());
     b.import_email(&(), account, &blob, &[Id::from("mb1")], &[], None)
         .await

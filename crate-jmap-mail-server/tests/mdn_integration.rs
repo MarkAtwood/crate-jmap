@@ -50,6 +50,7 @@ The email body.\r\n";
     backend.store_blob(&blob_id, raw.to_vec());
 
     let mailbox_id = Id::from("inbox-mdn");
+    common::seed_mailboxes(backend, account_id, &[mailbox_id.as_ref()]);
     let (email_id, _) = backend
         .import_email(&(), account_id, &blob_id, &[mailbox_id], &[], None)
         .await

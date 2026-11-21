@@ -4,6 +4,8 @@
 //! cited by section, with the expected ids worked out by hand from the
 //! Emails created below.
 
+mod common;
+
 use std::collections::BTreeMap;
 
 use jmap_mail_server::memory::MemoryBackend;
@@ -62,6 +64,7 @@ async fn setup(cap: Option<SearchCapability>) -> (MemoryBackend<()>, [String; 3]
         b = b.with_search_capability(cap);
     }
     b.register_account(&Id::from(ACCOUNT));
+    common::seed_mailboxes(&b, &Id::from(ACCOUNT), &["M1"]);
     let big = "x".repeat(1_100_000);
     let large_flagged = create(&b, "INVOICE 2026-11", &big, true).await;
     let small_flagged = create(&b, "Invoice 2026-10", "short note", true).await;

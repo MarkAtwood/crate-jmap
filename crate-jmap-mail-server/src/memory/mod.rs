@@ -4516,6 +4516,14 @@ mod fixture_helper_tests {
             &Id::from("e1"),
             json!({"id": "e1", "messageId": ["dup@example.com"]}),
         );
+        // The import names an existing Mailbox, so only the duplicate
+        // Message-ID can reject it.
+        backend.seed_object(
+            &acc,
+            "Mailbox",
+            &Id::from("mb1"),
+            json!({"id": "mb1", "name": "Inbox"}),
+        );
         let blob = Id::from("blob1");
         backend.store_blob(
             &blob,

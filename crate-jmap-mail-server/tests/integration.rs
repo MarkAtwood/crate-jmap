@@ -249,6 +249,7 @@ async fn memory_backend_search_snippets_highlight() {
 
     let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
+    common::seed_mailboxes(&backend, &Id::from("account1"), &["inbox"]);
     let account_id = Id::from("account1");
 
     // Store a blob and import an email with a known subject.
@@ -294,6 +295,7 @@ async fn memory_backend_search_snippets_highlight() {
 async fn thread_get_returns_email_ids() {
     let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
+    common::seed_mailboxes(&backend, &Id::from("account1"), &["inbox"]);
     let account_id = Id::from("account1");
 
     // Import two emails (they will land in the same thread only if they share
@@ -379,6 +381,7 @@ async fn thread_get_returns_email_ids() {
 async fn thread_changes_from_zero_returns_all() {
     let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
+    common::seed_mailboxes(&backend, &Id::from("account1"), &["inbox"]);
     let account_id = Id::from("account1");
 
     // Import one email; this creates a thread.
@@ -461,6 +464,7 @@ async fn thread_changes_from_zero_returns_all() {
 async fn search_snippet_get_returns_snippets() {
     let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
+    common::seed_mailboxes(&backend, &Id::from("account1"), &["inbox"]);
     let account_id = Id::from("account1");
 
     // Import an email with a known subject and body.
@@ -2566,6 +2570,7 @@ async fn submission_get_response_structure() {
 async fn submission_set_create_and_get() {
     let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
+    common::seed_mailboxes(&backend, &Id::from("account1"), &["sent"]);
     let account_id = Id::from("account1");
 
     // Create an Identity to send from.
@@ -2668,6 +2673,7 @@ async fn submission_set_on_success_update_email() {
 
     let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
+    common::seed_mailboxes(&backend, &Id::from("account1"), &["drafts"]);
     let account_id = Id::from("account1");
 
     // Create Identity.
@@ -2796,6 +2802,7 @@ async fn dispatch_submission_set_on_success_update_email_orders_responses() {
 
     let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
+    common::seed_mailboxes(&backend, &Id::from("account1"), &["drafts"]);
     let account_id = Id::from("account1");
     let identity = |id: &Id| Identity::new(id.clone(), "alice@example.com", true);
     let (identity_id, _) = backend
@@ -2868,6 +2875,7 @@ async fn submission_set_on_success_update_email_immutable_field_rejected() {
 
     let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account-imm-sub"));
+    common::seed_mailboxes(&backend, &Id::from("account-imm-sub"), &["inbox"]);
     let account_id = Id::from("account-imm-sub");
 
     // Create Identity.
@@ -2950,6 +2958,7 @@ async fn submission_set_on_success_update_email_immutable_field_rejected() {
 async fn submission_set_invalid_identity_fails() {
     let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
+    common::seed_mailboxes(&backend, &Id::from("account1"), &["inbox"]);
     let account_id = Id::from("account1");
 
     // Import an email (exists).
@@ -3028,6 +3037,7 @@ async fn submission_set_invalid_identity_fails() {
 async fn email_set_create_and_get() {
     let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
+    common::seed_mailboxes(&backend, &Id::from("account1"), &["inbox"]);
     let account_id = Id::from("account1");
 
     // RFC 8621 §5.5.3: size is server-set and must not be sent by the client.
@@ -3366,6 +3376,7 @@ async fn email_set_create_with_non_string_received_at_rejected() {
 async fn email_get_not_found_is_empty_array_when_all_found() {
     let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
+    common::seed_mailboxes(&backend, &Id::from("account1"), &["inbox"]);
     let account_id = Id::from("account1");
 
     // Create one email so we have a valid id to look up.
@@ -3422,6 +3433,7 @@ async fn email_get_not_found_is_empty_array_when_all_found() {
 async fn email_get_with_property_filter() {
     let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
+    common::seed_mailboxes(&backend, &Id::from("account1"), &["inbox"]);
     let account_id = Id::from("account1");
 
     let set_args = serde_json::json!({
@@ -3477,6 +3489,7 @@ async fn email_get_with_property_filter() {
 async fn email_get_default_properties_excludes_headers() {
     let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
+    common::seed_mailboxes(&backend, &Id::from("account1"), &["inbox"]);
     let account_id = Id::from("account1");
 
     let set_args = serde_json::json!({
@@ -3543,6 +3556,7 @@ async fn email_get_default_properties_excludes_headers() {
 async fn email_get_body_value_fetch_args_parsed() {
     let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
+    common::seed_mailboxes(&backend, &Id::from("account1"), &["inbox"]);
     let account_id = Id::from("account1");
 
     let set_args = serde_json::json!({
@@ -3585,6 +3599,7 @@ async fn email_get_body_value_fetch_args_parsed() {
 async fn email_get_max_body_value_bytes_zero_accepted() {
     let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
+    common::seed_mailboxes(&backend, &Id::from("account1"), &["inbox"]);
     let account_id = Id::from("account1");
 
     let set_args = serde_json::json!({
@@ -3739,6 +3754,7 @@ async fn email_parse_invalid_max_body_value_bytes() {
 async fn email_set_update_immutable_field_rejected() {
     let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
+    common::seed_mailboxes(&backend, &Id::from("account1"), &["inbox"]);
     let account_id = Id::from("account1");
 
     let set_args = serde_json::json!({
@@ -3809,6 +3825,7 @@ async fn email_set_update_immutable_field_rejected() {
 async fn email_set_update_keywords() {
     let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
+    common::seed_mailboxes(&backend, &Id::from("account1"), &["inbox"]);
     let account_id = Id::from("account1");
 
     let set_args = serde_json::json!({
@@ -3888,6 +3905,7 @@ async fn email_set_update_keywords() {
 async fn email_query_by_mailbox() {
     let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
+    common::seed_mailboxes(&backend, &Id::from("account1"), &["inbox", "sent"]);
     let account_id = Id::from("account1");
 
     for subject in &["Inbox 1", "Inbox 2"] {
@@ -4081,6 +4099,7 @@ async fn email_import_with_keywords_succeeds() {
 
     let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
+    common::seed_mailboxes(&backend, &Id::from("account1"), &["inbox"]);
     let account_id = Id::from("account1");
 
     let msg = b"Subject: with keywords\r\n\r\nbody";
@@ -4138,7 +4157,9 @@ async fn email_copy_with_keywords_succeeds() {
 
     let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("src"));
+    common::seed_mailboxes(&backend, &Id::from("src"), &["inbox"]);
     backend.register_account(&Id::from("dst"));
+    common::seed_mailboxes(&backend, &Id::from("dst"), &["inbox"]);
     let src_account = Id::from("src");
     let dst_account = Id::from("dst");
 
@@ -4202,7 +4223,9 @@ async fn email_copy_without_keywords_keeps_source_keywords() {
 
     let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("src"));
+    common::seed_mailboxes(&backend, &Id::from("src"), &["archive", "inbox"]);
     backend.register_account(&Id::from("dst"));
+    common::seed_mailboxes(&backend, &Id::from("dst"), &["archive", "inbox"]);
     let src_account = Id::from("src");
     let dst_account = Id::from("dst");
 
@@ -4266,7 +4289,9 @@ async fn email_copy_with_malformed_received_at_rejected() {
 
     let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("src"));
+    common::seed_mailboxes(&backend, &Id::from("src"), &["inbox"]);
     backend.register_account(&Id::from("dst"));
+    common::seed_mailboxes(&backend, &Id::from("dst"), &["inbox"]);
     let src_account = Id::from("src");
     let dst_account = Id::from("dst");
 
@@ -4334,7 +4359,9 @@ async fn email_copy_ignores_on_success_update_original() {
     let backend = MemoryBackend::<()>::default();
     let src_account = Id::from("src-osuo");
     backend.register_account(&src_account);
+    common::seed_mailboxes(&backend, &src_account, &["inbox"]);
     backend.register_account(&Id::from("dst-osuo"));
+    common::seed_mailboxes(&backend, &Id::from("dst-osuo"), &["inbox"]);
     let blob_id = Id::from("blob-osuo");
     backend.store_blob(&blob_id, b"Subject: osuo\r\n\r\nbody".to_vec());
     let (src_id, _) = backend
@@ -4396,7 +4423,9 @@ async fn email_copy_maintains_destination_counts_and_message_id() {
     let src_account = Id::from("src-cnt");
     let dst_account = Id::from("dst-cnt");
     backend.register_account(&src_account);
+    common::seed_mailboxes(&backend, &src_account, &["inbox"]);
     backend.register_account(&dst_account);
+    common::seed_mailboxes(&backend, &dst_account, &["inbox"]);
     backend.seed_object(
         &dst_account,
         "Mailbox",
@@ -4483,7 +4512,9 @@ async fn email_copy_with_destroy_from_if_in_state(
     let backend = MemoryBackend::<()>::default();
     let src_account = Id::from("src-dfis");
     backend.register_account(&src_account);
+    common::seed_mailboxes(&backend, &src_account, &["inbox"]);
     backend.register_account(&Id::from("dst-dfis"));
+    common::seed_mailboxes(&backend, &Id::from("dst-dfis"), &["inbox"]);
     let blob_id = Id::from("blob-dfis");
     backend.store_blob(&blob_id, b"Subject: dfis\r\n\r\nbody".to_vec());
     let (src_id, _) = backend
@@ -4580,6 +4611,7 @@ async fn submission_set_update_only_undo_status_allowed() {
 
     let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
+    common::seed_mailboxes(&backend, &Id::from("account1"), &["sent"]);
     let account_id = Id::from("account1");
 
     // Create an Identity and email, then a submission.
@@ -4818,6 +4850,7 @@ async fn keyword_256_chars_rejected() {
 async fn keyword_255_chars_accepted() {
     let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
+    common::seed_mailboxes(&backend, &Id::from("account1"), &["inbox"]);
     let account_id = Id::from("account1");
     let kw_255: String = "a".repeat(255);
 
@@ -4889,6 +4922,7 @@ async fn keyword_forbidden_char_open_paren_rejected() {
 async fn keyword_normalized_to_lowercase() {
     let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
+    common::seed_mailboxes(&backend, &Id::from("account1"), &["inbox"]);
     let account_id = Id::from("account1");
 
     let create_args = serde_json::json!({
@@ -4975,6 +5009,7 @@ async fn keyword_empty_rejected() {
 async fn keyword_tilde_accepted() {
     let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
+    common::seed_mailboxes(&backend, &Id::from("account1"), &["inbox"]);
     let account_id = Id::from("account1");
 
     let args = serde_json::json!({
@@ -5009,6 +5044,7 @@ async fn keyword_tilde_accepted() {
 async fn keyword_dollar_sign_accepted() {
     let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
+    common::seed_mailboxes(&backend, &Id::from("account1"), &["inbox"]);
     let account_id = Id::from("account1");
 
     let args = serde_json::json!({
@@ -5101,6 +5137,7 @@ async fn make_identity_and_email(
 ) -> (Id, Id) {
     use jmap_mail_types::Identity;
     backend.register_account(account_id);
+    common::seed_mailboxes(backend, account_id, &[mailbox_id]);
     let identity = |id: &Id| Identity::new(id.clone(), addr, true);
     let (identity_id, _) = backend
         .create_object::<Identity, _>(&(), account_id, "i", identity)
@@ -5923,6 +5960,7 @@ async fn submission_query_changes_honors_sort() {
 async fn submission_set_create_no_recipients_fails() {
     let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
+    common::seed_mailboxes(&backend, &Id::from("account1"), &["sent"]);
     let account_id = Id::from("account1");
 
     // Create an Identity.
@@ -6575,6 +6613,7 @@ async fn email_set_update_backend_other_goes_to_not_updated() {
     let backend = FaultyBackend::new();
     let account = Id::from("acct1");
     backend.inner.register_account(&account);
+    common::seed_mailboxes(&backend.inner, &account, &["mbox1"]);
     let email = |id: &Id| {
         jmap_mail_types::Email::new(
             id.clone(),
@@ -6618,6 +6657,7 @@ async fn email_set_destroy_backend_other_goes_to_not_destroyed() {
     let backend = FaultyBackend::new();
     let account = Id::from("acct1");
     backend.inner.register_account(&account);
+    common::seed_mailboxes(&backend.inner, &account, &["mbox1"]);
     let email = |id: &Id| {
         jmap_mail_types::Email::new(
             id.clone(),
@@ -6693,6 +6733,7 @@ async fn submission_set_create_backend_other_goes_to_not_created() {
     let backend = FaultyBackend::new();
     let account = Id::from("acct1");
     backend.inner.register_account(&account);
+    common::seed_mailboxes(&backend.inner, &account, &["mbox1"]);
 
     // Create an Identity so identityId validation passes.
     let identity =
@@ -7054,6 +7095,7 @@ async fn set_per_id_server_fail_redacts_backend_display_destroy() {
 async fn email_import_created_response_has_four_server_set_fields() {
     let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("acct1"));
+    common::seed_mailboxes(&backend, &Id::from("acct1"), &["inbox"]);
     let blob_id = Id::from("blob-4f");
     backend.store_blob(&blob_id, b"Subject: test\r\n\r\nbody".to_vec());
 
@@ -7146,6 +7188,7 @@ async fn mailbox_query_changes_omits_total_by_default() {
 async fn email_query_anchor_resolves_position() {
     let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("acct1"));
+    common::seed_mailboxes(&backend, &Id::from("acct1"), &["inbox"]);
     let account_id = "acct1";
 
     // Create 3 emails.
@@ -7214,6 +7257,7 @@ async fn email_query_anchor_resolves_position() {
 async fn email_query_in_mailbox_filter() {
     let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("acct1"));
+    common::seed_mailboxes(&backend, &Id::from("acct1"), &["inbox", "trash"]);
     let account_id = "acct1";
 
     // Create two emails in "inbox" and one in "trash".
@@ -7624,6 +7668,7 @@ async fn email_import_duplicate_message_id_returns_already_exists() {
 
     let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
+    common::seed_mailboxes(&backend, &Id::from("account1"), &["inbox"]);
     let account_id = Id::from("account1");
 
     // Raw RFC 5322 message with a known Message-ID.
@@ -7726,6 +7771,7 @@ fn capability_uri_vacation_response_matches_rfc() {
 async fn submission_set_create_send_at_from_client_rejected() {
     let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
+    common::seed_mailboxes(&backend, &Id::from("account1"), &["sent"]);
     let account_id = Id::from("account1");
 
     let identity = |id: &Id| Identity::new(id.clone(), "alice@example.com", true);
@@ -8043,6 +8089,7 @@ async fn email_set_create_body_value_is_truncated_true_rejected() {
 async fn submission_set_create_send_at_null_accepted() {
     let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
+    common::seed_mailboxes(&backend, &Id::from("account1"), &["sent"]);
     let account_id = Id::from("account1");
 
     let identity = |id: &Id| Identity::new(id.clone(), "alice@example.com", true);
@@ -8093,6 +8140,7 @@ async fn submission_set_create_send_at_null_accepted() {
 async fn import_msg_with_headers(backend: &MemoryBackend<()>, raw: &[u8]) -> Id {
     let blob_id = Id::from(format!("blob-hdr-{}", uuid::Uuid::new_v4()));
     backend.register_account(&Id::from("acct1"));
+    common::seed_mailboxes(backend, &Id::from("acct1"), &["inbox"]);
     backend.store_blob(&blob_id, raw.to_vec());
     backend
         .import_email(
@@ -8706,6 +8754,7 @@ async fn submission_set_destroy_non_string_returns_invalid_arguments() {
 async fn submission_set_failed_create_does_not_apply_on_success_update_email() {
     let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("acct-onsuccess-no-apply"));
+    common::seed_mailboxes(&backend, &Id::from("acct-onsuccess-no-apply"), &["inbox"]);
     let account_id = Id::from("acct-onsuccess-no-apply");
 
     // Create an Identity so the submission handler can validate it.
@@ -8929,6 +8978,7 @@ async fn email_parse_header_invalid_form_rejected() {
 async fn email_query_collapse_threads_deduplicates() {
     let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("acct-collapse"));
+    common::seed_mailboxes(&backend, &Id::from("acct-collapse"), &["inbox"]);
     let account_id = Id::from("acct-collapse");
 
     // Import two emails that end up in the same thread by shared message-id reference.
@@ -12160,6 +12210,7 @@ async fn conformance_email_query_sort_received_at_desc() {
 async fn conformance_email_set_create_basic() {
     let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
+    common::seed_mailboxes(&backend, &Id::from("account1"), &["inbox"]);
     let account_id = Id::from("account1");
 
     let set_args = serde_json::json!({
@@ -12218,6 +12269,7 @@ async fn conformance_email_set_create_basic() {
 async fn conformance_email_set_create_sets_state() {
     let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
+    common::seed_mailboxes(&backend, &Id::from("account1"), &["inbox"]);
     let account_id = Id::from("account1");
 
     let set_args = serde_json::json!({
@@ -12254,6 +12306,7 @@ async fn conformance_email_set_create_sets_state() {
 async fn conformance_email_set_create_with_keywords() {
     let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
+    common::seed_mailboxes(&backend, &Id::from("account1"), &["inbox"]);
     let account_id = Id::from("account1");
 
     let set_args = serde_json::json!({
@@ -12311,6 +12364,7 @@ async fn conformance_email_set_create_with_keywords() {
 async fn conformance_email_set_update_keywords() {
     let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
+    common::seed_mailboxes(&backend, &Id::from("account1"), &["inbox"]);
     let account_id = Id::from("account1");
 
     // Create an email with only $seen.
@@ -12407,6 +12461,7 @@ async fn conformance_email_set_update_keywords() {
 async fn conformance_email_set_update_mailbox_ids() {
     let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
+    common::seed_mailboxes(&backend, &Id::from("account1"), &["inbox", "folderA"]);
     let account_id = Id::from("account1");
 
     // Create in inbox.
@@ -12501,6 +12556,7 @@ async fn conformance_email_set_update_mailbox_ids() {
 async fn conformance_email_set_update_adds_keyword() {
     let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
+    common::seed_mailboxes(&backend, &Id::from("account1"), &["inbox"]);
     let account_id = Id::from("account1");
 
     // Create an email without $flagged.
@@ -12590,6 +12646,7 @@ async fn conformance_email_set_update_adds_keyword() {
 async fn conformance_email_set_update_removes_keyword() {
     let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
+    common::seed_mailboxes(&backend, &Id::from("account1"), &["inbox"]);
     let account_id = Id::from("account1");
 
     // Create an email with $seen.
@@ -12682,6 +12739,7 @@ async fn conformance_email_set_update_removes_keyword() {
 async fn email_set_update_pointer_into_absent_parent_is_invalid_patch() {
     let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
+    common::seed_mailboxes(&backend, &Id::from("account1"), &["inbox"]);
     let account_id = Id::from("account1");
 
     let HandlerOutput {
@@ -12774,6 +12832,7 @@ async fn email_set_update_pointer_into_absent_parent_is_invalid_patch() {
 async fn email_set_update_prefix_conflict_is_invalid_patch() {
     let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
+    common::seed_mailboxes(&backend, &Id::from("account1"), &["inbox"]);
     let account_id = Id::from("account1");
 
     let HandlerOutput {
@@ -12856,6 +12915,7 @@ async fn email_set_update_prefix_conflict_is_invalid_patch() {
 async fn conformance_email_set_destroy_basic() {
     let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
+    common::seed_mailboxes(&backend, &Id::from("account1"), &["inbox"]);
     let account_id = Id::from("account1");
 
     // Create an email to destroy.
@@ -12942,6 +13002,7 @@ async fn conformance_email_set_destroy_basic() {
 async fn conformance_email_set_destroy_updates_state() {
     let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
+    common::seed_mailboxes(&backend, &Id::from("account1"), &["inbox"]);
     let account_id = Id::from("account1");
 
     // Create an email to destroy.
@@ -14179,6 +14240,7 @@ async fn query_changes_with_filter_returns_filtered_delta() {
 async fn query_changes_reports_updated_id_in_removed_and_added() {
     let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("acct1"));
+    common::seed_mailboxes(&backend, &Id::from("acct1"), &["inbox"]);
 
     let HandlerOutput { primary: set, .. } = handle_email_set(
         &backend,
@@ -14250,6 +14312,7 @@ async fn query_changes_reports_updated_id_in_removed_and_added() {
 async fn query_changes_up_to_id_is_ignored() {
     let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("acct1"));
+    common::seed_mailboxes(&backend, &Id::from("acct1"), &["inbox"]);
     let account_id = "acct1";
 
     // Create 3 emails with distinct receivedAt times so sort order is deterministic.
@@ -14352,6 +14415,7 @@ async fn query_changes_up_to_id_is_ignored() {
 async fn query_changes_max_changes_returns_too_many_changes() {
     let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("acct1"));
+    common::seed_mailboxes(&backend, &Id::from("acct1"), &["inbox"]);
     let account_id = "acct1";
 
     // Create 10 emails.
@@ -14823,6 +14887,7 @@ async fn mailbox_set_update_null_name_is_invalid_properties() {
 async fn email_set_update_null_mailbox_ids_is_invalid_properties() {
     let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
+    common::seed_mailboxes(&backend, &Id::from("account1"), &["inbox"]);
     let HandlerOutput {
         primary: set_resp, ..
     } = handle_email_set(
@@ -15810,6 +15875,7 @@ async fn email_set_create_body_errors_name_property() {
 async fn email_set_create_multipart_body_structure_without_ids() {
     let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
+    common::seed_mailboxes(&backend, &Id::from("account1"), &["inbox"]);
     let args = serde_json::json!({
         "accountId": "account1",
         "create": {

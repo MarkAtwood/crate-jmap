@@ -29,6 +29,7 @@ use serde_json::{Value, json};
 fn backend() -> MemoryBackend<()> {
     let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("a1"));
+    common::seed_mailboxes(&backend, &Id::from("a1"), &["inbox"]);
     backend
 }
 
