@@ -343,6 +343,10 @@ pub trait SceneBackend: JmapBackend {
     /// admin may modify region properties" (draft-atwood-jmap-scene-00
     /// §SceneRegion/set Update Errors).
     ///
+    /// The same owner-or-admin rule gates `SceneRegion/broadcast` and
+    /// changes to `SceneAvatar.regionState` on the region's avatars
+    /// (jmap-chat-spec 93f2258), so those handlers ask this hook too.
+    ///
     /// # Default implementation
     ///
     /// Returns `Ok(true)` (fail-open, bd:JMAP-bghk); production backends

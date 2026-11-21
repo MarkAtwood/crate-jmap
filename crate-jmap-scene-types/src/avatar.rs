@@ -39,8 +39,25 @@ pub struct SceneAvatar {
     /// Time this avatar left the region; `None` while present.
     pub left_at: Option<UTCDate>,
     /// Deployment-defined avatar state, stored and relayed without
-    /// interpretation.
+    /// interpretation. "Only the avatar's user changes it."
     pub world_state: Option<serde_json::Map<String, serde_json::Value>>,
+    /// `regionState`: deployment-defined state "that the region, rather
+    /// than the avatar's user, keeps about this avatar (e.g., team, role,
+    /// health, or score)" (draft-atwood-jmap-scene-00 at jmap-chat-spec
+    /// 93f2258). "Only the region owner, users with deployment-defined
+    /// administrative privileges, and the server itself change it; the
+    /// avatar's user can read all of it."
+    ///
+    /// "Present only when the account capability
+    /// `supportsAvatarRegionState` is `true`", so absence and `null` are
+    /// kept apart: `None` when absent, `Some(None)` for `null` (the draft
+    /// default), `Some(Some(map))` for a value.
+    #[serde(
+        default,
+        deserialize_with = "crate::wire::present",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub region_state: Option<Option<serde_json::Map<String, serde_json::Value>>>,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
@@ -115,6 +132,32 @@ mod tests {
                 "missing {field} must be rejected"
             );
         }
+    }
+
+    #[test]
+    fn region_state_absent_null_and_value_are_distinct() {
+        // Oracle: jmap-chat-spec 93f2258 §SceneAvatar "`regionState`
+        // (Object|null): Present only when the account capability
+        // `supportsAvatarRegionState` is `true`. ... Default: `null`."
+        let raw = departed();
+        let a: SceneAvatar = serde_json::from_value(raw.clone()).unwrap();
+        assert_eq!(a.region_state, None);
+        assert_eq!(serde_json::to_value(&a).unwrap(), raw);
+
+        let mut raw = departed();
+        raw["regionState"] = json!(null);
+        let a: SceneAvatar = serde_json::from_value(raw.clone()).unwrap();
+        assert_eq!(a.region_state, Some(None));
+        assert_eq!(serde_json::to_value(&a).unwrap(), raw);
+
+        raw["regionState"] = json!({"team": "blue", "health": 100});
+        let a: SceneAvatar = serde_json::from_value(raw.clone()).unwrap();
+        assert_eq!(
+            a.region_state.as_ref().unwrap().as_ref().unwrap()["team"],
+            "blue"
+        );
+        assert!(!a.extra.contains_key("regionState"));
+        assert_eq!(serde_json::to_value(&a).unwrap(), raw);
     }
 
     #[test]

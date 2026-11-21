@@ -47,6 +47,11 @@ const SET_BY_SERVER_ON_CREATE: &[&str] = &["position", "orientation", "leftAt"];
 /// (draft-atwood-jmap-scene-00 §Avatar Permissions).
 const EJECT_PROPERTIES: &[&str] = &["leftAt"];
 
+/// `regionState` (jmap-chat-spec 93f2258): changed only by the region
+/// owner, administrators and the server, and the other property a region
+/// owner or administrator may patch on another user's avatar.
+const REGION_STATE: &str = "regionState";
+
 /// Handle `SceneAvatar/get` (draft-atwood-jmap-scene-00 §SceneAvatar/get):
 /// standard RFC 8620 §5.1 `/get`, with an avatar in a region the caller
 /// has no access to ([`SceneBackend::may_access_region`]), of a user the
@@ -141,6 +146,15 @@ const AVATAR_ID_PROPERTIES: &[&str] = &["regionId"];
 /// `displayName` from [`SceneBackend::reserved_display_names`] is
 /// `forbidden` (§Avatar Identity and Impersonation). Destroy is always
 /// `forbidden`.
+///
+/// `regionState` (jmap-chat-spec 93f2258) exists only on an account whose
+/// capability has `supportsAvatarRegionState`; elsewhere it is
+/// `invalidProperties`. A create stores `null` unless it supplies one, and
+/// a non-null one is `forbidden` unless the caller is the region owner or
+/// an admin ([`SceneBackend::may_update_region`]). The same rule governs
+/// an update that changes it, the avatar's own user included; a region
+/// owner or admin may combine it with an eject on another user's avatar
+/// and patch nothing else.
 ///
 /// A `regionId` that is a `#creationId` reference names a SceneRegion
 /// created earlier in the request and resolves against `created_ids` (pass
@@ -346,10 +360,9 @@ fn malformed(m: &Map<String, Value>) -> Vec<&'static str> {
     for key in ["visualRef", "visualType"] {
         check(key, optional(key, |v| v.is_null() || v.is_string()));
     }
-    check(
-        "worldState",
-        optional("worldState", |v| v.is_null() || v.is_object()),
-    );
+    for key in ["worldState", "regionState"] {
+        check(key, optional(key, |v| v.is_null() || v.is_object()));
+    }
     // "`visualRef` is present but `visualType` is absent (or vice versa)
     // | Both must be present together or both absent."
     let present = |key: &str| m.get(key).is_some_and(|v| !v.is_null());
@@ -398,6 +411,40 @@ async fn refuse_reserved_name<B: SceneBackend>(
     Ok(())
 }
 
+/// Whether the account's capability has `supportsAvatarRegionState`.
+/// `regionState` is "Present only when the account capability
+/// `supportsAvatarRegionState` is `true`" (jmap-chat-spec 93f2258); without
+/// it the handlers refuse the property with `invalidProperties` rather than
+/// keep it as an extension property any user could write.
+async fn region_state_supported<B: SceneBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+) -> Result<bool, Value> {
+    Ok(backend
+        .scene_capability(caller, account_id)
+        .await
+        .map_err(|e| server_fail_value_from_backend(&e))?
+        .supports_avatar_region_state)
+}
+
+/// `true` if the caller may change `regionState` on avatars of `region`:
+/// "Only the region owner, users with deployment-defined administrative
+/// privileges, and the server itself change it" (jmap-chat-spec 93f2258
+/// §Avatar Permissions), which is the owner-or-admin rule of
+/// [`SceneBackend::may_update_region`].
+async fn may_manage_region_state<B: SceneBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    region: &SceneRegion,
+) -> Result<bool, Value> {
+    backend
+        .may_update_region(caller, account_id, region)
+        .await
+        .map_err(|e| server_fail_value_from_backend(&e))
+}
+
 fn present_in<'a>(keys: impl Iterator<Item = &'a str>, set: &[&str]) -> Vec<&'a str> {
     let mut found: Vec<&str> = keys.filter(|k| set.contains(k)).collect();
     found.sort_unstable();
@@ -441,6 +488,13 @@ async fn enter_region<B: SceneBackend>(
         return Err(invalid(&fixed, "these properties are set by the server"));
     }
     refuse_malformed(malformed(&m))?;
+    let region_state = region_state_supported(backend, caller, account_id).await?;
+    if m.contains_key("regionState") && !region_state {
+        return Err(invalid(
+            &["regionState"],
+            "regionState needs supportsAvatarRegionState",
+        ));
+    }
 
     // "The server MUST return `invalidProperties` naming `regionId` when
     // `regionId` does not reference an existing SceneRegion. The server
@@ -468,7 +522,20 @@ async fn enter_region<B: SceneBackend>(
     {
         return Err(forbidden("The caller may not enter this region."));
     }
+    // "Caller supplies a non-null `regionState` and is neither the region
+    // owner nor an administrator": `forbidden` (jmap-chat-spec 93f2258).
+    if m.get("regionState").is_some_and(|v| !v.is_null())
+        && !may_manage_region_state(backend, caller, account_id, &region).await?
+    {
+        return Err(forbidden(
+            "regionState is kept by the region; only its owner or an admin may set it",
+        ));
+    }
     refuse_reserved_name(backend, caller, account_id, &m).await?;
+    if region_state {
+        // "Default: `null`."
+        m.entry("regionState").or_insert(Value::Null);
+    }
 
     if !m.contains_key("displayName") {
         let name = backend
@@ -565,6 +632,22 @@ async fn update_avatar<B: SceneBackend>(
     let touched = |k: &str| patched.iter().any(|p| p == k);
     let left_to = patch.as_map().get("leftAt").cloned();
 
+    let touches_region_state = touched(REGION_STATE);
+    if touches_region_state && !region_state_supported(backend, caller, account_id).await? {
+        return Err(invalid(
+            &[REGION_STATE],
+            "regionState needs supportsAvatarRegionState",
+        ));
+    }
+    // The owner-or-admin rule for `regionState`, asked only when the patch
+    // changes it.
+    let manages_region_state = async || -> Result<bool, Value> {
+        let region: SceneRegion = fetch_one(backend, caller, account_id, &avatar.region_id)
+            .await?
+            .ok_or_else(not_found)?;
+        may_manage_region_state(backend, caller, account_id, &region).await
+    };
+
     let user_id = backend
         .caller_user_id(caller, account_id)
         .await
@@ -572,18 +655,32 @@ async fn update_avatar<B: SceneBackend>(
     if avatar.user_id != user_id {
         // "Users MUST NOT update other users' avatars. Exception: region
         // owners and administrators may set `leftAt` on another user's
-        // avatar to eject them."
+        // avatar to eject them, and may change its `regionState`; such an
+        // update patches no other property" (jmap-chat-spec 93f2258).
         // Re-entry (`leftAt: null`) is not an eject.
-        let eject = left_to.as_ref().is_some_and(|v| !v.is_null())
-            && patched.iter().all(|p| EJECT_PROPERTIES.contains(&&**p));
-        if !eject
-            || !backend
-                .may_eject_avatar(caller, account_id, &avatar)
-                .await
-                .map_err(|e| server_fail_value_from_backend(&e))?
-        {
+        let touches_left = touched("leftAt");
+        let shape = (touches_left || touches_region_state)
+            && patched
+                .iter()
+                .all(|p| EJECT_PROPERTIES.contains(&&**p) || p == REGION_STATE)
+            && (!touches_left || left_to.as_ref().is_some_and(|v| !v.is_null()));
+        let allowed = shape
+            && (!touches_left
+                || backend
+                    .may_eject_avatar(caller, account_id, &avatar)
+                    .await
+                    .map_err(|e| server_fail_value_from_backend(&e))?)
+            && (!touches_region_state || manages_region_state().await?);
+        if !allowed {
             return Err(forbidden("Users MUST NOT update other users' avatars."));
         }
+    } else if touches_region_state && !manages_region_state().await? {
+        // "The avatar's user cannot change `regionState` unless that user
+        // is also the region owner or an administrator; the server returns
+        // `forbidden`."
+        return Err(forbidden(
+            "regionState is kept by the region; only its owner or an admin may change it",
+        ));
     }
 
     // After the ownership check, so another user's avatar is `forbidden`

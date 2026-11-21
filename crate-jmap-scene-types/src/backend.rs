@@ -151,6 +151,7 @@ impl SetObject for SceneAvatar {
         "visualType",
         "leftAt",
         "worldState",
+        "regionState",
     ];
     const IMMUTABLE: &'static [&'static str] = &["regionId"];
 }
@@ -268,6 +269,7 @@ mod tests {
             joined_at: date(),
             left_at: Some(date()),
             world_state: Some(Map::new()),
+            region_state: Some(Some(Map::new())),
             extra: Map::new(),
         };
         assert_eq!(check_property_classification(&obj), Ok(()));
