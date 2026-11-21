@@ -9,4 +9,6 @@ doc-valid-idents = [
     "JSCalendar", "JSContact", "LiveKit", "MediaMTX", "OpenMLS",
     "MediaLive", "MediaPackage", "CloudFront", "FreeSWITCH", "GStreamer",
     "IDs", "URIs", "URLs", "UUIDs",
+    "MiPush", "AppGallery", "EventBridge", "FFmpeg", "SigV4", "EdDSA", "VoIP",
+    "SemVer", "SaaS", "RegID",
 ]
