@@ -92,7 +92,7 @@ pub(crate) struct StateChangeLog {
 
 struct Inner {
     /// Next event id to assign. Starts at 1; 0 is reserved as the
-    /// "no events seen yet" sentinel for [`Inner::initial_subscriber_id`]
+    /// "no events seen yet" sentinel for a new subscriber
     /// and for the SSE/WS reconnect paths.
     next_event_id: u64,
 
@@ -131,13 +131,13 @@ impl StateChangeLog {
     /// update the canonical snapshot, and return the recorded entries
     /// (caller may use them e.g. to emit immediately to a live
     /// subscriber's stream — though subscribers typically wake on
-    /// the watch channel and pull via [`events_since`]).
+    /// the watch channel and pull via [`Self::events_since`]).
     ///
     /// A type whose new state equals its canonical state is not
     /// recorded. A type that newly appears in `current` (not present
     /// in canonical) IS recorded. A type that disappears from
     /// `current` but exists in canonical is left alone — the
-    /// dispatcher snapshot is the snapshot of what the get_state
+    /// dispatcher snapshot is the snapshot of what the `get_state`
     /// calls returned, and absence-from-snapshot means "the backend
     /// failed to report" (typically an unknown account on a
     /// per-backend register-explicitly path), which is not a real

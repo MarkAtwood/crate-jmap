@@ -19,7 +19,7 @@
 //!
 //! - The watch [`Receiver::changed`] future. Fires immediately after
 //!   every dispatched request, so a `Foo/set` round-trip → SSE
-//!   StateChange latency is bounded by the dispatcher round-trip plus
+//!   `StateChange` latency is bounded by the dispatcher round-trip plus
 //!   one task wake (typically <1 ms in-process).
 //! - A long-interval safety-net tick at `POLL_INTERVAL` (5 s). The
 //!   watch wake covers every in-band mutation path; the timer is a
@@ -51,7 +51,7 @@
 //!
 //! The testjig accepts missing query parameters and falls back to the
 //! defaults above — strictly per spec the URL template substitution
-//! always produces a fully-populated URL, but the JmapClient in the
+//! always produces a fully-populated URL, but the `JmapClient` in the
 //! workspace's `jmap-base-client` ships its own SSE wrapper that
 //! pre-fills these. Accepting the missing case lets curl-driven
 //! smoke testing work without surface friction.
@@ -60,7 +60,7 @@
 //!
 //! `GET /events` is gated behind the same [`crate::auth`]
 //! bearer-token middleware as every other route. Browsers cannot set
-//! arbitrary headers on EventSource connections, so the auth layer
+//! arbitrary headers on `EventSource` connections, so the auth layer
 //! also honors `?token=<token>`; see [`crate::auth`] for the full
 //! middleware contract.
 //!
@@ -118,7 +118,7 @@ pub(crate) const POLL_INTERVAL: Duration = Duration::from_secs(5);
 /// Sized for the typical case where a client makes one or two writes
 /// per second and reads as fast as the OS can forward bytes. A backed-up
 /// receiver (slow consumer / wedged TCP) will cause the producer to
-/// `await` on `send`, which is acceptable — the StateChange semantics
+/// `await` on `send`, which is acceptable — the `StateChange` semantics
 /// per RFC 8620 §7 explicitly tolerate dropped events because the next
 /// `/get` will resync.
 const SSE_CHANNEL_BOUND: usize = 64;
@@ -278,7 +278,7 @@ impl CloseAfter {
     }
 }
 
-/// `GET /events` — RFC 8620 §7.3 EventSource resource.
+/// `GET /events` — RFC 8620 §7.3 `EventSource` resource.
 ///
 /// Parses the query parameters, captures a baseline snapshot of every
 /// known type's state token (so the very first poll cannot fire a
@@ -530,7 +530,7 @@ async fn emit_pending(
 /// Snapshot every well-known JMAP type's state token for the given
 /// account across all 7 reference backends.
 ///
-/// Returns a `(type_name, state)` map keyed by the JmapObject
+/// Returns a `(type_name, state)` map keyed by the `JmapObject`
 /// `TYPE_NAME` constant so the result is stable across compiler
 /// versions / hashing schemes. Backends that error out for a given
 /// type are silently skipped — for the testjig's in-memory backends
@@ -604,7 +604,7 @@ pub(crate) async fn snapshot_all_states(
     out
 }
 
-/// Build the `state` SSE event carrying an RFC 8620 §7.1 StateChange
+/// Build the `state` SSE event carrying an RFC 8620 §7.1 `StateChange`
 /// JSON object.
 ///
 /// The event id is the largest [`crate::replay::StateChangeLog`]

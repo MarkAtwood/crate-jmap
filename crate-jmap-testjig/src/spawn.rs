@@ -10,7 +10,7 @@
 //! # NOT FOR PRODUCTION
 //!
 //! `spawn_in_process` carries the same NOT-FOR-PRODUCTION posture as
-//! the rest of this crate. It serves the in-memory MemoryBackends,
+//! the rest of this crate. It serves the in-memory `MemoryBackend`s,
 //! a hardcoded bearer token, and a single hardcoded account. The
 //! helper exists for tests; do not call it from production code.
 //!
@@ -171,7 +171,7 @@ impl std::fmt::Debug for TestjigHandle {
 ///
 /// Binds a [`TcpListener`] on [`TestjigConfig::ip`]:[`TestjigConfig::port`],
 /// builds the full router (POST /jmap + GET /.well-known/jmap with
-/// all 7 reference MemoryBackends mounted and bearer-auth applied),
+/// all 7 reference `MemoryBackend`s mounted and bearer-auth applied),
 /// and spawns `axum::serve(...)` on `tokio::spawn`. The returned
 /// handle's [`TestjigHandle::addr`] reflects the actual bound
 /// address (with the OS-assigned port when port=0 was requested).

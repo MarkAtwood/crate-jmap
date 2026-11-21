@@ -75,15 +75,15 @@ pub const BASE_URL: &str = "http://127.0.0.1:8080";
 /// advertised with `{}` in both `capabilities` and the account's
 /// `accountCapabilities`: the jig's mail, contacts, sharing and calendars
 /// memory backends support localizations in every account, so Mailbox,
-/// AddressBook, Principal and Calendar take `locale`, `localizations` and
+/// `AddressBook`, Principal and Calendar take `locale`, `localizations` and
 /// `language`.
 ///
 /// ponytail: `urn:ietf:params:jmap:cid` (draft-atwood-jmap-cid-00
 /// §Capability) is advertised so CID-aware clients can opt in, but the
 /// jig has no upload route or blob store: no upload response carries
-/// `sha256`, and a FileNode gets one only for a blob whose digest was
+/// `sha256`, and a `FileNode` gets one only for a blob whose digest was
 /// seeded via `MemoryBackend::seed_blob_sha256`. Real servers must meet
-/// the draft's upload and FileNode obligations before advertising it.
+/// the draft's upload and `FileNode` obligations before advertising it.
 ///
 /// Each URI also appears as a key in `primaryAccounts` mapping to
 /// [`ACCOUNT_ID`], so a client opting into any of them sees the same
@@ -144,7 +144,7 @@ pub(crate) const HISTORY_SECONDS: u64 = 30 * 24 * 60 * 60;
 /// Together they are the account's `supportedTypes`; each backend's
 /// `with_object_history` takes its own slice. The JMAP Data Types
 /// registry rows with "Supports History: Yes" and decisions 5, 22 and
-/// 23 decide the lists; SieveScript is out because the jig registers no
+/// 23 decide the lists; `SieveScript` is out because the jig registers no
 /// Sieve handlers.
 pub(crate) const HISTORY_TYPES: &[(&str, &[&str])] = &[
     (

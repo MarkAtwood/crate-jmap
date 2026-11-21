@@ -8,7 +8,7 @@
 //!
 //! - `JigHandler`: dispatches each Request on the jig's dispatcher,
 //!   then records state changes for SSE / WS push, the same as `POST
-//!   /jmap`; it localizes RequestError titles from the handshake's
+//!   /jmap`; it localizes `RequestError` titles from the handshake's
 //!   Accept-Language (draft-atwood-jmap-updates-00 §4.3).
 //! - `JigPush`: the push source. Same signal-driven mechanism as
 //!   [`crate::sse`] (bd:JMAP-cf7p.9): it waits on a state-change watch
@@ -25,7 +25,7 @@
 //! # Permission posture
 //!
 //! Same as the rest of the testjig — single hardcoded account,
-//! CallerCtx = `()`. The bearer-token middleware ([`crate::auth`])
+//! `CallerCtx` = `()`. The bearer-token middleware ([`crate::auth`])
 //! runs before the WS upgrade so the connection is authenticated
 //! before any frame is processed.
 
@@ -82,7 +82,7 @@ pub const JMAP_SUBPROTOCOL: &str = jmap_websocket::SUBPROTOCOL;
 ///
 /// The handshake's Accept-Language is the Accept-Language of every Request
 /// on the connection (draft-atwood-jmap-updates-00 §4.3): it picks the
-/// language of RequestError titles. It never changes JMAP data.
+/// language of `RequestError` titles. It never changes JMAP data.
 pub async fn get_ws(
     AxumState(state): AxumState<AppState>,
     headers: axum::http::HeaderMap,

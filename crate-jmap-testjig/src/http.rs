@@ -15,7 +15,7 @@
 //! built-in `Core/echo` handler (RFC 8620 §4) so the dispatcher can
 //! demonstrate end-to-end request/response flow without any backend.
 //!
-//! The 7 extension MemoryBackends, SSE / WebSocket endpoints, and the
+//! The 7 extension `MemoryBackend`s, SSE / WebSocket endpoints, and the
 //! bearer-auth middleware land in subsequent slices
 //! (bd:JMAP-cf7p.3 / .4 / .5 / .6). Until then, any method other than
 //! `Core/echo` returns `unknownMethod` per RFC 8620 §3.6.2.
@@ -78,7 +78,7 @@ pub struct AppState {
     session_addr: SocketAddr,
 }
 
-/// The 7 reference MemoryBackends, kept alive alongside the dispatcher
+/// The 7 reference `MemoryBackend`s, kept alive alongside the dispatcher
 /// they registered handlers on.
 ///
 /// `register_*_handlers` clones an `Arc<MemoryBackend>` into every
@@ -88,7 +88,7 @@ pub struct AppState {
 ///
 /// 1. The SSE poller (slice bd:JMAP-cf7p.4) calls
 ///    `MemoryBackend::get_state::<O>(...)` per known [`JmapObject`]
-///    type to assemble the StateChange map. Reaching the backend
+///    type to assemble the `StateChange` map. Reaching the backend
 ///    through the dispatcher would require a typed handler probe and
 ///    is significantly more awkward; a direct Arc reference is the
 ///    minimum viable surface.
@@ -206,7 +206,7 @@ impl AppState {
     /// (`test-token`) configured for the auth middleware.
     ///
     /// Slice bd:JMAP-cf7p.3 will extend this to register the 8
-    /// extension reference MemoryBackend handlers.
+    /// extension reference `MemoryBackend` handlers.
     pub fn new() -> Self {
         Self::with_token(crate::auth::DEFAULT_BEARER_TOKEN)
     }
@@ -214,7 +214,7 @@ impl AppState {
     /// Build the testjig's application state with a custom bearer
     /// token (rather than the [`crate::auth::DEFAULT_BEARER_TOKEN`]).
     ///
-    /// Constructs all 7 reference MemoryBackends from the workspace's
+    /// Constructs all 7 reference `MemoryBackend`s from the workspace's
     /// extension-server crates, registers the testjig's single
     /// account ([`session::ACCOUNT_ID`]) on each, and mounts every
     /// crate's `register_*_handlers` function on a single dispatcher
@@ -278,7 +278,7 @@ impl Default for AppState {
 ///   RFC 8620 §2)
 /// - `POST /jmap` → `post_jmap` (API endpoint, RFC 8620 §3)
 /// - `GET /events` → [`crate::sse::get_events`] (RFC 8620 §7.3
-///   EventSource)
+///   `EventSource`)
 /// - `GET /ws` → [`crate::ws::get_ws`] (RFC 8887 JMAP-over-WebSocket)
 ///
 /// `get_session` and `post_jmap` are module-private; the SSE and WS
@@ -343,7 +343,7 @@ async fn get_session(AxumState(state): AxumState<AppState>) -> Response {
 /// only the core method `Core/echo` is registered. Requiring opt-in
 /// would refuse any client that requests `urn:ietf:params:jmap:mail`
 /// even when it only calls `Core/echo`. Slice bd:JMAP-cf7p.3 may
-/// re-enable the check once the extension MemoryBackends mount their
+/// re-enable the check once the extension `MemoryBackend`s mount their
 /// methods.
 ///
 /// A request-level error is RFC 9457 problem details whose `title` follows
@@ -520,7 +520,7 @@ struct ExtensionBackends {
     quotas: Arc<jmap_quotas_server::memory::MemoryBackend<()>>,
 }
 
-/// Construct one reference [`MemoryBackend`] from each extension-server
+/// Construct one reference `MemoryBackend` from each extension-server
 /// crate, register the testjig's single account on it, and mount its
 /// handlers on the dispatcher.
 ///

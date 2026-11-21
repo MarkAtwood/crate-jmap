@@ -20,7 +20,7 @@
 //!   it for `/.well-known/jmap`.
 //! - `GET /ws` and `GET /events` (slices `.4` / `.5`): the
 //!   Authorization header OR the `?token=<token>` query parameter.
-//!   Browsers cannot set arbitrary headers on EventSource or
+//!   Browsers cannot set arbitrary headers on `EventSource` or
 //!   WebSocket handshakes, so the query-parameter fallback is the
 //!   conventional escape hatch for those transports.
 //!

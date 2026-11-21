@@ -11,7 +11,7 @@
 //! - **Single-user, single-account.** One hardcoded account-id under one
 //!   hardcoded principal. No multi-tenancy, no per-request identity.
 //! - **No auth integration.** A hardcoded bearer token gates every endpoint
-//!   (default `test-token`). No OAuth, no JWT, no mTLS, no upstream IdP.
+//!   (default `test-token`). No OAuth, no JWT, no mTLS, no upstream identity provider.
 //! - **No persistence, no quotas, no backups, no rate-limiting.**
 //! - **No TLS termination.** The testjig binds plaintext HTTP on
 //!   `127.0.0.1`. Operators terminate TLS in front of it if remote access
@@ -43,7 +43,7 @@
 //!   `GET /.well-known/jmap` (RFC 8620 §2 Session). A built-in
 //!   `Core/echo` handler (RFC 8620 §4) is registered so the
 //!   dispatcher demonstrates end-to-end request/response flow.
-//! - `bd:JMAP-cf7p.3` (closed): 7 reference MemoryBackends wired.
+//! - `bd:JMAP-cf7p.3` (closed): 7 reference `MemoryBackend`s wired.
 //! - `bd:JMAP-cf7p.4` (closed): SSE endpoint [`sse::get_events`]
 //!   exposing `GET /events` (RFC 8620 §7.3) that pushes
 //!   [RFC 8620 §7.1] `StateChange` events derived from a tight
