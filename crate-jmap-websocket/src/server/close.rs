@@ -147,7 +147,7 @@ impl Shared {
 /// [`ExtensionHandler::close`](super::ExtensionHandler::close) called),
 /// and return `Ok(())`. `run` does not wait for the client's answering
 /// Close; the transport (for example
-/// [`tungstenite::serve`](crate::tungstenite::serve)) drops the socket.
+/// `tungstenite::serve`) drops the socket.
 ///
 /// Nothing queued is sent ahead of the Close: Responses of Requests still
 /// running, queued extension messages and push notifications not yet
