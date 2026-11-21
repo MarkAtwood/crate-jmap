@@ -29,7 +29,8 @@ path = "src/main.rs"
 # the testjig's single-hardcoded-principal posture.
 jmap-server = { workspace = true }
 jmap-mail-server = { workspace = true, features = ["memory", "emailpush"] }
-jmap-chat-server = { workspace = true, features = ["memory"] }
+# `websocket`: ChatStreamEnable / ChatStreamDisable on `GET /ws`.
+jmap-chat-server = { workspace = true, features = ["memory", "websocket"] }
 jmap-calendars-server = { workspace = true, features = ["memory"] }
 jmap-tasks-server = { workspace = true, features = ["memory"] }
 jmap-contacts-server = { workspace = true, features = ["memory"] }

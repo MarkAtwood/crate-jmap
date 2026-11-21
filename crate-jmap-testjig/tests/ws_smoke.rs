@@ -291,6 +291,59 @@ async fn malformed_frame_produces_request_error_envelope() {
     jig.shutdown().await;
 }
 
+/// draft-atwood-jmap-chat-wss-00 §Enabling Ephemeral Push: the jig
+/// advertises `urn:ietf:params:jmap:chat:websocket`, so `ChatStreamEnable`
+/// is a known message ("success is silent"), and one whose `dataTypes`
+/// holds no recognized value is a `RequestError` of type
+/// `invalidArguments` carrying the message's `id` as `requestId`.
+#[tokio::test]
+async fn chat_stream_enable_is_handled() {
+    let jig = spawn_in_process(TestjigConfig::default())
+        .await
+        .expect("spawn testjig");
+    let addr = jig.addr;
+    let token = jig.token.clone();
+    let url = format!("ws://{addr}/ws?token={token}");
+    let mut request = url.into_client_request().expect("build WS client request");
+    request.headers_mut().insert(
+        "Sec-WebSocket-Protocol",
+        "jmap".parse().expect("static header"),
+    );
+    let (mut socket, _) = tokio_tungstenite::connect_async(request)
+        .await
+        .expect("WS connect");
+
+    for frame in [
+        json!({"@type": "ChatStreamEnable", "dataTypes": ["typing", "presence"]}),
+        json!({"@type": "ChatStreamEnable", "id": "bad", "dataTypes": ["vtc"]}),
+        json!({"@type": "ChatStreamDisable"}),
+        json!({
+            "@type": "Request",
+            "id": "after",
+            "using": ["urn:ietf:params:jmap:core"],
+            "methodCalls": [["Core/echo", {}, "c1"]]
+        }),
+    ] {
+        socket
+            .send(Message::Text(frame.to_string().into()))
+            .await
+            .expect("send frame");
+    }
+
+    let error: Value =
+        serde_json::from_str(&recv_text(&mut socket).await.expect("RequestError")).expect("JSON");
+    assert_eq!(error["@type"], "RequestError");
+    assert_eq!(error["type"], "urn:ietf:params:jmap:error:invalidArguments");
+    assert_eq!(error["requestId"], "bad");
+    let response: Value =
+        serde_json::from_str(&recv_text(&mut socket).await.expect("Response")).expect("JSON");
+    assert_eq!(response["@type"], "Response");
+    assert_eq!(response["requestId"], "after");
+
+    let _ = socket.close(None).await;
+    jig.shutdown().await;
+}
+
 /// Read the next text frame from `socket`, returning its body as a
 /// `String`. Returns `None` if the stream ends before a text frame
 /// arrives (close, error, or timeout).

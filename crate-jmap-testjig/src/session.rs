@@ -192,6 +192,10 @@ pub(crate) fn object_history_capability(
 /// methods — see that constant's doc-comment.
 pub const WEBSOCKET_CAPABILITY: &str = "urn:ietf:params:jmap:websocket";
 
+/// The draft-atwood-jmap-chat-wss-00 ephemeral-push capability: `GET /ws`
+/// takes `ChatStreamEnable` and `ChatStreamDisable`. Its value is `{}`.
+pub const CHAT_WEBSOCKET_CAPABILITY: &str = "urn:ietf:params:jmap:chat:websocket";
+
 /// WebSocket endpoint [`session_json`] advertises in the
 /// [`WEBSOCKET_CAPABILITY`]'s `url` field (the `ws://` form of
 /// [`DEFAULT_ADDR`]).
@@ -281,6 +285,8 @@ pub fn session_json_for(addr: SocketAddr) -> Value {
             "supportsPush": true,
         }),
     );
+
+    capabilities.insert(CHAT_WEBSOCKET_CAPABILITY.to_owned(), json!({}));
 
     // Account-capabilities: the 13 extension URIs (Core is session-only).
     let mut account_capabilities =
@@ -534,6 +540,16 @@ mod tests {
             s["capabilities"][WEBSOCKET_CAPABILITY]["url"],
             "ws://127.0.0.1:4321/ws"
         );
+    }
+
+    /// draft-atwood-jmap-chat-wss-00 §Capability: "Servers supporting
+    /// this specification MUST add a property named
+    /// `urn:ietf:params:jmap:chat:websocket` ... The value of this
+    /// property is an empty JSON object `{}`."
+    #[test]
+    fn advertises_chat_websocket() {
+        let s = session_json();
+        assert_eq!(s["capabilities"][CHAT_WEBSOCKET_CAPABILITY], json!({}));
     }
 
     /// Oracle: draft-atwood-jmap-chat-00 §Account-Level Capability

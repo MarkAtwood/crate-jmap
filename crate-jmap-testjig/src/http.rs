@@ -155,6 +155,11 @@ pub(crate) struct AppStateInner {
     ///
     /// See [`crate::replay`] for the full architecture rationale.
     pub(crate) state_log: Arc<crate::replay::StateChangeLog>,
+    /// Ephemeral Chat events (draft-atwood-jmap-chat-wss-00) for the
+    /// `ChatStreamEnable` handler of every `GET /ws` connection. The jig
+    /// is single-user, so nothing feeds it yet: `Chat/typing` by the
+    /// owner goes to the other participants, never to the owner.
+    pub(crate) chat_events: jmap_chat_server::websocket::ChatEventHub,
 }
 
 impl AppStateInner {
@@ -237,6 +242,7 @@ impl AppState {
                 quotas: backends.quotas,
                 state_change_tx,
                 state_log,
+                chat_events: jmap_chat_server::websocket::ChatEventHub::new(64),
             }),
             auth: AuthState::new(token),
             session_addr: session::DEFAULT_ADDR,

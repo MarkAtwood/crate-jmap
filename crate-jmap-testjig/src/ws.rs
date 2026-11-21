@@ -41,6 +41,7 @@ use axum::{
 };
 use futures::stream::BoxStream;
 use futures::{SinkExt as _, StreamExt as _, future};
+use jmap_chat_server::websocket::ChatStreamHandler;
 use jmap_server::JmapError;
 use jmap_types::{Id, JmapRequest, JmapResponse, State, StateChange};
 use jmap_websocket::jmap_types::problem::ProblemDetails;
@@ -124,7 +125,19 @@ async fn handle_socket(socket: WebSocket, state: AppState, lang: crate::locale::
     let outgoing = sink.with(|m: Outbound| future::ready(Ok::<_, axum::Error>(outbound(m))));
     futures::pin_mut!(incoming, outgoing);
 
-    let connection = Connection::new(handler).with_push(push).with_config(config);
+    // draft-atwood-jmap-chat-wss-00: ChatStreamEnable / ChatStreamDisable
+    // and the typing and presence events of the owner's account.
+    let chat = ChatStreamHandler::new(
+        Arc::clone(&state.inner.chat),
+        (),
+        [Id::from(session::ACCOUNT_ID)],
+        &state.inner.chat_events,
+    );
+
+    let connection = Connection::new(handler)
+        .with_push(push)
+        .with_config(config)
+        .with_extension(chat);
     if let Err(e) = connection.run(incoming, outgoing).await {
         // There is no `tracing` dep in this crate; the jig emits
         // diagnostics via `eprintln!` so smoke testing without a
