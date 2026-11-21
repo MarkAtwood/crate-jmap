@@ -60,7 +60,7 @@ pub struct BlobCopyResponse {
         serialize_with = "empty_as_null"
     )]
     pub copied: BTreeMap<String, Id>,
-    /// `notCopied`: "A map of blobId to a SetError object for each blob
+    /// `notCopied`: "A map of blobId to a [`SetError`] object for each blob
     /// that failed to be copied"; `notFound` for a blob that "cannot be
     /// found".
     #[serde(

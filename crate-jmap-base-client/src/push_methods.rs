@@ -1,7 +1,7 @@
 //! Generic `PushSubscription/get` and `PushSubscription/set` bindings
 //! (RFC 8620 §7.2.1, §7.2.2).
 //!
-//! PushSubscription is not account-scoped: neither method takes or returns
+//! [`PushSubscription`] is not account-scoped: neither method takes or returns
 //! `accountId`, `/get` returns no `state`, and `/set` takes no `ifInState`
 //! and returns no `oldState` / `newState`. Extension properties (such as
 //! `emailPush`, draft-ietf-jmap-emailpush-05 §4) travel in
@@ -125,7 +125,7 @@ impl JmapClient {
     /// `PushSubscription/set` (RFC 8620 §7.2.2) to `session`'s API URL.
     ///
     /// Empty `create`, `update` and `destroy` are left out. A create needs
-    /// `deviceClientId` and `url`; the server pushes a PushVerification to
+    /// `deviceClientId` and `url`; the server pushes a `PushVerification` to
     /// `url`, whose code the client then sets with an update. `url` and
     /// `keys` are immutable. `extra_using` adds capability URIs to `using`
     /// for extension properties.

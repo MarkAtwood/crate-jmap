@@ -1,4 +1,4 @@
-//! RFC 8620 §7 ResultReference — back-references between method calls in a batch.
+//! RFC 8620 §7 [`ResultReference`] — back-references between method calls in a batch.
 //!
 //! Provides [`ResultReference`] and [`Argument<T>`].
 
@@ -98,18 +98,18 @@ impl ResultReference {
     }
 }
 
-/// A JMAP method argument that can be either a direct value or a ResultReference.
+/// A JMAP method argument that can be either a direct value or a [`ResultReference`].
 ///
-/// In JMAP JSON, a ResultReference is indicated by a "#" prefix on the key:
-///   `"ids": [...]`  →  Argument::Value([...])
-///   `"#ids": {...}` →  Argument::Ref(ResultReference { ... })
+/// In JMAP JSON, a [`ResultReference`] is indicated by a "#" prefix on the key:
+///   `"ids": [...]`  →  `Argument::Value([...])`
+///   `"#ids": {...}` →  `Argument::Ref(ResultReference { ... })`
 ///
 /// The dispatcher in `jmap-server` evaluates `Ref` variants before
 /// invoking the method handler.
 ///
 /// # Deserialization note
 /// Uses `#[serde(untagged)]` which tries to deserialize as T first.
-/// If T and ResultReference share field names, T is preferred.
+/// If T and [`ResultReference`] share field names, T is preferred.
 /// Callers must handle the `#` key prefix before deserializing.
 ///
 /// # Invariant
@@ -125,7 +125,7 @@ impl ResultReference {
 /// `T` is constrained to `sealed::Sealed` types. `serde_json::Value` does NOT
 /// implement `Sealed` — `Argument<Value>` therefore fails to compile. This
 /// prevents a silent bug: `Value` accepts any JSON, so with `T = Value` the
-/// `Ref` variant can never be reached via serde; every ResultReference JSON
+/// `Ref` variant can never be reached via serde; every [`ResultReference`] JSON
 /// would deserialize as `Argument::Value(json_object)` and the reference would
 /// be silently ignored.
 ///

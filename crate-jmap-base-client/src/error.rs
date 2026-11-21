@@ -3,7 +3,7 @@
 //! [`SerializeError`]) that hide [`reqwest`], [`tokio_tungstenite`], and
 //! the underlying JSON parser from this crate's public API.
 //!
-//! # SemVer policy
+//! # Semver policy
 //!
 //! `reqwest` and `tokio-tungstenite` are **private dependencies** of this
 //! crate. Their types do not appear in any public function signature,
@@ -56,7 +56,7 @@
 //!    `tungstenite::Error` are `#[non_exhaustive]` from third-party
 //!    crates that bump major versions independently of this crate.
 //!    Exposing them in this crate's public API turns every transitive
-//!    `reqwest` major bump into a SemVer break for every downstream
+//!    `reqwest` major bump into a semver break for every downstream
 //!    extension client (`jmap-mail-client`, `jmap-chat-client`,
 //!    `jmap-calendars-client`, etc., all eight planned extensions).
 //! 2. **Transport replaceability.** This crate may swap the HTTP /
@@ -670,7 +670,7 @@ pub enum ClientError {
     },
 
     /// A caller-supplied argument violates a precondition (e.g. empty token,
-    /// colon in BasicAuth username, missing required filter field).
+    /// colon in `BasicAuth` username, missing required filter field).
     #[error("invalid argument: {0}")]
     InvalidArgument(String),
 
@@ -763,7 +763,7 @@ pub enum ClientError {
     /// retriable (transient network failure) or permanent (TLS config error).
     ///
     /// The payload is an opaque [`WebSocketError`] that does not expose any
-    /// third-party error type — see [`HttpError`] for the same SemVer
+    /// third-party error type — see [`HttpError`] for the same semver
     /// rationale. Use [`WebSocketError::is_io`],
     /// [`WebSocketError::is_protocol`], etc. to diagnose.
     #[error("WebSocket error: {0}")]
@@ -805,7 +805,7 @@ pub enum ClientError {
     /// [`JmapClient::upload_blob`](crate::JmapClient::upload_blob) and
     /// [`JmapClient::download_blob`](crate::JmapClient::download_blob)
     /// (and the `_session` wrappers that delegate to them). Extension crates
-    /// also produce it, e.g. for a `rateLimit` SetError. A 429 on the
+    /// also produce it, e.g. for a `rateLimit` `SetError`. A 429 on the
     /// event-source connection still surfaces as [`ClientError::Http`] so
     /// [`JmapClient::subscribe_events_reconnecting`](crate::JmapClient::subscribe_events_reconnecting)
     /// can keep retrying it.
@@ -839,7 +839,7 @@ impl ClientError {
 
     /// Convert a [`tokio_tungstenite::tungstenite::Error`] into a
     /// [`ClientError::WebSocket`] variant. See
-    /// [`from_reqwest`](Self::from_reqwest) for the SemVer rationale.
+    /// [`from_reqwest`](Self::from_reqwest) for the semver rationale.
     pub(crate) fn from_ws(e: tokio_tungstenite::tungstenite::Error) -> Self {
         Self::WebSocket(WebSocketError(e))
     }

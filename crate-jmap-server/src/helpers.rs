@@ -16,6 +16,11 @@ use serde_json::{Map, Value};
 /// Used by every `*-server` handler to project a typed domain object
 /// (e.g. `Email`, `Mailbox`, `Chat`) into the wire-format `list` /
 /// `created` payload.
+///
+/// # Errors
+///
+/// Returns [`JmapError::server_fail`], carrying the serde message, if
+/// `val`'s `Serialize` impl fails or produces a map with non-string keys.
 pub fn serialize_value<T: serde::Serialize>(val: T) -> Result<serde_json::Value, JmapError> {
     serde_json::to_value(val).map_err(|e| JmapError::server_fail(e.to_string()))
 }
@@ -67,10 +72,15 @@ pub fn not_found_json(ids: &[Id]) -> Value {
 /// RFC-compliant — both are "optional argument not provided" — but
 /// the asymmetry between an explicit `null` argument and a
 /// `#key`-resolved `null` argument may surprise a handler author
-/// who expects "I asked for the value via a ResultReference, so it
+/// who expects "I asked for the value via a `ResultReference`, so it
 /// must have been there". If a handler needs to distinguish
 /// resolved-null from unsent, it has to read the raw `args` map
 /// before calling this helper.
+///
+/// # Errors
+///
+/// Returns the error built by `invalid_arguments_with` if the argument is
+/// present and not `null` but does not deserialize as `T`.
 pub fn optional_arg<T>(
     args: &mut Map<String, Value>,
     name: &str,
@@ -98,6 +108,13 @@ where
 /// types, that covers an unknown or misspelt condition property at any
 /// depth and an operator tree sent to an object whose filter is a bare
 /// condition.
+///
+/// # Errors
+///
+/// - `invalidArguments` if `filter` is present, not `null`, and not a JSON
+///   object.
+/// - `unsupportedFilter`, with the serde message as its description, if
+///   it is an object that does not decode as `T`.
 pub fn filter_arg<T>(args: &mut Map<String, Value>) -> Result<Option<T>, JmapError>
 where
     T: serde::de::DeserializeOwned,
@@ -237,7 +254,7 @@ pub fn parse_max_changes(value: Option<&Value>) -> Result<Option<u64>, JmapError
 /// `Err::duration()` to recover the magnitude and negates the seconds
 /// before formatting; the result is a correct RFC 3339 timestamp
 /// anywhere from the BCE proleptic Gregorian range up to
-/// `1970-01-01T00:00:00Z`. The rem_euclid / div_euclid math at
+/// `1970-01-01T00:00:00Z`. The `rem_euclid` / `div_euclid` math at
 /// the format step handles arbitrarily-large negative offsets, not
 /// only sub-day drifts. Pre-epoch correctness is best-effort —
 /// `SystemTime` is non-monotonic and the JMAP spec does not require
@@ -293,7 +310,7 @@ pub fn now_utc_string() -> UTCDate {
 ///   defensively).
 /// - `civil_from_days` reports a year outside `i32`
 ///   (bd:JMAP-jfia.2 — between the i32-year boundary and the
-///   i64::MAX-secs cap).
+///   `i64::MAX`-seconds cap).
 ///
 /// # Why `Option<UTCDate>` and not `Result<UTCDate, ClockError>` (bd:JMAP-jfia.38)
 ///
@@ -444,7 +461,7 @@ fn civil_from_days(z: i64) -> Option<(i32, u8, u8)> {
 ///
 /// Beyond this depth [`json_merge_patch`] returns
 /// [`MergePatchError::DepthExceeded`] without applying any further levels.
-/// Mitigates stack DoS from adversarial `PatchObject` values
+/// Mitigates stack-exhaustion denial of service from adversarial `PatchObject` values
 /// (bd:JMAP-sc1b.97). 32 levels comfortably exceeds any legitimate JMAP
 /// `/set update` shape — the deepest standard JMAP `/set update` shape
 /// (Email with nested `bodyStructure`) tops out around 6 levels, so the
@@ -454,7 +471,7 @@ fn civil_from_days(z: i64) -> Option<(i32, u8, u8)> {
 /// behaviour via [`MergePatchError::DepthExceeded`], not by reading the
 /// constant directly. The crate reserves the right to tighten the
 /// value (e.g. 32 → 16) without a major-version bump because the
-/// contract is "the function may return DepthExceeded", not "the cap
+/// contract is "the function may return `DepthExceeded`", not "the cap
 /// is exactly N".
 pub(crate) const MAX_MERGE_PATCH_DEPTH: usize = 32;
 
@@ -579,7 +596,7 @@ fn json_merge_patch_inner(
 }
 
 /// Error returned by [`apply_jmap_patch`] and [`apply_patch_object`] when
-/// a PatchObject cannot be applied.
+/// a `PatchObject` cannot be applied.
 ///
 /// Every variant is an RFC 8620 §5.3 violation for which "the update
 /// MUST be rejected with an "invalidPatch" error". Callers SHOULD map
@@ -604,7 +621,7 @@ pub enum PatchPathError {
     /// not a valid RFC 6901 JSON Pointer.
     InvalidEscape,
     /// The pointer of one patch is a prefix of the pointer of another in
-    /// the same PatchObject (e.g. `"alerts/1/offset"` and `"alerts"`).
+    /// the same `PatchObject` (e.g. `"alerts/1/offset"` and `"alerts"`).
     PrefixConflict,
     /// The path's segment count plus the value's object/array nesting
     /// exceeds the crate's `MAX_MERGE_PATCH_DEPTH` DoS-guard cap.
@@ -617,7 +634,7 @@ pub enum PatchPathError {
     /// A part before the last is a Binary value inside a `metadata` or
     /// `privateMetadata` namespace value: draft-ietf-jmap-metadata-05
     /// §3.2, "a path that traverses an array or a Binary value (Section
-    /// 2.1.1) is rejected with an "invalidPatch" SetError".
+    /// 2.1.1) is rejected with an "invalidPatch" [`SetError`]".
     InsideBinary,
 }
 
@@ -643,10 +660,10 @@ impl std::fmt::Display for PatchPathError {
 
 impl std::error::Error for PatchPathError {}
 
-/// Apply one RFC 8620 §5.3 PatchObject entry (`path` → `value`) to
+/// Apply one RFC 8620 §5.3 `PatchObject` entry (`path` → `value`) to
 /// `target` in-place.
 ///
-/// `path` is a PatchObject key: an RFC 6901 JSON Pointer with the
+/// `path` is a `PatchObject` key: an RFC 6901 JSON Pointer with the
 /// implicit leading `/` omitted (e.g. `"mailboxIds/abc123"`). Each
 /// `/`-separated reference token is decoded per RFC 6901 §4 (`~1` → `/`,
 /// then `~0` → `~`). Every token before the last must name an existing
@@ -661,7 +678,7 @@ impl std::error::Error for PatchPathError {}
 /// `reference-token`, and its §5 example evaluates `"/"` to the member
 /// named `""`. The RFC 8620 §5.3 "null sets the property default" rule
 /// is type-specific and left to the caller. The rule that no two pointers
-/// in one PatchObject may be prefixes of each other is checked by
+/// in one `PatchObject` may be prefixes of each other is checked by
 /// [`apply_patch_object`].
 ///
 /// # Errors
@@ -684,8 +701,8 @@ impl std::error::Error for PatchPathError {}
 /// # Mutation contract
 ///
 /// A single call is all-or-nothing: on `Err`, `target` is unchanged.
-/// A PatchObject has several entries, and an error on a later entry
-/// does not undo earlier ones, so callers applying a whole PatchObject
+/// A `PatchObject` has several entries, and an error on a later entry
+/// does not undo earlier ones, so callers applying a whole `PatchObject`
 /// MUST use [`apply_patch_object`].
 pub fn apply_jmap_patch(
     target: &mut Map<String, Value>,
@@ -730,7 +747,7 @@ pub fn apply_jmap_patch(
     Ok(())
 }
 
-/// Check the RFC 8620 §5.3 PatchObject errors that `patch` alone
+/// Check the RFC 8620 §5.3 `PatchObject` errors that `patch` alone
 /// determines, without the object it applies to.
 ///
 /// A server whose spec orders these before other checks calls this
@@ -772,7 +789,7 @@ pub fn check_patch_paths(patch: &Map<String, Value>) -> Result<(), PatchPathErro
     Ok(())
 }
 
-/// Apply a whole RFC 8620 §5.3 PatchObject to `target`.
+/// Apply a whole RFC 8620 §5.3 `PatchObject` to `target`.
 ///
 /// Each entry is applied with [`apply_jmap_patch`]. The value at each
 /// pointer is set as given: a top-level key such as `"name"` replaces that
@@ -863,7 +880,7 @@ pub(crate) fn decode_pointer_token(token: &str) -> Result<Cow<'_, str>, PatchPat
 /// The pattern is identical across every extension server's `/query`
 /// backend impl. Centralizing it eliminates the per-crate
 /// `(position as usize)` / `(position.saturating_neg() as usize)`
-/// idiom that clippy::pedantic flags as `cast_possible_truncation` +
+/// idiom that `clippy::pedantic` flags as `cast_possible_truncation` +
 /// `cast_sign_loss`, and prevents future siblings from re-introducing
 /// the strictly-worse `(-position) as usize` variant (which panics on
 /// `i64::MIN` in debug builds and wraps in release).
@@ -1129,7 +1146,7 @@ pub fn enforce_max_objects_in_get(args: &Map<String, Value>, max: u64) -> Result
 }
 
 /// Reject a `/set` create object that carries a DID-bearing property, or
-/// an update PatchObject that changes one (draft-atwood-jmap-did-00
+/// an update `PatchObject` that changes one (draft-atwood-jmap-did-00
 /// §The `did` Property).
 ///
 /// `entry` is one value from the `create` or `update` argument and
@@ -1141,12 +1158,12 @@ pub fn enforce_max_objects_in_get(args: &Map<String, Value>, max: u64) -> Result
 /// {{RFC8620}} Section 1.1 requires for server-set properties; an update
 /// can include one only with its current value ({{RFC8620}} Section 5.3).
 /// Servers MUST reject a create that includes a DID-bearing property, or an
-/// update that changes one, with a SetError of type `invalidProperties`"
+/// update that changes one, with a [`SetError`] of type `invalidProperties`"
 /// (draft-atwood-jmap-did-00 L247). So a create that names the property is
 /// rejected whatever the value, even `null`. An update key equal to the
 /// property name passes when its value equals the stored value, where an
 /// absent stored property counts as `null`, the value's other type. A
-/// PatchObject key is a path, and a key whose first segment is the property
+/// `PatchObject` key is a path, and a key whose first segment is the property
 /// name but has further segments always changes it, so it is rejected.
 /// Keeping the value unchanged on the server side, including across a DID
 /// migration, is the backend's job.
@@ -1283,7 +1300,7 @@ pub fn strip_read_only_patch<O: SetObject>(
 /// RFC 8620 §5.3: "Any server-set properties MAY be included in the patch
 /// if their value is identical to the current server value (before
 /// applying the patches to the object).  Otherwise, the update MUST be
-/// rejected with an "invalidProperties" SetError." The stored object is
+/// rejected with an "invalidProperties" [`SetError`]." The stored object is
 /// fetched only when the patch names such a property or is empty; then
 /// [`strip_read_only_patch`] rejects a changed value and drops the
 /// identical ones, leaving only the client changes for the handler's own
@@ -1299,7 +1316,7 @@ pub fn strip_read_only_patch<O: SetObject>(
 /// # Errors
 ///
 /// The `notUpdated` value: `notFound` for a missing object, the
-/// `invalidProperties` SetError, or `serverFail` when the fetch fails.
+/// `invalidProperties` [`SetError`], or `serverFail` when the fetch fails.
 pub async fn check_read_only_patch<B, O>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -1351,7 +1368,7 @@ pub fn is_client_updatable<O: SetObject>(prop: &str) -> bool {
 /// `created_ids` (pass [`crate::CallContext::created_ids`]). Any other
 /// value is a literal id and is returned as is. `None` means a `#`
 /// reference with no matching creation; the caller rejects the
-/// create/update, typically with an `invalidProperties` SetError naming
+/// create/update, typically with an `invalidProperties` [`SetError`] naming
 /// the property.
 ///
 /// References to creates in the *same* `/set` call are not in
@@ -1705,7 +1722,7 @@ impl MetadataProjection {
     /// `properties` is the request's `properties` (`None` for the default
     /// list), `default_includes` is `false` for `Email/get`, whose
     /// "default property list ... is unchanged" (-05 §3.1), and `true` for
-    /// every other type; `info` is the type's DataTypeMetadataInfo
+    /// every other type; `info` is the type's `DataTypeMetadataInfo`
     /// ([`JmapAccounts::metadata_info`](crate::JmapAccounts::metadata_info)),
     /// `None` when the type is not listed and so "does not gain the
     /// metadata or privateMetadata properties" (-05 §1.2.1). The rules:
@@ -1810,7 +1827,7 @@ impl MetadataProjection {
     }
 }
 
-/// The values of an RFC 8620 §5.3 PatchObject placed at their JSON Pointer
+/// The values of an RFC 8620 §5.3 `PatchObject` placed at their JSON Pointer
 /// paths in an empty object, so checks written for a whole object can see
 /// what a patch writes: `{"links/l1/uri": "x"}` becomes
 /// `{"links": {"l1": {"uri": "x"}}}`. Paths are split on `/` and unescaped

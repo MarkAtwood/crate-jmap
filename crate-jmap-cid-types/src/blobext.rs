@@ -64,6 +64,13 @@ impl Sha256 {
 
     /// Parse a padded RFC 4648 §4 base64 digest, such as a blobext-03 §5
     /// `digest:sha-256` value, into its [`Sha256`].
+    ///
+    /// # Errors
+    ///
+    /// - [`Sha256Base64Error::InvalidBase64`] if `s` is not canonical
+    ///   padded RFC 4648 §4 base64.
+    /// - [`Sha256Base64Error::WrongLength`] if it decodes to other than
+    ///   32 bytes.
     pub fn from_base64(s: &str) -> Result<Self, Sha256Base64Error> {
         let bytes = STANDARD
             .decode(s)

@@ -259,10 +259,12 @@ impl Serialize for Sha256 {
 impl Sha256 {
     /// Parse a candidate hex string into a [`Sha256`].
     ///
-    /// Returns [`Sha256DigestError`] when the candidate is not
-    /// exactly 64 bytes long or contains any byte outside the
-    /// lowercase-hex set `[0-9 a-f]`. Errors report position so a
-    /// caller can surface a precise diagnostic.
+    /// # Errors
+    ///
+    /// Returns [`Sha256DigestError::WrongLength`] when the candidate is
+    /// not exactly 64 bytes long, or [`Sha256DigestError::NonHexLowercase`]
+    /// (with the position) at the first byte outside the lowercase-hex set
+    /// `[0-9 a-f]`, so a caller can surface a precise diagnostic.
     pub fn from_hex(s: &str) -> Result<Self, Sha256DigestError> {
         Self::validate(s)?;
         Ok(Self(s.to_owned()))

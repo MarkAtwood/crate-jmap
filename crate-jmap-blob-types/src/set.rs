@@ -11,7 +11,7 @@ use crate::digest::DigestAlgorithm;
 use crate::serde_util::{empty_as_null, merge_digests, null_as_empty, present, take_digests};
 use crate::source::DataSourceObject;
 
-/// A blob to create in `Blob/set` (blobext-03 §4 BlobCreateObject).
+/// A blob to create in `Blob/set` (blobext-03 §4 [`BlobCreateObject`]).
 ///
 /// Top-level `digest:<alg>` members (digests of the whole new blob) go to
 /// [`digests`](Self::digests); other unknown members to
@@ -87,7 +87,7 @@ impl<'de> Deserialize<'de> for BlobCreateObject {
     }
 }
 
-/// A blob as reported in `Blob/set` `created` (blobext-03 §4 BlobObject,
+/// A blob as reported in `Blob/set` `created` (blobext-03 §4 [`BlobObject`],
 /// §7 `expires`).
 ///
 /// `type` and `size` are always written, `null` when `None`; a `null`

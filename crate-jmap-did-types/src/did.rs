@@ -78,6 +78,15 @@ impl std::error::Error for DidError {}
 
 impl Did {
     /// Parses `s` against the DID Core §3.1 ABNF.
+    ///
+    /// # Errors
+    ///
+    /// - [`DidError::MissingPrefix`] if `s` does not start with `did:`.
+    /// - [`DidError::InvalidMethodName`] if the method name is empty, has
+    ///   a character other than `a-z` or `0-9`, or is not followed by `:`.
+    /// - [`DidError::InvalidMethodSpecificId`] if the method-specific
+    ///   identifier is empty, ends with `:`, or has a character other than
+    ///   an idchar, `:` or a `%XX` escape.
     pub fn parse(s: &str) -> Result<Self, DidError> {
         s.parse()
     }

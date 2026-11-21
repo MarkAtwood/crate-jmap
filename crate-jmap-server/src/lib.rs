@@ -1,6 +1,6 @@
 //! Backend-agnostic JMAP server framework (RFC 8620).
 //!
-//! Provides request parsing, ResultReference resolution, HTTP response helpers,
+//! Provides request parsing, [`ResultReference`] resolution, HTTP response helpers,
 //! the [`Dispatcher`] machinery, shared backend infrastructure, and generic
 //! JMAP method handlers.
 //!
@@ -16,7 +16,7 @@
 //! type in `jmap-types` is a breaking change here, even when this
 //! crate's own surface is otherwise additive.
 //!
-//! **SemVer pin discipline**: consumers that depend on both
+//! **Semver pin discipline**: consumers that depend on both
 //! `jmap-server` and `jmap-types` directly MUST pin the `jmap-types`
 //! version to the exact version `jmap-server` resolves to. The
 //! simplest path is to NOT depend on `jmap-types` directly and use
@@ -41,7 +41,7 @@ mod helpers;
 mod history;
 mod i18n;
 
-/// The draft-ietf-jmap-metadata-05 §1.2.1 DataTypeMetadataInfo that
+/// The draft-ietf-jmap-metadata-05 §1.2.1 [`DataTypeMetadataInfo`] that
 /// [`JmapAccounts::metadata_info`] returns, re-exported so a backend or a
 /// wrapper can name it without a direct `jmap-metadata-types` dependency.
 pub use jmap_metadata_types::DataTypeMetadataInfo;

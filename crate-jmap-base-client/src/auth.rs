@@ -108,6 +108,13 @@ impl std::fmt::Debug for HttpClient {
 /// `JmapClient::new(Box::<dyn TransportConfig>::new(...))` call shape.
 pub trait TransportConfig: Send + Sync {
     /// Build the [`HttpClient`] for this transport configuration.
+    ///
+    /// # Errors
+    ///
+    /// The crate's implementations return [`ClientError::Http`] when the
+    /// HTTP client cannot be built: a CA certificate is not valid DER, or
+    /// the TLS backend fails to initialize. Other implementations may return
+    /// any [`ClientError`] for their own configuration failures.
     fn build_client(&self) -> Result<HttpClient, ClientError>;
 }
 
@@ -138,7 +145,7 @@ impl TransportConfig for DefaultTransport {
 /// controls, *refusing* certificates signed by any public CA. That is
 /// the threat model where this transport matters: a corporate internal
 /// JMAP server, a service-mesh deployment, an air-gapped network. A
-/// compromised or malicious public CA (DigiNotar 2011, Symantec 2017,
+/// compromised or malicious public CA ([DigiNotar](https://en.wikipedia.org/wiki/DigiNotar) 2011, Symantec 2017,
 /// etc.) issuing a certificate for the target host name would otherwise
 /// bypass the private-CA defense entirely; disabling the public roots
 /// closes that gap.
@@ -574,7 +581,7 @@ impl TransportConfig for BuilderTransport {
 ///    intentional limitation: `AuthProvider` covers "static,
 ///    per-connection single-header auth schemes" only (Bearer, Basic,
 ///    mTLS via [`TransportConfig`]). Schemes that need multiple
-///    request-dependent headers (AWS SigV4, OAuth request signing) or
+///    request-dependent headers (AWS Signature Version 4, OAuth request signing) or
 ///    async credential refresh require a different abstraction —
 ///    currently, custom [`TransportConfig`] impls that wire per-request
 ///    middleware (bd:JMAP-6r7c.20).
@@ -652,12 +659,12 @@ impl std::fmt::Debug for AuthHeader<'_> {
 /// [`AuthHeader`] return type:
 ///
 /// 1. **One header per request.** A scheme that needs to attach
-///    multiple headers per request (AWS SigV4 carries
+///    multiple headers per request (AWS Signature Version 4 carries
 ///    `Authorization`, `X-Amz-Date`, and `X-Amz-Security-Token`
 ///    together) cannot be expressed by this trait.
 /// 2. **No per-request signature.** [`auth_header`] takes `&self`
 ///    only — there is no access to the request URL, method, or body.
-///    Schemes that compute an HMAC over the request body (SigV4,
+///    Schemes that compute an HMAC over the request body (AWS Signature Version 4,
 ///    OAuth request signing) cannot be expressed.
 /// 3. **No async refresh.** [`auth_header`] is sync. A scheme that
 ///    needs to refresh an expired OAuth token before returning

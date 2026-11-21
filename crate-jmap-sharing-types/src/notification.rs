@@ -1,9 +1,9 @@
-//! RFC 9670 §3 ShareNotification object and related types.
+//! RFC 9670 §3 [`ShareNotification`] object and related types.
 //!
 //! Provides [`ShareNotification`], [`ChangedBy`], and
 //! [`ShareNotificationFilterCondition`].
 //!
-//! A ShareNotification records when the authenticated user's permissions to
+//! A [`ShareNotification`] records when the authenticated user's permissions to
 //! access a shared object change.  Notifications are created only by the server;
 //! clients may only query and destroy them.
 
@@ -45,7 +45,7 @@ pub struct ChangedBy {
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
-/// A JMAP ShareNotification object (RFC 9670 §3).
+/// A JMAP [`ShareNotification`] object (RFC 9670 §3).
 ///
 /// Records a change in the authenticated user's permissions on a shared object.
 /// All fields are server-set and immutable; clients may only destroy these objects.

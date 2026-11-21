@@ -71,7 +71,7 @@ pub const SCHEME: &str = "jmap";
 /// reserved `jmap://` authority forms and malformed `jmap:` strings, which
 /// a receiver treats as unresolvable (§Other Forms). Use it for rules that
 /// cover every `jmap` URI, such as draft-atwood-jmap-chat-federation-00
-/// §User References in Peer Methods, which removes MessageActions and
+/// §User References in Peer Methods, which removes `MessageAction`s and
 /// Endpoints whose `uri` has the scheme `jmap`.
 ///
 /// ```

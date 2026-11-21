@@ -6,9 +6,9 @@
 //! advertises this capability, it extends the blob upload response
 //! defined in RFC 8620 §6.1 with a `sha256` field carrying the
 //! SHA-256 digest of the uploaded content as a lowercase hex string
-//! of exactly 64 characters. When the JMAP FileNode extension
+//! of exactly 64 characters. When the JMAP `FileNode` extension
 //! (draft-ietf-jmap-filenode) is also supported, a `sha256` property
-//! is added to FileNode objects.
+//! is added to `FileNode` objects.
 //!
 //! CID is independent of any single consumer extension. It is a
 //! Blob/FileNode-level extension that any JMAP deployment can
@@ -44,9 +44,9 @@
 //!   variant additions and per-variant field additions
 //!   semver-additive.
 //! - [`Sha256::to_cidv1`], [`Sha256::from_cidv1`] and their
-//!   `_bytes` variants — the lossless CIDv1 (`raw` codec,
+//!   `_bytes` variants — the lossless `CIDv1` (`raw` codec,
 //!   `sha2-256` multihash) mapping from the draft's informative
-//!   §Mapping to CIDv1 appendix. [`CidV1Error`] reports a rejected
+//!   §Mapping to `CIDv1` appendix. [`CidV1Error`] reports a rejected
 //!   reverse conversion.
 //! - [`Sha256::to_base64`] and [`Sha256::from_base64`] — the padded
 //!   base64 form used by the draft-ietf-jmap-blobext-03 §5

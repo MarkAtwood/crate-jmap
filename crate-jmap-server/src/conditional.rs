@@ -162,7 +162,7 @@ pub enum SetOp {
     Restore(Id),
 }
 
-/// One change rejected at commit, with its SetError.
+/// One change rejected at commit, with its [`SetError`].
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
 pub struct DeferredFailure {
@@ -250,7 +250,7 @@ pub trait ConditionalBackend: JmapBackend {
     ///
     /// Lock, or start a transaction over, everything the method may read
     /// or write in `request.account_id`, across all types: cascades (a
-    /// Mailbox destroy's `onDestroyRemoveEmails`, EmailSubmission's
+    /// Mailbox destroy's `onDestroyRemoveEmails`, `EmailSubmission`'s
     /// implicit Email/set) run inside it. Every backend call made while
     /// [`current_set_scope`] is `Some(request.scope)` belongs to the scope,
     /// and `get_state` inside it sees the scope's writes.
@@ -580,7 +580,7 @@ pub(crate) struct ConditionalArgs {
     atomic: bool,
 }
 
-/// One `ifUnchangedBy` value: a PatchObject, or `None` for JSON `null`.
+/// One `ifUnchangedBy` value: a `PatchObject`, or [`None`] for JSON `null`.
 type Precondition = Option<Map<String, Value>>;
 
 /// An `ifUnchangedBy` entry: its key as sent, the id it resolves to (none

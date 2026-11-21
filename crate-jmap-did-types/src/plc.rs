@@ -38,7 +38,7 @@ use crate::{Did, DidKey, KeyType};
 /// authority rotation key can 'rewrite' history".
 const RECOVERY_WINDOW_MS: i64 = 72 * 60 * 60 * 1000;
 
-/// The CIDv1 prefix for `prev` references: version 1, `dag-cbor`
+/// The `CIDv1` prefix for `prev` references: version 1, `dag-cbor`
 /// (`0x71`), `sha2-256` (`0x12`), digest length 32.
 const CID_PREFIX: [u8; 4] = [0x01, 0x71, 0x12, 0x20];
 
@@ -577,7 +577,7 @@ fn parse_created_at(s: &str) -> Option<i64> {
     Some(seconds * 1000 + millis.parse::<i64>().ok()?)
 }
 
-/// The multibase `b` string of the dag-cbor sha2-256 CIDv1 of `digest`.
+/// The multibase `b` string of the dag-cbor sha2-256 `CIDv1` of `digest`.
 fn cid_string(digest: &[u8]) -> String {
     let mut bytes = CID_PREFIX.to_vec();
     bytes.extend_from_slice(digest);

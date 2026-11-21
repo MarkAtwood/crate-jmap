@@ -173,7 +173,7 @@ impl WebvhLog {
     /// returns: [`latest`](Self::latest), or `None` when a later entry is
     /// invalid ("If the DID or DID version being resolved is invalid,
     /// return an appropriate error code") or the DID is deactivated ("a
-    /// resolver MUST NOT return the DIDDoc").
+    /// resolver MUST NOT return the `DIDDoc`").
     pub fn current(&self) -> Option<&WebvhVersion> {
         (self.invalid.is_none() && !self.is_deactivated()).then_some(&self.latest)
     }

@@ -39,10 +39,10 @@ pub trait GetObject: JmapObject {}
 pub trait SetObject: JmapObject {
     /// The patch type for update operations.
     ///
-    /// Typically [`serde_json::Value`] holding an RFC 8620 §5.3 PatchObject,
+    /// Typically [`serde_json::Value`] holding an RFC 8620 §5.3 `PatchObject`,
     /// whose keys are JSON Pointer paths (RFC 6901) with an implicit leading
     /// `/`. This is not an RFC 7396 JSON Merge Patch. A typed struct is also
-    /// allowed if it serializes to that PatchObject shape.
+    /// allowed if it serializes to that `PatchObject` shape.
     type Patch: serde::Serialize + serde::de::DeserializeOwned + Send + Sync + 'static;
 
     /// Wire names of the properties the spec marks "server-set": "Only the

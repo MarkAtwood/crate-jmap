@@ -37,7 +37,7 @@ pub enum DigestAlgorithm {
     Unixcksum,
     /// `adler`: ADLER32 (deprecated).
     Adler,
-    /// `crc32c`: CRC32c (deprecated).
+    /// `crc32c`: CRC-32C (deprecated).
     Crc32c,
     /// A name the registry does not list.
     Other(String),
@@ -131,7 +131,7 @@ pub trait Digest {
 
 use sha2::digest::Digest as HashDigest;
 
-/// A [`Digest`] over a RustCrypto hash.
+/// A [`Digest`] over a [RustCrypto](https://github.com/RustCrypto/hashes) hash.
 struct Builtin<D>(D);
 
 impl<D: HashDigest> Digest for Builtin<D> {

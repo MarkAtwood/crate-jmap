@@ -432,7 +432,6 @@ impl UTCDate {
     /// been constructed via [`UTCDate::from`] without validation) and also
     /// validates semantic ranges: month `1..=12`, day `1..=days_in_month`,
     /// hour `0..=23`, minute `0..=59`, second `0..=59` (no leap seconds).
-    /// Returns [`ValidationError`] on any validation failure.
     ///
     /// Negative values are returned for dates before `1970-01-01T00:00:00Z`.
     /// A fractional second is truncated toward the earlier whole second.
@@ -440,6 +439,13 @@ impl UTCDate {
     /// Uses the proleptic Gregorian calendar via Hinnant's `days_from_civil`
     /// algorithm, which is exact-integer and handles leap years and century
     /// rules correctly. No external dependencies.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ValidationError`] if the value is not structurally an
+    /// RFC 8620 §1.4 `UTCDate`, or a field is out of range: month outside
+    /// `1..=12`, day past the end of its month, hour above 23, or minute or
+    /// second above 59.
     ///
     /// # Examples
     ///
@@ -574,6 +580,10 @@ impl State {
     /// no character-set restriction is imposed.
     ///
     /// Use [`State::from`] when the value is known to be valid.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ValidationError`] if `s` is empty.
     pub fn new_validated(s: impl Into<String>) -> Result<Self, ValidationError> {
         let s = s.into();
         validate_state(&s)?;

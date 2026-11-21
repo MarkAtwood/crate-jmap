@@ -90,7 +90,7 @@ impl std::error::Error for DisplayTextError {}
 /// U+FFFF, and no leading U+FEFF byte order mark.
 ///
 /// A server MAY reject display text that fails with an
-/// `invalidProperties` SetError naming the property. A specification may
+/// `invalidProperties` `SetError` naming the property. A specification may
 /// require a stricter profile, as RFC 8621 does for Mailbox names.
 ///
 /// # Errors

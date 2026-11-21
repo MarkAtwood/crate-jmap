@@ -33,7 +33,7 @@
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct DataTypeEntry {
     /// The data type name, as used in `typeNames` in Blob/lookup and as a
-    /// key in a StateChange object (RFC 8620 §7.1), such as `"Email"`.
+    /// key in a `StateChange` object (RFC 8620 §7.1), such as `"Email"`.
     pub type_name: &'static str,
     /// The capability URI a client puts in `using` to use the type.
     pub capability: &'static str,
@@ -41,7 +41,7 @@ pub struct DataTypeEntry {
     /// blobs, which makes the type usable in Blob/lookup.
     pub can_reference_blobs: bool,
     /// "Can Use for State Change": whether the type name can appear in a
-    /// StateChange object.
+    /// `StateChange` object.
     pub can_use_for_state_change: bool,
     /// "Supports History" (object-history-03 §7.2): whether the history
     /// extensions apply to the type.
@@ -72,7 +72,7 @@ const fn row(
 /// Every registered data type, sorted by [`DataTypeEntry::type_name`]
 /// (byte order).
 ///
-/// Task, TaskList and TaskNotification come from crate-jmap's local Tasks
+/// Task, `TaskList` and `TaskNotification` come from crate-jmap's local Tasks
 /// profile (docs/specs/jmap-tasks-local.md §IANA, docs/design/DECISIONS.md
 /// decisions 23 and 52): draft-ietf-jmap-tasks-06 registers no JMAP Data
 /// Types, and the IETF task-lists work has not yet produced a document.

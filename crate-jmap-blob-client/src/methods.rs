@@ -26,7 +26,7 @@ pub struct BlobSetInput {
     pub if_in_state: Option<State>,
     /// `create`: creation id → the blob to create.
     pub create: BTreeMap<Id, BlobCreateObject>,
-    /// `update`: blob → PatchObject (only `expires` may change, §7).
+    /// `update`: blob → [`PatchObject`] (only `expires` may change, §7).
     pub update: BTreeMap<BlobRef, PatchObject>,
     /// `destroy`.
     pub destroy: Vec<BlobRef>,

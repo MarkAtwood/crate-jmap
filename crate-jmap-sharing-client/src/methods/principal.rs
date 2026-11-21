@@ -1,4 +1,4 @@
-//! JMAP Sharing — Principal/* method implementations on SessionClient.
+//! JMAP Sharing — Principal/* method implementations on `SessionClient`.
 //!
 //! Each method follows the standard five-step pattern:
 //!   1. Validate arguments (defence-in-depth empty-state guards).

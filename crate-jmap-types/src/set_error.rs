@@ -38,16 +38,16 @@ pub struct SetError {
     /// Missing blob IDs (for `blobNotFound` — RFC 8621 §5.5).
     #[serde(rename = "notFound", skip_serializing_if = "Option::is_none")]
     pub not_found: Option<Vec<Id>>,
-    /// Maximum message size in octets (for `tooLarge` on EmailSubmission — RFC 8621 §7.5).
+    /// Maximum message size in octets (for `tooLarge` on `EmailSubmission` — RFC 8621 §7.5).
     #[serde(rename = "maxSize", skip_serializing_if = "Option::is_none")]
     pub max_size: Option<u64>,
-    /// Catch-all for extension-defined SetError fields not covered by
+    /// Catch-all for extension-defined [`SetError`] fields not covered by
     /// the typed members above.
     ///
     /// JMAP extensions sometimes ship error variants whose wire shape
     /// includes additional structured fields beyond the RFC 8620 §5.3
-    /// base set — e.g. JMAP Chat's slow-mode `rateLimit` SetError carries a
-    /// `serverRetryAfter` UTCDate telling the client when it may
+    /// base set — e.g. JMAP Chat's slow-mode `rateLimit` [`SetError`] carries a
+    /// `serverRetryAfter` `UTCDate` telling the client when it may
     /// retry, and `mdnAlreadySent` (RFC 8621 §7.7) is a typed
     /// extension error variant. This map preserves any such field
     /// across serialize / deserialize round-trip.
@@ -61,7 +61,7 @@ pub struct SetError {
     /// ```
     ///
     /// Per workspace AGENTS.md "Extras-preservation policy" — wire
-    /// format is byte-identical to a pre-extras SetError when the
+    /// format is byte-identical to a pre-extras [`SetError`] when the
     /// map is empty (the `skip_serializing_if` collapses it).
     ///
     /// # Reserved-name invariant (bd:JMAP-jfia.17)
@@ -70,7 +70,7 @@ pub struct SetError {
     /// `description`, `properties`, ...) MUST NOT appear in this map:
     /// a colliding extras key produces a JSON object with two keys at
     /// the same level — RFC 8259 §4 permits duplicate keys but the
-    /// behaviour is implementation-defined and the resulting SetError
+    /// behaviour is implementation-defined and the resulting [`SetError`]
     /// is malformed in practice.
     ///
     /// [`SetError::with_extra`] enforces this in debug builds via
@@ -125,7 +125,7 @@ impl SetError {
     ///
     /// Wrap downstream errors with `jmap_server::server_fail_from_backend`
     /// (which always emits the static "internal error" description)
-    /// rather than interpolating them into a SetError description.
+    /// rather than interpolating them into a [`SetError`] description.
     ///
     /// `SetError` paths are MORE leak-prone than `serverFail` because
     /// adversarial clients can probe for descriptions by sending
@@ -182,7 +182,7 @@ impl SetError {
         self
     }
 
-    /// Set the maximum message size in octets (used with `tooLarge` on EmailSubmission — RFC 8621 §7.5).
+    /// Set the maximum message size in octets (used with `tooLarge` on `EmailSubmission` — RFC 8621 §7.5).
     pub fn with_max_size(mut self, n: u64) -> Self {
         self.max_size = Some(n);
         self
@@ -192,7 +192,7 @@ impl SetError {
     ///
     /// Used by handlers to attach typed wire fields that no `with_*`
     /// builder covers — for example JMAP Chat's slow-mode `rateLimit`
-    /// SetError carries a `serverRetryAfter` UTCDate:
+    /// [`SetError`] carries a `serverRetryAfter` `UTCDate`:
     ///
     /// ```ignore
     /// SetError::new(SetErrorType::RateLimit)
@@ -204,7 +204,7 @@ impl SetError {
     /// level as the typed fields (via `#[serde(flatten)]` on
     /// [`Self::extra`]). Calling `with_extra("type", ...)`,
     /// `with_extra("properties", ...)`, or any other reserved
-    /// wire-name will produce a malformed SetError on the wire —
+    /// wire-name will produce a malformed [`SetError`] on the wire —
     /// callers are responsible for choosing extension-namespace keys
     /// that do not collide with the typed-field wire names.
     ///
@@ -240,7 +240,7 @@ impl SetError {
     /// via `debug_assert!`, but direct field mutation (e.g.
     /// `err.extra.insert("type", json!("evil"))`) bypasses that guard.
     /// This method is the deterministic, build-profile-independent
-    /// gate: callers and tests that construct SetError values
+    /// gate: callers and tests that construct [`SetError`] values
     /// programmatically should run it before serializing, to catch
     /// the collision case that would produce a malformed wire shape
     /// with two keys at the same name.
@@ -292,7 +292,7 @@ impl std::error::Error for ReservedExtrasKey {}
 /// any of these as the `key` argument to `with_extra` would produce a
 /// JSON object with two keys at the same name — technically RFC 8259
 /// §4 permits duplicate keys but the behaviour is implementation-defined
-/// and the resulting SetError on the wire is malformed in practice.
+/// and the resulting [`SetError`] on the wire is malformed in practice.
 ///
 /// Crate-private (bd:JMAP-jfia.18) so adding a typed field to
 /// [`SetError`] stays additive: consumers rely on the `with_extra` /

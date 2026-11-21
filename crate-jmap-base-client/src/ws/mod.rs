@@ -83,7 +83,7 @@ pub const DEFAULT_WS_MAX_MESSAGE_BYTES: usize = 1 << 20;
 #[non_exhaustive]
 #[derive(Clone, PartialEq)]
 pub enum WsFrame {
-    /// RFC 8620 §7.1 StateChange — one or more object types have changed
+    /// RFC 8620 §7.1 [`StateChange`] — one or more object types have changed
     /// state; client must re-fetch the affected data types.
     StateChange(StateChange),
     /// RFC 8887 Response — reply to a JMAP request sent on this connection.
@@ -92,7 +92,7 @@ pub enum WsFrame {
     /// [`JmapResponse::extra`](jmap_types::JmapResponse::extra); read it
     /// with [`WsFrame::request_id`].
     Response(jmap_types::JmapResponse),
-    /// RFC 8887 §4.3.4 RequestError — a request-level Problem Details
+    /// RFC 8887 §4.3.4 `RequestError` — a request-level Problem Details
     /// object (RFC 8620 §3.6.1) answering a request sent on this connection.
     RequestError(WsRequestError),
     /// Unrecognized `@type` — silently ignored per forward-compatibility rules
@@ -507,6 +507,12 @@ impl WsSender {
     ///
     /// Used by extension crates to send non-JMAP frames (e.g., JMAP Chat
     /// ephemeral stream control messages).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ClientError::WebSocket`](crate::error::ClientError::WebSocket)
+    /// if the frame cannot be sent: the connection is closed or the
+    /// transport fails.
     pub async fn send_text(&mut self, text: String) -> Result<(), crate::error::ClientError> {
         self.sink
             .lock()
@@ -599,6 +605,10 @@ impl WsSession {
     /// Send a raw text frame over the WebSocket connection.
     ///
     /// Delegates to [`WsSender::send_text`].
+    ///
+    /// # Errors
+    ///
+    /// Those of [`WsSender::send_text`].
     pub async fn send_text(&mut self, text: String) -> Result<(), crate::error::ClientError> {
         self.sender.send_text(text).await
     }
@@ -606,6 +616,10 @@ impl WsSession {
     /// Send a JMAP request over the WebSocket connection.
     ///
     /// Delegates to [`WsSender::send_request`].
+    ///
+    /// # Errors
+    ///
+    /// Those of [`WsSender::send_request`].
     pub async fn send_request(
         &mut self,
         req: &jmap_types::JmapRequest,
@@ -617,6 +631,10 @@ impl WsSession {
     /// Enable push notifications on this connection.
     ///
     /// Delegates to [`WsSender::send_push_enable`].
+    ///
+    /// # Errors
+    ///
+    /// Those of [`WsSender::send_push_enable`].
     pub async fn send_push_enable(
         &mut self,
         data_types: Option<&[&str]>,
@@ -628,6 +646,10 @@ impl WsSession {
     /// Disable push notifications on this connection.
     ///
     /// Delegates to [`WsSender::send_push_disable`].
+    ///
+    /// # Errors
+    ///
+    /// Those of [`WsSender::send_push_disable`].
     pub async fn send_push_disable(&mut self) -> Result<(), crate::error::ClientError> {
         self.sender.send_push_disable().await
     }
@@ -705,7 +727,7 @@ impl WsSession {
 /// The previous shape `let raw = val.clone(); from_value::<T>(val)` paid a
 /// deep Value clone on every successful frame even though `raw` was thrown
 /// away. For 1-MiB-cap WS messages on a hot push path, the clone allocates
-/// a HashMap per `Value::Object` and a `String` per `Value::String` and
+/// a `HashMap` per `Value::Object` and a [`String`] per `Value::String` and
 /// dropped them moments later. Two text parses are cheaper for typical
 /// payload shapes than one parse + one deep Value clone, and the borrow
 /// checker no longer needs ownership tricks (bd:JMAP-6lsm.11).
@@ -783,6 +805,16 @@ fn parse_ws_frame(text: &str) -> Result<WsFrame, crate::error::ClientError> {
 /// The `auth_header` value is a credential and must not be logged or
 /// echoed back to other systems. Treat it with the same care as a
 /// [`BearerAuth`](crate::BearerAuth) token.
+///
+/// # Errors
+///
+/// - [`ClientError::InvalidArgument`](crate::error::ClientError::InvalidArgument)
+///   if the URL scheme is not `wss`, or the
+///   `auth_header` name or value is not a valid HTTP header.
+/// - [`ClientError::WebSocket`](crate::error::ClientError::WebSocket) if
+///   the URL cannot be turned into a handshake request, the connection or
+///   TLS handshake fails or takes longer than 10 seconds (`is_io()` is
+///   `true`), or the server refuses the upgrade.
 pub async fn connect_ws(
     ws_url: &str,
     auth_header: Option<crate::auth::AuthHeader<'_>>,
@@ -812,6 +844,16 @@ pub async fn connect_ws(
 /// values produced for malformed auth header names or values are
 /// constructed without the original bytes, but callers should still
 /// avoid printing or storing the `auth_header` they passed in.
+///
+/// # Errors
+///
+/// - [`ClientError::InvalidArgument`](crate::error::ClientError::InvalidArgument)
+///   if `max_message_bytes` is 0, the URL scheme is not `wss`, or the
+///   `auth_header` name or value is not a valid HTTP header.
+/// - [`ClientError::WebSocket`](crate::error::ClientError::WebSocket) if
+///   the URL cannot be turned into a handshake request, the connection or
+///   TLS handshake fails or takes longer than 10 seconds (`is_io()` is
+///   `true`), or the server refuses the upgrade.
 pub async fn connect_ws_with_limit(
     ws_url: &str,
     auth_header: Option<crate::auth::AuthHeader<'_>>,
@@ -837,6 +879,16 @@ pub async fn connect_ws_with_limit(
 ///
 /// A `ws://` connection carries `auth_header` and every frame in
 /// cleartext. Never pass a URL taken from an untrusted session document.
+///
+/// # Errors
+///
+/// - [`ClientError::InvalidArgument`](crate::error::ClientError::InvalidArgument)
+///   if `max_message_bytes` is 0, the URL scheme is not `ws` or `wss`, or the
+///   `auth_header` name or value is not a valid HTTP header.
+/// - [`ClientError::WebSocket`](crate::error::ClientError::WebSocket) if
+///   the URL cannot be turned into a handshake request, the connection or
+///   TLS handshake fails or takes longer than 10 seconds (`is_io()` is
+///   `true`), or the server refuses the upgrade.
 pub async fn connect_ws_allow_plaintext(
     ws_url: &str,
     auth_header: Option<crate::auth::AuthHeader<'_>>,

@@ -35,7 +35,7 @@ impl BlobLookupArgs {
 }
 
 /// One `list` entry of a `Blob/lookup` response (blobext-03 §6
-/// BlobInfo).
+/// [`BlobInfo`]).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

@@ -28,7 +28,7 @@ impl_string_enum!(Scope, "a JMAP Quota scope string",
     "global" => Global,
 );
 
-/// The unit of measure of a quota (RFC 9425 §3.2 ResourceType).
+/// The unit of measure of a quota (RFC 9425 §3.2 [`ResourceType`]).
 ///
 /// Unknown values keep their wire string in [`Other`](Self::Other) so they
 /// round-trip.
@@ -108,7 +108,7 @@ pub struct Quota {
 }
 
 /// Filter condition for `Quota/query` (RFC 9425 §4.4). "A Quota object
-/// matches the FilterCondition if, and only if, all the given conditions
+/// matches the `FilterCondition` if, and only if, all the given conditions
 /// match. If zero properties are specified, it is automatically true for
 /// all objects."
 ///

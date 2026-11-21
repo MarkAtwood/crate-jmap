@@ -66,7 +66,7 @@ pub trait HistoryObject: GetObject {}
 
 /// Types given history ahead of their registration (decisions 5 and 23).
 ///
-/// Empty: Task and TaskList, the types this list held, are now registry
+/// Empty: Task and `TaskList`, the types this list held, are now registry
 /// rows with "Supports History: Yes" from crate-jmap's local Tasks profile
 /// (docs/specs/jmap-tasks-local.md, decision 52; bd JMAP-tna1.3.26). Kept
 /// so that callers naming it still compile.
@@ -344,7 +344,7 @@ pub struct RestoreOutcome {
         serialize_with = "empty_as_null"
     )]
     pub restored: BTreeMap<Id, Option<PartialObject>>,
-    /// `notRestored`: "Id[SetError]|null".
+    /// `notRestored`: "Id[`SetError`]|null".
     #[serde(
         default,
         deserialize_with = "null_as_empty",

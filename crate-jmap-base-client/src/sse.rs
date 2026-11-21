@@ -118,7 +118,7 @@ pub fn parse_sse_block(block: &str) -> SseFrame {
 /// error on some other type.
 ///
 /// Accepts both the bare `{"changed":{...}}` shape and the shape with
-/// `"@type":"StateChange"` per RFC 8620 §7.3 (StateChange object definition).
+/// `"@type":"StateChange"` per RFC 8620 §7.3 (`StateChange` object definition).
 /// The `@type` field is stripped before deserialization; only `changed` is used.
 fn parse_state_data(event_type: &str, data: &str) -> SseEvent {
     match try_parse_state_change(data) {
@@ -130,7 +130,7 @@ fn parse_state_data(event_type: &str, data: &str) -> SseEvent {
     }
 }
 
-/// Try to parse a StateChange payload; returns `None` on any parse failure.
+/// Try to parse a `StateChange` payload; returns [`None`] on any parse failure.
 ///
 /// The `@type` discriminator (RFC 8620 §7.1) is optional here but, when
 /// present, must be `"StateChange"`; [`StateChange`]'s deserializer

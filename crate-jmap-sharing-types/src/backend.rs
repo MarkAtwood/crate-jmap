@@ -101,7 +101,7 @@ impl QueryObject for crate::Principal {
     type Comparator = serde_json::Value;
 }
 
-/// ShareNotification is deliberately NOT localizable
+/// `ShareNotification` is deliberately NOT localizable
 /// (draft-atwood-jmap-updates-00 §5.4): its `name` records the object's
 /// name at the time of the change, filled with the base value.
 impl JmapObject for crate::ShareNotification {

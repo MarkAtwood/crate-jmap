@@ -32,6 +32,13 @@ use jmap_types::problem::ProblemDetails;
 /// assert_eq!(resp.headers()["content-type"], "application/problem+json");
 /// assert_eq!(resp.headers()["content-language"], "de");
 /// ```
+///
+/// # Panics
+///
+/// Does not panic in practice. Serializing `details` cannot fail (it holds
+/// only strings, an integer and a string-keyed map), and the response is
+/// built from a typed [`StatusCode`], a constant `Content-Type` and a
+/// `Content-Language` that is added only when it parses as a header value.
 pub fn problem_response(
     status: StatusCode,
     details: &ProblemDetails,
@@ -58,6 +65,15 @@ pub fn problem_response(
 /// name regardless of the original method.  Only `call_id` is echoed.
 /// Method-level errors are returned inside `methodResponses` with HTTP 200 —
 /// they are NOT returned as top-level HTTP errors.
+///
+/// # Panics
+///
+/// Panics if `err` does not serialize to JSON. The derived `Serialize` for
+/// [`JmapError`] writes only a type string, optional string and integer
+/// fields and a string-keyed map of extra properties, none of which can
+/// fail, so this does not happen; the test
+/// `jmap_error_all_constructors_serialize` covers every constructor. A panic
+/// here would mean a change to [`JmapError`] broke that invariant.
 pub fn error_invocation(call_id: &str, err: JmapError) -> Invocation {
     // JmapError uses #[derive(Serialize)] with only String, Option<String>,
     // and Option<Id> fields — all JSON-serializable primitives with string

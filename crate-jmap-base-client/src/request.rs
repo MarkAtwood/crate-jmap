@@ -370,7 +370,9 @@ impl JmapRequestBuilder {
     /// `call_id` must be unique within this request; callers use it to match
     /// responses back to the originating call.
     ///
-    /// Returns `Err(ClientError::InvalidArgument)` if `call_id` has already
+    /// # Errors
+    ///
+    /// Returns [`ClientError::InvalidArgument`] if `call_id` has already
     /// been used in this builder. Duplicate call IDs violate RFC 8620 §3.5.
     pub fn add_call(
         &mut self,
@@ -391,7 +393,9 @@ impl JmapRequestBuilder {
 
     /// Consume the builder and produce the [`JmapRequest`].
     ///
-    /// Returns `Err(ClientError::InvalidArgument)` if no method calls have
+    /// # Errors
+    ///
+    /// Returns [`ClientError::InvalidArgument`] if no method calls have
     /// been added. An empty `methodCalls` array is invalid per RFC 8620 §3.3.
     pub fn build(self) -> Result<JmapRequest, ClientError> {
         if self.method_calls.is_empty() {
@@ -526,7 +530,11 @@ impl Session {
     ///
     /// - `Ok(None)` — server does not advertise JMAP WebSocket support.
     /// - `Ok(Some(...))` — WebSocket is supported; use `result.url` to connect.
-    /// - `Err` — capability key is present but the value is malformed.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ClientError::Parse`] if the capability key is present but
+    /// its value is not a valid [`WebSocketCapability`].
     pub fn websocket_capability(&self) -> Result<Option<WebSocketCapability>, ClientError> {
         self.extension_capability("urn:ietf:params:jmap:websocket")
     }
@@ -551,13 +559,16 @@ impl Session {
     ///
     /// - `Ok(None)` — server does not advertise this capability.
     /// - `Ok(Some(_))` — capability is advertised AND the value parsed into `T`.
-    /// - `Err(ClientError::Parse)` — capability is advertised but the value
-    ///   could not be deserialised into `T`. Indicates either a server bug,
-    ///   a schema-version mismatch, or a `T` type that does not match the
-    ///   spec for `capability_uri`.
     ///
     /// The function only inspects the value when the key is present; an
     /// absent key always returns `Ok(None)` regardless of `T`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ClientError::Parse`] if the capability is advertised but
+    /// the value could not be deserialised into `T`. Indicates either a
+    /// server bug, a schema-version mismatch, or a `T` type that does not
+    /// match the spec for `capability_uri`.
     pub fn extension_capability<T>(&self, capability_uri: &str) -> Result<Option<T>, ClientError>
     where
         T: serde::de::DeserializeOwned,
@@ -580,8 +591,8 @@ impl Session {
     ///
     /// When `true`, the server commits to including a `sha256` field
     /// (the 64-character lowercase-hex SHA-256 digest of the uploaded
-    /// content) on Blob upload responses, and on FileNode objects when
-    /// the JMAP FileNode extension is also supported. See
+    /// content) on Blob upload responses, and on `FileNode` objects when
+    /// the JMAP `FileNode` extension is also supported. See
     /// [`jmap_cid_types::Sha256`] for the typed wire shape.
     ///
     /// Mirrors the `supports_*` capability-probe pattern established by
@@ -608,12 +619,15 @@ impl Session {
     ///
     /// - `Ok(None)` — server does not advertise `urn:ietf:params:jmap:did`.
     /// - `Ok(Some(_))` — the capability is advertised and well-formed.
-    /// - `Err(ClientError::Parse)` — the capability is advertised but its
-    ///   value is malformed, including an empty `supportedMethods`
-    ///   ("Servers MUST support at least one method").
     ///
     /// The per-account DID binding is
     /// [`AccountInfo::did_capability`].
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ClientError::Parse`] if the capability is advertised but
+    /// its value is malformed, including an empty `supportedMethods`
+    /// ("Servers MUST support at least one method").
     ///
     /// [`DidCapability`]: jmap_did_types::DidCapability
     pub fn did_capability(&self) -> Result<Option<jmap_did_types::DidCapability>, ClientError> {
@@ -721,8 +735,11 @@ impl AccountInfo {
     ///
     /// - `Ok(None)` — this account does not advertise this capability.
     /// - `Ok(Some(_))` — capability is advertised AND the value parsed into `T`.
-    /// - `Err(ClientError::Parse)` — capability is advertised but the value
-    ///   could not be deserialised into `T`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ClientError::Parse`] if the capability is advertised but
+    /// the value could not be deserialised into `T`.
     pub fn account_extension_capability<T>(
         &self,
         capability_uri: &str,
@@ -745,10 +762,13 @@ impl AccountInfo {
     /// - `Ok(None)` — this account does not advertise
     ///   `urn:ietf:params:jmap:did`.
     /// - `Ok(Some(_))` — the capability is advertised and well-formed.
-    /// - `Err(ClientError::Parse)` — the capability is advertised but its
-    ///   value is malformed (for example, `did` is missing).
     ///
     /// The server-wide counterpart is [`Session::did_capability`].
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ClientError::Parse`] if the capability is advertised but
+    /// its value is malformed (for example, `did` is missing).
     ///
     /// [`DidAccountCapability`]: jmap_did_types::DidAccountCapability
     pub fn did_capability(

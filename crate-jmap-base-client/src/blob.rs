@@ -395,7 +395,7 @@ impl DownloadState {
 
 /// Response body returned by a successful blob upload (RFC 8620 §6.1).
 ///
-/// # SemVer coupling with `jmap-cid-types` (bd:JMAP-6r7c.30)
+/// # Semver coupling with `jmap-cid-types` (bd:JMAP-6r7c.30)
 ///
 /// The `sha256` field uses `jmap_cid_types::Sha256` — a workspace-sibling
 /// type, not a wrapped opaque type the way `reqwest::Error` is wrapped
@@ -548,6 +548,11 @@ pub struct BlobUploadResponse {
 ///
 /// [`Session::event_source_url`]: crate::request::Session::event_source_url
 /// [`JmapClient::subscribe_events`]: crate::client::JmapClient::subscribe_events
+///
+/// # Errors
+///
+/// Returns [`ClientError::InvalidSession`] if `template` has a `{` with no
+/// closing `}`, or names a variable that has no entry in `vars`.
 pub fn expand_url_template(template: &str, vars: &[(&str, &str)]) -> Result<String, ClientError> {
     let mut result = String::with_capacity(template.len() + 64);
     let mut rest = template;
@@ -637,6 +642,29 @@ impl JmapClient {
     /// server returns a `sha256` field (JMAP-CID capability), it is
     /// verified against the locally-computed digest and
     /// `ClientError::BlobIntegrityMismatch` is returned on mismatch.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidArgument`] if `upload_url_template` does not
+    ///   have an `http` or `https` scheme.
+    /// - [`ClientError::InvalidHeaderValue`] if `content_type` is not a
+    ///   valid HTTP header value.
+    /// - [`ClientError::InvalidSession`] if the template has an unmatched
+    ///   `{` or a variable other than `accountId`.
+    /// - [`ClientError::Http`] on a transport failure or an error status
+    ///   without an RFC 9457 body.
+    /// - [`ClientError::AuthFailed`] on HTTP 401 or 403.
+    /// - [`ClientError::RateLimited`] on HTTP 429.
+    /// - [`ClientError::Problem`] on another 4xx or 5xx with an RFC 9457
+    ///   problem details body.
+    /// - [`ClientError::ResponseTooLarge`] if the response body exceeds
+    ///   [`ClientConfig::max_upload_response_body`](crate::ClientConfig::max_upload_response_body).
+    /// - [`ClientError::Parse`] if the response is not a valid
+    ///   [`BlobUploadResponse`].
+    /// - [`ClientError::UnexpectedResponse`] if the server's `size` differs
+    ///   from the number of bytes sent.
+    /// - [`ClientError::BlobIntegrityMismatch`] if the server returns a
+    ///   `sha256` that differs from the digest of the bytes sent.
     pub async fn upload_blob(
         &self,
         params: UploadBlobParams<'_>,
@@ -675,6 +703,33 @@ impl JmapClient {
     /// [`ClientConfig::request_timeout`](crate::ClientConfig::request_timeout)
     /// bounds the whole upload, including sending the body. Large uploads
     /// over slow links need a client configured with a longer timeout.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidArgument`] if `upload_url_template` does not
+    ///   have an `http` or `https` scheme.
+    /// - [`ClientError::InvalidHeaderValue`] if `content_type` is not a
+    ///   valid HTTP header value.
+    /// - [`ClientError::InvalidSession`] if the template has an unmatched
+    ///   `{` or a variable other than `accountId`.
+    /// - [`ClientError::Http`] on a transport failure or an error status
+    ///   without an RFC 9457 body.
+    /// - [`ClientError::AuthFailed`] on HTTP 401 or 403.
+    /// - [`ClientError::RateLimited`] on HTTP 429.
+    /// - [`ClientError::Problem`] on another 4xx or 5xx with an RFC 9457
+    ///   problem details body.
+    /// - [`ClientError::ResponseTooLarge`] if the response body exceeds
+    ///   [`ClientConfig::max_upload_response_body`](crate::ClientConfig::max_upload_response_body).
+    /// - [`ClientError::Parse`] if the response is not a valid
+    ///   [`BlobUploadResponse`].
+    /// - [`ClientError::UnexpectedResponse`] if the server's `size` differs
+    ///   from the number of bytes sent.
+    /// - [`ClientError::BlobIntegrityMismatch`] if the server returns a
+    ///   `sha256` that differs from the digest of the bytes sent.
+    ///
+    /// An error yielded by `params.body`, or a body whose length differs
+    /// from `params.content_length`, aborts the request and surfaces as
+    /// [`ClientError::Http`].
     pub async fn upload_blob_stream(
         &self,
         params: UploadBlobStreamParams<'_>,
@@ -771,6 +826,24 @@ impl JmapClient {
     /// If `params.expected_sha256` is `Some`, the downloaded bytes are verified
     /// against the typed [`jmap_cid_types::Sha256`] digest and
     /// `ClientError::BlobIntegrityMismatch` is returned on mismatch.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidArgument`] if `download_url_template` does
+    ///   not have an `http` or `https` scheme.
+    /// - [`ClientError::InvalidSession`] if the template has an unmatched
+    ///   `{` or a variable other than `accountId`, `blobId`, `name` and
+    ///   `type`.
+    /// - [`ClientError::Http`] on a transport failure or an error status
+    ///   without an RFC 9457 body.
+    /// - [`ClientError::AuthFailed`] on HTTP 401 or 403.
+    /// - [`ClientError::RateLimited`] on HTTP 429.
+    /// - [`ClientError::Problem`] on another 4xx or 5xx with an RFC 9457
+    ///   problem details body.
+    /// - [`ClientError::ResponseTooLarge`] if the body exceeds
+    ///   [`ClientConfig::max_download_body`](crate::ClientConfig::max_download_body).
+    /// - [`ClientError::BlobIntegrityMismatch`] if `params.expected_sha256`
+    ///   is `Some` and differs from the digest of the received bytes.
     pub async fn download_blob(
         &self,
         params: DownloadBlobParams<'_>,
@@ -815,6 +888,29 @@ impl JmapClient {
     /// bounds the whole download, including reading the stream. Large
     /// downloads over slow links need a client configured with a longer
     /// timeout (and, usually, a larger `max_download_body`).
+    ///
+    /// # Errors
+    ///
+    /// Before the stream starts:
+    ///
+    /// - [`ClientError::InvalidArgument`] if `download_url_template` does
+    ///   not have an `http` or `https` scheme.
+    /// - [`ClientError::InvalidSession`] if the template has an unmatched
+    ///   `{` or a variable other than `accountId`, `blobId`, `name` and
+    ///   `type`.
+    /// - [`ClientError::Http`] on a transport failure or an error status
+    ///   without an RFC 9457 body.
+    /// - [`ClientError::AuthFailed`] on HTTP 401 or 403.
+    /// - [`ClientError::RateLimited`] on HTTP 429.
+    /// - [`ClientError::Problem`] on another 4xx or 5xx with an RFC 9457
+    ///   problem details body.
+    /// - [`ClientError::ResponseTooLarge`] if the advertised
+    ///   `Content-Length` exceeds the cap.
+    ///
+    /// The stream itself yields [`ClientError::Http`] on a body read
+    /// failure, [`ClientError::ResponseTooLarge`] when the body grows past
+    /// the cap, and [`ClientError::BlobIntegrityMismatch`] as its final
+    /// item when the digest check fails.
     pub async fn download_blob_stream(
         &self,
         params: DownloadBlobParams<'_>,
@@ -886,6 +982,11 @@ impl JmapClient {
     /// internally. The caller cannot accidentally pass `session.api_url`
     /// or any other URL field because the parameter set
     /// ([`UploadBlobSessionParams`]) does not include a URL field.
+    ///
+    /// # Errors
+    ///
+    /// The errors of [`Self::upload_blob`], with `session.upload_url` as
+    /// the template.
     pub async fn upload_blob_session(
         &self,
         session: &crate::request::Session,
@@ -912,6 +1013,11 @@ impl JmapClient {
     /// supplies `session.download_url` for `download_url_template`
     /// internally. See [`Self::upload_blob_session`] for the
     /// rationale.
+    ///
+    /// # Errors
+    ///
+    /// The errors of [`Self::download_blob`], with `session.download_url`
+    /// as the template.
     pub async fn download_blob_session(
         &self,
         session: &crate::request::Session,

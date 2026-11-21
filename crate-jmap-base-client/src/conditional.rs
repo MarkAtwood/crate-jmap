@@ -29,7 +29,7 @@ pub struct SetCall {
     pub if_in_state: Option<String>,
     /// `create`: creation id → the object to create.
     pub create: BTreeMap<String, Map<String, Value>>,
-    /// `update`: id → PatchObject.
+    /// `update`: id → [`PatchObject`].
     pub update: BTreeMap<Id, PatchObject>,
     /// `destroy`.
     pub destroy: Vec<Id>,

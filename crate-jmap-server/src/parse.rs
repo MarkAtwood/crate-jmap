@@ -1,4 +1,4 @@
-//! Request parsing and ResultReference resolution (RFC 8620 §3.3, §3.7).
+//! Request parsing and [`ResultReference`] resolution (RFC 8620 §3.3, §3.7).
 
 use crate::{Invocation, JmapError, JmapRequest, ResultReference};
 use serde_json::Value;
@@ -47,18 +47,18 @@ use serde_json::Value;
 ///   loose; deployments that face untrusted clients should consider rejecting
 ///   request bodies that exceed ~32 levels of JSON nesting before passing
 ///   them here. 32 levels is well above any legitimate JMAP request shape.
-/// - **Per-pointer recursion.** ResultReference paths are walked by an
+/// - **Per-pointer recursion.** [`ResultReference`] paths are walked by an
 ///   internal helper that carries its own depth cap, so integrators do not
 ///   need additional guards on the path string itself once the body-size
 ///   and JSON-depth limits are in place.
 /// - **Filter nesting.** [`crate::Dispatcher::dispatch`] rejects a call
-///   whose `filter` nests FilterOperators more than 32 levels deep with
+///   whose `filter` nests `FilterOperator`s more than 32 levels deep with
 ///   `unsupportedFilter`, so filter walkers behind it need no guard of
 ///   their own. A handler invoked directly, not through the dispatcher,
 ///   does not get this cap.
 ///
 /// Failing to enforce these limits exposes the dispatcher to memory and
-/// stack-exhaustion DoS on adversarial input. The library cannot apply them
+/// stack-exhaustion denial of service on adversarial input. The library cannot apply them
 /// itself because they belong to the HTTP layer, not the JMAP layer.
 ///
 /// # Errors
@@ -140,7 +140,7 @@ pub fn check_known_capabilities<S: AsRef<str>>(
     Ok(())
 }
 
-/// Resolve all `#key` ResultReference fields in `args` against `prior_responses`.
+/// Resolve all `#key` [`ResultReference`] fields in `args` against `prior_responses`.
 ///
 /// For every key in `args` that starts with `#`:
 /// 1. Parse the value as a [`ResultReference`].
@@ -180,6 +180,16 @@ pub fn check_known_capabilities<S: AsRef<str>>(
 /// The cost is one `Vec<(ref_key, plain_key, resolved_value)>`
 /// allocation per call; that cost is the price of the atomicity
 /// contract.
+///
+/// # Errors
+///
+/// - `invalidArguments` if a `#key` value is not a `ResultReference`, or
+///   `args` also has the plain `key`.
+/// - `invalidResultReference` if no prior response has the reference's
+///   `resultOf` call id, that response's method name differs from `name`,
+///   or `path` does not resolve against it.
+///
+/// On error `args` is unchanged.
 pub fn resolve_args(args: &mut Value, prior_responses: &[Invocation]) -> Result<(), JmapError> {
     let Some(obj) = args.as_object_mut() else {
         return Ok(()); // non-object args cannot contain #-key references
@@ -246,7 +256,7 @@ pub fn resolve_args(args: &mut Value, prior_responses: &[Invocation]) -> Result<
     Ok(())
 }
 
-/// Maximum FilterOperator nesting a method call's `filter` argument may
+/// Maximum `FilterOperator` nesting a method call's `filter` argument may
 /// have when it passes through [`crate::Dispatcher::dispatch`].
 ///
 /// Every filter walker in the workspace (`Filter::matches`, the
@@ -256,8 +266,8 @@ pub fn resolve_args(args: &mut Value, prior_responses: &[Invocation]) -> Result<
 /// contract on [`parse_request`] and `MAX_JSON_POINTER_DEPTH`.
 pub const MAX_FILTER_DEPTH: usize = 32;
 
-/// Reject a call whose `filter` argument nests FilterOperator `conditions`
-/// more than [`MAX_FILTER_DEPTH`] levels deep. A bare FilterCondition is
+/// Reject a call whose `filter` argument nests `FilterOperator` `conditions`
+/// more than [`MAX_FILTER_DEPTH`] levels deep. A bare `FilterCondition` is
 /// depth 0; each enclosing operator adds one.
 ///
 /// # Errors
@@ -298,14 +308,14 @@ pub(crate) fn check_state_arguments(args: &Value) -> Result<(), JmapError> {
     Ok(())
 }
 
-/// `true` if `filter` (an RFC 8620 §5.5 FilterOperator or
-/// FilterCondition) has more than `levels` nested `conditions` arrays. A
-/// bare FilterCondition is depth 0; each enclosing operator adds one.
+/// `true` if `filter` (an RFC 8620 §5.5 `FilterOperator` or
+/// `FilterCondition`) has more than `levels` nested `conditions` arrays. A
+/// bare `FilterCondition` is depth 0; each enclosing operator adds one.
 /// Recurses at most `levels + 1` times.
 ///
 /// The dispatcher checks a top-level `filter` argument against
 /// [`MAX_FILTER_DEPTH`] itself; use this for a filter stored elsewhere, such
-/// as one inside a PushSubscription extension property, which is walked
+/// as one inside a `PushSubscription` extension property, which is walked
 /// again at every delivery.
 pub fn filter_nests_deeper_than(filter: &Value, levels: usize) -> bool {
     match filter.get("conditions") {
@@ -322,11 +332,11 @@ pub fn filter_nests_deeper_than(filter: &Value, levels: usize) -> bool {
 /// Maximum recursion depth for JSON Pointer resolution.
 ///
 /// `json_pointer_ext` walks one token of the path per recursive call. A
-/// client-supplied ResultReference path can specify arbitrary depth; without
+/// client-supplied [`ResultReference`] path can specify arbitrary depth; without
 /// a cap, an attacker can force unbounded recursion and crash the dispatcher
 /// worker via stack overflow (bd:JMAP-sc1b.95).
 ///
-/// 32 levels comfortably exceeds any legitimate JMAP ResultReference shape
+/// 32 levels comfortably exceeds any legitimate JMAP [`ResultReference`] shape
 /// (the deepest standard JMAP response — `Email/get` with nested
 /// `bodyStructure` — tops out around 6 levels), while keeping per-request
 /// stack use bounded.

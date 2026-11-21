@@ -9,7 +9,7 @@
 //!
 //! All types use camelCase JSON via `#[serde(rename_all = "camelCase")]` and
 //! are marked `#[non_exhaustive]` so future RFC errata or extensions can add
-//! fields without a SemVer break.
+//! fields without a semver break.
 //!
 //! # Spec references
 //!

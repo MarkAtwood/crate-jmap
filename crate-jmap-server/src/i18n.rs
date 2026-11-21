@@ -407,7 +407,7 @@ fn check_and_fold(
 /// # Errors
 ///
 /// An `invalidProperties` [`SetError`] naming `locale` or
-/// `localizations`; the backend returns it as the update's SetError.
+/// `localizations`; the backend returns it as the update's [`SetError`].
 pub fn localized_update<O: JmapObject>(
     old: &Map<String, Value>,
     new: &mut Map<String, Value>,

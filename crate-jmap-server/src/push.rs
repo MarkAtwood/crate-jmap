@@ -172,7 +172,7 @@ pub trait PushSubscriptionBackend: JmapBackend {
     /// credentials apart, so it relies on this method for that MUST.
     ///
     /// Extension properties tied to accounts are returned as they stand
-    /// for the caller now. An EmailPush backend runs
+    /// for the caller now. An `EmailPush` backend runs
     /// `jmap_mail_server::emailpush::prune_email_push` on each subscription
     /// it returns, so an account the caller has lost is not listed
     /// (draft-ietf-jmap-emailpush-05 §4); `/set` patches the listed object,
@@ -209,11 +209,11 @@ pub trait PushSubscriptionBackend: JmapBackend {
     /// # Extension properties
     ///
     /// The backend validates and normalizes the extension properties in
-    /// `new.extra` before storing them, and returns a SetError
+    /// `new.extra` before storing them, and returns a [`SetError`]
     /// ([`BackendSetError::SetError`]) to reject the create; the handler
     /// checks only the `using` gate
     /// ([`PUSH_SUBSCRIPTION_EXTENSION_CAPABILITIES`](Self::PUSH_SUBSCRIPTION_EXTENSION_CAPABILITIES)).
-    /// An EmailPush backend MUST call
+    /// An `EmailPush` backend MUST call
     /// `jmap_mail_server::emailpush::check_email_push_change`; a chatPush
     /// backend calls `validate_chat_push`. Validating here, in the same call
     /// as the store, keeps it inside a conditional-02 scope.
@@ -545,7 +545,7 @@ async fn handle_push_subscription_set<B: PushSubscriptionBackend>(
 /// plus `id` and `expires`, which the server always sets, and every
 /// extension property the backend stored with a value other than the one
 /// sent (RFC 8620 §5.3: properties "set to a default by the server", and a
-/// backend that normalizes, e.g. fills an EmailPush default, sets one).
+/// backend that normalizes, e.g. fills an `EmailPush` default, sets one).
 ///
 /// RFC 8620 §5.3 (rfc8620.txt:2034-2039): "created" holds "any properties
 /// of the created Foo object that were not sent by the client. This
@@ -585,7 +585,7 @@ fn created_value(sub: &PushSubscription, sent: &Map<String, Value>) -> Value {
 /// Check one `create` entry and turn it into the subscription to store,
 /// with `expires` limited to [`MAX_PUSH_EXPIRY_SECS`] from now.
 ///
-/// Returns the `notCreated` SetError on failure.
+/// Returns the `notCreated` [`SetError`] on failure.
 fn validate_create(obj: Value) -> Result<PushSubscription, Value> {
     let Value::Object(fields) = &obj else {
         return Err(Value::from(
@@ -624,7 +624,7 @@ fn validate_create(obj: Value) -> Result<PushSubscription, Value> {
 ///
 /// Returns the `updated` value on success (`{"expires": ...}` when the
 /// stored expiry differs from the one the client asked for, else null) and
-/// the `notUpdated` SetError on failure.
+/// the `notUpdated` [`SetError`] on failure.
 async fn update_one<B: PushSubscriptionBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -761,7 +761,7 @@ fn apply_gates<B: PushSubscriptionBackend>(obj: &mut Map<String, Value>, using: 
 /// from now.
 ///
 /// Returns `invalidProperties` naming `expires` if `requested` is not a
-/// valid UTCDate, and `serverFail` if the system clock cannot be read.
+/// valid [`UTCDate`], and `serverFail` if the system clock cannot be read.
 fn limit_expires(requested: Option<&UTCDate>) -> Result<UTCDate, Value> {
     let clock_fail = || server_fail_value_from_backend("system clock out of range");
     let (now, _) = signed_seconds_since_epoch(SystemTime::now()).ok_or_else(clock_fail)?;
@@ -789,7 +789,7 @@ fn limit_expires(requested: Option<&UTCDate>) -> Result<UTCDate, Value> {
 /// RFC 8620 §7.2 (rfc8620.txt:3656-3658): "If specified, the JMAP server
 /// MUST NOT make further requests to this resource after this time." A push
 /// at exactly `expires` is allowed. An `expires` that is not a valid
-/// UTCDate counts as expired.
+/// [`UTCDate`] counts as expired.
 ///
 /// This does not cover the `PushVerification` itself, which is sent before
 /// the subscription is verified.
@@ -811,9 +811,9 @@ pub fn is_deliverable(stored: &StoredPushSubscription, now_secs: i64) -> bool {
 /// The `StateChange` to push to `sub` for the `changed` map, or `None` if
 /// none of its types changed.
 ///
-/// RFC 8620 §7.2 (rfc8620.txt:3669-3672): "A StateChange notification will
+/// RFC 8620 §7.2 (rfc8620.txt:3669-3672): "A [`StateChange`] notification will
 /// only be sent if the data for one of these types changes. Other types are
-/// omitted from the TypeState object. If null, changes will be pushed for
+/// omitted from the `TypeState` object. If null, changes will be pushed for
 /// all types." Accounts left with no types are dropped.
 ///
 /// This does not check which accounts the subscription's credentials may
@@ -845,7 +845,7 @@ fn codes_match(sent: &str, expected: &str) -> bool {
     sent.as_bytes().ct_eq(expected.as_bytes()).into()
 }
 
-/// An `invalidProperties` SetError naming `property`.
+/// An `invalidProperties` [`SetError`] naming `property`.
 fn invalid_property(property: &str) -> Value {
     Value::from(&SetError::new(SetErrorType::InvalidProperties).with_properties([property]))
 }

@@ -685,7 +685,7 @@ pub fn check_localizations(
 enum Touched {
     /// `localizations` as a whole.
     All,
-    /// Per language: `None` for the whole PatchObject of that language,
+    /// Per language: [`None`] for the whole [`PatchObject`] of that language,
     /// `Some(props)` for those properties inside it.
     Some(BTreeMap<LanguageTag, Option<Vec<String>>>),
 }
@@ -725,11 +725,11 @@ fn touched(patch: &PatchObject) -> Touched {
 ///
 /// `old` and `new` are the serialized object before and after `patch`
 /// was applied. For each property of `properties` whose base value
-/// differs between them, and each language whose PatchObject the patch
+/// differs between them, and each language whose [`PatchObject`] the patch
 /// did not set (not `localizations` as a whole, not
 /// `localizations/<tag>`, and not `localizations/<tag>/<property>`),
-/// the property is removed from that language's PatchObject in `new`,
-/// and a PatchObject left empty is removed. A `localizations` left
+/// the property is removed from that language's [`PatchObject`] in `new`,
+/// and a [`PatchObject`] left empty is removed. A `localizations` left
 /// empty becomes `null`.
 ///
 /// Returns `true` when anything was removed: the caller then includes
@@ -803,7 +803,7 @@ pub fn prune_stale_localizations(
 // ---------------------------------------------------------------------------
 
 /// The tag that §4.2.1 chooses for `obj` under `ranges`, and the
-/// PatchObject stored for it when it is a key of `localizations`.
+/// [`PatchObject`] stored for it when it is a key of `localizations`.
 fn choose(
     obj: &Map<String, Value>,
     ranges: &[LanguageRange],
@@ -860,7 +860,7 @@ pub fn localized_value(
 /// The tag is chosen by [`lookup`] over the keys of `localizations` and
 /// the object's `locale`, falling back to `locale` (which may be
 /// `null`). When the chosen tag is a key of `localizations`, its
-/// PatchObject is applied to the properties in `properties`; a `null`
+/// [`PatchObject`] is applied to the properties in `properties`; a `null`
 /// value there sets the property to `null`. `locale` is set to the
 /// chosen tag, and `localizations` to `null`, since the view holds one
 /// language only (decision 30).

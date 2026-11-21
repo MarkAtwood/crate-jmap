@@ -1,4 +1,4 @@
-//! Typed JMAP Sharing method wrappers — response types, SessionClient,
+//! Typed JMAP Sharing method wrappers — response types, [`SessionClient`],
 //! constants, and helpers.
 //!
 //! Response types mirror RFC 8620 standard shapes (§5.1 /get, §5.5 /query,
@@ -143,9 +143,12 @@ impl SessionClient {
         &self.session
     }
 
-    /// Return the primary account id for `urn:ietf:params:jmap:principals`,
-    /// or `Err(InvalidSession)` if the session has no primary account for
-    /// that capability.
+    /// Return the primary account id for `urn:ietf:params:jmap:principals`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    /// if the session has no primary account for that capability.
     pub fn principals_account_id(&self) -> Result<&jmap_types::Id, jmap_base_client::ClientError> {
         self.session
             .primary_account_id(jmap_sharing_types::JMAP_PRINCIPALS_URI)

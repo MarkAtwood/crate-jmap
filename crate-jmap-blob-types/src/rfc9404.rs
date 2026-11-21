@@ -30,7 +30,7 @@ use crate::source::DataSourceObject;
 pub struct BlobUploadArgs {
     /// `accountId`.
     pub account_id: Id,
-    /// `create`: creation id → UploadObject.
+    /// `create`: creation id → [`UploadObject`].
     pub create: BTreeMap<Id, UploadObject>,
     /// Other arguments, kept for round-trip.
     #[serde(flatten, default, skip_serializing_if = "Map::is_empty")]
@@ -48,7 +48,7 @@ impl BlobUploadArgs {
     }
 }
 
-/// An UploadObject (RFC 9404 §4.1): sources and a media type hint only.
+/// An [`UploadObject`] (RFC 9404 §4.1): sources and a media type hint only.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -137,7 +137,7 @@ pub struct Rfc9404LookupResponse {
     /// `accountId`, when the server sends it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub account_id: Option<Id>,
-    /// `list`: one BlobInfo per requested blobId.
+    /// `list`: one [`BlobInfo`] per requested blobId.
     pub list: Vec<BlobInfo>,
     /// Unknown members, kept for round-trip.
     #[serde(flatten, default, skip_serializing_if = "Map::is_empty")]

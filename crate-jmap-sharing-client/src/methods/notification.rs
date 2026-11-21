@@ -1,4 +1,4 @@
-//! JMAP Sharing — ShareNotification/* method implementations on SessionClient.
+//! JMAP Sharing — `ShareNotification`/* method implementations on `SessionClient`.
 //!
 //! Each method follows the standard five-step pattern:
 //!   1. Validate arguments (defence-in-depth empty-state guards).
@@ -21,9 +21,9 @@ use super::{
 };
 
 impl super::SessionClient {
-    /// Fetch ShareNotification objects by IDs (RFC 9670 §3.1).
+    /// Fetch `ShareNotification` objects by IDs (RFC 9670 §3.1).
     ///
-    /// If `ids` is `None`, the server returns all ShareNotifications for the account,
+    /// If `ids` is [`None`], the server returns all `ShareNotification`s for the account,
     /// SUBJECT TO the server's `maxObjectsInGet` cap (RFC 8620 §5.1).
     /// For production use, scope the result set via the corresponding
     /// /query method first and pass explicit ids here to avoid
@@ -71,7 +71,7 @@ impl super::SessionClient {
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 
-    /// Fetch changes to ShareNotification objects since `since_state` (RFC 9670 §3.2).
+    /// Fetch changes to `ShareNotification` objects since `since_state` (RFC 9670 §3.2).
     ///
     /// If `has_more_changes` is true in the response, call again with `new_state`
     /// as `since_state` until the flag is false.
@@ -116,10 +116,10 @@ impl super::SessionClient {
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 
-    /// Destroy ShareNotification objects (RFC 9670 §3.3).
+    /// Destroy `ShareNotification` objects (RFC 9670 §3.3).
     ///
     /// ShareNotification/set is destroy-only: the server rejects create/update
-    /// operations with `forbidden` SetErrors. This method accepts only
+    /// operations with `forbidden` `SetError`s. This method accepts only
     /// `destroy` to prevent constructing invalid requests.
     ///
     /// Pass an empty vec to send an empty destroy list (no-op round-trip).
@@ -165,7 +165,7 @@ impl super::SessionClient {
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 
-    /// Query ShareNotification IDs with optional filter and sort (RFC 9670 §3.4).
+    /// Query `ShareNotification` IDs with optional filter and sort (RFC 9670 §3.4).
     ///
     /// The server MUST support the `created` comparator property (RFC 9670 §3.4.1).
     /// Pass `filter: None` and `sort: None` to return all notifications with
@@ -214,10 +214,10 @@ impl super::SessionClient {
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 
-    /// Fetch query-result changes for ShareNotification since `since_query_state`
+    /// Fetch query-result changes for `ShareNotification` since `since_query_state`
     /// (RFC 9670 §3.5).
     ///
-    /// Returns which ShareNotification IDs were removed from or added to the
+    /// Returns which `ShareNotification` IDs were removed from or added to the
     /// query result set since the given state. `max_changes` may be `None`.
     ///
     /// `filter` and `sort` MUST match the `filter` / `sort` passed to the

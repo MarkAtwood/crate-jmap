@@ -783,7 +783,7 @@ impl<T: JmapAccounts + JmapReads> JmapBackend for T {}
 /// through [`DelegateJmapReads`], and the rest of this trait through
 /// [`DelegateJmapAccounts`].
 ///
-/// # CallerCtx
+/// # `CallerCtx`
 ///
 /// Every backend method takes a `caller: &Self::CallerCtx` parameter as the
 /// first argument after `&self`. This is the per-request authentication /
@@ -993,14 +993,14 @@ pub trait JmapAccounts: Send + Sync + 'static {
     /// JSON advertised cap and matches common Fastmail / Cyrus IMAP
     /// server defaults. The cap is a *floor* on permissiveness, not a
     /// floor on capability — backends MAY override per account (Free vs
-    /// Pro tier, multi-tenant SaaS, etc.). The `caller` and `account_id`
+    /// Pro tier, multi-tenant software-as-a-service, etc.). The `caller` and `account_id`
     /// arguments are passed even though the default impl ignores them
     /// so production backends can vary without an API break.
     ///
     /// Returning `0` makes every non-empty `/set` call fail with
     /// `requestTooLarge` (defensive read-only mode). Returning
     /// `u64::MAX` effectively disables the cap (NOT recommended — the
-    /// cap is a DoS defence and disabling it forfeits that defence).
+    /// cap is a denial-of-service defence and disabling it forfeits that defence).
     ///
     /// # Why on `JmapBackend` and not a per-extension `XxxLimits` struct
     ///
@@ -1034,7 +1034,7 @@ pub trait JmapAccounts: Send + Sync + 'static {
         500
     }
 
-    /// The draft-ietf-jmap-metadata-05 §1.2.1 DataTypeMetadataInfo of `O`
+    /// The draft-ietf-jmap-metadata-05 §1.2.1 `DataTypeMetadataInfo` of `O`
     /// in `account_id`, as seen by `caller`, or [`None`] when the account's
     /// `urn:ietf:params:jmap:metadata` capability does not list `O`.
     ///

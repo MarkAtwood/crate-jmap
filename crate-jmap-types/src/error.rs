@@ -275,7 +275,7 @@ impl JmapError {
 
     /// "tooLarge" — a method-level error of `Principal/getAvailability`
     /// (draft-ietf-jmap-calendars §2.2); RFC 8620 §5.3 defines it only as
-    /// a SetError.
+    /// a `SetError`.
     pub fn too_large() -> Self {
         Self {
             error_type: MethodErrorType::from("tooLarge"),
@@ -299,7 +299,7 @@ impl JmapError {
 
     /// "rateLimit" — a method-level error of `Principal/getAvailability`
     /// (draft-ietf-jmap-calendars §2.2); RFC 8620 §5.3 defines it only as
-    /// a SetError.
+    /// a `SetError`.
     pub fn rate_limit() -> Self {
         Self {
             error_type: MethodErrorType::from("rateLimit"),

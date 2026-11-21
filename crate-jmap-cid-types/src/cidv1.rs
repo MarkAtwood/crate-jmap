@@ -1,5 +1,5 @@
-//! CIDv1 conversion for [`Sha256`], per draft-atwood-jmap-cid-00
-//! §Mapping to CIDv1 (informative appendix).
+//! `CIDv1` conversion for [`Sha256`], per draft-atwood-jmap-cid-00
+//! §Mapping to `CIDv1` (informative appendix).
 //!
 //! Spec text:
 //!
@@ -7,10 +7,10 @@
 //! > {{MULTIFORMATS-CID}}, using the `raw` codec and the `sha2-256`
 //! > multihash.
 //!
-//! The binary CIDv1 is the four prefix bytes `0x01 0x55 0x12 0x20`
+//! The binary `CIDv1` is the four prefix bytes `0x01 0x55 0x12 0x20`
 //! (CID version 1, multicodec `raw`, multihash `sha2-256`, digest
 //! length 32) followed by the 32 digest bytes. The string form is the
-//! multibase prefix `b` followed by the binary CIDv1 as lowercase
+//! multibase prefix `b` followed by the binary `CIDv1` as lowercase
 //! RFC 4648 base32 without padding.
 //!
 //! Only this one CID shape is accepted on the reverse path: "The
@@ -21,11 +21,11 @@
 use crate::Sha256;
 use std::fmt;
 
-/// The four bytes that open every CIDv1 a [`Sha256`] maps to:
+/// The four bytes that open every `CIDv1` a [`Sha256`] maps to:
 /// version 1, multicodec `raw`, multihash `sha2-256`, length 32.
 const PREFIX: [u8; 4] = [0x01, 0x55, 0x12, 0x20];
 
-/// Length of the binary CIDv1: 4 prefix bytes plus a 32-byte digest.
+/// Length of the binary `CIDv1`: 4 prefix bytes plus a 32-byte digest.
 const CIDV1_LEN: usize = PREFIX.len() + 32;
 
 /// RFC 4648 §6 base32 alphabet, lowercased as multibase `b` requires.
@@ -99,7 +99,7 @@ impl fmt::Display for CidV1Error {
 impl std::error::Error for CidV1Error {}
 
 impl Sha256 {
-    /// The binary CIDv1 for this digest: `0x01 0x55 0x12 0x20`
+    /// The binary `CIDv1` for this digest: `0x01 0x55 0x12 0x20`
     /// followed by the 32 digest bytes.
     pub fn to_cidv1_bytes(&self) -> [u8; CIDV1_LEN] {
         let mut out = [0u8; CIDV1_LEN];
@@ -108,8 +108,8 @@ impl Sha256 {
         out
     }
 
-    /// The CIDv1 string form for this digest: `b` followed by the
-    /// binary CIDv1 as lowercase base32 without padding.
+    /// The `CIDv1` string form for this digest: `b` followed by the
+    /// binary `CIDv1` as lowercase base32 without padding.
     pub fn to_cidv1(&self) -> String {
         let bytes = self.to_cidv1_bytes();
         let mut out = String::with_capacity(1 + (bytes.len() * 8).div_ceil(5));
@@ -132,10 +132,17 @@ impl Sha256 {
         out
     }
 
-    /// Parse a binary CIDv1 back into its [`Sha256`].
+    /// Parse a binary `CIDv1` back into its [`Sha256`].
     ///
     /// Rejects anything that is not exactly 36 bytes starting with
     /// `0x01 0x55 0x12 0x20`.
+    ///
+    /// # Errors
+    ///
+    /// - [`CidV1Error::UnsupportedPrefix`] if the first four bytes are not
+    ///   `0x01 0x55 0x12 0x20`.
+    /// - [`CidV1Error::WrongLength`] if the prefix matches (or there are
+    ///   fewer than four bytes) but the length is not 36.
     pub fn from_cidv1_bytes(bytes: &[u8]) -> Result<Self, CidV1Error> {
         let digest: &[u8; 32] = bytes
             .strip_prefix(&PREFIX)
@@ -149,8 +156,18 @@ impl Sha256 {
         Ok(Self::from(digest))
     }
 
-    /// Parse a CIDv1 string (`b` + lowercase unpadded base32) back
+    /// Parse a `CIDv1` string (`b` + lowercase unpadded base32) back
     /// into its [`Sha256`].
+    ///
+    /// # Errors
+    ///
+    /// - [`CidV1Error::UnsupportedMultibase`] if `s` does not start
+    ///   with `b`.
+    /// - [`CidV1Error::InvalidBase32`] at the first byte outside
+    ///   `a-z 2-7`.
+    /// - [`CidV1Error::NonCanonicalBase32`] if the text length or its
+    ///   trailing bits are not those of a canonical encoding.
+    /// - The errors of [`Sha256::from_cidv1_bytes`] for the decoded bytes.
     pub fn from_cidv1(s: &str) -> Result<Self, CidV1Error> {
         let text = s
             .as_bytes()

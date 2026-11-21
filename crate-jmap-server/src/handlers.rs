@@ -172,6 +172,20 @@ pub fn server_fail_value_from_backend<E: std::fmt::Display + ?Sized>(_err: &E) -
 /// is `invalidArguments`, and `locale`/`localizations` are not returned
 /// for a type with [`JmapObject::LOCALIZABLE`](crate::JmapObject::LOCALIZABLE)
 /// properties. Such types use [`handle_get_with_metadata`].
+///
+/// # Errors
+///
+/// Method-level errors, returned as the [`JmapError`]:
+///
+/// - `invalidArguments` if `args` is not an object or `accountId` is
+///   missing or not a valid Id. Also when `ids` or `properties` has the wrong
+///   shape, or `language` is non-null.
+/// - `accountNotFound` if the backend reports no such account; `serverFail`
+///   (with a redacted description) if that check fails.
+/// - `requestTooLarge` if `ids` exceeds the account's
+///   `maxObjectsInGet`.
+/// - `serverFail` (redacted) if the backend fails to fetch the objects, or
+///   they do not serialize.
 pub async fn handle_get<O: GetObject, B: JmapBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -364,6 +378,22 @@ pub async fn handle_get_with_metadata<O: GetObject, B: JmapBackend>(
 /// actually changed".
 ///
 /// [`ChangesResult::updated_properties`]: crate::ChangesResult::updated_properties
+///
+/// # Errors
+///
+/// Method-level errors, returned as the [`JmapError`]:
+///
+/// - `invalidArguments` if `args` is not an object or `accountId` is
+///   missing or not a valid Id. Also when `sinceState` is missing,
+///   `maxChanges` is not a positive integer, or (with the metadata
+///   capability) `ignoreMetadataOnlyChanges` is not a boolean.
+/// - `accountNotFound` if the backend reports no such account; `serverFail`
+///   (with a redacted description) if that check fails.
+/// - `cannotCalculateChanges` if the backend cannot compute changes from
+///   `sinceState`, including when it has more than `maxChanges` and no
+///   intermediate state; other backend failures map as
+///   [`BackendChangesError`](crate::backend::BackendChangesError)'s `From`
+///   impl does.
 pub async fn handle_changes<O: JmapObject, B: JmapBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -448,6 +478,24 @@ pub async fn handle_changes<O: JmapObject, B: JmapBackend>(
 /// (draft-atwood-jmap-updates-00 §4.2) is `invalidArguments`. A type with
 /// [`JmapObject::LOCALIZABLE`](crate::JmapObject::LOCALIZABLE) properties
 /// uses [`handle_query_with_i18n`] or its own handler.
+///
+/// # Errors
+///
+/// Method-level errors, returned as the [`JmapError`]:
+///
+/// - `invalidArguments` if `args` is not an object or `accountId` is
+///   missing or not a valid Id. Also when `filter` is not an object,
+///   `sort` is not an array of comparators, `anchor` or `anchorOffset`
+///   is malformed, `position` or `limit` has the wrong type, or `language`
+///   is non-null.
+/// - `accountNotFound` if the backend reports no such account; `serverFail`
+///   (with a redacted description) if that check fails.
+/// - `unsupportedFilter` if `filter` is an object that does not decode as
+///   the type's filter.
+/// - A [`BackendQueryError::Method`](crate::backend::BackendQueryError::Method)
+///   from the backend unchanged (for example `unsupportedSort` or
+///   `anchorNotFound`); any other backend error becomes the redacted
+///   `serverFail`.
 pub async fn handle_query<O: QueryObject, B: JmapBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -587,6 +635,24 @@ async fn query_impl<O: QueryObject, B: JmapBackend>(
 /// (draft-atwood-jmap-updates-00 §4.2) is `invalidArguments`. A type with
 /// [`JmapObject::LOCALIZABLE`](crate::JmapObject::LOCALIZABLE) properties
 /// uses [`handle_query_changes_with_i18n`] or its own handler.
+///
+/// # Errors
+///
+/// Method-level errors, returned as the [`JmapError`]:
+///
+/// - `invalidArguments` if `args` is not an object or `accountId` is
+///   missing or not a valid Id. Also when `sinceQueryState` is missing,
+///   `maxChanges` is not a positive integer, `upToId` is neither a string
+///   nor `null`, `filter` is not an object, `sort` is not an array of
+///   comparators, or `language` is non-null.
+/// - `accountNotFound` if the backend reports no such account; `serverFail`
+///   (with a redacted description) if that check fails.
+/// - `unsupportedFilter` if `filter` is an object that does not decode as
+///   the type's filter.
+/// - A [`BackendQueryError::Method`](crate::backend::BackendQueryError::Method)
+///   from the backend unchanged (for example `cannotCalculateChanges`);
+///   any other backend error becomes the redacted
+///   `serverFail`.
 pub async fn handle_query_changes<O: QueryObject, B: JmapBackend>(
     backend: &B,
     caller: &B::CallerCtx,

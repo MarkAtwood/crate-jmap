@@ -17,7 +17,7 @@ pub const JMAP_BLOB2_URI: &str = "urn:ietf:params:jmap:blob2";
 pub const JMAP_BLOB_URI: &str = "urn:ietf:params:jmap:blob";
 
 /// The minimum `maxDataSources` a server may advertise: "Servers MUST
-/// support at least 64 DataSourceObjects per creation" (blobext-03 §2.1).
+/// support at least 64 `DataSourceObject`s per creation" (blobext-03 §2.1).
 pub const MIN_MAX_DATA_SOURCES: u64 = 64;
 
 /// Session-level value of both blob capabilities: "MUST be an empty
@@ -43,7 +43,7 @@ pub struct BlobAccountCapability {
     /// `maxSizeBlobSet`: largest blob `Blob/set` may create.
     #[serde(default)]
     pub max_size_blob_set: Option<u64>,
-    /// `maxDataSources`: most DataSourceObjects in one creation (≥ 64).
+    /// `maxDataSources`: most `DataSourceObject`s in one creation (≥ 64).
     pub max_data_sources: u64,
     /// `supportedTypeNames`: data types `Blob/lookup` supports.
     #[serde(default)]

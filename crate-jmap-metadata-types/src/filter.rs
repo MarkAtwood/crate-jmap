@@ -84,14 +84,14 @@ impl MetadataTextMatch {
 /// A per-type `FilterCondition` extended with the six
 /// draft-ietf-jmap-metadata-05 §3.6 condition fields.
 ///
-/// §3.6: "For each data type listed in dataTypes, the FilterCondition
+/// §3.6: "For each data type listed in dataTypes, the `FilterCondition`
 /// object for Foo/query is extended with the optional fields defined
 /// below." `base` is the data type's own condition (for example
 /// `jmap_mail_types::EmailSubmissionFilterCondition`; the Email and
 /// Mailbox conditions in `jmap_mail_types`, the Chat, Message and Space
-/// conditions in `jmap_chat_types`, the CalendarEvent condition in
+/// conditions in `jmap_chat_types`, the `CalendarEvent` condition in
 /// `jmap_calendars_types`, the Task condition in `jmap_tasks_types`, the
-/// ContactCard condition in `jmap_contacts_types` and the FileNode
+/// `ContactCard` condition in `jmap_contacts_types` and the `FileNode`
 /// condition in `jmap_filenode_types` already carry the six fields, so they need no wrapper); its fields are
 /// flattened into the same JSON object as the metadata fields. Use it as
 /// the leaf of a `jmap_types::Filter<WithMetadata<C>>` and pass that

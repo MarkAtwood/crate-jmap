@@ -68,7 +68,7 @@ struct SseStreamState<S> {
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ClientConfig {
-    /// Timeout for HTTP request/response cycles (fetch_session, call, upload_blob, download_blob).
+    /// Timeout for HTTP request/response cycles (`fetch_session`, call, `upload_blob`, `download_blob`).
     /// Does NOT apply to SSE or WebSocket streams (which are indefinite by nature).
     /// Must be > 0. Use `Duration::from_secs(30)` for a 30-second timeout.
     /// Default: 30 seconds.
@@ -84,13 +84,13 @@ pub struct ClientConfig {
     /// resource leak in JMAP clients that hold one outstanding request per
     /// account. `validate()` enforces the positive-timeout invariant
     /// (bd:JMAP-6r7c.29). Do not relax this without re-deriving the
-    /// no-timeout DoS argument.
+    /// no-timeout denial-of-service argument.
     pub request_timeout: std::time::Duration,
-    /// Maximum response body for fetch_session. Default: 1 MiB.
+    /// Maximum response body for `fetch_session`. Default: 1 MiB.
     pub max_session_body: u64,
-    /// Maximum response body for call(). Default: 8 MiB.
+    /// Maximum response body for `call()`. Default: 8 MiB.
     pub max_call_body: u64,
-    /// Maximum response body for download_blob(). Default: 64 MiB.
+    /// Maximum response body for `download_blob()`. Default: 64 MiB.
     pub max_download_body: u64,
     /// Maximum size in bytes of the JSON response body returned by the
     /// server in reply to `upload_blob()`. Does NOT cap the size of the
@@ -238,6 +238,16 @@ impl JmapClient {
     /// origin (scheme, host, optional port) with no path, query, or fragment
     /// — e.g. `"https://100.64.1.1:8008"`. Trailing slashes are normalized
     /// away by the URL parser and are therefore accepted.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidArgument`] if `base_url` is empty, does not
+    ///   parse as a URL, carries user-info, has a scheme other than `http`
+    ///   or `https`, or has a path, query or fragment; or if `config` fails
+    ///   [`ClientConfig::validate`].
+    /// - Whatever [`TransportConfig::build_client`] returns for `transport`;
+    ///   the crate's transports return [`ClientError::Http`] when the HTTP
+    ///   client cannot be built.
     pub fn new(
         transport: impl TransportConfig,
         auth: impl AuthProvider + 'static,
@@ -270,6 +280,12 @@ impl JmapClient {
     /// Equivalent to `JmapClient::new(DefaultTransport, auth, base_url, config)`.
     /// Use [`JmapClient::new`] when you need a custom transport (e.g.
     /// `CustomCaTransport` for a private-CA server).
+    ///
+    /// # Errors
+    ///
+    /// As for [`JmapClient::new`]: [`ClientError::InvalidArgument`] for a
+    /// malformed `base_url` or an invalid `config`, and
+    /// [`ClientError::Http`] if the HTTP client cannot be built.
     pub fn new_plain(
         auth: impl AuthProvider + 'static,
         base_url: &str,
@@ -321,6 +337,12 @@ impl JmapClient {
     ///     ClientConfig::default(),
     /// )?;
     /// ```
+    ///
+    /// # Errors
+    ///
+    /// As for [`JmapClient::new`]: [`ClientError::InvalidArgument`] for a
+    /// malformed `base_url` or an invalid `config`, and whatever
+    /// `transport.build_client()` returns.
     pub fn new_with_shared_auth(
         transport: impl TransportConfig,
         auth: Arc<dyn AuthProvider>,
@@ -508,6 +530,20 @@ impl JmapClient {
     /// charset mismatch. Every shipped JMAP server uses UTF-8, but a
     /// non-conformant server can produce a confusing parse error
     /// (bd:JMAP-6r7c.28).
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::Http`] on a transport failure (connect, TLS,
+    ///   timeout, body read) or an error status without an RFC 9457 body.
+    /// - [`ClientError::AuthFailed`] on HTTP 401 or 403.
+    /// - [`ClientError::RateLimited`] on HTTP 429.
+    /// - [`ClientError::Problem`] on another 4xx or 5xx with an RFC 9457
+    ///   problem details body.
+    /// - [`ClientError::ResponseTooLarge`] if the body exceeds
+    ///   [`ClientConfig::max_session_body`].
+    /// - [`ClientError::Parse`] if the body is not a valid Session object.
+    /// - [`ClientError::InvalidSession`] if a Session URL field does not
+    ///   have an `http` or `https` scheme.
     pub async fn fetch_session(&self) -> Result<Session, ClientError> {
         let limit = self.config.max_session_body;
         let url = self.base_url.join(".well-known/jmap").map_err(|e| {
@@ -568,6 +604,23 @@ impl JmapClient {
     /// it picks the correct URL field automatically and prevents the
     /// "I passed `session.upload_url` instead of `session.api_url`"
     /// confusion (bd:JMAP-6r7c.39).
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidArgument`] if `api_url` does not have an
+    ///   `http` or `https` scheme.
+    /// - [`ClientError::Http`] on a transport failure (connect, TLS,
+    ///   timeout, body read) or an error status without an RFC 9457 body.
+    /// - [`ClientError::AuthFailed`] on HTTP 401 or 403.
+    /// - [`ClientError::RateLimited`] on HTTP 429.
+    /// - [`ClientError::Problem`] on another 4xx or 5xx with an RFC 9457
+    ///   problem details body.
+    /// - [`ClientError::ResponseTooLarge`] if the body exceeds
+    ///   [`ClientConfig::max_call_body`].
+    /// - [`ClientError::Parse`] if the body is not a valid JMAP Response.
+    ///
+    /// Method-level errors inside the response are not errors here; use
+    /// [`extract_response`] to surface them as [`ClientError::MethodError`].
     pub async fn call(
         &self,
         api_url: &str,
@@ -612,6 +665,11 @@ impl JmapClient {
     /// not select a URL — only `Session::api_url` is used.
     ///
     /// Same body cap, auth, and error semantics as [`JmapClient::call`].
+    ///
+    /// # Errors
+    ///
+    /// The errors of [`JmapClient::call`], with `session.api_url` as the
+    /// URL.
     pub async fn call_session(
         &self,
         session: &Session,
@@ -682,6 +740,25 @@ impl JmapClient {
     /// racing the SSE stream against a shutdown signal can drop the
     /// stream by selecting the shutdown branch without leaking the HTTP
     /// connection or memory.
+    ///
+    /// # Errors
+    ///
+    /// Before the stream starts:
+    ///
+    /// - [`ClientError::InvalidArgument`] if `event_source_url` does not
+    ///   have an `http` or `https` scheme.
+    /// - [`ClientError::Http`] on a transport failure, an invalid
+    ///   `Last-Event-ID` header value, or an error status (including 429)
+    ///   without an RFC 9457 body.
+    /// - [`ClientError::AuthFailed`] on HTTP 401 or 403.
+    /// - [`ClientError::Problem`] on another 4xx or 5xx with an RFC 9457
+    ///   problem details body.
+    /// - [`ClientError::UnexpectedResponse`] if the response
+    ///   `Content-Type` is not `text/event-stream`.
+    ///
+    /// Once streaming, items are `Err` with [`ClientError::Http`] on a body
+    /// read failure or [`ClientError::SseFrameTooLarge`] when a frame
+    /// exceeds the cap.
     pub async fn subscribe_events(
         &self,
         event_source_url: &str,
@@ -890,7 +967,7 @@ impl JmapClient {
     /// Convenience wrapper around [`connect_ws_with_limit`](crate::connect_ws_with_limit) that
     /// passes [`ClientConfig::max_ws_message`] as the per-message /
     /// per-frame byte cap. Mirrors the [`Self::subscribe_events`]
-    /// pattern of "the JmapClient method uses ClientConfig; the free
+    /// pattern of "the [`JmapClient`] method uses [`ClientConfig`]; the free
     /// function takes an explicit value".
     ///
     /// `ws_url` must come from the session document's WebSocket capability
@@ -907,6 +984,8 @@ impl JmapClient {
     /// method are constructed without the original credential bytes, but
     /// downstream code that inspects [`ClientError`] should still avoid
     /// printing or storing the `auth_header` itself.
+    ///
+    /// # Errors
     ///
     /// Returns [`ClientError::InvalidArgument`] for any URL that is not
     /// `wss://` (plaintext `ws://` is rejected).
@@ -935,6 +1014,12 @@ impl JmapClient {
     /// `closeafter=` (stay-open), and `ping=` (no server pings) as
     /// defaults; if your server requires explicit values, supply them
     /// via the params struct.
+    ///
+    /// # Errors
+    ///
+    /// [`ClientError::InvalidSession`] if `session.event_source_url` has an
+    /// unmatched `{` or a variable other than `types`, `closeafter` and
+    /// `ping`; otherwise the errors of [`Self::subscribe_events`].
     pub async fn subscribe_events_session(
         &self,
         session: &Session,
@@ -1166,7 +1251,7 @@ impl CloseAfter {
 /// Parameters for [`JmapClient::subscribe_events_session`]
 /// (bd:JMAP-6r7c.64).
 ///
-/// Carries the RFC 8620 §7.3 event_source_url template variables
+/// Carries the RFC 8620 §7.3 `event_source_url` template variables
 /// (`types`, `closeafter`, `ping`) plus the optional Last-Event-ID
 /// header (RFC 8895 §9). `None` template values expand to an empty
 /// string per the RFC's default-omission semantics.
@@ -1201,23 +1286,23 @@ pub struct SubscribeEventsSessionParams<'a> {
 /// arguments into `T`.
 ///
 /// Returns [`ClientError::MethodNotFound`] if no invocation with the given
-/// call_id exists. Returns [`ClientError::MethodError`] if any invocation
-/// with the matching call_id is a JMAP `"error"` response (RFC 8620 §3.6.2),
+/// `call_id` exists. Returns [`ClientError::MethodError`] if any invocation
+/// with the matching `call_id` is a JMAP `"error"` response (RFC 8620 §3.6.2),
 /// or [`ClientError::Parse`] if that error object has no string `type` or a
 /// malformed `description` or `limit`.
 ///
-/// # Multiple invocations sharing a call_id
+/// # Multiple invocations sharing a `call_id`
 ///
 /// Per RFC 8620 §3.2, a single method call may produce multiple invocations
 /// in the response — for example, `Foo/copy` with `onSuccessDestroyOriginal:
 /// true` produces both a `Foo/copy` and an implicit `Foo/set` invocation,
-/// both stamped with the same call_id (RFC 8620 §5.8 example, lines 3158–
+/// both stamped with the same `call_id` (RFC 8620 §5.8 example, lines 3158–
 /// 3180). This function handles that case by:
 ///
 /// 1. **Errors take precedence.** If any invocation matching `call_id`
 ///    has method name `"error"`, this function returns that error. A
 ///    success response cannot mask a sibling error response with the same
-///    call_id — silently returning the success while the server reported
+///    `call_id` — silently returning the success while the server reported
 ///    failure would be data loss for the caller.
 /// 2. Otherwise, the **first** non-error invocation matching `call_id`
 ///    is deserialized into `T`. In the §5.8 implicit-method case both
@@ -1251,6 +1336,15 @@ pub struct SubscribeEventsSessionParams<'a> {
 /// `resp.method_responses` directly. The field is public and each
 /// [`jmap_types::Invocation`] has public `name`, `arguments` and `call_id`
 /// fields.
+///
+/// # Errors
+///
+/// - [`ClientError::MethodError`] if an invocation with `call_id` is a JMAP
+///   `"error"` response.
+/// - [`ClientError::Parse`] if that error object is malformed (for
+///   example, it has no `type`), or if the matching success invocation's
+///   arguments do not deserialize into `T`.
+/// - [`ClientError::MethodNotFound`] if no invocation has `call_id`.
 ///
 /// # Panics
 ///

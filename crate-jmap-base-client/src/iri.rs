@@ -61,7 +61,7 @@ fn with_host(
 }
 
 /// Map an absolute IRI to a URI (RFC 3987 §3.1): a non-ASCII registered
-/// host becomes its A-label (UTS #46 ToASCII), and every other non-ASCII
+/// host becomes its A-label (UTS #46 `ToASCII`), and every other non-ASCII
 /// character is percent-encoded as UTF-8.
 ///
 /// # Errors

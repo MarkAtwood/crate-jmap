@@ -981,14 +981,14 @@ pub trait RestoreHooks: Sync {
     ///
     /// # Errors
     ///
-    /// The entry's SetError.
+    /// The entry's [`SetError`].
     fn check_patch(&self, id: &Id, patch: Option<&PatchObject>) -> Result<(), Box<SetError>> {
         let _ = (id, patch);
         Ok(())
     }
 
     /// The ids of objects of the same type that `final_version` refers to
-    /// (a Mailbox's or FileNode's `parentId`). Restores that refer to
+    /// (a Mailbox's or `FileNode`'s `parentId`). Restores that refer to
     /// another restore key run after it (-04 §5.1: "as for creates"). The
     /// default: none, so restores run in key order.
     fn same_type_references(&self, final_version: &Map<String, Value>) -> Vec<Id> {
@@ -1025,7 +1025,7 @@ impl RestoreHooks for ParentRestoreHooks {
 pub struct RestoreAccumulators {
     /// `restored`: id → the changed properties, or `null`.
     pub restored: Map<String, Value>,
-    /// `notRestored`: id as sent → SetError.
+    /// `notRestored`: id as sent → [`SetError`].
     pub not_restored: Map<String, Value>,
     /// Whether any restore succeeded (the type's state changed).
     pub mutated: bool,
@@ -1052,7 +1052,7 @@ fn set_error_value(e: SetError) -> Value {
 /// final versions) run after it; a cycle fails its entries with
 /// `invalidProperties` naming `id`. `restored` holds the properties of the
 /// stored object that differ from the final version with the patch applied
-/// ([`restored_diff`]); a backend error becomes the entry's SetError,
+/// ([`restored_diff`]); a backend error becomes the entry's [`SetError`],
 /// `Other` redacted to `serverFail`.
 ///
 /// # Errors
@@ -1369,7 +1369,7 @@ where
     Ok(out)
 }
 
-/// The SetError for `objectHistory` in a create, update or restore patch:
+/// The [`SetError`] for `objectHistory` in a create, update or restore patch:
 /// it is reserved (§7.3, §7.4) and never stored, so `invalidProperties`.
 pub fn object_history_set_error() -> SetError {
     SetError::new(SetErrorType::InvalidProperties)
@@ -1386,7 +1386,7 @@ pub fn names_object_history(object: &Map<String, Value>) -> bool {
 }
 
 /// Apply a restore `patch` to `final_version` (§5.1: the patch "follows the
-/// same rules as a PatchObject in an update in Foo/set"), all or nothing.
+/// same rules as a [`PatchObject`] in an update in Foo/set"), all or nothing.
 ///
 /// A patch that changes a [`SetObject::SERVER_SET`] or
 /// [`SetObject::IMMUTABLE`] property is `invalidProperties` naming each;
@@ -1396,7 +1396,7 @@ pub fn names_object_history(object: &Map<String, Value>) -> bool {
 ///
 /// # Errors
 ///
-/// The SetError above.
+/// The [`SetError`] above.
 pub fn apply_restore_patch<O: SetObject>(
     final_version: &Map<String, Value>,
     patch: Option<&PatchObject>,
@@ -1550,7 +1550,7 @@ impl<C: Clone + Send + 'static> Dispatcher<C> {
 ///
 /// With the URI, a method registered through
 /// [`Dispatcher::register_history_aware`] is left to its handler; any other
-/// method (a type without history, such as TaskNotification, or one
+/// method (a type without history, such as `TaskNotification`, or one
 /// registered plain) gets the same `invalidArguments` for a history
 /// argument, since its type cannot be in `supportedTypes` (§3.1: "MUST
 /// reject the call"; `object_history_gaps`).

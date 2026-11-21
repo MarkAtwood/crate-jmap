@@ -361,7 +361,7 @@ pub struct ImageData {
     pub extra: Map<String, Value>,
 }
 
-/// GPS coordinates of an image (blobext-03 §5 ImageGPS).
+/// GPS coordinates of an image (blobext-03 §5 `ImageGPS`).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

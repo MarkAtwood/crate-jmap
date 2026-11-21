@@ -41,7 +41,7 @@ impl BlobConvertArgs {
 ///
 /// Deserializing fails when the object has no recipe property or several.
 /// A server that must answer that with a per-entry `invalidProperties`
-/// SetError inspects the raw object with [`Recipe::KEYS`] first.
+/// [`SetError`] inspects the raw object with [`Recipe::KEYS`] first.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ConvertRequest {
@@ -579,7 +579,7 @@ impl PatchRecipe {
     }
 }
 
-/// A `created` entry of `Blob/convert` (blobext-03 §8): a BlobObject
+/// A `created` entry of `Blob/convert` (blobext-03 §8): a `BlobObject`
 /// plus the conversion-result properties.
 ///
 /// `type` and `size` are always written (`size` null for a deferred
