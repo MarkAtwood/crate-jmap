@@ -1,1 +1,2 @@
 {"id":"01a1fbf9-d96c-7770-9657-f4d6a8370b37","issue_id":"JMAP-d39w","event_type":"created","actor":"Mark Atwood","old_value":"","new_value":"","created_at":"2026-11-21T02:40:17.772488399Z"}
+{"id":"01a1fcbe-7393-792e-8ee9-09229f1633ba","issue_id":"JMAP-d39w","event_type":"closed","actor":"Mark Atwood","old_value":"","new_value":"error_invocation comment corrected; cargo doc --document-private-items --workspace now has 0 warnings","created_at":"2026-11-21T06:15:02.291602705Z"}

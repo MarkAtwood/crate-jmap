@@ -1,1 +1,2 @@
 {"id":"01a1fb6b-32bb-754c-9bc5-4554d1de2498","issue_id":"JMAP-82cv","event_type":"created","actor":"Mark Atwood","old_value":"","new_value":"","created_at":"2026-11-21T00:04:28.98734833Z"}
+{"id":"01a1fcbe-7044-74fc-9e1a-9abee6383d5e","issue_id":"JMAP-82cv","event_type":"closed","actor":"Mark Atwood","old_value":"","new_value":"Every non-test function in the server crates split to \u003c=100 lines (vtc, scene, filenode incl. FileNode/copy 805-\u003e92, blob, chat 31 fns); tests identical per batch; public API unchanged","created_at":"2026-11-21T06:15:01.444327784Z"}
