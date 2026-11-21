@@ -14,6 +14,46 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-chat-server**: `websocket` feature (off by default; pulls in
+  `jmap-websocket`), the `websocket` module (bd:JMAP-sldb):
+  `ChatStreamHandler`, a `jmap_websocket::server::ExtensionHandler` for
+  `ChatStreamEnable` / `ChatStreamDisable` that keeps the connection's
+  `EphemeralSubscription` and delivers `ChatTypingEvent` and
+  `ChatPresenceEvent` frames from a server-wide `ChatEventHub`, checking
+  the `chatIds` / `contactIds` scope, `should_deliver_typing` and
+  `project_presence` at delivery time. `ChatStreamLimits` applies the
+  draft-atwood-jmap-chat-wss-00 rate limits per connection: one typing
+  event per sender per Chat per 3 s (the rest dropped) and one presence
+  event per contact per 30 s, the latest one held and sent when the
+  window reopens. `ChatStreamHandler::on_subscription_change` lets a
+  companion handler follow the `"vtc"` / `"scene"` values. Also
+  `IdScope::covers`.
+- **jmap-vtc-server**: `websocket` feature and module: `VtcStreamHandler`
+  for `VTCStreamEnable` / `VTCStreamDisable` around
+  `VtcEphemeralSubscription`, fed by `VtcEventHub` (`publish` for
+  per-call events, `publish_to_user` for the per-user `VTCRingEvent` and
+  `VTCCallEndEvent`), each event checked with `should_deliver` against
+  its `accountId` (the hosting account). `VtcStreamLimits`: one
+  `VTCMediaStateEvent` per participant per call per second, the latest
+  held for the reopened window, and two `VTCActiveSpeakerEvent`s per call
+  per second. `VtcChatAlias` is the `ChatStreamEnable` `"vtc"` switch.
+- **jmap-scene-server**: `websocket` feature and module:
+  `SceneStreamHandler` for `SceneStreamEnable` / `SceneStreamDisable`
+  around `SceneEphemeralSubscription`, fed by `SceneEventHub`, and for
+  client-sent `SceneInteractionEvent` frames: `validate_interaction`,
+  the hub-wide limit of five per user per region per second, then relay
+  to every subscriber; a frame that fails is discarded without an error.
+  `SceneStreamLimits`: two `"updated"` `SceneObjectEvent`s per object per
+  second, the latest held for the reopened window. `SceneChatAlias` is
+  the `ChatStreamEnable` `"scene"` switch. Observer subscriptions
+  (`observe`) are not implemented; without `supportsObserve` the member
+  is ignored.
+- **jmap-chat-vtc-server**, **jmap-chat-scene-server**: `websocket`
+  feature with `link_vtc_stream` / `link_scene_stream`, which make a
+  connection's `ChatStreamHandler` recognize `"vtc"` / `"scene"` and
+  drive the companion handler's alias, so the union of both subscription
+  paths is delivered once per event. `jmap-chat-scene-server` gains an
+  optional dependency on `jmap-chat-server` for it.
 - **jmap-vtc-livekit**: new support crate, the LiveKit media backend for
   `jmap-vtc-server` (bd:JMAP-po6q.6, decision 63): every livestream and
   recording is one LiveKit room-composite egress, started over the Egress
