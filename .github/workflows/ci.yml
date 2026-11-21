@@ -116,6 +116,11 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: cargo doc --all-features --no-deps --workspace
         run: cargo doc --all-features --no-deps --workspace
+      # Default features too: an intra-doc link to a feature-gated item
+      # resolves only with the feature on (the 0.6.1 release checklist
+      # caught one in jmap-websocket that the all-features build missed).
+      - name: cargo doc --no-deps --workspace (default features)
+        run: cargo doc --no-deps --workspace
 
   # -------------------------------------------------------------------------
   # typos — catches embarrassing prose typos in code comments and docs.
