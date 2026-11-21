@@ -202,16 +202,32 @@ orchestrator, in lines.
   folding. The other helpers are `parse_on_exists`, `DestroyPlan::new`, `node_from_create`,
   `create_shape_error`, `create_store_error` (blob, depth, parent), `parse_update`,
   `update_stored_node`, `stored_node_error`, `typed_patch_properties`, `update_parent_error`,
-  `move_depth_error`, `update_collision` and `update_sha256`. Still over 100 lines:
-  `destroy_one` (129), which existed before, and `filenode_copy` (795), which is FileNode/copy,
-  not a `/set`.
+  `move_depth_error`, `update_collision` and `update_sha256`. `destroy_one` (129 → 56) moved
+  its checks into `destroy_refusal` (bd:JMAP-82cv).
+
+  FileNode/copy (`filenode_copy` behind `handle_filenode_copy`, 805 → 92) has the same shape
+  with its own names (bd:JMAP-82cv). `copy_accounts` and `copy_old_state` make the pre-checks
+  (still no same-account check: -20 §3.2.4 allows `accountId` = `fromAccountId`), and the
+  orchestrator reuses `parse_on_exists`. It builds a `CopyCtx` (both accounts, the
+  `onExists` options, `conflicting`, `cid_advertised` and the `CopiedMetadata` from
+  `copied_metadata`) and a `CopyAccumulators` (`created`, `notCreated`, the copied source ids,
+  `destroyed` and a hand-tracked `mutated`, as before). `copy_one` runs one create entry
+  through `copy_entry`, which calls, in the old order, `copy_source`, `copy_root`,
+  `copy_descendants` (with `subtree_type_error`), `copy_blobs`, `copy_collision` (with
+  `copy_replace` for `onExists` "replace"), `store_copy` and `copied_value`. The response is
+  `copy_response`; the implicit `onSuccessDestroyOriginal` `FileNode/set` is
+  `destroy_originals`, with `destroy_original` and `original_refusal` per original. The same
+  pass split the crate's other functions over 100 lines: `handle_filenode_get` (140 → 61,
+  with `append_ancestors` and `fill_null_sha256`) and, in the memory backend, `update_object`,
+  `node_matches_filter`, `get_changes`, `store_created` and `query_objects`.
 - **jmap-graph-server** (`handle_set` in helpers.rs, the driver behind every Graph `/set`,
   128 → 50). The driver is generic over the `SetOps` trait, so the sub-functions are generic
   over `S: SetOps<B>`. Like jmap-chat-mimi-server, the crate had no `SetAccumulators`, and
   helpers.rs now has it and `finalize_set_response`. `mutated` was already worked out from the
   maps.
 - **Checked, no `*_set` over 100 lines:** jmap-blob-server (`handle_blob_set` 84; its
-  `create_one`, 157, is the Blob/upload create steps, already outside the handler),
+  `create_one`, the Blob/upload create steps already outside the handler, is 157 → 45 with
+  `create_source`, `source_origin` and `create_digest_error`, bd:JMAP-82cv),
   jmap-object-history-server, jmap-quotas-server, jmap-metadata-server,
   jmap-graph-projection-server, jmap-chat-scene-server, jmap-scene-vtc-server,
   jmap-chat-vtc-server, jmap-chat-filenode-server, jmap-chat-federation-server.

@@ -684,97 +684,18 @@ pub async fn handle_filenode_get<B: FileNodeBackend>(
         ..
     } = jmap_server::handle_get_with_metadata::<FileNode, B>(backend, caller, args, using).await?;
 
-    if fetch_parents {
-        // Recover account_id from the response shape the generic
-        // handler emitted. Bail out cleanly if missing (the generic
-        // handler always emits it on success; this is for refactor
-        // safety, not a real runtime case).
-        let Some(account_id) = response
-            .get("accountId")
-            .and_then(|v| v.as_str())
-            .map(Id::from)
-        else {
-            return Ok(HandlerOutput::new(response)
-                .with_extra(tail)
-                .with_unreadable(withheld));
-        };
-        // Read phase: borrow the list immutably to collect ids of nodes
-        // already in the response. The immutable borrow ends with this
-        // block before the .await on get_ancestors, so the later
-        // mutable re-borrow does not need a runtime shape assertion.
-        let (existing_ids, node_ids) = match response.get("list").and_then(Value::as_array) {
-            Some(list) => {
-                let existing_ids: std::collections::HashSet<String> = list
-                    .iter()
-                    .filter_map(|item| {
-                        item.get("id")
-                            .and_then(|v| v.as_str())
-                            .map(|s| s.to_owned())
-                    })
-                    .collect();
-                // Id::from: ids from this handler's own /get response.
-                let node_ids: Vec<Id> = existing_ids.iter().map(|s| Id::from(s.as_str())).collect();
-                (existing_ids, node_ids)
-            }
-            None => (std::collections::HashSet::new(), Vec::new()),
-        };
-
-        if !node_ids.is_empty() {
-            // draft-ietf-jmap-filenode-20 §3.2.1 makes fetchParents
-            // part of the request contract: the response shape does
-            // not advertise that ancestors are missing, so silently
-            // dropping a backend error would let the client believe
-            // the requested nodes are root-level when they may have
-            // ancestors. Surface a serverFail instead.
-            let ancestors = backend
-                .get_ancestors(caller, &account_id, &node_ids)
-                .await
-                .map_err(|e| server_fail_from_backend(&e))?;
-
-            // Write phase: take a fresh mutable borrow. We do NOT
-            // require the previously-observed shape; a let-else
-            // bail-out preserves the spec's "ancestor expansion is
-            // best-effort if the list shape is unexpected" posture
-            // without introducing a refactor-fragile expect/panic.
-            let Some(list) = response.get_mut("list").and_then(Value::as_array_mut) else {
-                return Ok(HandlerOutput::new(response)
-                    .with_extra(tail)
-                    .with_unreadable(withheld));
-            };
-            for ancestor in ancestors {
-                // Deduplicate: only append if not already in the list.
-                let ancestor_id = ancestor.id.as_ref().to_owned();
-                if !existing_ids.contains(&ancestor_id) {
-                    // FileNode is plain data with derive(Serialize): no
-                    // non-string map keys, no custom serializers that can
-                    // fail, so to_value cannot return Err.
-                    list.push(jmap_server::serialize_value(&ancestor)?);
-                }
-            }
-        }
+    if fetch_parents && !append_ancestors(backend, caller, &mut response).await? {
+        return Ok(HandlerOutput::new(response)
+            .with_extra(tail)
+            .with_unreadable(withheld));
     }
 
     if wants_my_rights {
         report_files_rights(backend, caller, &mut response).await?;
     }
 
-    // draft-atwood-jmap-cid-00 §FileNode Extension: with the capability,
-    // "FileNode objects MUST include" `sha256`, which "MUST be `null` for
-    // directory FileNodes". FileNode omits a `None` digest, so fill the
-    // null here (directories, and files created before the capability).
-    if wants_sha256 && let Some(account_id) = response.get("accountId").and_then(Value::as_str) {
-        // Id::from: the accountId this handler already validated and echoed.
-        let account_id = Id::from(account_id);
-        if backend
-            .cid_advertised(caller, &account_id)
-            .await
-            .map_err(|e| server_fail_from_backend(&e))?
-            && let Some(list) = response.get_mut("list").and_then(Value::as_array_mut)
-        {
-            for node in list.iter_mut().filter_map(Value::as_object_mut) {
-                node.entry("sha256").or_insert(Value::Null);
-            }
-        }
+    if wants_sha256 {
+        fill_null_sha256(backend, caller, &mut response).await?;
     }
 
     // Last, so that it also covers the ancestors `fetchParents` added and
@@ -786,6 +707,126 @@ pub async fn handle_filenode_get<B: FileNodeBackend>(
     Ok(HandlerOutput::new(response)
         .with_extra(tail)
         .with_unreadable(withheld))
+}
+
+/// `fetchParents` (draft-ietf-jmap-filenode-20 §3.2.1): append to the
+/// `list` of the `FileNode/get` `response` the ancestors of its nodes that
+/// it does not hold yet.
+///
+/// Returns `false` when the response lacks the shape this expects (no
+/// `accountId`, or a `list` that is not an array once the ancestors are
+/// read); the handler then returns the response as it stands.
+///
+/// # Errors
+///
+/// `serverFail` when [`FileNodeBackend::get_ancestors`] fails or an
+/// ancestor cannot be serialized.
+async fn append_ancestors<B: FileNodeBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    response: &mut Value,
+) -> Result<bool, JmapError> {
+    // Recover account_id from the response shape the generic
+    // handler emitted. Bail out cleanly if missing (the generic
+    // handler always emits it on success; this is for refactor
+    // safety, not a real runtime case).
+    let Some(account_id) = response
+        .get("accountId")
+        .and_then(|v| v.as_str())
+        .map(Id::from)
+    else {
+        return Ok(false);
+    };
+    // Read phase: borrow the list immutably to collect ids of nodes
+    // already in the response. The immutable borrow ends with this
+    // block before the .await on get_ancestors, so the later
+    // mutable re-borrow does not need a runtime shape assertion.
+    let (existing_ids, node_ids) = match response.get("list").and_then(Value::as_array) {
+        Some(list) => {
+            let existing_ids: std::collections::HashSet<String> = list
+                .iter()
+                .filter_map(|item| {
+                    item.get("id")
+                        .and_then(|v| v.as_str())
+                        .map(|s| s.to_owned())
+                })
+                .collect();
+            // Id::from: ids from this handler's own /get response.
+            let node_ids: Vec<Id> = existing_ids.iter().map(|s| Id::from(s.as_str())).collect();
+            (existing_ids, node_ids)
+        }
+        None => (std::collections::HashSet::new(), Vec::new()),
+    };
+
+    if node_ids.is_empty() {
+        return Ok(true);
+    }
+    // draft-ietf-jmap-filenode-20 §3.2.1 makes fetchParents
+    // part of the request contract: the response shape does
+    // not advertise that ancestors are missing, so silently
+    // dropping a backend error would let the client believe
+    // the requested nodes are root-level when they may have
+    // ancestors. Surface a serverFail instead.
+    let ancestors = backend
+        .get_ancestors(caller, &account_id, &node_ids)
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?;
+
+    // Write phase: take a fresh mutable borrow. We do NOT
+    // require the previously-observed shape; a let-else
+    // bail-out preserves the spec's "ancestor expansion is
+    // best-effort if the list shape is unexpected" posture
+    // without introducing a refactor-fragile expect/panic.
+    let Some(list) = response.get_mut("list").and_then(Value::as_array_mut) else {
+        return Ok(false);
+    };
+    for ancestor in ancestors {
+        // Deduplicate: only append if not already in the list.
+        let ancestor_id = ancestor.id.as_ref().to_owned();
+        if !existing_ids.contains(&ancestor_id) {
+            // FileNode is plain data with derive(Serialize): no
+            // non-string map keys, no custom serializers that can
+            // fail, so to_value cannot return Err.
+            list.push(jmap_server::serialize_value(&ancestor)?);
+        }
+    }
+    Ok(true)
+}
+
+/// Give every node in the `list` of the `FileNode/get` `response` a
+/// `sha256`, null where it has none, when the account advertises
+/// draft-atwood-jmap-cid-00.
+///
+/// draft-atwood-jmap-cid-00 §`FileNode` Extension: with the capability,
+/// "`FileNode` objects MUST include" `sha256`, which "MUST be `null` for
+/// directory `FileNodes`". [`FileNode`] omits a `None` digest, so this
+/// fills in the null (directories, and files created before the
+/// capability).
+///
+/// # Errors
+///
+/// `serverFail` when [`FileNodeBackend::cid_advertised`] fails.
+async fn fill_null_sha256<B: FileNodeBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    response: &mut Value,
+) -> Result<(), JmapError> {
+    let Some(account_id) = response.get("accountId").and_then(Value::as_str) else {
+        return Ok(());
+    };
+    // Id::from: the accountId this handler already validated and echoed.
+    let account_id = Id::from(account_id);
+    if backend
+        .cid_advertised(caller, &account_id)
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?
+        && let Some(list) = response.get_mut("list").and_then(Value::as_array_mut)
+    {
+        for node in list.iter_mut().filter_map(Value::as_object_mut) {
+            node.entry("sha256").or_insert(Value::Null);
+        }
+    }
+    Ok(())
 }
 
 /// The properties a node the user can discover but not read keeps in
@@ -2546,101 +2587,28 @@ async fn destroy_one<B: FileNodeBackend>(
         Ok(desc_ids) => desc_ids,
         Err(e) => return (destroyed, Err(server_fail_value_from_backend(&e))),
     };
-
-    // If onDestroyRemoveChildren is false, check whether all
-    // descendants are also in this destroy request.
-    // RFC §3.2.3: MUST NOT return nodeHasChildren if all descendants
-    // are also being destroyed in the same request.
-    //
-    // Partial-tree subtlety (bd:JMAP-510h.12): get_descendant_ids
-    // returns the TRANSITIVE descendant set. When a destroy set
-    // includes {A, B} where A is an ancestor of B and B has its
-    // own descendants C that are NOT in the set, both A and B
-    // report nodeHasChildren — A because its subtree contains
-    // the uncovered C, B because B's subtree contains the
-    // uncovered C. The error attribution is at every uncovered
-    // ancestor, not at the deepest uncovered descendant, but
-    // the overall verdict (no destroys happen) is correct and
-    // never falsely succeeds. Backends that want to attribute
-    // the error closer to the actual uncovered descendant can
-    // override this loop with their own ordering logic; the
-    // reference handler is intentionally simple.
-    if !on_destroy_remove_children && !desc_ids.iter().all(|did| destroy_id_set.contains(did)) {
-        return (destroyed, Err(json!({ "type": "nodeHasChildren" })));
-    }
-
-    // draft-ietf-jmap-filenode-20 §5: "A destroy that would remove any of
-    // [the descendants the user cannot discover], either through
-    // onDestroyRemoveChildren or [an onExists replacement], MUST be
-    // rejected with "forbidden", and the server MUST NOT destroy any node
-    // in that subtree. Without onDestroyRemoveChildren, destroying such a
-    // node while it has children fails with "nodeHasChildren" whether or
-    // not the user can discover those children." Without the cascade every
-    // descendant is named in this destroy (checked above); one the caller
-    // cannot discover is not destroyed by its own entry, so it is a child
-    // the node still has.
-    let descendants = match discoverable_descendants(backend, caller, account_id, &desc_ids).await {
-        Ok(Some(descendants)) => descendants,
-        Ok(None) if on_destroy_remove_children => {
-            return (
-                destroyed,
-                Err(undiscoverable_descendants(&format!(
-                    "destroying {}",
-                    id.as_ref()
-                ))),
-            );
-        }
-        Ok(None) => return (destroyed, Err(json!({ "type": "nodeHasChildren" }))),
-        Err(e) => return (destroyed, Err(server_fail_value_from_backend(&e))),
-    };
-
-    // draft-ietf-jmap-filenode-20 §5: no Directory with a role may
-    // go, whether named here or removed with its ancestor.
-    //
-    // Without the cascade every descendant is named in this destroy
-    // too (checked above), but a role Directory among them fails its
-    // own entry and survives. §3.2.3 judges nodeHasChildren on that
-    // final state, so the parent is refused with nodeHasChildren
-    // rather than destroyed first and its role child orphaned.
-    let cascade: &[Id] = if on_destroy_remove_children {
-        &desc_ids
-    } else {
-        &[]
-    };
-    let doomed: Vec<Id> = std::iter::once(id.clone())
-        .chain(desc_ids.iter().cloned())
-        .collect();
-    match first_with_role(backend, caller, account_id, &doomed).await {
-        Ok(None) => {}
-        Ok(Some(role_dir)) if role_dir != *id && !on_destroy_remove_children => {
-            return (destroyed, Err(json!({ "type": "nodeHasChildren" })));
-        }
-        Ok(Some(role_dir)) => {
-            return (destroyed, Err(role_forbidden(&role_dir, "destroying")));
-        }
-        Err(e) => {
-            return (destroyed, Err(server_fail_value_from_backend(&e)));
-        }
-    }
-
-    // RFC 8620 §5.3: the destroy is "an atomic unit", so a cascade the
-    // backend would refuse part-way is refused before it starts. A node
-    // that is not stored is left to destroy_object, which reports it.
-    if on_destroy_remove_children && !descendants.is_empty() {
-        let target = match discoverable_sibling(backend, caller, account_id, id).await {
-            Ok(target) => target,
-            Err(e) => return (destroyed, Err(server_fail_value_from_backend(&e))),
-        };
-        match first_refused(backend, caller, account_id, target.as_ref(), &descendants).await {
-            Ok(None) => {}
-            Ok(Some(refused)) => return (destroyed, Err(destroy_refused(&refused))),
-            Err(e) => return (destroyed, Err(server_fail_value_from_backend(&e))),
-        }
+    if let Some(err) = destroy_refusal(
+        backend,
+        caller,
+        account_id,
+        id,
+        &desc_ids,
+        destroy_id_set,
+        on_destroy_remove_children,
+    )
+    .await
+    {
+        return (destroyed, Err(err));
     }
 
     // When onDestroyRemoveChildren=true, cascade to all descendants
     // first, deepest first (`get_descendant_ids` lists each id after
     // its parent).
+    let cascade: &[Id] = if on_destroy_remove_children {
+        &desc_ids
+    } else {
+        &[]
+    };
     for desc_id in cascade.iter().rev() {
         match backend
             .destroy_object::<FileNode>(caller, account_id, desc_id)
@@ -2660,6 +2628,98 @@ async fn destroy_one<B: FileNodeBackend>(
             (destroyed, Ok(()))
         }
         Err(e) => (destroyed, Err(backend_set_error_value(e))),
+    }
+}
+
+/// The `SetError` value when [`destroy_one`] may not destroy `id`, whose
+/// descendants are `desc_ids`, or `None`. Checked before anything is
+/// destroyed.
+async fn destroy_refusal<B: FileNodeBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    id: &Id,
+    desc_ids: &[Id],
+    destroy_id_set: &HashSet<Id>,
+    on_destroy_remove_children: bool,
+) -> Option<Value> {
+    // If onDestroyRemoveChildren is false, check whether all
+    // descendants are also in this destroy request.
+    // RFC §3.2.3: MUST NOT return nodeHasChildren if all descendants
+    // are also being destroyed in the same request.
+    //
+    // Partial-tree subtlety (bd:JMAP-510h.12): get_descendant_ids
+    // returns the TRANSITIVE descendant set. When a destroy set
+    // includes {A, B} where A is an ancestor of B and B has its
+    // own descendants C that are NOT in the set, both A and B
+    // report nodeHasChildren — A because its subtree contains
+    // the uncovered C, B because B's subtree contains the
+    // uncovered C. The error attribution is at every uncovered
+    // ancestor, not at the deepest uncovered descendant, but
+    // the overall verdict (no destroys happen) is correct and
+    // never falsely succeeds. Backends that want to attribute
+    // the error closer to the actual uncovered descendant can
+    // override this loop with their own ordering logic; the
+    // reference handler is intentionally simple.
+    if !on_destroy_remove_children && !desc_ids.iter().all(|did| destroy_id_set.contains(did)) {
+        return Some(json!({ "type": "nodeHasChildren" }));
+    }
+
+    // draft-ietf-jmap-filenode-20 §5: "A destroy that would remove any of
+    // [the descendants the user cannot discover], either through
+    // onDestroyRemoveChildren or [an onExists replacement], MUST be
+    // rejected with "forbidden", and the server MUST NOT destroy any node
+    // in that subtree. Without onDestroyRemoveChildren, destroying such a
+    // node while it has children fails with "nodeHasChildren" whether or
+    // not the user can discover those children." Without the cascade every
+    // descendant is named in this destroy (checked above); one the caller
+    // cannot discover is not destroyed by its own entry, so it is a child
+    // the node still has.
+    let descendants = match discoverable_descendants(backend, caller, account_id, desc_ids).await {
+        Ok(Some(descendants)) => descendants,
+        Ok(None) if on_destroy_remove_children => {
+            return Some(undiscoverable_descendants(&format!(
+                "destroying {}",
+                id.as_ref()
+            )));
+        }
+        Ok(None) => return Some(json!({ "type": "nodeHasChildren" })),
+        Err(e) => return Some(server_fail_value_from_backend(&e)),
+    };
+
+    // draft-ietf-jmap-filenode-20 §5: no Directory with a role may
+    // go, whether named here or removed with its ancestor.
+    //
+    // Without the cascade every descendant is named in this destroy
+    // too (checked above), but a role Directory among them fails its
+    // own entry and survives. §3.2.3 judges nodeHasChildren on that
+    // final state, so the parent is refused with nodeHasChildren
+    // rather than destroyed first and its role child orphaned.
+    let doomed: Vec<Id> = std::iter::once(id.clone())
+        .chain(desc_ids.iter().cloned())
+        .collect();
+    match first_with_role(backend, caller, account_id, &doomed).await {
+        Ok(None) => {}
+        Ok(Some(role_dir)) if role_dir != *id && !on_destroy_remove_children => {
+            return Some(json!({ "type": "nodeHasChildren" }));
+        }
+        Ok(Some(role_dir)) => return Some(role_forbidden(&role_dir, "destroying")),
+        Err(e) => return Some(server_fail_value_from_backend(&e)),
+    }
+
+    // RFC 8620 §5.3: the destroy is "an atomic unit", so a cascade the
+    // backend would refuse part-way is refused before it starts. A node
+    // that is not stored is left to destroy_object, which reports it.
+    if !on_destroy_remove_children || descendants.is_empty() {
+        return None;
+    }
+    let target = match discoverable_sibling(backend, caller, account_id, id).await {
+        Ok(target) => target,
+        Err(e) => return Some(server_fail_value_from_backend(&e)),
+    };
+    match first_refused(backend, caller, account_id, target.as_ref(), &descendants).await {
+        Ok(refused) => refused.map(|refused| destroy_refused(&refused)),
+        Err(e) => Some(server_fail_value_from_backend(&e)),
     }
 }
 
@@ -2784,17 +2844,109 @@ pub(crate) async fn filenode_copy<B: FileNodeBackend>(
     if let Some(create) = args.get_mut("create") {
         jmap_server::resolve_blob_refs(create, &["blobId"], created_ids);
     }
-    let from_account_id: Id = match args.get("fromAccountId").and_then(|v| v.as_str()) {
-        Some(s) => Id::new_validated(s)
-            .map_err(|e| JmapError::invalid_arguments(format!("fromAccountId: {e}")))?,
-        None => return Err(JmapError::invalid_arguments("fromAccountId is required")),
-    };
-    let (account_id, mut args) = extract_account_id(args)?;
+    let (from_account_id, account_id, mut args) = copy_accounts(backend, caller, args).await?;
     // No same-account check, unlike every other Foo/copy here:
     // draft-ietf-jmap-filenode-20 §3.2.4 "Unlike other Foo/copy methods
     // (RFC 8620 §5.4), FileNode/copy allows accountId to be the same as
     // fromAccountId, so a client can copy a node or a tree within one
     // account."
+    let old_state = copy_old_state(backend, caller, &from_account_id, &account_id, &args).await?;
+
+    // draft-ietf-jmap-filenode-20 §3.2.4: "This is a standard Foo/copy
+    // method with the same additional top-level arguments as FileNode/set
+    // (onDestroyRemoveChildren, onExists, and compareCaseInsensitively),
+    // with the same behavior. These arguments apply to the nodes created
+    // and replaced in the destination account" (find_sibling_by_name
+    // uses account_id, NOT from_account_id).
+    let on_destroy_remove_children: bool = args
+        .get("onDestroyRemoveChildren")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    let on_exists = parse_on_exists(&mut args)?;
+    let case_folding = crate::CaseFolding::from_wire_bool(
+        args.get("compareCaseInsensitively")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false),
+    );
+    // RFC 8620 §5.4: if onSuccessDestroyOriginal is true, after emitting the
+    // Foo/copy response the server MUST make a single call to Foo/set to
+    // destroy the original of each successfully copied record.
+    let on_success_destroy_original: bool = args
+        .get("onSuccessDestroyOriginal")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+
+    let mut acc = CopyAccumulators::default();
+    // -20 §3.1.4 role uniqueness, for roles the create objects give.
+    let conflicting =
+        conflicting_roles(backend, caller, &account_id, args.get("create"), None).await?;
+    if let Some(Value::Object(create_map)) = args.remove("create") {
+        // draft-atwood-jmap-cid-00 §FileNode Extension: as for FileNode/set
+        // create, the destination's capability decides whether each copy
+        // carries `sha256`. Asked once, before any copy mutates state, so an
+        // Err is a clean top-level serverFail.
+        let cid_advertised = backend
+            .cid_advertised(caller, &account_id)
+            .await
+            .map_err(|e| server_fail_from_backend(&e))?;
+        let ctx = CopyCtx {
+            backend,
+            caller,
+            from_account_id: &from_account_id,
+            account_id: &account_id,
+            using,
+            on_destroy_remove_children,
+            on_exists,
+            case_folding,
+            conflicting: &conflicting,
+            cid_advertised,
+            kept: copied_metadata(backend, caller, &account_id, using),
+        };
+        for (create_id, obj_val) in create_map {
+            copy_one(&ctx, create_id, obj_val, &mut acc).await?;
+        }
+    }
+    let (resp, copied_source_ids) = copy_response(
+        backend,
+        caller,
+        (&from_account_id, &account_id),
+        old_state,
+        acc,
+    )
+    .await?;
+
+    // RFC 8620 §5.4 onSuccessDestroyOriginal: after the Foo/copy response,
+    // emit a single implicit Foo/set call to destroy each successfully copied
+    // source record.
+    let mut extra: Vec<Invocation> = Vec::new();
+    if on_success_destroy_original && !copied_source_ids.is_empty() {
+        let sources = (&from_account_id, copied_source_ids.as_slice());
+        extra.push(destroy_originals(backend, caller, sources, &args, call_id).await?);
+    }
+    Ok(HandlerOutput::new(resp).with_extra(extra))
+}
+
+/// The `fromAccountId` and `accountId` of a `FileNode/copy`, both checked
+/// to exist and to support [`FileNode`], and the rest of `args`, which must
+/// hold a `create` object (RFC 8620 §5.4).
+///
+/// # Errors
+///
+/// `invalidArguments` for a missing or malformed account id or a missing
+/// `create`; `fromAccountNotFound`, `accountNotFound`,
+/// `accountNotSupportedByMethod` or `fromAccountNotSupportedByMethod`, in
+/// that order; `serverFail` when the backend fails.
+async fn copy_accounts<B: FileNodeBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    args: Value,
+) -> Result<(Id, Id, serde_json::Map<String, Value>), JmapError> {
+    let from_account_id: Id = match args.get("fromAccountId").and_then(|v| v.as_str()) {
+        Some(s) => Id::new_validated(s)
+            .map_err(|e| JmapError::invalid_arguments(format!("fromAccountId: {e}")))?,
+        None => return Err(JmapError::invalid_arguments("fromAccountId is required")),
+    };
+    let (account_id, args) = extract_account_id(args)?;
 
     // Verify both accounts exist. RFC 8620 §5.4 distinguishes
     // fromAccountNotFound (the source) from accountNotFound (the
@@ -2828,11 +2980,28 @@ pub(crate) async fn filenode_copy<B: FileNodeBackend>(
     if !matches!(args.get("create"), Some(Value::Object(_))) {
         return Err(JmapError::invalid_arguments("create is required"));
     }
+    Ok((from_account_id, account_id, args))
+}
 
+/// Check `ifFromInState` against the source account and `ifInState`
+/// against the destination (RFC 8620 §5.4), and return the destination's
+/// state before the copy.
+///
+/// # Errors
+///
+/// `stateMismatch` when either state does not match; `serverFail` when
+/// the backend fails.
+async fn copy_old_state<B: FileNodeBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    from_account_id: &Id,
+    account_id: &Id,
+    args: &serde_json::Map<String, Value>,
+) -> Result<jmap_types::State, JmapError> {
     // ifFromInState: check source account state (RFC 8620 §5.4).
     if let Some(if_from_in_state) = args.get("ifFromInState").and_then(|v| v.as_str()) {
         let from_state = backend
-            .get_state::<FileNode>(caller, &from_account_id)
+            .get_state::<FileNode>(caller, from_account_id)
             .await
             .map_err(|e| server_fail_from_backend(&e))?;
         if if_from_in_state != from_state.as_ref() {
@@ -2841,7 +3010,7 @@ pub(crate) async fn filenode_copy<B: FileNodeBackend>(
     }
 
     let old_state = backend
-        .get_state::<FileNode>(caller, &account_id)
+        .get_state::<FileNode>(caller, account_id)
         .await
         .map_err(|e| server_fail_from_backend(&e))?;
 
@@ -2851,560 +3020,637 @@ pub(crate) async fn filenode_copy<B: FileNodeBackend>(
     {
         return Err(JmapError::state_mismatch());
     }
+    Ok(old_state)
+}
 
-    // draft-ietf-jmap-filenode-20 §3.2.4: "This is a standard Foo/copy
-    // method with the same additional top-level arguments as FileNode/set
-    // (onDestroyRemoveChildren, onExists, and compareCaseInsensitively),
-    // with the same behavior. These arguments apply to the nodes created
-    // and replaced in the destination account" (find_sibling_by_name
-    // uses account_id, NOT from_account_id).
-    let on_destroy_remove_children: bool = args
-        .get("onDestroyRemoveChildren")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
+/// Which metadata a copy into `account_id` keeps from its source.
+///
+/// draft-ietf-jmap-metadata-05 §3.4: "When the request does not use this
+/// capability, only metadata is copied", "privateMetadata is not copied
+/// when the destination does not support it, and neither property is
+/// copied when the data type is not listed in the destination account".
+/// The overrides are merged in afterwards.
+fn copied_metadata<B: FileNodeBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    using: &[String],
+) -> CopiedMetadata {
+    let info = backend.metadata_info::<FileNode>(caller, account_id);
+    CopiedMetadata {
+        metadata: info.is_some(),
+        private_metadata: jmap_server::uses_metadata(using)
+            && info.as_ref().is_some_and(|i| i.supports_private),
+    }
+}
 
-    let on_exists: OnExists = {
-        let v = args.remove("onExists");
-        match v.as_ref() {
-            None | Some(Value::Null) => OnExists::Reject,
-            Some(Value::String(s)) if s == "replace" => OnExists::Replace,
-            Some(Value::String(s)) if s == "rename" => OnExists::Rename,
-            Some(other) => {
-                return Err(JmapError::invalid_arguments(format!(
-                    "invalid onExists value: expected \"replace\", \"rename\" or null; got {}",
-                    jmap_server::json_type_name(other)
-                )));
-            }
+/// What every `FileNode/copy` create entry needs from the request
+/// (docs/design/set-handler-split.md §8).
+struct CopyCtx<'a, B: FileNodeBackend> {
+    backend: &'a B,
+    caller: &'a B::CallerCtx,
+    /// The source account, `fromAccountId`.
+    from_account_id: &'a Id,
+    /// The destination account, `accountId`.
+    account_id: &'a Id,
+    /// The request's `using` capabilities.
+    using: &'a [String],
+    /// `onDestroyRemoveChildren`, for a node `onExists` replaces.
+    on_destroy_remove_children: bool,
+    /// `onExists` (-20 §3.2.3).
+    on_exists: OnExists,
+    /// `compareCaseInsensitively`.
+    case_folding: crate::CaseFolding,
+    /// The Directory roles two Directories would hold after this call
+    /// (-20 §3.1.4), from [`conflicting_roles`].
+    conflicting: &'a HashSet<String>,
+    /// Whether the destination advertises draft-atwood-jmap-cid-00, so
+    /// each copy in `created` carries `sha256`.
+    cid_advertised: bool,
+    /// The metadata each copy keeps from its source (-05 §3.4).
+    kept: CopiedMetadata,
+}
+
+/// What a `FileNode/copy` builds up over its create entries.
+#[derive(Default)]
+struct CopyAccumulators {
+    /// `created`.
+    copied: serde_json::Map<String, Value>,
+    /// `notCreated`.
+    not_copied: serde_json::Map<String, Value>,
+    /// The (creation id, source id) pair of each copied entry, for the
+    /// implicit `onSuccessDestroyOriginal` `FileNode/set`.
+    copied_source_ids: Vec<(String, Id)>,
+    /// Ids destroyed by `onExists` "replace", including
+    /// `onDestroyRemoveChildren` cascades. RFC 8620 §5.4 defines no
+    /// `destroyed` on Foo/copy; draft-ietf-jmap-filenode-20 §3.2.4 adds it:
+    /// "The ids of the `FileNodes` in the destination account that were
+    /// destroyed because `onExists` replaced them, including any
+    /// descendants removed with `onDestroyRemoveChildren`".
+    /// Recorded as each destroy succeeds: a later failure for the same
+    /// entry does not bring the node back.
+    destroyed: Vec<Id>,
+    /// Whether the destination account was written.
+    mutated: bool,
+}
+
+/// One entry of the `FileNode/copy` `create` map: the copy in `created`,
+/// or its `SetError` in `notCreated`.
+///
+/// # Errors
+///
+/// `serverFail` when the backend fails reading the source node or the copy
+/// cannot be serialized; such a failure stops the whole method.
+async fn copy_one<B: FileNodeBackend>(
+    ctx: &CopyCtx<'_, B>,
+    create_id: String,
+    obj_val: Value,
+    acc: &mut CopyAccumulators,
+) -> Result<(), JmapError> {
+    match copy_entry(ctx, &obj_val, acc).await? {
+        Ok((source_id, value)) => {
+            acc.copied_source_ids.push((create_id.clone(), source_id));
+            acc.copied.insert(create_id, value);
         }
-    };
-
-    let case_folding = crate::CaseFolding::from_wire_bool(
-        args.get("compareCaseInsensitively")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false),
-    );
-
-    // RFC 8620 §5.4: if onSuccessDestroyOriginal is true, after emitting the
-    // Foo/copy response the server MUST make a single call to Foo/set to
-    // destroy the original of each successfully copied record.
-    let on_success_destroy_original: bool = args
-        .get("onSuccessDestroyOriginal")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
-
-    let mut copied = serde_json::Map::new();
-    let mut not_copied = serde_json::Map::new();
-    // Tracks (copy_id, source_id) pairs for successfully copied entries so
-    // the implicit `onSuccessDestroyOriginal` Foo/set can destroy them.
-    let mut copied_source_ids: Vec<(String, Id)> = Vec::new();
-    // Ids destroyed by onExists "replace", including
-    // onDestroyRemoveChildren cascades. RFC 8620 §5.4 defines no
-    // `destroyed` on Foo/copy; draft-ietf-jmap-filenode-20 §3.2.4 adds it:
-    // "The ids of the FileNodes in the destination account that were
-    // destroyed because onExists replaced them, including any
-    // descendants removed with onDestroyRemoveChildren".
-    // Recorded as each destroy succeeds: a later failure for the same
-    // entry does not bring the node back.
-    let mut destroyed: Vec<Id> = Vec::new();
-    let mut mutated = false;
-    // -20 §3.1.4 role uniqueness, for roles the create objects give.
-    let conflicting =
-        conflicting_roles(backend, caller, &account_id, args.get("create"), None).await?;
-
-    if let Some(Value::Object(create_map)) = args.remove("create") {
-        // draft-atwood-jmap-cid-00 §FileNode Extension: as for FileNode/set
-        // create, the destination's capability decides whether each copy
-        // carries `sha256`. Asked once, before any copy mutates state, so an
-        // Err is a clean top-level serverFail.
-        let cid_advertised = backend
-            .cid_advertised(caller, &account_id)
-            .await
-            .map_err(|e| server_fail_from_backend(&e))?;
-        // draft-ietf-jmap-metadata-05 §3.4: "When the request does not use
-        // this capability, only metadata is copied", "privateMetadata is not
-        // copied when the destination does not support it, and neither
-        // property is copied when the data type is not listed in the
-        // destination account". The overrides are merged in afterwards.
-        let info = backend.metadata_info::<FileNode>(caller, &account_id);
-        let kept = CopiedMetadata {
-            metadata: info.is_some(),
-            private_metadata: jmap_server::uses_metadata(using)
-                && info.as_ref().is_some_and(|i| i.supports_private),
-        };
-        for (create_id, obj_val) in create_map {
-            // obj_val is the per-copy descriptor from the client: it must
-            // contain `id` (the source node id in fromAccountId) plus any
-            // property overrides for the copy.
-            let Some(source_id_str) = obj_val.get("id").and_then(|v| v.as_str()) else {
-                not_copied.insert(
-                    create_id,
-                    json!({ "type": "invalidProperties", "description": "id (source) is required" }),
-                );
-                continue;
-            };
-            let source_id = match jmap_server::parse_wire_id(source_id_str, "id") {
-                Ok(id) => id,
-                Err(err) => {
-                    not_copied.insert(create_id, serde_json::Value::from(&*err));
-                    continue;
-                }
-            };
-
-            // Fetch the source node.
-            let (mut nodes, not_found): (Vec<FileNode>, _) = backend
-                .get_objects::<FileNode>(
-                    caller,
-                    &from_account_id,
-                    Some(std::slice::from_ref(&source_id)),
-                    None,
-                )
-                .await
-                .map_err(|e| server_fail_from_backend(&e))?;
-
-            if !not_found.is_empty() || nodes.is_empty() {
-                not_copied.insert(create_id, json!({ "type": "notFound" }));
-                continue;
-            }
-
-            let source_node = nodes.remove(0);
-            let source_is_directory = source_node.node_type == Some(NodeType::Directory);
-
-            // draft-ietf-jmap-metadata-05 §3.4: metadata overrides follow the
-            // Foo/set create rules (§3, §3.2).
-            if let Some(Err(err)) = obj_val
-                .as_object()
-                .map(|o| check_metadata_entry(o, true, using))
-            {
-                not_copied.insert(create_id, Value::from(&*err));
-                continue;
-            }
-            // Validate parentId override shape before the generic merge:
-            // parentId must be a string or null. Silently coercing a
-            // non-string non-null value to None would surface as a
-            // 'moved to root' side effect with no error signal.
-            if let Some(new_parent) = obj_val.get("parentId")
-                && !new_parent.is_null()
-                && new_parent.as_str().is_none()
-            {
-                not_copied.insert(
-                    create_id,
-                    json!({
-                        "type": "invalidProperties",
-                        "properties": ["parentId"],
-                        "description": "parentId must be a string Id or null",
-                    }),
-                );
-                continue;
-            }
-
-            // RFC 8620 §5.4: "a copy of the source object with the given
-            // properties overridden", applied to what -20 §3.2.4 copies.
-            // A bad override surfaces as an invalidProperties SetError
-            // instead of corrupting state.
-            let mut root = match merge_filenode_overrides(copy_of(source_node, kept), &obj_val) {
-                Ok(n) => n,
-                Err(err_obj) => {
-                    not_copied.insert(create_id, err_obj);
-                    continue;
-                }
-            };
-            // -20 §3.2.4 keeps the source's dates "unless the client gives
-            // others", and an override of null gives the default (§3.1).
-            default_dates_to_now(&mut root);
-            // draft-ietf-jmap-filenode-20 §3.2.4: "the same additional
-            // errors as FileNode/set apply". Every check runs before any
-            // onExists destroy or write, so an invalid copy has no side
-            // effects.
-            if let Some(err) = create_type_error(&root) {
-                not_copied.insert(create_id, err);
-                continue;
-            }
-            if let Some(role) = root.role.as_ref().map(NodeRole::to_wire_str)
-                && conflicting.contains(role)
-            {
-                not_copied.insert(create_id, role_taken(role));
-                continue;
-            }
-
-            // -20 §3.2.4: "Copying a Directory copies its whole subtree:
-            // each descendant is copied, by the rules above and with the
-            // same name, beneath the copy of its parent."
-            let descendant_ids = if source_is_directory {
-                match backend
-                    .get_descendant_ids(caller, &from_account_id, &source_id)
-                    .await
-                {
-                    Ok(ids) => ids,
-                    Err(e) => {
-                        not_copied.insert(create_id, server_fail_value_from_backend(&e));
-                        continue;
-                    }
-                }
-            } else {
-                Vec::new()
-            };
-            let descendants = if descendant_ids.is_empty() {
-                Vec::new()
-            } else {
-                match backend
-                    .get_objects::<FileNode>(caller, &from_account_id, Some(&descendant_ids), None)
-                    .await
-                {
-                    Ok((nodes, _)) => nodes,
-                    Err(e) => {
-                        not_copied.insert(create_id, server_fail_value_from_backend(&e));
-                        continue;
-                    }
-                }
-            };
-            let height = subtree_height(&source_id, &descendants);
-            let mut subtree: Vec<(Id, FileNode)> = parents_first_below(&source_id, descendants)
-                .into_iter()
-                .map(|node| (node.id.clone(), copy_of(node, kept)))
-                .collect();
-            if !subtree.is_empty() && root.node_type != Some(NodeType::Directory) {
-                not_copied.insert(
-                    create_id,
-                    json!({
-                        "type": "invalidProperties",
-                        "properties": ["@type"],
-                        "description": "a copy of a Directory with descendants must be a Directory",
-                    }),
-                );
-                continue;
-            }
-            // "The copy of a Directory and all its descendants succeeds or
-            // fails as a whole; if the destination cannot hold any
-            // descendant ..., the copy fails."
-            if let Some(err) = subtree.iter().find_map(|(old_id, node)| {
-                create_type_error(node).map(|mut err| {
-                    err["description"] = json!(format!(
-                        "descendant {}: {}",
-                        old_id.as_ref(),
-                        err["description"].as_str().unwrap_or_default()
-                    ));
-                    err
-                })
-            }) {
-                not_copied.insert(create_id, err);
-                continue;
-            }
-
-            // -20 §3.2.4: "An attempt to copy a Directory into itself or
-            // one of its descendants is rejected with "invalidProperties"."
-            if from_account_id == account_id
-                && let Some(ref new_parent) = root.parent_id
-                && (new_parent == &source_id || descendant_ids.contains(new_parent))
-            {
-                not_copied.insert(
-                    create_id,
-                    json!({
-                        "type": "invalidProperties",
-                        "properties": ["parentId"],
-                        "description": "a node cannot be copied into itself or one of its descendants"
-                    }),
-                );
-                continue;
-            }
-
-            // draft-ietf-jmap-filenode-20 maxFileNodeDepth in the
-            // destination account counts every level of the copied subtree
-            // ("a create or move that would give the node, or any of its
-            // descendants, more ancestors than maxFileNodeDepth allows").
-            if let Some(max) = backend.max_file_node_depth(caller, &account_id) {
-                match exceeds_max_depth(
-                    backend,
-                    caller,
-                    &account_id,
-                    root.parent_id.as_ref(),
-                    height,
-                    max,
-                )
-                .await
-                {
-                    Ok(false) => {}
-                    Ok(true) => {
-                        not_copied.insert(create_id, max_depth_exceeded());
-                        continue;
-                    }
-                    Err(e) => {
-                        not_copied.insert(create_id, server_fail_value_from_backend(&e));
-                        continue;
-                    }
-                }
-            }
-
-            // -20 §3.2.4: "For a File, the server copies the content of its
-            // blob into the destination account; the blob need not already
-            // exist there, and the new blobId may differ."
-            // draft-atwood-jmap-cid-00 §FileNode Extension: `sha256` is the
-            // digest of the stored blob, taken in the destination.
-            let mut blob_failure = None;
-            let root_blob_from =
-                (!obj_val.get("blobId").is_some_and(|b| !b.is_null())).then_some(&from_account_id);
-            let blobs = std::iter::once((root_blob_from, &mut root))
-                .chain(subtree.iter_mut().map(|(_, n)| (Some(&from_account_id), n)));
-            for (from, node) in blobs {
-                if let Err(err) = copy_file_blob(backend, caller, from, &account_id, node).await {
-                    blob_failure = Some(err);
-                    break;
-                }
-            }
-            if let Some(err) = blob_failure {
-                not_copied.insert(create_id, err);
-                continue;
-            }
-
-            // Tracks the rename applied by OnExists::Rename so the
-            // post-create response can enforce the spec's MUST that the
-            // renamed name appears in the response (§3.2.3)
-            // even if the backend echoes a different name.
-            let mut renamed_to: Option<String> = None;
-            // An onExists "replace" waiting for the copy: see `Parked`.
-            let mut parked: Option<Parked> = None;
-
-            // -------------------------------------------------------------------
-            // Collision detection in the DESTINATION account (-20 §3.2.4:
-            // these arguments "apply to the nodes created and replaced in
-            // the destination account"). Only the copied root can collide:
-            // its descendants go into a Directory that is new.
-            // -------------------------------------------------------------------
-            let node_name = root.name.clone();
-            let parent_id_for_collision: Option<Id> = root.parent_id.clone();
-
-            if !node_name.is_empty() {
-                let collision = match backend
-                    .find_sibling_by_name(
-                        caller,
-                        &account_id,
-                        parent_id_for_collision.as_ref(),
-                        &node_name,
-                        case_folding,
-                    )
-                    .await
-                {
-                    Ok(c) => c,
-                    Err(e) => {
-                        not_copied.insert(create_id, server_fail_value_from_backend(&e));
-                        continue;
-                    }
-                };
-
-                if let Some(existing_id) = collision {
-                    match on_exists {
-                        OnExists::Reject => {
-                            // -20 §3.2.3: "alreadyExists" is for a collision "with a
-                            // discoverable sibling"; one the user cannot discover is
-                            // "forbidden", without its id.
-                            let err = match discoverable_sibling(
-                                backend,
-                                caller,
-                                &account_id,
-                                &existing_id,
-                            )
-                            .await
-                            {
-                                Ok(Some(_)) => {
-                                    json!({ "type": "alreadyExists", "existingId": existing_id.as_ref() })
-                                }
-                                Ok(None) => undiscoverable_collision(),
-                                Err(e) => server_fail_value_from_backend(&e),
-                            };
-                            not_copied.insert(create_id, err);
-                            continue;
-                        }
-                        OnExists::Replace => {
-                            // -20 §3.2.3 step 1: "If the existing node is not
-                            // discoverable by the user ..., the operation fails with
-                            // "forbidden", and the server MUST NOT destroy that node or
-                            // reveal its id." replace_existing makes steps 2 and 3.
-                            let existing = match discoverable_sibling(
-                                backend,
-                                caller,
-                                &account_id,
-                                &existing_id,
-                            )
-                            .await
-                            {
-                                Ok(Some(node)) => node,
-                                Ok(None) => {
-                                    not_copied.insert(create_id, undiscoverable_collision());
-                                    continue;
-                                }
-                                Err(e) => {
-                                    not_copied
-                                        .insert(create_id, server_fail_value_from_backend(&e));
-                                    continue;
-                                }
-                            };
-                            let desc_ids = match check_replace(
-                                backend,
-                                caller,
-                                &account_id,
-                                &existing,
-                                on_destroy_remove_children,
-                            )
-                            .await
-                            {
-                                Ok(d) => d,
-                                Err(err) => {
-                                    not_copied.insert(create_id, err);
-                                    continue;
-                                }
-                            };
-                            // -20 §3.2.4: the copy "succeeds or fails as a
-                            // whole". Move the existing node aside and
-                            // destroy it only once the copy is stored.
-                            match park(backend, caller, &account_id, &existing, case_folding).await
-                            {
-                                Some(p) => {
-                                    mutated = true;
-                                    parked = Some(Parked { desc_ids, ..p });
-                                }
-                                None => {
-                                    // It cannot be moved aside: destroy it
-                                    // first, which a failed copy cannot undo.
-                                    let mut replaced = Vec::new();
-                                    let outcome = destroy_replaced(
-                                        backend,
-                                        caller,
-                                        &account_id,
-                                        &existing.id,
-                                        &desc_ids,
-                                        &mut replaced,
-                                    )
-                                    .await;
-                                    mutated |= !replaced.is_empty();
-                                    destroyed.extend(replaced);
-                                    if let Err(err) = outcome {
-                                        not_copied.insert(create_id, err);
-                                        continue;
-                                    }
-                                }
-                            }
-                            // Fall through to create the new node.
-                        }
-                        OnExists::Rename => {
-                            match backend
-                                .find_unique_name(
-                                    caller,
-                                    &account_id,
-                                    parent_id_for_collision.as_ref(),
-                                    &node_name,
-                                    case_folding,
-                                )
-                                .await
-                            {
-                                Ok(Some(candidate)) => {
-                                    root.name = candidate.clone();
-                                    renamed_to = Some(candidate);
-                                }
-                                Ok(None) => {
-                                    not_copied.insert(
-                                        create_id,
-                                        json!({
-                                            "type": "alreadyExists",
-                                            "description": "backend found no unique name",
-                                        }),
-                                    );
-                                    continue;
-                                }
-                                Err(e) => {
-                                    not_copied
-                                        .insert(create_id, server_fail_value_from_backend(&e));
-                                    continue;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Create in the destination account, under the id it assigns;
-            // the backend validates only the metadata supplied in the create
-            // object (-05 §3.4).
-            let (_, created_obj) = match backend
-                .copy_object(caller, &from_account_id, &account_id, root, &obj_val)
-                .await
-            {
-                Ok(created) => created,
-                Err(e) => {
-                    let err = backend_set_error_value(e);
-                    let err = unpark(backend, caller, &account_id, parked.as_ref(), err).await;
-                    not_copied.insert(create_id, err);
-                    continue;
-                }
-            };
-            mutated = true;
-            if let Err(err) = copy_subtree(
-                backend,
-                caller,
-                (&from_account_id, &account_id),
-                (&source_id, &created_obj),
-                subtree,
-            )
-            .await
-            {
-                let err = unpark(backend, caller, &account_id, parked.as_ref(), err).await;
-                not_copied.insert(create_id, err);
-                continue;
-            }
-            if let Some(p) = &parked {
-                let mut replaced = Vec::new();
-                let outcome = destroy_replaced(
-                    backend,
-                    caller,
-                    &account_id,
-                    &p.id,
-                    &p.desc_ids,
-                    &mut replaced,
-                )
-                .await;
-                let untouched = replaced.is_empty();
-                destroyed.extend(replaced);
-                if let Err(err) = outcome {
-                    // Take the copy back out; the existing node gets its
-                    // name back only when none of it was destroyed.
-                    let err = remove_copy(backend, caller, &account_id, &created_obj, err).await;
-                    let err = if untouched {
-                        unpark(backend, caller, &account_id, Some(p), err).await
-                    } else {
-                        err
-                    };
-                    not_copied.insert(create_id, err);
-                    continue;
-                }
-            }
-
-            // -20 §3.2.4: "The response gives only the id of the new
-            // Directory".
-            let mut value = jmap_server::serialize_value(&created_obj)?;
-            // §3.2.3 MUST: enforce the renamed name in the response
-            // regardless of whether the backend echoed it.
-            if let Value::Object(ref mut m) = value {
-                if let Some(name) = renamed_to.as_deref() {
-                    m.insert("name".to_owned(), Value::String(name.to_owned()));
-                }
-                if cid_advertised {
-                    m.entry("sha256").or_insert(Value::Null);
-                }
-            }
-            report_created_files_rights(backend, caller, &account_id, &created_obj, &mut value)
-                .await;
-            copied_source_ids.push((create_id.clone(), source_id));
-            copied.insert(create_id, value);
+        Err(err) => {
+            acc.not_copied.insert(create_id, err);
         }
     }
+    Ok(())
+}
 
-    let new_state = if mutated {
+/// Check and store the copy that `obj_val` asks for, and return the source
+/// id and the `created` value of the copy, or the `SetError` value for the
+/// entry.
+///
+/// draft-ietf-jmap-filenode-20 §3.2.4: "the same additional errors as
+/// FileNode/set apply". Every check runs before any onExists destroy or
+/// write, so an invalid copy has no side effects.
+///
+/// # Errors
+///
+/// As [`copy_one`].
+async fn copy_entry<B: FileNodeBackend>(
+    ctx: &CopyCtx<'_, B>,
+    obj_val: &Value,
+    acc: &mut CopyAccumulators,
+) -> Result<Result<(Id, Value), Value>, JmapError> {
+    let (source_id, source_node) = match copy_source(ctx, obj_val).await? {
+        Ok(source) => source,
+        Err(err) => return Ok(Err(err)),
+    };
+    let source_is_directory = source_node.node_type == Some(NodeType::Directory);
+    let mut root = match copy_root(ctx, source_node, obj_val) {
+        Ok(root) => root,
+        Err(err) => return Ok(Err(err)),
+    };
+    let mut subtree = match copy_descendants(ctx, &source_id, source_is_directory, &root).await {
+        Ok(subtree) => subtree,
+        Err(err) => return Ok(Err(err)),
+    };
+    if let Err(err) = copy_blobs(ctx, obj_val, &mut root, &mut subtree).await {
+        return Ok(Err(err));
+    }
+    // Collision detection in the DESTINATION account (-20 §3.2.4: these
+    // arguments "apply to the nodes created and replaced in the destination
+    // account"). Only the copied root can collide: its descendants go into
+    // a Directory that is new.
+    let (renamed_to, parked) = match copy_collision(ctx, &mut root, acc).await {
+        Ok(outcome) => outcome,
+        Err(err) => return Ok(Err(err)),
+    };
+    let created_obj = match store_copy(
+        ctx,
+        root,
+        obj_val,
+        &source_id,
+        subtree,
+        parked.as_ref(),
+        acc,
+    )
+    .await
+    {
+        Ok(created_obj) => created_obj,
+        Err(err) => return Ok(Err(err)),
+    };
+    let value = copied_value(ctx, &created_obj, renamed_to.as_deref()).await?;
+    Ok(Ok((source_id, value)))
+}
+
+/// The source node that `obj_val` names in its `id`, read from
+/// `fromAccountId`, or the `SetError` value for the entry.
+///
+/// # Errors
+///
+/// `serverFail` when the backend fails reading the node.
+async fn copy_source<B: FileNodeBackend>(
+    ctx: &CopyCtx<'_, B>,
+    obj_val: &Value,
+) -> Result<Result<(Id, FileNode), Value>, JmapError> {
+    // obj_val is the per-copy descriptor from the client: it must
+    // contain `id` (the source node id in fromAccountId) plus any
+    // property overrides for the copy.
+    let Some(source_id_str) = obj_val.get("id").and_then(|v| v.as_str()) else {
+        return Ok(Err(
+            json!({ "type": "invalidProperties", "description": "id (source) is required" }),
+        ));
+    };
+    let source_id = match jmap_server::parse_wire_id(source_id_str, "id") {
+        Ok(id) => id,
+        Err(err) => return Ok(Err(serde_json::Value::from(&*err))),
+    };
+
+    // Fetch the source node.
+    let (mut nodes, not_found): (Vec<FileNode>, _) = ctx
+        .backend
+        .get_objects::<FileNode>(
+            ctx.caller,
+            ctx.from_account_id,
+            Some(std::slice::from_ref(&source_id)),
+            None,
+        )
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?;
+
+    if !not_found.is_empty() || nodes.is_empty() {
+        return Ok(Err(json!({ "type": "notFound" })));
+    }
+    Ok(Ok((source_id, nodes.remove(0))))
+}
+
+/// The copy of `source_node` with the overrides in `obj_val` applied,
+/// checked as a `FileNode/set` create would be, or the `SetError` value
+/// for the entry.
+fn copy_root<B: FileNodeBackend>(
+    ctx: &CopyCtx<'_, B>,
+    source_node: FileNode,
+    obj_val: &Value,
+) -> Result<FileNode, Value> {
+    // draft-ietf-jmap-metadata-05 §3.4: metadata overrides follow the
+    // Foo/set create rules (§3, §3.2).
+    if let Some(Err(err)) = obj_val
+        .as_object()
+        .map(|o| check_metadata_entry(o, true, ctx.using))
+    {
+        return Err(Value::from(&*err));
+    }
+    // Validate parentId override shape before the generic merge:
+    // parentId must be a string or null. Silently coercing a
+    // non-string non-null value to None would surface as a
+    // 'moved to root' side effect with no error signal.
+    if let Some(new_parent) = obj_val.get("parentId")
+        && !new_parent.is_null()
+        && new_parent.as_str().is_none()
+    {
+        return Err(json!({
+            "type": "invalidProperties",
+            "properties": ["parentId"],
+            "description": "parentId must be a string Id or null",
+        }));
+    }
+
+    // RFC 8620 §5.4: "a copy of the source object with the given
+    // properties overridden", applied to what -20 §3.2.4 copies.
+    // A bad override surfaces as an invalidProperties SetError
+    // instead of corrupting state.
+    let mut root = merge_filenode_overrides(copy_of(source_node, ctx.kept), obj_val)?;
+    // -20 §3.2.4 keeps the source's dates "unless the client gives
+    // others", and an override of null gives the default (§3.1).
+    default_dates_to_now(&mut root);
+    // draft-ietf-jmap-filenode-20 §3.2.4: "the same additional
+    // errors as FileNode/set apply".
+    if let Some(err) = create_type_error(&root) {
+        return Err(err);
+    }
+    if let Some(role) = root.role.as_ref().map(NodeRole::to_wire_str)
+        && ctx.conflicting.contains(role)
+    {
+        return Err(role_taken(role));
+    }
+    Ok(root)
+}
+
+/// The descendants of the source root `source_id`, parents first, each
+/// paired with its prepared copy, or the `SetError` value for the entry
+/// when the subtree cannot be copied as `root` says.
+///
+/// -20 §3.2.4: "Copying a Directory copies its whole subtree: each
+/// descendant is copied, by the rules above and with the same name,
+/// beneath the copy of its parent."
+async fn copy_descendants<B: FileNodeBackend>(
+    ctx: &CopyCtx<'_, B>,
+    source_id: &Id,
+    source_is_directory: bool,
+    root: &FileNode,
+) -> Result<Vec<(Id, FileNode)>, Value> {
+    let descendant_ids = if source_is_directory {
+        ctx.backend
+            .get_descendant_ids(ctx.caller, ctx.from_account_id, source_id)
+            .await
+            .map_err(|e| server_fail_value_from_backend(&e))?
+    } else {
+        Vec::new()
+    };
+    let descendants = if descendant_ids.is_empty() {
+        Vec::new()
+    } else {
+        ctx.backend
+            .get_objects::<FileNode>(ctx.caller, ctx.from_account_id, Some(&descendant_ids), None)
+            .await
+            .map(|(nodes, _)| nodes)
+            .map_err(|e| server_fail_value_from_backend(&e))?
+    };
+    let height = subtree_height(source_id, &descendants);
+    let subtree: Vec<(Id, FileNode)> = parents_first_below(source_id, descendants)
+        .into_iter()
+        .map(|node| (node.id.clone(), copy_of(node, ctx.kept)))
+        .collect();
+    if let Some(err) = subtree_type_error(root, &subtree) {
+        return Err(err);
+    }
+
+    // -20 §3.2.4: "An attempt to copy a Directory into itself or
+    // one of its descendants is rejected with "invalidProperties"."
+    if ctx.from_account_id == ctx.account_id
+        && let Some(ref new_parent) = root.parent_id
+        && (new_parent == source_id || descendant_ids.contains(new_parent))
+    {
+        return Err(json!({
+            "type": "invalidProperties",
+            "properties": ["parentId"],
+            "description": "a node cannot be copied into itself or one of its descendants"
+        }));
+    }
+
+    // draft-ietf-jmap-filenode-20 maxFileNodeDepth in the
+    // destination account counts every level of the copied subtree
+    // ("a create or move that would give the node, or any of its
+    // descendants, more ancestors than maxFileNodeDepth allows").
+    if let Some(max) = ctx.backend.max_file_node_depth(ctx.caller, ctx.account_id) {
+        match exceeds_max_depth(
+            ctx.backend,
+            ctx.caller,
+            ctx.account_id,
+            root.parent_id.as_ref(),
+            height,
+            max,
+        )
+        .await
+        {
+            Ok(false) => {}
+            Ok(true) => return Err(max_depth_exceeded()),
+            Err(e) => return Err(server_fail_value_from_backend(&e)),
+        }
+    }
+    Ok(subtree)
+}
+
+/// The `invalidProperties` value when the copied `subtree` does not fit
+/// `root` or the destination cannot hold one of its nodes, or `None`.
+///
+/// -20 §3.2.4: "The copy of a Directory and all its descendants succeeds or
+/// fails as a whole; if the destination cannot hold any descendant ...,
+/// the copy fails."
+fn subtree_type_error(root: &FileNode, subtree: &[(Id, FileNode)]) -> Option<Value> {
+    if !subtree.is_empty() && root.node_type != Some(NodeType::Directory) {
+        return Some(json!({
+            "type": "invalidProperties",
+            "properties": ["@type"],
+            "description": "a copy of a Directory with descendants must be a Directory",
+        }));
+    }
+    subtree.iter().find_map(|(old_id, node)| {
+        create_type_error(node).map(|mut err| {
+            err["description"] = json!(format!(
+                "descendant {}: {}",
+                old_id.as_ref(),
+                err["description"].as_str().unwrap_or_default()
+            ));
+            err
+        })
+    })
+}
+
+/// Copy the blob of each File among `root` and `subtree` into the
+/// destination ([`copy_file_blob`]), or return the `SetError` value of the
+/// first that fails. A `blobId` override in `obj_val` names a blob already
+/// in the destination.
+///
+/// -20 §3.2.4: "For a File, the server copies the content of its blob into
+/// the destination account; the blob need not already exist there, and the
+/// new blobId may differ." draft-atwood-jmap-cid-00 §`FileNode` Extension:
+/// `sha256` is the digest of the stored blob, taken in the destination.
+async fn copy_blobs<B: FileNodeBackend>(
+    ctx: &CopyCtx<'_, B>,
+    obj_val: &Value,
+    root: &mut FileNode,
+    subtree: &mut [(Id, FileNode)],
+) -> Result<(), Value> {
+    let root_blob_from =
+        (!obj_val.get("blobId").is_some_and(|b| !b.is_null())).then_some(ctx.from_account_id);
+    let blobs = std::iter::once((root_blob_from, root)).chain(
+        subtree
+            .iter_mut()
+            .map(|(_, n)| (Some(ctx.from_account_id), n)),
+    );
+    for (from, node) in blobs {
+        copy_file_blob(ctx.backend, ctx.caller, from, ctx.account_id, node).await?;
+    }
+    Ok(())
+}
+
+/// Handle a sibling of the same name as `root` in the destination by
+/// `onExists` (-20 §3.2.3): the name an `onExists` "rename" gave `root`,
+/// and the existing node a "replace" moved aside ([`Parked`]), or the
+/// `SetError` value for the entry.
+async fn copy_collision<B: FileNodeBackend>(
+    ctx: &CopyCtx<'_, B>,
+    root: &mut FileNode,
+    acc: &mut CopyAccumulators,
+) -> Result<(Option<String>, Option<Parked>), Value> {
+    if root.name.is_empty() {
+        return Ok((None, None));
+    }
+    let collision = ctx
+        .backend
+        .find_sibling_by_name(
+            ctx.caller,
+            ctx.account_id,
+            root.parent_id.as_ref(),
+            &root.name,
+            ctx.case_folding,
+        )
+        .await
+        .map_err(|e| server_fail_value_from_backend(&e))?;
+    let Some(existing_id) = collision else {
+        return Ok((None, None));
+    };
+    match ctx.on_exists {
+        OnExists::Reject => {
+            // -20 §3.2.3: "alreadyExists" is for a collision "with a
+            // discoverable sibling"; one the user cannot discover is
+            // "forbidden", without its id.
+            Err(
+                match discoverable_sibling(ctx.backend, ctx.caller, ctx.account_id, &existing_id)
+                    .await
+                {
+                    Ok(Some(_)) => {
+                        json!({ "type": "alreadyExists", "existingId": existing_id.as_ref() })
+                    }
+                    Ok(None) => undiscoverable_collision(),
+                    Err(e) => server_fail_value_from_backend(&e),
+                },
+            )
+        }
+        // Then the new node is created.
+        OnExists::Replace => Ok((None, copy_replace(ctx, &existing_id, acc).await?)),
+        OnExists::Rename => {
+            let candidate = ctx
+                .backend
+                .find_unique_name(
+                    ctx.caller,
+                    ctx.account_id,
+                    root.parent_id.as_ref(),
+                    &root.name,
+                    ctx.case_folding,
+                )
+                .await
+                .map_err(|e| server_fail_value_from_backend(&e))?
+                .ok_or_else(|| {
+                    json!({
+                        "type": "alreadyExists",
+                        "description": "backend found no unique name",
+                    })
+                })?;
+            root.name = candidate.clone();
+            Ok((Some(candidate), None))
+        }
+    }
+}
+
+/// An `onExists` "replace" of `existing_id` by a copy: move the node aside
+/// and return it as [`Parked`], or, when it cannot be moved, destroy it
+/// now and return `None`. Returns the `SetError` value for the entry when
+/// the node may not be replaced.
+async fn copy_replace<B: FileNodeBackend>(
+    ctx: &CopyCtx<'_, B>,
+    existing_id: &Id,
+    acc: &mut CopyAccumulators,
+) -> Result<Option<Parked>, Value> {
+    // -20 §3.2.3 step 1: "If the existing node is not discoverable by the
+    // user ..., the operation fails with "forbidden", and the server MUST
+    // NOT destroy that node or reveal its id." replace_existing makes steps
+    // 2 and 3.
+    let existing = discoverable_sibling(ctx.backend, ctx.caller, ctx.account_id, existing_id)
+        .await
+        .map_err(|e| server_fail_value_from_backend(&e))?
+        .ok_or_else(undiscoverable_collision)?;
+    let desc_ids = check_replace(
+        ctx.backend,
+        ctx.caller,
+        ctx.account_id,
+        &existing,
+        ctx.on_destroy_remove_children,
+    )
+    .await?;
+    // -20 §3.2.4: the copy "succeeds or fails as a whole". Move the
+    // existing node aside and destroy it only once the copy is stored.
+    if let Some(p) = park(
+        ctx.backend,
+        ctx.caller,
+        ctx.account_id,
+        &existing,
+        ctx.case_folding,
+    )
+    .await
+    {
+        acc.mutated = true;
+        return Ok(Some(Parked { desc_ids, ..p }));
+    }
+    // It cannot be moved aside: destroy it first, which a failed copy
+    // cannot undo.
+    let mut replaced = Vec::new();
+    let outcome = destroy_replaced(
+        ctx.backend,
+        ctx.caller,
+        ctx.account_id,
+        &existing.id,
+        &desc_ids,
+        &mut replaced,
+    )
+    .await;
+    acc.mutated |= !replaced.is_empty();
+    acc.destroyed.extend(replaced);
+    outcome.map(|()| None)
+}
+
+/// Store `root` in the destination under the id it assigns, then its
+/// `subtree` ([`copy_subtree`]), then destroy a `parked` node it replaces.
+/// Returns the stored root, or the `SetError` value for the entry once
+/// what was done for it is undone as far as it can be.
+async fn store_copy<B: FileNodeBackend>(
+    ctx: &CopyCtx<'_, B>,
+    root: FileNode,
+    obj_val: &Value,
+    source_id: &Id,
+    subtree: Vec<(Id, FileNode)>,
+    parked: Option<&Parked>,
+    acc: &mut CopyAccumulators,
+) -> Result<FileNode, Value> {
+    let (backend, caller, account_id) = (ctx.backend, ctx.caller, ctx.account_id);
+    // The backend validates only the metadata supplied in the create
+    // object (-05 §3.4).
+    let (_, created_obj) = match backend
+        .copy_object(caller, ctx.from_account_id, account_id, root, obj_val)
+        .await
+    {
+        Ok(created) => created,
+        Err(e) => {
+            let err = backend_set_error_value(e);
+            return Err(unpark(backend, caller, account_id, parked, err).await);
+        }
+    };
+    acc.mutated = true;
+    if let Err(err) = copy_subtree(
+        backend,
+        caller,
+        (ctx.from_account_id, account_id),
+        (source_id, &created_obj),
+        subtree,
+    )
+    .await
+    {
+        return Err(unpark(backend, caller, account_id, parked, err).await);
+    }
+    let Some(p) = parked else {
+        return Ok(created_obj);
+    };
+    let mut replaced = Vec::new();
+    let outcome = destroy_replaced(
+        backend,
+        caller,
+        account_id,
+        &p.id,
+        &p.desc_ids,
+        &mut replaced,
+    )
+    .await;
+    let untouched = replaced.is_empty();
+    acc.destroyed.extend(replaced);
+    let Err(err) = outcome else {
+        return Ok(created_obj);
+    };
+    // Take the copy back out; the existing node gets its name back only
+    // when none of it was destroyed.
+    let err = remove_copy(backend, caller, account_id, &created_obj, err).await;
+    Err(if untouched {
+        unpark(backend, caller, account_id, Some(p), err).await
+    } else {
+        err
+    })
+}
+
+/// The `created` value for the stored copy `created_obj`: the name an
+/// `onExists` "rename" gave it, `sha256` when the destination advertises
+/// draft-atwood-jmap-cid-00, and a Directory's `myRights`.
+///
+/// -20 §3.2.4: "The response gives only the id of the new Directory".
+///
+/// # Errors
+///
+/// `serverFail` when the copy cannot be serialized.
+async fn copied_value<B: FileNodeBackend>(
+    ctx: &CopyCtx<'_, B>,
+    created_obj: &FileNode,
+    renamed_to: Option<&str>,
+) -> Result<Value, JmapError> {
+    let mut value = jmap_server::serialize_value(created_obj)?;
+    // Tracks the rename applied by OnExists::Rename: the spec's MUST that
+    // the renamed name appears in the response (§3.2.3) holds even if the
+    // backend echoes a different name.
+    if let Value::Object(ref mut m) = value {
+        if let Some(name) = renamed_to {
+            m.insert("name".to_owned(), Value::String(name.to_owned()));
+        }
+        if ctx.cid_advertised {
+            m.entry("sha256").or_insert(Value::Null);
+        }
+    }
+    report_created_files_rights(
+        ctx.backend,
+        ctx.caller,
+        ctx.account_id,
+        created_obj,
+        &mut value,
+    )
+    .await;
+    Ok(value)
+}
+
+/// The `FileNode/copy` response for `accounts` (`fromAccountId`,
+/// `accountId`) from what `acc` gathered, and the (creation id, source id)
+/// pairs of the entries copied.
+///
+/// # Errors
+///
+/// `serverFail` when the backend fails reading the new state.
+async fn copy_response<B: FileNodeBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    accounts: (&Id, &Id),
+    old_state: jmap_types::State,
+    acc: CopyAccumulators,
+) -> Result<(Value, Vec<(String, Id)>), JmapError> {
+    let (from_account_id, account_id) = accounts;
+    let new_state = if acc.mutated {
         backend
-            .get_state::<FileNode>(caller, &account_id)
+            .get_state::<FileNode>(caller, account_id)
             .await
             .map_err(|e| server_fail_from_backend(&e))?
     } else {
         old_state.clone()
     };
-
+    let (copied, not_copied) = (acc.copied, acc.not_copied);
     let mut resp = json!({
         "fromAccountId": from_account_id.as_ref(),
         "accountId": account_id.as_ref(),
@@ -3413,170 +3659,200 @@ pub(crate) async fn filenode_copy<B: FileNodeBackend>(
         "created":   if copied.is_empty()     { Value::Null } else { Value::Object(copied) },
         "notCreated": if not_copied.is_empty() { Value::Null } else { Value::Object(not_copied) },
     });
-    if !destroyed.is_empty() {
-        resp["destroyed"] = json!(destroyed);
+    if !acc.destroyed.is_empty() {
+        resp["destroyed"] = json!(acc.destroyed);
+    }
+    Ok((resp, acc.copied_source_ids))
+}
+
+/// The implicit `FileNode/set` of `onSuccessDestroyOriginal` (RFC 8620
+/// §5.4), which destroys the source of each copied entry, or an `error` of
+/// type `stateMismatch` when `destroyFromIfInState` in `args` does not
+/// match. `sources` pairs the source account with the (creation id, source
+/// id) pair of each copied entry.
+///
+/// The dispatcher appends the returned `Invocation` to methodResponses
+/// verbatim (RFC 8620 §6.3), so this builds the full Foo/set RESPONSE
+/// object, not request args. draft-ietf-jmap-filenode-20 §3.2.4: that call
+/// "has onDestroyRemoveChildren true", whatever the copy's own argument,
+/// since the copy took the whole subtree.
+///
+/// # Errors
+///
+/// `serverFail` when the backend fails reading the state or the
+/// descendants of an original.
+async fn destroy_originals<B: FileNodeBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    sources: (&Id, &[(String, Id)]),
+    args: &serde_json::Map<String, Value>,
+    call_id: &str,
+) -> Result<Invocation, JmapError> {
+    let (from_account_id, copied_source_ids) = sources;
+    let from_old_state = backend
+        .get_state::<FileNode>(caller, from_account_id)
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?;
+
+    // RFC 8620 §5.4: `destroyFromIfInState` "is passed on as the
+    // "ifInState" argument to the implicit "Foo/set" call"; per §5.3 a
+    // mismatch aborts that whole call with a method-level stateMismatch
+    // error in place of the FileNode/set response. Nothing is destroyed.
+    if let Some(if_in_state) = args.get("destroyFromIfInState").and_then(Value::as_str)
+        && if_in_state != from_old_state.as_ref()
+    {
+        let err = json!({ "type": "stateMismatch" });
+        return Ok(Invocation::new("error", err, call_id.to_owned()));
     }
 
-    // RFC 8620 §5.4 onSuccessDestroyOriginal: after the Foo/copy response,
-    // emit a single implicit Foo/set call to destroy each successfully copied
-    // source record. The dispatcher appends the returned `Invocation` to
-    // methodResponses verbatim (RFC 8620 §6.3), so we build the full Foo/set
-    // RESPONSE object here, not request args.
-    //
-    // draft-ietf-jmap-filenode-20 §3.2.4: that call "has
-    // onDestroyRemoveChildren true", whatever the copy's own argument, since
-    // the copy took the whole subtree.
-    let mut extra: Vec<Invocation> = Vec::new();
-    if on_success_destroy_original && !copied_source_ids.is_empty() {
-        let from_old_state = backend
-            .get_state::<FileNode>(caller, &from_account_id)
-            .await
-            .map_err(|e| server_fail_from_backend(&e))?;
-
-        // RFC 8620 §5.4: `destroyFromIfInState` "is passed on as the
-        // "ifInState" argument to the implicit "Foo/set" call"; per §5.3 a
-        // mismatch aborts that whole call with a method-level stateMismatch
-        // error in place of the FileNode/set response. Nothing is destroyed.
-        if let Some(if_in_state) = args.get("destroyFromIfInState").and_then(Value::as_str)
-            && if_in_state != from_old_state.as_ref()
+    let mut destroyed_ids: Vec<Id> = Vec::new();
+    let mut not_destroyed = serde_json::Map::new();
+    for (_, source_id) in copied_source_ids {
+        // Removed already with the subtree of an earlier original.
+        if destroyed_ids.contains(source_id) {
+            continue;
+        }
+        if let Err(err) = destroy_original(
+            backend,
+            caller,
+            from_account_id,
+            source_id,
+            &mut destroyed_ids,
+        )
+        .await?
         {
-            let err = json!({ "type": "stateMismatch" });
-            return Ok(HandlerOutput::new(resp).with_extra(vec![Invocation::new(
-                "error",
-                err,
-                call_id.to_owned(),
-            )]));
+            not_destroyed.insert(source_id.as_ref().to_owned(), err);
         }
-
-        let mut destroyed_ids: Vec<Id> = Vec::new();
-        let mut not_destroyed = serde_json::Map::new();
-
-        for (_, source_id) in &copied_source_ids {
-            // Removed already with the subtree of an earlier original.
-            if destroyed_ids.contains(source_id) {
-                continue;
-            }
-            let desc_ids: Vec<Id> = backend
-                .get_descendant_ids(caller, &from_account_id, source_id)
-                .await
-                .map_err(|e| server_fail_from_backend(&e))?;
-
-            // draft-ietf-jmap-filenode-20 §5: the cascade "MUST be rejected
-            // with "forbidden"" if it would remove a node the caller cannot
-            // discover, and destroys nothing in the subtree.
-            let descendants = match discoverable_descendants(
-                backend,
-                caller,
-                &from_account_id,
-                &desc_ids,
-            )
-            .await
-            {
-                Ok(Some(descendants)) => descendants,
-                Ok(None) => {
-                    not_destroyed.insert(
-                        source_id.as_ref().to_owned(),
-                        undiscoverable_descendants(&format!("destroying {}", source_id.as_ref())),
-                    );
-                    continue;
-                }
-                Err(e) => return Err(server_fail_from_backend(&e)),
-            };
-
-            // draft-ietf-jmap-filenode-20 §5: a Directory with a role cannot
-            // be destroyed, here or in the cascade.
-            let doomed: Vec<Id> = std::iter::once(source_id.clone())
-                .chain(desc_ids.iter().cloned())
-                .collect();
-            match first_with_role(backend, caller, &from_account_id, &doomed).await {
-                Ok(None) => {}
-                Ok(Some(role_dir)) => {
-                    not_destroyed.insert(
-                        source_id.as_ref().to_owned(),
-                        role_forbidden(&role_dir, "destroying"),
-                    );
-                    continue;
-                }
-                Err(e) => return Err(server_fail_from_backend(&e)),
-            }
-
-            // RFC 8620 §5.3: each destroy is "an atomic unit"; refuse the
-            // cascade before it starts rather than part-way.
-            if !descendants.is_empty() {
-                let source = discoverable_sibling(backend, caller, &from_account_id, source_id)
-                    .await
-                    .map_err(|e| server_fail_from_backend(&e))?;
-                let refused = first_refused(
-                    backend,
-                    caller,
-                    &from_account_id,
-                    source.as_ref(),
-                    &descendants,
-                )
-                .await
-                .map_err(|e| server_fail_from_backend(&e))?;
-                if let Some(refused) = refused {
-                    not_destroyed.insert(source_id.as_ref().to_owned(), destroy_refused(&refused));
-                    continue;
-                }
-            }
-
-            // Deepest first; the ids are listed in `destroyed` as a
-            // FileNode/set with onDestroyRemoveChildren lists them.
-            let mut cascade_failed = false;
-            for desc_id in desc_ids.iter().rev() {
-                match backend
-                    .destroy_object::<FileNode>(caller, &from_account_id, desc_id)
-                    .await
-                {
-                    Ok(()) => destroyed_ids.push(desc_id.clone()),
-                    Err(e) => {
-                        not_destroyed
-                            .insert(source_id.as_ref().to_owned(), backend_set_error_value(e));
-                        cascade_failed = true;
-                        break;
-                    }
-                }
-            }
-            if cascade_failed {
-                continue;
-            }
-
-            match backend
-                .destroy_object::<FileNode>(caller, &from_account_id, source_id)
-                .await
-            {
-                Ok(()) => destroyed_ids.push(source_id.clone()),
-                Err(e) => {
-                    not_destroyed.insert(source_id.as_ref().to_owned(), backend_set_error_value(e));
-                }
-            }
-        }
-
-        let from_new_state = backend
-            .get_state::<FileNode>(caller, &from_account_id)
-            .await
-            .map_err(|e| server_fail_from_backend(&e))?;
-
-        let set_resp = json!({
-            "accountId": from_account_id.as_ref(),
-            "oldState": from_old_state.as_ref(),
-            "newState": from_new_state.as_ref(),
-            "created": Value::Null,
-            "updated": Value::Null,
-            "destroyed": if destroyed_ids.is_empty() { Value::Null } else { json!(destroyed_ids) },
-            "notCreated": Value::Null,
-            "notUpdated": Value::Null,
-            "notDestroyed": if not_destroyed.is_empty() { Value::Null } else { Value::Object(not_destroyed) },
-        });
-        extra.push(Invocation::new(
-            "FileNode/set",
-            set_resp,
-            call_id.to_owned(),
-        ));
     }
 
-    Ok(HandlerOutput::new(resp).with_extra(extra))
+    let from_new_state = backend
+        .get_state::<FileNode>(caller, from_account_id)
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?;
+
+    let set_resp = json!({
+        "accountId": from_account_id.as_ref(),
+        "oldState": from_old_state.as_ref(),
+        "newState": from_new_state.as_ref(),
+        "created": Value::Null,
+        "updated": Value::Null,
+        "destroyed": if destroyed_ids.is_empty() { Value::Null } else { json!(destroyed_ids) },
+        "notCreated": Value::Null,
+        "notUpdated": Value::Null,
+        "notDestroyed": if not_destroyed.is_empty() { Value::Null } else { Value::Object(not_destroyed) },
+    });
+    Ok(Invocation::new(
+        "FileNode/set",
+        set_resp,
+        call_id.to_owned(),
+    ))
+}
+
+/// Destroy the original `source_id` with its subtree, deepest first, for
+/// [`destroy_originals`], adding each id destroyed to `destroyed_ids`, or
+/// return the `SetError` value for `source_id` in `notDestroyed`.
+///
+/// # Errors
+///
+/// `serverFail` when the backend fails reading the subtree.
+async fn destroy_original<B: FileNodeBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    from_account_id: &Id,
+    source_id: &Id,
+    destroyed_ids: &mut Vec<Id>,
+) -> Result<Result<(), Value>, JmapError> {
+    let desc_ids: Vec<Id> = backend
+        .get_descendant_ids(caller, from_account_id, source_id)
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?;
+    if let Some(err) =
+        original_refusal(backend, caller, from_account_id, source_id, &desc_ids).await?
+    {
+        return Ok(Err(err));
+    }
+
+    // Deepest first; the ids are listed in `destroyed` as a
+    // FileNode/set with onDestroyRemoveChildren lists them.
+    for desc_id in desc_ids.iter().rev() {
+        match backend
+            .destroy_object::<FileNode>(caller, from_account_id, desc_id)
+            .await
+        {
+            Ok(()) => destroyed_ids.push(desc_id.clone()),
+            Err(e) => return Ok(Err(backend_set_error_value(e))),
+        }
+    }
+
+    match backend
+        .destroy_object::<FileNode>(caller, from_account_id, source_id)
+        .await
+    {
+        Ok(()) => {
+            destroyed_ids.push(source_id.clone());
+            Ok(Ok(()))
+        }
+        Err(e) => Ok(Err(backend_set_error_value(e))),
+    }
+}
+
+/// The `SetError` value when the original `source_id`, with its
+/// descendants `desc_ids`, may not be destroyed, or `None`.
+///
+/// # Errors
+///
+/// `serverFail` when the backend fails.
+async fn original_refusal<B: FileNodeBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    from_account_id: &Id,
+    source_id: &Id,
+    desc_ids: &[Id],
+) -> Result<Option<Value>, JmapError> {
+    // draft-ietf-jmap-filenode-20 §5: the cascade "MUST be rejected
+    // with "forbidden"" if it would remove a node the caller cannot
+    // discover, and destroys nothing in the subtree.
+    let descendants =
+        match discoverable_descendants(backend, caller, from_account_id, desc_ids).await {
+            Ok(Some(descendants)) => descendants,
+            Ok(None) => {
+                return Ok(Some(undiscoverable_descendants(&format!(
+                    "destroying {}",
+                    source_id.as_ref()
+                ))));
+            }
+            Err(e) => return Err(server_fail_from_backend(&e)),
+        };
+
+    // draft-ietf-jmap-filenode-20 §5: a Directory with a role cannot
+    // be destroyed, here or in the cascade.
+    let doomed: Vec<Id> = std::iter::once(source_id.clone())
+        .chain(desc_ids.iter().cloned())
+        .collect();
+    match first_with_role(backend, caller, from_account_id, &doomed).await {
+        Ok(None) => {}
+        Ok(Some(role_dir)) => return Ok(Some(role_forbidden(&role_dir, "destroying"))),
+        Err(e) => return Err(server_fail_from_backend(&e)),
+    }
+
+    // RFC 8620 §5.3: each destroy is "an atomic unit"; refuse the
+    // cascade before it starts rather than part-way.
+    if descendants.is_empty() {
+        return Ok(None);
+    }
+    let source = discoverable_sibling(backend, caller, from_account_id, source_id)
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?;
+    let refused = first_refused(
+        backend,
+        caller,
+        from_account_id,
+        source.as_ref(),
+        &descendants,
+    )
+    .await
+    .map_err(|e| server_fail_from_backend(&e))?;
+    Ok(refused.map(|refused| destroy_refused(&refused)))
 }
 
 // ---------------------------------------------------------------------------

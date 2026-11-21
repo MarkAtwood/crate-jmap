@@ -1045,80 +1045,7 @@ impl<C: MemoryCaller> JmapReads for MemoryBackend<C> {
             _ => current_state,
         };
 
-        // RFC 8620 §5.2 ID deduplication across the window, using the
-        // canonical jmap-mail-server `IdFate` rules. `order` keeps first-seen
-        // order so the response lists are deterministic.
-        let mut fates: HashMap<Id, IdFate> = HashMap::new();
-        let mut order: Vec<Id> = Vec::new();
-        let mut window_props = ChangedProperties::new();
-        for e in entries {
-            let fate = match (e.change_type, fates.get(&e.id)) {
-                (ChangeType::Created, _) => IdFate::Created,
-                (ChangeType::Updated, Some(&f @ (IdFate::Created | IdFate::Destroyed))) => f,
-                (ChangeType::Updated, _) => IdFate::Updated,
-                // "If a record has been created AND destroyed since the old
-                // state, the server SHOULD remove the id from the response
-                // entirely." (RFC 8620 §5.2)
-                (ChangeType::Destroyed, Some(IdFate::Created)) => {
-                    fates.remove(&e.id);
-                    continue;
-                }
-                (ChangeType::Destroyed, _) => IdFate::Destroyed,
-                // Settled below from the id's whole window.
-                (ChangeType::Restored, _) => IdFate::Updated,
-            };
-            if e.change_type == ChangeType::Updated {
-                window_props.record(e.id.as_ref(), e.updated_props.as_ref());
-            }
-            if fates.insert(e.id.clone(), fate).is_none() {
-                order.push(e.id.clone());
-            }
-        }
-
-        // Object history -04 §5.1: an id restored in the window is
-        // classified by whether it existed at sinceState and exists now,
-        // "exactly as if the object had never been destroyed between them".
-        let mut events: HashMap<Id, Vec<ChangeEvent>> = HashMap::new();
-        for e in entries {
-            let event = match e.change_type {
-                ChangeType::Created => ChangeEvent::Created,
-                ChangeType::Updated => ChangeEvent::Updated,
-                ChangeType::Destroyed => ChangeEvent::Destroyed,
-                ChangeType::Restored => ChangeEvent::Restored,
-            };
-            events.entry(e.id.clone()).or_default().push(event);
-        }
-        for (id, list) in &events {
-            if !list.contains(&ChangeEvent::Restored) {
-                continue;
-            }
-            let fate = match fold_restore(list) {
-                Some(ChangeKind::Created) => IdFate::Created,
-                Some(ChangeKind::Destroyed) => IdFate::Destroyed,
-                Some(_) => IdFate::Updated,
-                None => {
-                    fates.remove(id);
-                    continue;
-                }
-            };
-            if fates.insert(id.clone(), fate).is_none() {
-                order.push(id.clone());
-            }
-        }
-
-        let mut created: Vec<Id> = Vec::new();
-        let mut updated: Vec<Id> = Vec::new();
-        let mut destroyed: Vec<Id> = Vec::new();
-        // `fates.remove` emits each id once and skips ids omitted above.
-        for id in order {
-            match fates.remove(&id) {
-                Some(IdFate::Created) => created.push(id),
-                Some(IdFate::Updated) => updated.push(id),
-                Some(IdFate::Destroyed) => destroyed.push(id),
-                None => {}
-            }
-        }
-
+        let (created, updated, destroyed, window_props) = window_changes(entries);
         // -05 §3.3 `updatedProperties`; FileNode has none of the RFC 8621
         // §2.2 count properties that only Mailbox/changes may list.
         let updated_properties = window_props.updated_properties(&updated, mode, &[]);
@@ -1199,22 +1126,7 @@ impl<C: MemoryCaller> JmapReads for MemoryBackend<C> {
         // FileNode/get returns as null for that node ... does not match the
         // node", and such a node sorts as lacking the property (-20 §3.2.5).
         let shown = guard.shown_nodes(account_id, caller.principal());
-        let mut matched: Vec<&FileNode> = Vec::new();
-        for node in shown.values() {
-            let matches = match &fc {
-                None => true,
-                Some(f) => node_matches_tree(node, f, &shown)?,
-            };
-            if matches {
-                matched.push(node);
-            }
-        }
-
-        // Id breaks ties so pages stay stable across calls.
-        matched.sort_by(|a, b| {
-            compare_nodes(a, b, &sort).then_with(|| a.id.as_ref().cmp(b.id.as_ref()))
-        });
-        let ids: Vec<Id> = matched.into_iter().map(|n| n.id.clone()).collect();
+        let ids = matching_ids(&shown, fc.as_ref(), &sort)?;
 
         let total = ids.len() as u64;
         // RFC 8620 §5.5 position / anchor / anchorOffset.
@@ -1266,6 +1178,114 @@ impl<C: MemoryCaller> JmapReads for MemoryBackend<C> {
             vec![],
             vec![],
         ))
+    }
+}
+
+/// The ids of the nodes among `shown` that match `fc`, in the order of
+/// `sort`; the id breaks ties so pages stay stable across calls.
+fn matching_ids(
+    shown: &HashMap<Id, FileNode>,
+    fc: Option<&FileNodeFilter>,
+    sort: &[FileNodeComparator],
+) -> Result<Vec<Id>, BackendQueryError<MemoryError>> {
+    let mut matched: Vec<&FileNode> = Vec::new();
+    for node in shown.values() {
+        let matches = match fc {
+            None => true,
+            Some(f) => node_matches_tree(node, f, shown)?,
+        };
+        if matches {
+            matched.push(node);
+        }
+    }
+
+    // Id breaks ties so pages stay stable across calls.
+    matched
+        .sort_by(|a, b| compare_nodes(a, b, sort).then_with(|| a.id.as_ref().cmp(b.id.as_ref())));
+    Ok(matched.into_iter().map(|n| n.id.clone()).collect())
+}
+
+/// The `created`, `updated` and `destroyed` ids of a `/changes` window
+/// `entries`, and the properties each update changed (RFC 8620 §5.2).
+fn window_changes(entries: &[&ChangeEntry]) -> (Vec<Id>, Vec<Id>, Vec<Id>, ChangedProperties) {
+    // RFC 8620 §5.2 ID deduplication across the window, using the
+    // canonical jmap-mail-server `IdFate` rules. `order` keeps first-seen
+    // order so the response lists are deterministic.
+    let mut fates: HashMap<Id, IdFate> = HashMap::new();
+    let mut order: Vec<Id> = Vec::new();
+    let mut window_props = ChangedProperties::new();
+    for e in entries {
+        let fate = match (e.change_type, fates.get(&e.id)) {
+            (ChangeType::Created, _) => IdFate::Created,
+            (ChangeType::Updated, Some(&f @ (IdFate::Created | IdFate::Destroyed))) => f,
+            (ChangeType::Updated, _) => IdFate::Updated,
+            // "If a record has been created AND destroyed since the old
+            // state, the server SHOULD remove the id from the response
+            // entirely." (RFC 8620 §5.2)
+            (ChangeType::Destroyed, Some(IdFate::Created)) => {
+                fates.remove(&e.id);
+                continue;
+            }
+            (ChangeType::Destroyed, _) => IdFate::Destroyed,
+            // Settled below from the id's whole window.
+            (ChangeType::Restored, _) => IdFate::Updated,
+        };
+        if e.change_type == ChangeType::Updated {
+            window_props.record(e.id.as_ref(), e.updated_props.as_ref());
+        }
+        if fates.insert(e.id.clone(), fate).is_none() {
+            order.push(e.id.clone());
+        }
+    }
+    settle_restores(entries, &mut fates, &mut order);
+
+    let mut created: Vec<Id> = Vec::new();
+    let mut updated: Vec<Id> = Vec::new();
+    let mut destroyed: Vec<Id> = Vec::new();
+    // `fates.remove` emits each id once and skips ids omitted above.
+    for id in order {
+        match fates.remove(&id) {
+            Some(IdFate::Created) => created.push(id),
+            Some(IdFate::Updated) => updated.push(id),
+            Some(IdFate::Destroyed) => destroyed.push(id),
+            None => {}
+        }
+    }
+    (created, updated, destroyed, window_props)
+}
+
+/// Settle the fate of each id restored in the window `entries`.
+///
+/// Object history -04 §5.1: an id restored in the window is classified by
+/// whether it existed at sinceState and exists now, "exactly as if the
+/// object had never been destroyed between them".
+fn settle_restores(entries: &[&ChangeEntry], fates: &mut HashMap<Id, IdFate>, order: &mut Vec<Id>) {
+    let mut events: HashMap<Id, Vec<ChangeEvent>> = HashMap::new();
+    for e in entries {
+        let event = match e.change_type {
+            ChangeType::Created => ChangeEvent::Created,
+            ChangeType::Updated => ChangeEvent::Updated,
+            ChangeType::Destroyed => ChangeEvent::Destroyed,
+            ChangeType::Restored => ChangeEvent::Restored,
+        };
+        events.entry(e.id.clone()).or_default().push(event);
+    }
+    for (id, list) in &events {
+        if !list.contains(&ChangeEvent::Restored) {
+            continue;
+        }
+        let fate = match fold_restore(list) {
+            Some(ChangeKind::Created) => IdFate::Created,
+            Some(ChangeKind::Destroyed) => IdFate::Destroyed,
+            Some(_) => IdFate::Updated,
+            None => {
+                fates.remove(id);
+                continue;
+            }
+        };
+        if fates.insert(id.clone(), fate).is_none() {
+            order.push(id.clone());
+        }
     }
 }
 
@@ -1486,43 +1506,14 @@ impl<C: MemoryCaller> MemoryBackend<C> {
         let metadata_info = guard.metadata_info.clone();
         let metadata = metadata_info.is_some();
         if let Some(source) = source {
-            let from = guard.get_or_err(source.account_id).ok_or_else(not_found)?;
-            match from.view_for(user, metadata).get(source.id) {
-                None => return Err(not_found()),
-                Some(sight) if !sight.readable() => {
-                    return Err(forbidden("copying a node requires mayRead on it"));
-                }
-                Some(_) => {}
-            }
+            check_copy_source(&guard, &source, user, metadata)?;
         }
         let store = guard.get_mut_or_err(account_id).ok_or_else(|| {
             BackendSetError::SetError(Box::new(SetError::new(SetErrorType::InvalidProperties)))
         })?;
         let new_id = store.next_node_id();
         let obj = build(&new_id)?;
-        // Store as a typed FileNode: serialize the built O and read it back.
-        let mut v = serde_json::to_value(&obj).map_err(|e| {
-            BackendSetError::Other(MemoryError::serde(
-                format_args!("create_object: serialize {}", O::TYPE_NAME),
-                &e,
-            ))
-        })?;
-        if let Some(obj) = v.as_object_mut() {
-            let supplied = supplied.and_then(serde_json::Value::as_object);
-            check_metadata_create(metadata_info.as_ref(), supplied.unwrap_or(obj), obj)?;
-            // draft-ietf-jmap-filenode-20 §3.1.1 `changed` is server-set;
-            // §3.2.4 gives a copy "a new changed value".
-            obj.insert(
-                "changed".to_owned(),
-                serde_json::json!(jmap_server::now_utc_string()),
-            );
-        }
-        let mut node: FileNode = serde_json::from_value(v).map_err(|e| {
-            BackendSetError::Other(MemoryError::serde(
-                "create_object: deserialize FileNode",
-                &e,
-            ))
-        })?;
+        let mut node = node_to_store(&obj, supplied, metadata_info.as_ref())?;
 
         let sharee = user.filter(|u| **u != store.owner).cloned();
         let view = store.view_for(user, metadata);
@@ -1556,30 +1547,300 @@ impl<C: MemoryCaller> MemoryBackend<C> {
         }
         store.log_write(&before, ChangeType::Created, &new_id, None, metadata, false);
 
-        // A sharee with mayAddChildren but not mayRead on the parent cannot
-        // discover the node it created (-20 §5); it is shown with the
-        // rights it inherits, so without the values it cannot read.
-        let sight = store
-            .view_for(user, metadata)
-            .remove(&new_id)
-            .or_else(|| {
-                node_parent_sight(
-                    &view,
-                    store.nodes.get(&new_id).and_then(|n| n.parent_id.as_ref()),
-                )
-            })
-            .unwrap_or_else(|| access::Sight {
-                rights: FilesRights::default(),
-            });
-        let shown = store
-            .nodes
-            .get(&new_id)
-            .map(|node| access::shown(node, &sight, store.subscription(&new_id, user)))
-            .ok_or_else(|| {
-                BackendSetError::Other(MemoryError::new("create_object: the node was not stored"))
-            })?;
-        let obj: O = decode_node(&shown, "create_object").map_err(BackendSetError::Other)?;
+        let obj = created_as_shown(store, &view, user, metadata, &new_id)?;
         Ok((new_id, obj))
+    }
+}
+
+/// Check that `user` may copy the node of `source` (-20 §3.2.4: "mayRead
+/// on it"); one the user cannot discover is `notFound`.
+fn check_copy_source(
+    state: &MemoryState,
+    source: &CopySource<'_>,
+    user: Option<&Id>,
+    metadata: bool,
+) -> Result<(), BackendSetError<MemoryError>> {
+    let from = state.get_or_err(source.account_id).ok_or_else(not_found)?;
+    match from.view_for(user, metadata).get(source.id) {
+        None => Err(not_found()),
+        Some(sight) if !sight.readable() => Err(forbidden("copying a node requires mayRead on it")),
+        Some(_) => Ok(()),
+    }
+}
+
+/// `obj`, as built for a new node, read back as the [`FileNode`] to store:
+/// its metadata checked against `supplied` (the `/copy` create object) or
+/// itself (-05 §3.4), and a new `changed`.
+fn node_to_store<O: SetObject>(
+    obj: &O,
+    supplied: Option<&serde_json::Value>,
+    metadata_info: Option<&DataTypeMetadataInfo>,
+) -> Result<FileNode, BackendSetError<MemoryError>> {
+    // Store as a typed FileNode: serialize the built O and read it back.
+    let mut v = serde_json::to_value(obj).map_err(|e| {
+        BackendSetError::Other(MemoryError::serde(
+            format_args!("create_object: serialize {}", O::TYPE_NAME),
+            &e,
+        ))
+    })?;
+    if let Some(obj) = v.as_object_mut() {
+        let supplied = supplied.and_then(serde_json::Value::as_object);
+        check_metadata_create(metadata_info, supplied.unwrap_or(obj), obj)?;
+        // draft-ietf-jmap-filenode-20 §3.1.1 `changed` is server-set;
+        // §3.2.4 gives a copy "a new changed value".
+        obj.insert(
+            "changed".to_owned(),
+            serde_json::json!(jmap_server::now_utc_string()),
+        );
+    }
+    serde_json::from_value(v).map_err(|e| {
+        BackendSetError::Other(MemoryError::serde(
+            "create_object: deserialize FileNode",
+            &e,
+        ))
+    })
+}
+
+/// The node `new_id`, just stored in `store`, as `user` sees it, where
+/// `view` is what `user` saw before the create.
+///
+/// A sharee with mayAddChildren but not mayRead on the parent cannot
+/// discover the node it created (-20 §5); it is shown with the rights it
+/// inherits, so without the values it cannot read.
+fn created_as_shown<O: SetObject>(
+    store: &AccountStore,
+    view: &access::View,
+    user: Option<&Id>,
+    metadata: bool,
+    new_id: &Id,
+) -> Result<O, BackendSetError<MemoryError>> {
+    let sight = store
+        .view_for(user, metadata)
+        .remove(new_id)
+        .or_else(|| {
+            node_parent_sight(
+                view,
+                store.nodes.get(new_id).and_then(|n| n.parent_id.as_ref()),
+            )
+        })
+        .unwrap_or_else(|| access::Sight {
+            rights: FilesRights::default(),
+        });
+    let shown = store
+        .nodes
+        .get(new_id)
+        .map(|node| access::shown(node, &sight, store.subscription(new_id, user)))
+        .ok_or_else(|| {
+            BackendSetError::Other(MemoryError::new("create_object: the node was not stored"))
+        })?;
+    decode_node(&shown, "create_object").map_err(BackendSetError::Other)
+}
+
+/// The `invalidPatch` [`SetError`] with `description`.
+fn invalid_patch(description: String) -> BackendSetError<MemoryError> {
+    BackendSetError::SetError(Box::new(
+        SetError::new(SetErrorType::InvalidPatch).with_description(description),
+    ))
+}
+
+/// `patch` as a JSON value for JMAP-style path patching, with the patch
+/// errors that the request alone shows already reported.
+///
+/// RFC 8620 §5.3 `PatchObject`: keys may contain "/" separators naming a
+/// path into nested objects (e.g. `"shareWith/alice"`). Null values remove
+/// the target key; non-null values overwrite or create it. A pointer whose
+/// leading parts do not exist is invalidPatch.
+fn serialize_patch<O: SetObject>(
+    patch: &O::Patch,
+) -> Result<serde_json::Value, BackendSetError<MemoryError>> {
+    let patch_val = serde_json::to_value(patch).map_err(|e| {
+        BackendSetError::Other(MemoryError::serde("update_object: serialize patch", &e))
+    })?;
+    // draft-ietf-jmap-metadata-05 §3.2: "Patch errors that can be
+    // determined from the request alone (for example, two paths where
+    // one is a prefix of the other) MUST be reported with
+    // "invalidPatch" before rule 1 is evaluated."
+    if let serde_json::Value::Object(patch_map) = &patch_val {
+        check_patch_paths(patch_map).map_err(|e: PatchPathError| invalid_patch(e.to_string()))?;
+    }
+    Ok(patch_val)
+}
+
+/// `node` with `patch_val` applied by [`patch_stored_node`], and the
+/// properties the patch changed. `may_set_metadata` is the caller's
+/// `maySetMetadata` on the node.
+fn patched_node(
+    node: &FileNode,
+    patch_val: &serde_json::Value,
+    metadata_info: Option<&DataTypeMetadataInfo>,
+    may_set_metadata: Option<bool>,
+) -> Result<(FileNode, Option<BTreeSet<String>>), BackendSetError<MemoryError>> {
+    // Serialize the stored node to JSON, apply the patch as a JMAP patch,
+    // then deserialize back to FileNode.
+    let mut node_val = serde_json::to_value(node).map_err(|e| {
+        BackendSetError::Other(MemoryError::serde(
+            "update_object: serialize stored FileNode",
+            &e,
+        ))
+    })?;
+    let updated_props =
+        patch_stored_node(&mut node_val, patch_val, metadata_info, may_set_metadata)?;
+
+    // A patched value of the wrong type is the client's error, not ours.
+    let updated_node: FileNode = serde_json::from_value(node_val).map_err(|e| {
+        BackendSetError::SetError(Box::new(
+            SetError::new(SetErrorType::InvalidProperties).with_description(e.to_string()),
+        ))
+    })?;
+    Ok((updated_node, updated_props))
+}
+
+/// Apply `patch_val` to `node_val`, the stored node serialized, under the
+/// draft-ietf-jmap-metadata-05 §3.2 rules, and stamp a new `changed` when a
+/// property that updates it changed (`updates_changed`).
+///
+/// Returns the properties the patch changed, `changed` included, or `None`
+/// when either value is not an object. `may_set_metadata` is the caller's
+/// `maySetMetadata` on the node.
+fn patch_stored_node(
+    node_val: &mut serde_json::Value,
+    patch_val: &serde_json::Value,
+    metadata_info: Option<&DataTypeMetadataInfo>,
+    may_set_metadata: Option<bool>,
+) -> Result<Option<BTreeSet<String>>, BackendSetError<MemoryError>> {
+    let (Some(obj), Some(patch_obj)) = (node_val.as_object_mut(), patch_val.as_object()) else {
+        return Ok(None);
+    };
+    // -05 §3.2 rules 1 to 3 run before the patch is applied.
+    let info = check_metadata_set(
+        metadata_info,
+        SetKind::Update,
+        patch_obj,
+        Some(obj),
+        may_set_metadata,
+    )?;
+    // -05 §2 `metadata` has "default: {}", so a
+    // `metadata/<namespace>` pointer finds its parent.
+    if info.is_some() {
+        obj.entry("metadata")
+            .or_insert_with(|| serde_json::Value::Object(serde_json::Map::new()));
+    }
+    let before = obj.clone();
+    // The value-dependent patch errors (missing parent, path through
+    // an array or a Binary value) land here, after rule 3 and before rule 4 (-05 §3.2).
+    apply_patch_object(obj, patch_obj).map_err(|e| invalid_patch(e.to_string()))?;
+    if let Some(info) = info {
+        // -05 §3.2: "In an update, null is equivalent to {}"; the
+        // patch removed the property instead.
+        for property in ["metadata", "privateMetadata"] {
+            if patch_obj
+                .get(property)
+                .is_some_and(serde_json::Value::is_null)
+            {
+                obj.insert(
+                    property.to_owned(),
+                    serde_json::Value::Object(serde_json::Map::new()),
+                );
+            }
+        }
+        // -05 §3.2 rule 4 runs on the value as it would be stored.
+        check_metadata_depth(patch_obj, obj, info)
+            .map_err(|e| invalid_metadata_property(e.property(), e.description()))?;
+    }
+    let mut props = changed_properties(&before, obj);
+    if props.iter().any(|p| updates_changed(p)) {
+        obj.insert(
+            "changed".to_owned(),
+            serde_json::json!(jmap_server::now_utc_string()),
+        );
+        // -05 §3.3 `updatedProperties` names it too.
+        props.insert("changed".to_owned());
+    }
+    Ok(Some(props))
+}
+
+/// Check that the caller may turn `node` into `updated_node`, which
+/// changed `updated_props`: draft-ietf-jmap-filenode-20 §5 rights, seen
+/// through `sight` and `view`, and the `shareWith` owner rule.
+fn check_update_rights(
+    node: &FileNode,
+    updated_node: &FileNode,
+    updated_props: Option<&BTreeSet<String>>,
+    sight: &access::Sight,
+    view: &access::View,
+    sharee: Option<&Id>,
+    owner: &Id,
+) -> Result<(), BackendSetError<MemoryError>> {
+    // draft-ietf-jmap-filenode-20 §5: "A Directory with a role cannot
+    // be destroyed, renamed or moved", re-verified under the lock.
+    if node.role.is_some()
+        && (updated_node.name != node.name || updated_node.parent_id != node.parent_id)
+    {
+        return Err(role_forbidden());
+    }
+
+    // -20 §5: "To rename or move a node, or change its role, the server
+    // checks mayRename ... in the rights of the node itself; for a node
+    // with no myRights, these are its parent's rights ... Without these
+    // rights, the operation fails with "forbidden"."
+    for property in updated_props.into_iter().flatten() {
+        if let Some((right, holds)) = needed_right(property)
+            && !holds(&sight.rights)
+        {
+            return Err(forbidden(&format!("changing {property} requires {right}")));
+        }
+    }
+    if updated_node.parent_id != node.parent_id {
+        check_parent(view, sharee, updated_node.parent_id.as_ref())?;
+    }
+    check_share_with(updated_node, owner)
+}
+
+/// Store `updated_node` as `id` in `store` and log the change: the update
+/// of [`FileNodeBackend::update_object`] once every check passed.
+/// `own_subscription` is a sharee's new `isSubscribed`, kept apart from
+/// the node (-20 §3.1.2).
+fn store_update(
+    store: &mut AccountStore,
+    id: &Id,
+    updated_node: FileNode,
+    updated_props: Option<BTreeSet<String>>,
+    sharee: Option<&Id>,
+    own_subscription: Option<bool>,
+    metadata: bool,
+) {
+    // -20 §3.1.1: "The server SHOULD report a per-user change in
+    // FileNode/changes only to the users whose value changed": an
+    // update of the owner's isSubscribed alone is the owner's.
+    let owner_only = updated_props
+        .as_ref()
+        .is_some_and(|p| !p.is_empty() && p.iter().all(|p| p == "isSubscribed"));
+    let only_own_subscription =
+        own_subscription.is_some() && updated_props.as_ref().is_none_or(BTreeSet::is_empty);
+
+    let before = store.nodes.clone();
+    store.nodes.insert(id.clone(), updated_node);
+    if !only_own_subscription {
+        store.log_write(
+            &before,
+            ChangeType::Updated,
+            id,
+            updated_props,
+            metadata,
+            owner_only,
+        );
+    }
+    if let (Some(u), Some(v)) = (sharee, own_subscription) {
+        let key = (id.clone(), u.clone());
+        if store.subscriptions.get(&key).copied().unwrap_or(true) != v || only_own_subscription {
+            store.subscriptions.insert(key, v);
+            store.bump_state(
+                ChangeType::Updated,
+                id.clone(),
+                Some(BTreeSet::from(["isSubscribed".to_owned()])),
+                Audience::Sharee(u.clone()),
+            );
+        }
     }
 }
 
@@ -1652,29 +1913,7 @@ impl<C: MemoryCaller> FileNodeBackend for MemoryBackend<C> {
         if O::TYPE_NAME != "FileNode" {
             return Err(not_found());
         }
-
-        // Serialize patch as a JSON Value for JMAP-style path patching.
-        //
-        // RFC 8620 §5.3 PatchObject: keys may contain "/" separators naming a
-        // path into nested objects (e.g. `"shareWith/alice"`). Null values
-        // remove the target key; non-null values overwrite or create it.
-        // A pointer whose leading parts do not exist is invalidPatch.
-        let mut patch_val = serde_json::to_value(&patch).map_err(|e| {
-            BackendSetError::Other(MemoryError::serde("update_object: serialize patch", &e))
-        })?;
-        let invalid_patch = |description: String| {
-            BackendSetError::SetError(Box::new(
-                SetError::new(SetErrorType::InvalidPatch).with_description(description),
-            ))
-        };
-        // draft-ietf-jmap-metadata-05 §3.2: "Patch errors that can be
-        // determined from the request alone (for example, two paths where
-        // one is a prefix of the other) MUST be reported with
-        // "invalidPatch" before rule 1 is evaluated."
-        if let serde_json::Value::Object(patch_map) = &patch_val {
-            check_patch_paths(patch_map)
-                .map_err(|e: PatchPathError| invalid_patch(e.to_string()))?;
-        }
+        let mut patch_val = serialize_patch::<O>(&patch)?;
 
         let user = caller.principal();
         let mut guard = self.inner.lock().await;
@@ -1700,100 +1939,24 @@ impl<C: MemoryCaller> FileNodeBackend for MemoryBackend<C> {
             own_subscription = Some(v.as_bool().unwrap_or(true));
         }
 
-        // Serialize the stored node to JSON, apply the patch as a JMAP patch,
-        // then deserialize back to FileNode.
-        let mut node_val = serde_json::to_value(&node).map_err(|e| {
-            BackendSetError::Other(MemoryError::serde(
-                "update_object: serialize stored FileNode",
-                &e,
-            ))
-        })?;
-
         // -05 §4.1 `maySetMetadata`, which for a File or SymLink is its
         // parent's (draft-ietf-jmap-filenode-20 §5); `sight` already holds
         // the parent's rights for those.
-        let may_set_metadata = sight.rights.may_set_metadata;
-
-        let mut updated_props = None;
-        if let (Some(obj), Some(patch_obj)) = (node_val.as_object_mut(), patch_val.as_object()) {
-            // -05 §3.2 rules 1 to 3 run before the patch is applied.
-            let info = check_metadata_set(
-                metadata_info.as_ref(),
-                SetKind::Update,
-                patch_obj,
-                Some(obj),
-                may_set_metadata,
-            )?;
-            // -05 §2 `metadata` has "default: {}", so a
-            // `metadata/<namespace>` pointer finds its parent.
-            if info.is_some() {
-                obj.entry("metadata")
-                    .or_insert_with(|| serde_json::Value::Object(serde_json::Map::new()));
-            }
-            let before = obj.clone();
-            // The value-dependent patch errors (missing parent, path through
-            // an array or a Binary value) land here, after rule 3 and before rule 4 (-05 §3.2).
-            apply_patch_object(obj, patch_obj).map_err(|e| invalid_patch(e.to_string()))?;
-            if let Some(info) = info {
-                // -05 §3.2: "In an update, null is equivalent to {}"; the
-                // patch removed the property instead.
-                for property in ["metadata", "privateMetadata"] {
-                    if patch_obj
-                        .get(property)
-                        .is_some_and(serde_json::Value::is_null)
-                    {
-                        obj.insert(
-                            property.to_owned(),
-                            serde_json::Value::Object(serde_json::Map::new()),
-                        );
-                    }
-                }
-                // -05 §3.2 rule 4 runs on the value as it would be stored.
-                check_metadata_depth(patch_obj, obj, info)
-                    .map_err(|e| invalid_metadata_property(e.property(), e.description()))?;
-            }
-            let mut props = changed_properties(&before, obj);
-            if props.iter().any(|p| updates_changed(p)) {
-                obj.insert(
-                    "changed".to_owned(),
-                    serde_json::json!(jmap_server::now_utc_string()),
-                );
-                // -05 §3.3 `updatedProperties` names it too.
-                props.insert("changed".to_owned());
-            }
-            updated_props = Some(props);
-        }
-
-        // A patched value of the wrong type is the client's error, not ours.
-        let updated_node: FileNode = serde_json::from_value(node_val).map_err(|e| {
-            BackendSetError::SetError(Box::new(
-                SetError::new(SetErrorType::InvalidProperties).with_description(e.to_string()),
-            ))
-        })?;
-
-        // draft-ietf-jmap-filenode-20 §5: "A Directory with a role cannot
-        // be destroyed, renamed or moved", re-verified under the lock.
-        if node.role.is_some()
-            && (updated_node.name != node.name || updated_node.parent_id != node.parent_id)
-        {
-            return Err(role_forbidden());
-        }
-
-        // -20 §5: "To rename or move a node, or change its role, the server
-        // checks mayRename ... in the rights of the node itself; for a node
-        // with no myRights, these are its parent's rights ... Without these
-        // rights, the operation fails with "forbidden"."
-        for property in updated_props.iter().flatten() {
-            if let Some((right, holds)) = needed_right(property)
-                && !holds(&sight.rights)
-            {
-                return Err(forbidden(&format!("changing {property} requires {right}")));
-            }
-        }
-        if updated_node.parent_id != node.parent_id {
-            check_parent(&view, sharee.as_ref(), updated_node.parent_id.as_ref())?;
-        }
-        check_share_with(&updated_node, &store.owner)?;
+        let (updated_node, updated_props) = patched_node(
+            &node,
+            &patch_val,
+            metadata_info.as_ref(),
+            sight.rights.may_set_metadata,
+        )?;
+        check_update_rights(
+            &node,
+            &updated_node,
+            updated_props.as_ref(),
+            &sight,
+            &view,
+            sharee.as_ref(),
+            &store.owner,
+        )?;
 
         // The history rights cut (object history §8.2): a change to the
         // shareWith in force over this node or its descendants.
@@ -1804,40 +1967,15 @@ impl<C: MemoryCaller> FileNodeBackend for MemoryBackend<C> {
             || updated_props
                 .as_ref()
                 .is_some_and(|props| props.contains("shareWith"));
-        // -20 §3.1.1: "The server SHOULD report a per-user change in
-        // FileNode/changes only to the users whose value changed": an
-        // update of the owner's isSubscribed alone is the owner's.
-        let owner_only = updated_props
-            .as_ref()
-            .is_some_and(|p| !p.is_empty() && p.iter().all(|p| p == "isSubscribed"));
-        let only_own_subscription =
-            own_subscription.is_some() && updated_props.as_ref().is_none_or(BTreeSet::is_empty);
-
-        let before = store.nodes.clone();
-        store.nodes.insert(id.clone(), updated_node.clone());
-        if !only_own_subscription {
-            store.log_write(
-                &before,
-                ChangeType::Updated,
-                id,
-                updated_props,
-                metadata,
-                owner_only,
-            );
-        }
-        if let (Some(u), Some(v)) = (sharee.as_ref(), own_subscription) {
-            let key = (id.clone(), u.clone());
-            if store.subscriptions.get(&key).copied().unwrap_or(true) != v || only_own_subscription
-            {
-                store.subscriptions.insert(key, v);
-                store.bump_state(
-                    ChangeType::Updated,
-                    id.clone(),
-                    Some(BTreeSet::from(["isSubscribed".to_owned()])),
-                    Audience::Sharee(u.clone()),
-                );
-            }
-        }
+        store_update(
+            store,
+            id,
+            updated_node.clone(),
+            updated_props,
+            sharee.as_ref(),
+            own_subscription,
+            metadata,
+        );
         let shown = store
             .view_for(user, metadata)
             .get(id)
@@ -2242,191 +2380,12 @@ fn node_matches_filter(
         Some(f) => f,
         None => return Ok(true), // No filter — all nodes match.
     };
-
-    // -20 §3.2.5: conditions on a type-specific property match only nodes
-    // of that @type. `body` is left to the unsupportedFilter check below.
-    let file_only = fc.blob_id.is_some()
-        || fc.is_executable.is_some()
-        || fc.min_size.is_some()
-        || fc.max_size.is_some()
-        || fc.media_type.is_some()
-        || fc.media_type_match.is_some();
-    if file_only && node.node_type != Some(NodeType::File) {
-        return Ok(false);
-    }
-    let directory_only = fc.role.is_some() || fc.has_any_role.is_some();
-    if directory_only && node.node_type != Some(NodeType::Directory) {
-        return Ok(false);
-    }
-
-    if let Some(ref pid) = fc.parent_id
-        && node.parent_id.as_ref() != Some(pid)
-    {
-        return Ok(false);
-    }
-
-    if let Some(is_top) = fc.is_top_level {
-        let top = node.parent_id.is_none();
-        if top != is_top {
-            return Ok(false);
-        }
-    }
-
-    if let Some(ref aid) = fc.ancestor_id {
-        // Walk parent chain from `node` upward looking for aid.
-        let mut cur = node.parent_id.as_ref();
-        let mut found = false;
-        let mut depth = 0u32;
-        while let Some(pid) = cur {
-            if pid == aid {
-                found = true;
-                break;
-            }
-            // Cycle safeguard: a malformed tree must not loop forever.
-            depth += 1;
-            if depth > 10_000 {
-                return Err(BackendQueryError::Other(MemoryError::new(
-                    "node_matches_filter: ancestor chain exceeds 10_000 depth, suspected cycle",
-                )));
-            }
-            cur = nodes.get(pid).and_then(|n| n.parent_id.as_ref());
-        }
-        if !found {
-            return Ok(false);
-        }
-    }
-
-    if let Some(ref did) = fc.descendant_id {
-        // Node matches if its id appears on the parent chain of the
-        // node identified by `did`.
-        let target = match nodes.get(did) {
-            Some(t) => t,
-            None => return Ok(false),
-        };
-        let mut cur = target.parent_id.as_ref();
-        let mut found = false;
-        let mut depth = 0u32;
-        while let Some(pid) = cur {
-            if pid == &node.id {
-                found = true;
-                break;
-            }
-            depth += 1;
-            if depth > 10_000 {
-                return Err(BackendQueryError::Other(MemoryError::new(
-                    "node_matches_filter: descendant chain exceeds 10_000 depth, suspected cycle",
-                )));
-            }
-            cur = nodes.get(pid).and_then(|n| n.parent_id.as_ref());
-        }
-        if !found {
-            return Ok(false);
-        }
-    }
-
-    if let Some(ref nt) = fc.node_type {
-        let node_nt_str = node.node_type.as_ref().map(NodeType::to_wire_str);
-        if node_nt_str != Some(nt.to_wire_str()) {
-            return Ok(false);
-        }
-    }
-
-    if let Some(ref r) = fc.role {
-        let node_role_str = node.role.as_ref().map(NodeRole::to_wire_str);
-        if node_role_str != Some(r.to_wire_str()) {
-            return Ok(false);
-        }
-    }
-
-    if let Some(ref sid) = fc.space_id
-        && node.space_id.as_ref() != Some(sid)
-    {
-        return Ok(false);
-    }
-
-    if let Some(has_role) = fc.has_any_role {
-        let has = node.role.is_some();
-        if has != has_role {
-            return Ok(false);
-        }
-    }
-
-    if let Some(ref bid) = fc.blob_id
-        && node.blob_id.as_ref() != Some(bid)
-    {
-        return Ok(false);
-    }
-
-    if let Some(ref mt) = fc.media_type
-        && node.media_type.as_deref() != Some(mt.as_str())
-    {
-        return Ok(false);
-    }
-
-    if let Some(ref name) = fc.name
-        && node.name != *name
-    {
-        return Ok(false);
-    }
-
-    if let Some(ref pattern) = fc.name_match
-        && !crate::glob::glob_match(pattern, &node.name)
-    {
-        return Ok(false);
-    }
-
-    if let Some(ref pattern) = fc.media_type_match {
-        let mt = node.media_type.as_deref().unwrap_or("");
-        if !crate::glob::glob_match(pattern, mt) {
-            return Ok(false);
-        }
-    }
-
-    if let Some(is_exec) = fc.is_executable
-        && node.executable.unwrap_or(false) != is_exec
-    {
-        return Ok(false);
-    }
-
-    if let Some(min) = fc.min_size
-        && node.size.unwrap_or(0) < min
-    {
-        return Ok(false);
-    }
-
-    if let Some(max) = fc.max_size
-        && node.size.unwrap_or(0) >= max
-    {
-        return Ok(false);
-    }
-
-    if let Some(ref before) = fc.created_before
-        && !date_strictly_before(node.created.as_ref(), before)
-    {
-        return Ok(false);
-    }
-    if let Some(ref after) = fc.created_after
-        && !date_on_or_after(node.created.as_ref(), after)
-    {
-        return Ok(false);
-    }
-    if let Some(ref before) = fc.modified_before
-        && !date_strictly_before(node.modified.as_ref(), before)
-    {
-        return Ok(false);
-    }
-    if let Some(ref after) = fc.modified_after
-        && !date_on_or_after(node.modified.as_ref(), after)
-    {
-        return Ok(false);
-    }
-    if let Some(ref before) = fc.accessed_before
-        && !date_strictly_before(node.accessed.as_ref(), before)
-    {
-        return Ok(false);
-    }
-    if let Some(ref after) = fc.accessed_after
-        && !date_on_or_after(node.accessed.as_ref(), after)
+    // Each group returns at its first condition the node fails, in the
+    // order the conditions are listed above.
+    if !type_scope_matches(node, fc)
+        || !tree_matches(node, fc, nodes)?
+        || !properties_match(node, fc)
+        || !dates_match(node, fc)
     {
         return Ok(false);
     }
@@ -2447,6 +2406,200 @@ fn node_matches_filter(
         fc.metadata_text_contains.as_ref(),
         fc.metadata_text_equals.as_ref(),
     ))
+}
+
+/// Whether `node` has the `@type` that the type-specific conditions of
+/// `fc` match (-20 §3.2.5). `body` is left to the unsupportedFilter check
+/// of [`node_matches_filter`].
+fn type_scope_matches(node: &FileNode, fc: &jmap_filenode_types::FileNodeFilterCondition) -> bool {
+    let file_only = fc.blob_id.is_some()
+        || fc.is_executable.is_some()
+        || fc.min_size.is_some()
+        || fc.max_size.is_some()
+        || fc.media_type.is_some()
+        || fc.media_type_match.is_some();
+    if file_only && node.node_type != Some(NodeType::File) {
+        return false;
+    }
+    let directory_only = fc.role.is_some() || fc.has_any_role.is_some();
+    !(directory_only && node.node_type != Some(NodeType::Directory))
+}
+
+/// Whether `node` matches the tree conditions of `fc`: `parentId`,
+/// `isTopLevel`, `ancestorId` and `descendantId`.
+fn tree_matches(
+    node: &FileNode,
+    fc: &jmap_filenode_types::FileNodeFilterCondition,
+    nodes: &HashMap<Id, FileNode>,
+) -> Result<bool, BackendQueryError<MemoryError>> {
+    if let Some(ref pid) = fc.parent_id
+        && node.parent_id.as_ref() != Some(pid)
+    {
+        return Ok(false);
+    }
+
+    if let Some(is_top) = fc.is_top_level {
+        let top = node.parent_id.is_none();
+        if top != is_top {
+            return Ok(false);
+        }
+    }
+
+    if let Some(ref aid) = fc.ancestor_id
+        && !on_parent_chain(
+            node.parent_id.as_ref(),
+            aid,
+            nodes,
+            "node_matches_filter: ancestor chain exceeds 10_000 depth, suspected cycle",
+        )?
+    {
+        return Ok(false);
+    }
+
+    if let Some(ref did) = fc.descendant_id {
+        // Node matches if its id appears on the parent chain of the
+        // node identified by `did`.
+        let target = match nodes.get(did) {
+            Some(t) => t,
+            None => return Ok(false),
+        };
+        if !on_parent_chain(
+            target.parent_id.as_ref(),
+            &node.id,
+            nodes,
+            "node_matches_filter: descendant chain exceeds 10_000 depth, suspected cycle",
+        )? {
+            return Ok(false);
+        }
+    }
+    Ok(true)
+}
+
+/// Whether `wanted` is on the parent chain among `nodes` that starts at
+/// `parent`. A chain longer than 10 000 links fails with `cycle`, so a
+/// malformed tree cannot loop forever.
+fn on_parent_chain(
+    parent: Option<&Id>,
+    wanted: &Id,
+    nodes: &HashMap<Id, FileNode>,
+    cycle: &'static str,
+) -> Result<bool, BackendQueryError<MemoryError>> {
+    let mut cur = parent;
+    let mut depth = 0u32;
+    while let Some(pid) = cur {
+        if pid == wanted {
+            return Ok(true);
+        }
+        // Cycle safeguard: a malformed tree must not loop forever.
+        depth += 1;
+        if depth > 10_000 {
+            return Err(BackendQueryError::Other(MemoryError::new(cycle)));
+        }
+        cur = nodes.get(pid).and_then(|n| n.parent_id.as_ref());
+    }
+    Ok(false)
+}
+
+/// Whether `node` matches the property conditions of `fc`, from
+/// `nodeType` to `maxSize`.
+fn properties_match(node: &FileNode, fc: &jmap_filenode_types::FileNodeFilterCondition) -> bool {
+    if let Some(ref nt) = fc.node_type {
+        let node_nt_str = node.node_type.as_ref().map(NodeType::to_wire_str);
+        if node_nt_str != Some(nt.to_wire_str()) {
+            return false;
+        }
+    }
+
+    if let Some(ref r) = fc.role {
+        let node_role_str = node.role.as_ref().map(NodeRole::to_wire_str);
+        if node_role_str != Some(r.to_wire_str()) {
+            return false;
+        }
+    }
+
+    if let Some(ref sid) = fc.space_id
+        && node.space_id.as_ref() != Some(sid)
+    {
+        return false;
+    }
+
+    if let Some(has_role) = fc.has_any_role {
+        let has = node.role.is_some();
+        if has != has_role {
+            return false;
+        }
+    }
+
+    if let Some(ref bid) = fc.blob_id
+        && node.blob_id.as_ref() != Some(bid)
+    {
+        return false;
+    }
+
+    if let Some(ref mt) = fc.media_type
+        && node.media_type.as_deref() != Some(mt.as_str())
+    {
+        return false;
+    }
+
+    if let Some(ref name) = fc.name
+        && node.name != *name
+    {
+        return false;
+    }
+
+    if let Some(ref pattern) = fc.name_match
+        && !crate::glob::glob_match(pattern, &node.name)
+    {
+        return false;
+    }
+
+    if let Some(ref pattern) = fc.media_type_match {
+        let mt = node.media_type.as_deref().unwrap_or("");
+        if !crate::glob::glob_match(pattern, mt) {
+            return false;
+        }
+    }
+
+    if let Some(is_exec) = fc.is_executable
+        && node.executable.unwrap_or(false) != is_exec
+    {
+        return false;
+    }
+
+    if let Some(min) = fc.min_size
+        && node.size.unwrap_or(0) < min
+    {
+        return false;
+    }
+
+    !fc.max_size.is_some_and(|max| node.size.unwrap_or(0) >= max)
+}
+
+/// Whether `node` matches the date conditions of `fc`, `createdBefore` to
+/// `accessedAfter`.
+fn dates_match(node: &FileNode, fc: &jmap_filenode_types::FileNodeFilterCondition) -> bool {
+    let bounds = [
+        (node.created.as_ref(), &fc.created_before, &fc.created_after),
+        (
+            node.modified.as_ref(),
+            &fc.modified_before,
+            &fc.modified_after,
+        ),
+        (
+            node.accessed.as_ref(),
+            &fc.accessed_before,
+            &fc.accessed_after,
+        ),
+    ];
+    bounds.into_iter().all(|(date, before, after)| {
+        before
+            .as_ref()
+            .is_none_or(|before| date_strictly_before(date, before))
+            && after
+                .as_ref()
+                .is_none_or(|after| date_on_or_after(date, after))
+    })
 }
 
 // ---------------------------------------------------------------------------
