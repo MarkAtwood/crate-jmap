@@ -2,12 +2,12 @@
   "id": "JMAP-95rh",
   "title": "jmap-websocket follow-ups",
   "description": "1) base-client: adopt jmap-websocket frame types + WebSocketCapability (default-features=false) at next breaking release (public WsFrame/WsRequestError/WebSocketCapability change). 2) Driver hook for extension @types (chat-wss, vtc-wss, scene-wss stream messages); today answered notRequest. 3) Optional axum adapter feature if axum becomes a workspace dep. 4) Workspace AGENTS.md says testjig is the only axum/tokio-tungstenite member: stale. 5) toy-consumer probe for jmap-websocket.",
-  "notes": "2026-11-20: done items 4 (AGENTS.md note) and 5 (toy-websocket-server probe); the probe found the handshake and push-publishing boilerplate, now jmap-websocket tungstenite::accept/negotiate_jmap and server::PublishingHandler. Remaining: 1 base-client frame types at next breaking release, 2 extension @type hook, 3 axum adapter.",
+  "notes": "2026-11-20: done items 4 (AGENTS.md note) and 5 (toy-websocket-server probe); the probe found the handshake and push-publishing boilerplate, now jmap-websocket tungstenite::accept/negotiate_jmap and server::PublishingHandler. Remaining: 1 base-client frame types at next breaking release, 2 extension @type hook, 3 axum adapter.\n2026-11-21: item 2 done: jmap-websocket ExtensionHandler hook (Connection::with_extension, ExtensionSender, close hook), commit on main. Remaining: 1 base-client frame types at next breaking release, 3 axum adapter.",
   "status": "open",
   "priority": 3,
   "issue_type": "task",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-20T07:40:22.380526903Z",
   "created_by": "Mark Atwood",
-  "updated_at": "2026-11-20T18:44:58.89401088Z"
+  "updated_at": "2026-11-21T00:39:10.039645978Z"
 }
