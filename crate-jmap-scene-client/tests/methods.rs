@@ -709,9 +709,11 @@ async fn scene_region_query_world_state_equals_matches_example() {
     ]));
     let mut sort = SceneRegionComparator::new(SceneRegionSortProperty::ActiveAvatarCount);
     sort.is_ascending = false;
-    let mut params = jmap_base_client::QueryParams::default();
-    params.position = Some(0);
-    params.limit = Some(20);
+    let params = jmap_base_client::QueryParams {
+        position: Some(0),
+        limit: Some(20),
+        ..Default::default()
+    };
     let sc = make_client(&server, "account-xyz");
     let resp = sc
         .scene_region_query(Some(&Filter::Condition(cond)), Some(&[sort]), &params)
