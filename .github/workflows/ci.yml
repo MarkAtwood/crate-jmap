@@ -55,6 +55,18 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: cargo clippy --workspace --tests -- -D warnings
         run: cargo clippy --workspace --tests -- -D warnings
+      # Rustdoc lints from the ibyi sweep: identifiers in backticks, a
+      # `# Errors` section on every pub fn returning Result, a `# Panics`
+      # section on every pub fn that can panic. Library code only, all
+      # features, so feature-gated items are covered. clippy.toml lists the
+      # product and spec names that need no backticks.
+      - name: rustdoc lints (doc_markdown, missing_errors_doc, missing_panics_doc)
+        run: >-
+          cargo clippy --workspace --all-features --lib --
+          -A clippy::all
+          -D clippy::doc_markdown
+          -D clippy::missing_errors_doc
+          -D clippy::missing_panics_doc
 
   # -------------------------------------------------------------------------
   # test — full workspace test suite on stable + beta. Slowest job; defines

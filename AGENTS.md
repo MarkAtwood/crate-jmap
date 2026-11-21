@@ -518,8 +518,17 @@ call another crate's knobs add it to that dev-dependency (bd:JMAP-ic0j.73).
 ```bash
 cargo fmt --all
 cargo clippy --workspace -- -D warnings
+cargo clippy --workspace --all-features --lib -- -A clippy::all \
+  -D clippy::doc_markdown -D clippy::missing_errors_doc -D clippy::missing_panics_doc
 cargo test --workspace
 ```
+
+The second clippy line is the rustdoc lint gate (bd:JMAP-ibyi, CI job
+`clippy`): identifiers in backticks, a `# Errors` section naming the real
+error conditions on every public fn returning `Result`, and a `# Panics`
+section with the real precondition on every public fn that can panic.
+Product and spec names that read as words (JSCalendar, LiveKit, ...) go
+in `clippy.toml` `doc-valid-idents`, not in backticks.
 
 ## Source Material
 
