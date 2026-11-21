@@ -2,11 +2,13 @@
   "id": "JMAP-sldb",
   "title": "Wire chat/vtc/scene stream messages into the jmap-websocket extension hook",
   "description": "jmap-websocket now has ExtensionHandler (95rh item 2). Plug in: chat-server ChatStreamEnable/Disable around ephemeral::EphemeralSubscription (typing/presence forwarder with 3 s / 30 s rate limits); vtc-server VTCStreamEnable/Disable around VtcEphemeralSubscription (accountId = hosting account; ring/call-end ignore callIds); scene-server SceneStreamEnable/Disable + client SceneInteractionEvent (validate_interaction, relay, no error to sender). CompanionStreams aliases ('vtc','scene' dataTypes) need one combined handler in jmap-chat-vtc-server / jmap-chat-scene-server (union, no duplicates; stream_union tests exist). Scene observe/allowObservers/observerCount from spec 93f2258 goes with JMAP-24aw; close() decrements observerCount. Then register them in jmap-testjig /ws and the toy-websocket-server probe.",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "feature",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-21T00:39:10.830652771Z",
   "created_by": "Mark Atwood",
-  "updated_at": "2026-11-21T00:39:10.830652771Z"
+  "updated_at": "2026-11-21T02:50:01.831806243Z",
+  "closed_at": "2026-11-21T02:50:01.831806243Z",
+  "close_reason": "Chat/VTC/Scene stream handlers on the jmap-websocket hook (websocket feature, off by default), companion union via link_*_stream, testjig /ws; 2601 tests on main"
 }

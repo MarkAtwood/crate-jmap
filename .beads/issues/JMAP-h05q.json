@@ -1,0 +1,12 @@
+{
+  "id": "JMAP-h05q",
+  "title": "Spec notes from wiring the WSS extensions (chat/vtc/scene-wss)",
+  "description": "From JMAP-sldb: (1) chat-wss typing rate limit drops everything over 1 per 3 s with no latest-on-reopen clause, so typing:false soon after typing:true is lost; (2) whether outbound limits count per recipient connection or per user (interaction limit says per user); (3) VTCRingEvent / VTCCallEndEvent recipients: nothing in the event names the callee; (4) chat event accountId is the recipient's account, implying per-recipient fan-out; (5) what a SceneInteractionEvent frame may carry and whether a malformed frame gets notRequest; (6) observe breaks the 'scene' alias superset assumption for the union (handle in JMAP-24aw); (7) credential expiry cannot be enforced inside a stream handler. Mark's call (jmap-chat-spec); draft a patch for review.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-21T02:50:02.016467122Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-21T02:50:02.016467122Z"
+}
