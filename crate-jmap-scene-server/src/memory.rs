@@ -672,6 +672,190 @@ impl Inner {
             .flat_map(HashMap::values)
             .filter_map(|v| O::deserialize(v).ok())
     }
+
+    /// The log entries of `type_name` in `account_id` after state `since`,
+    /// oldest first.
+    fn log_window(
+        &self,
+        type_name: &'static str,
+        account_id: &Id,
+        since: u64,
+    ) -> impl Iterator<Item = &(u64, Id, Change)> + '_ + use<'_> {
+        self.log
+            .get(type_name)
+            .and_then(|m| m.get(account_id.as_ref()))
+            .into_iter()
+            .flatten()
+            .filter(move |(s, _, _)| *s > since)
+    }
+
+    /// The state a `/changes` from `since` with `maxChanges` `max` goes up
+    /// to: the current state, or an intermediate one.
+    ///
+    /// RFC 8620 §5.2: over maxChanges "the server SHOULD generate an
+    /// update to take the client to an intermediate state", and only
+    /// when "unable to calculate an intermediate state" return
+    /// cannotCalculateChanges. One commit logs all its ids under one
+    /// state, so the intermediate state is the last whose whole commit
+    /// fits, oldest first. Each distinct id is one entry of
+    /// [`Inner::net_changes`].
+    fn changes_upto(
+        &self,
+        type_name: &'static str,
+        account_id: &Id,
+        since: u64,
+        max: u64,
+    ) -> Result<u64, BackendChangesError<MemoryError>> {
+        let mut seen: HashSet<&Id> = HashSet::new();
+        let (mut fits, mut commit) = (since, since);
+        for (s, id, _) in self.log_window(type_name, account_id, since) {
+            if *s != commit {
+                (fits, commit) = (commit, *s);
+            }
+            if seen.insert(id) && seen.len() as u64 > max {
+                if fits == since {
+                    return Err(BackendChangesError::TooManyChanges { limit: max });
+                }
+                return Ok(fits);
+            }
+        }
+        Ok(self.state(type_name, account_id))
+    }
+
+    /// Each id changed after state `since` up to `upto`, once, with its
+    /// net change.
+    ///
+    /// RFC 8620 §5.2: each id appears once, in the bucket of its net
+    /// change since `since_state`. A create followed by an update stays
+    /// created; a later destroy or re-create overrides.
+    fn net_changes(
+        &self,
+        type_name: &'static str,
+        account_id: &Id,
+        since: u64,
+        upto: u64,
+    ) -> Vec<(Id, Change)> {
+        let window = || {
+            self.log_window(type_name, account_id, since)
+                .filter(move |(s, _, _)| *s <= upto)
+        };
+        let mut net: Vec<(Id, Change)> = Vec::new();
+        for (_, id, change) in window() {
+            match net.iter_mut().find(|(seen, _)| seen == id) {
+                Some((_, prev)) if *prev == Change::Created && *change == Change::Updated => {}
+                Some((_, prev)) => *prev = *change,
+                None => net.push((id.clone(), *change)),
+            }
+        }
+        // Object history -04 §5.1: an id restored in the window is
+        // classified by whether it existed at sinceState and exists now,
+        // "exactly as if the object had never been destroyed between them".
+        let mut events: HashMap<Id, Vec<ChangeEvent>> = HashMap::new();
+        for (_, id, change) in window() {
+            events.entry(id.clone()).or_default().push(match change {
+                Change::Created => ChangeEvent::Created,
+                Change::Updated => ChangeEvent::Updated,
+                Change::Destroyed => ChangeEvent::Destroyed,
+                Change::Restored => ChangeEvent::Restored,
+            });
+        }
+        net.retain_mut(|(id, change)| {
+            let Some(list) = events
+                .get(id)
+                .filter(|l| l.contains(&ChangeEvent::Restored))
+            else {
+                return true;
+            };
+            match fold_restore(list) {
+                Some(ChangeKind::Created) => *change = Change::Created,
+                Some(ChangeKind::Destroyed) => *change = Change::Destroyed,
+                Some(_) => *change = Change::Updated,
+                None => return false,
+            }
+            true
+        });
+        net
+    }
+
+    /// The ids of the `O` objects in `account_id` that `caller` sees and
+    /// that match `filter`, in `sort` order. `filter` and `sort` re-decode
+    /// as the concrete type's once `O::TYPE_NAME` is known.
+    fn query_ids<O: QueryObject>(
+        &self,
+        caller: &str,
+        account_id: &Id,
+        filter: Option<&O::Filter>,
+        sort: &[O::Comparator],
+    ) -> Result<Vec<Id>, BackendQueryError<MemoryError>> {
+        Ok(if O::TYPE_NAME == SceneAsset::TYPE_NAME {
+            let filter: Option<SceneAssetFilter> = filter.map(recode).transpose()?;
+            let sort: Vec<SceneAssetComparator> = recode(&sort)?;
+            sorted_ids(
+                self.all::<SceneAsset>(account_id),
+                |a| filter.as_ref().is_none_or(|f| asset_matches(f, a)),
+                |a, b| compare_assets(a, b, &sort),
+                |a| a.id,
+            )
+        } else if O::TYPE_NAME == SceneRegion::TYPE_NAME {
+            let filter: Option<SceneRegionFilter> = filter.map(recode).transpose()?;
+            let sort: Vec<SceneRegionComparator> = recode(&sort)?;
+            sorted_ids(
+                self.all::<SceneRegion>(account_id),
+                |r| {
+                    self.may_access(caller, account_id, &r.id)
+                        && filter.as_ref().is_none_or(|f| region_matches(f, r))
+                },
+                |a, b| compare_regions(a, b, &sort),
+                |r| r.id,
+            )
+        } else if O::TYPE_NAME == SceneAvatar::TYPE_NAME {
+            let filter: Option<SceneAvatarFilter> = filter.map(recode).transpose()?;
+            let sort: Vec<SceneAvatarComparator> = recode(&sort)?;
+            // §Avatar Visibility: hidden avatars are left out and the
+            // filters and sorts see "the values returned to the caller".
+            let rules = self.avatar_rules.get(account_id.as_ref());
+            sorted_ids(
+                self.all::<SceneAvatar>(account_id)
+                    .filter_map(|a| self.viewed_avatar(caller, account_id, a, rules)),
+                |a| {
+                    self.may_access(caller, account_id, &a.region_id)
+                        && !self
+                            .blocked
+                            .contains(&(caller.to_owned(), a.user_id.clone()))
+                        && !self
+                            .hidden_avatars
+                            .contains(&(caller.to_owned(), a.region_id.clone()))
+                        && filter.as_ref().is_none_or(|f| avatar_matches(f, a))
+                },
+                |a, b| compare_avatars(a, b, &sort),
+                |a| a.id,
+            )
+        } else if O::TYPE_NAME == SceneObject::TYPE_NAME {
+            let filter: Option<SceneObjectFilter> = filter.map(recode).transpose()?;
+            let sort: Vec<SceneObjectComparator> = recode(&sort)?;
+            let all: HashMap<Id, SceneObject> = self
+                .all::<SceneObject>(account_id)
+                .map(|o| (o.id.clone(), o))
+                .collect();
+            sorted_ids(
+                all.values(),
+                |o| {
+                    self.may_access(caller, account_id, &o.region_id)
+                        && !self.hidden.contains(&(caller.to_owned(), o.id.clone()))
+                        && filter.as_ref().is_none_or(|f| {
+                            object_matches(f, o, region_local_position(o, |id| all.get(id)))
+                        })
+                },
+                |a, b| compare_objects(a, b, &sort),
+                |o| o.id.clone(),
+            )
+        } else {
+            return Err(BackendQueryError::Other(MemoryError::new(format!(
+                "query of {} is not implemented",
+                O::TYPE_NAME
+            ))));
+        })
+    }
 }
 
 /// A fully in-memory implementation of [`SceneBackend`].
@@ -1175,78 +1359,11 @@ impl<C: MemoryCaller> JmapReads for MemoryBackend<C> {
                 .unwrap_or(Err(BackendChangesError::CannotCalculate));
         }
 
-        let window = || {
-            inner
-                .log
-                .get(O::TYPE_NAME)
-                .and_then(|m| m.get(account_id.as_ref()))
-                .into_iter()
-                .flatten()
-                .filter(move |(s, _, _)| *s > since)
+        let upto = match max_changes {
+            Some(max) => inner.changes_upto(O::TYPE_NAME, account_id, since, max)?,
+            None => current,
         };
-
-        // RFC 8620 §5.2: over maxChanges "the server SHOULD generate an
-        // update to take the client to an intermediate state", and only
-        // when "unable to calculate an intermediate state" return
-        // cannotCalculateChanges. One commit logs all its ids under one
-        // state, so the intermediate state is the last whose whole commit
-        // fits, oldest first. Each distinct id is one entry of `net` below.
-        let mut upto = current;
-        if let Some(max) = max_changes {
-            let mut seen: HashSet<&Id> = HashSet::new();
-            let (mut fits, mut commit) = (since, since);
-            for (s, id, _) in window() {
-                if *s != commit {
-                    (fits, commit) = (commit, *s);
-                }
-                if seen.insert(id) && seen.len() as u64 > max {
-                    if fits == since {
-                        return Err(BackendChangesError::TooManyChanges { limit: max });
-                    }
-                    upto = fits;
-                    break;
-                }
-            }
-        }
-
-        // RFC 8620 §5.2: each id appears once, in the bucket of its net
-        // change since `since_state`. A create followed by an update stays
-        // created; a later destroy or re-create overrides.
-        let mut net: Vec<(Id, Change)> = Vec::new();
-        for (_, id, change) in window().filter(|(s, _, _)| *s <= upto) {
-            match net.iter_mut().find(|(seen, _)| seen == id) {
-                Some((_, prev)) if *prev == Change::Created && *change == Change::Updated => {}
-                Some((_, prev)) => *prev = *change,
-                None => net.push((id.clone(), *change)),
-            }
-        }
-        // Object history -04 §5.1: an id restored in the window is
-        // classified by whether it existed at sinceState and exists now,
-        // "exactly as if the object had never been destroyed between them".
-        let mut events: HashMap<Id, Vec<ChangeEvent>> = HashMap::new();
-        for (_, id, change) in window().filter(|(s, _, _)| *s <= upto) {
-            events.entry(id.clone()).or_default().push(match change {
-                Change::Created => ChangeEvent::Created,
-                Change::Updated => ChangeEvent::Updated,
-                Change::Destroyed => ChangeEvent::Destroyed,
-                Change::Restored => ChangeEvent::Restored,
-            });
-        }
-        net.retain_mut(|(id, change)| {
-            let Some(list) = events
-                .get(id)
-                .filter(|l| l.contains(&ChangeEvent::Restored))
-            else {
-                return true;
-            };
-            match fold_restore(list) {
-                Some(ChangeKind::Created) => *change = Change::Created,
-                Some(ChangeKind::Destroyed) => *change = Change::Destroyed,
-                Some(_) => *change = Change::Updated,
-                None => return false,
-            }
-            true
-        });
+        let net = inner.net_changes(O::TYPE_NAME, account_id, since, upto);
         let bucket = |want: Change| -> Vec<Id> {
             net.iter()
                 .filter(|(_, c)| *c == want)
@@ -1280,73 +1397,7 @@ impl<C: MemoryCaller> JmapReads for MemoryBackend<C> {
         } = params;
         let sort = sort.unwrap_or_default();
         let inner = self.locked().await;
-        let ids = if O::TYPE_NAME == SceneAsset::TYPE_NAME {
-            let filter: Option<SceneAssetFilter> = filter.map(recode).transpose()?;
-            let sort: Vec<SceneAssetComparator> = recode(&sort)?;
-            sorted_ids(
-                inner.all::<SceneAsset>(account_id),
-                |a| filter.as_ref().is_none_or(|f| asset_matches(f, a)),
-                |a, b| compare_assets(a, b, &sort),
-                |a| a.id,
-            )
-        } else if O::TYPE_NAME == SceneRegion::TYPE_NAME {
-            let filter: Option<SceneRegionFilter> = filter.map(recode).transpose()?;
-            let sort: Vec<SceneRegionComparator> = recode(&sort)?;
-            sorted_ids(
-                inner.all::<SceneRegion>(account_id),
-                |r| {
-                    inner.may_access(caller, account_id, &r.id)
-                        && filter.as_ref().is_none_or(|f| region_matches(f, r))
-                },
-                |a, b| compare_regions(a, b, &sort),
-                |r| r.id,
-            )
-        } else if O::TYPE_NAME == SceneAvatar::TYPE_NAME {
-            let filter: Option<SceneAvatarFilter> = filter.map(recode).transpose()?;
-            let sort: Vec<SceneAvatarComparator> = recode(&sort)?;
-            // §Avatar Visibility: hidden avatars are left out and the
-            // filters and sorts see "the values returned to the caller".
-            let rules = inner.avatar_rules.get(account_id.as_ref());
-            sorted_ids(
-                inner
-                    .all::<SceneAvatar>(account_id)
-                    .filter_map(|a| inner.viewed_avatar(caller, account_id, a, rules)),
-                |a| {
-                    inner.may_access(caller, account_id, &a.region_id)
-                        && !inner.blocked.contains(&(caller.clone(), a.user_id.clone()))
-                        && !inner
-                            .hidden_avatars
-                            .contains(&(caller.clone(), a.region_id.clone()))
-                        && filter.as_ref().is_none_or(|f| avatar_matches(f, a))
-                },
-                |a, b| compare_avatars(a, b, &sort),
-                |a| a.id,
-            )
-        } else if O::TYPE_NAME == SceneObject::TYPE_NAME {
-            let filter: Option<SceneObjectFilter> = filter.map(recode).transpose()?;
-            let sort: Vec<SceneObjectComparator> = recode(&sort)?;
-            let all: HashMap<Id, SceneObject> = inner
-                .all::<SceneObject>(account_id)
-                .map(|o| (o.id.clone(), o))
-                .collect();
-            sorted_ids(
-                all.values(),
-                |o| {
-                    inner.may_access(caller, account_id, &o.region_id)
-                        && !inner.hidden.contains(&(caller.clone(), o.id.clone()))
-                        && filter.as_ref().is_none_or(|f| {
-                            object_matches(f, o, region_local_position(o, |id| all.get(id)))
-                        })
-                },
-                |a, b| compare_objects(a, b, &sort),
-                |o| o.id.clone(),
-            )
-        } else {
-            return Err(BackendQueryError::Other(MemoryError::new(format!(
-                "query of {} is not implemented",
-                O::TYPE_NAME
-            ))));
-        };
+        let ids = inner.query_ids::<O>(caller, account_id, filter, sort)?;
 
         let total = ids.len() as u64;
         let start = resolve_query_start(&ids, position, anchor, anchor_offset)

@@ -544,24 +544,7 @@ async fn enter_region<B: SceneBackend>(
         .caller_user_id(caller, account_id)
         .await
         .map_err(|e| server_fail_value_from_backend(&e))?;
-    // "Caller is creating an avatar record for a different user": forbidden.
-    if m.get("userId")
-        .is_some_and(|u| u.as_str() != Some(&user_id))
-    {
-        return Err(forbidden("Users MUST only create their own avatar."));
-    }
-    // A matching `userId` is the value the server sets below, so only the
-    // other server-set properties are refused.
-    m.remove("userId");
-    if let Some(e) = reject_server_set::<SceneAvatar>(&m) {
-        return Err(serde_json::Value::from(
-            &e.with_description("these properties are set by the server"),
-        ));
-    }
-    let fixed = present_in(m.keys().map(String::as_str), SET_BY_SERVER_ON_CREATE);
-    if !fixed.is_empty() {
-        return Err(invalid(&fixed, "these properties are set by the server"));
-    }
+    reject_create_server_set(&mut m, &user_id)?;
     refuse_malformed(malformed(&m))?;
     let region_state = region_state_supported(backend, caller, account_id).await?;
     if m.contains_key("regionState") && !region_state {
@@ -570,11 +553,70 @@ async fn enter_region<B: SceneBackend>(
             "regionState needs supportsAvatarRegionState",
         ));
     }
+    let region = region_to_enter(backend, caller, account_id, &m).await?;
+    refuse_reserved_name(backend, caller, account_id, &m).await?;
+    if region_state {
+        // "Default: `null`."
+        m.entry("regionState").or_insert(Value::Null);
+    }
 
-    // "The server MUST return `invalidProperties` naming `regionId` when
-    // `regionId` does not reference an existing SceneRegion. The server
-    // SHOULD return the same error when the caller has no access to the
-    // region under its `accessPolicy`".
+    if !m.contains_key("displayName") {
+        let name = backend
+            .avatar_display_name(caller, account_id, &user_id)
+            .await
+            .map_err(|e| server_fail_value_from_backend(&e))?;
+        m.insert("displayName".to_owned(), json!(name));
+    }
+    fill_entry_fields(&mut m, &region, &user_id);
+    let mut avatar: SceneAvatar = serde_json::from_value(Value::Object(m))
+        .map_err(|e| invalid(&[], &format!("invalid SceneAvatar: {e}")))?;
+    let (_, stored) = backend
+        .create_object(caller, account_id, create_id, move |id: &Id| {
+            avatar.id = id.clone();
+            avatar
+        })
+        .await
+        .map_err(backend_set_error_value)?;
+    jmap_server::serialize_value(stored)
+        .map_err(|e| jmap_server::server_fail_value_from_backend(&e))
+}
+
+/// Refuse a create that sets a property the server sets, and take out
+/// the `userId` that matches the caller's `user_id`.
+///
+/// "Caller is creating an avatar record for a different user":
+/// `forbidden`. A matching `userId` is the value the server sets, so only
+/// the other server-set properties are refused.
+fn reject_create_server_set(m: &mut Map<String, Value>, user_id: &str) -> Result<(), Value> {
+    if m.get("userId").is_some_and(|u| u.as_str() != Some(user_id)) {
+        return Err(forbidden("Users MUST only create their own avatar."));
+    }
+    m.remove("userId");
+    if let Some(e) = reject_server_set::<SceneAvatar>(m) {
+        return Err(serde_json::Value::from(
+            &e.with_description("these properties are set by the server"),
+        ));
+    }
+    let fixed = present_in(m.keys().map(String::as_str), SET_BY_SERVER_ON_CREATE);
+    if !fixed.is_empty() {
+        return Err(invalid(&fixed, "these properties are set by the server"));
+    }
+    Ok(())
+}
+
+/// The region a create's `regionId` names, once the caller may enter it
+/// and, for a non-null `regionState`, set that.
+///
+/// "The server MUST return `invalidProperties` naming `regionId` when
+/// `regionId` does not reference an existing `SceneRegion`. The server
+/// SHOULD return the same error when the caller has no access to the
+/// region under its `accessPolicy`".
+async fn region_to_enter<B: SceneBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    m: &Map<String, Value>,
+) -> Result<SceneRegion, Value> {
     let region_id = Id::new_validated(m["regionId"].as_str().unwrap_or_default())
         .map_err(|e| invalid(&["regionId"], &e.to_string()))?;
     let inaccessible = || invalid(&["regionId"], "regionId is not an accessible SceneRegion");
@@ -606,24 +648,18 @@ async fn enter_region<B: SceneBackend>(
             "regionState is kept by the region; only its owner or an admin may set it",
         ));
     }
-    refuse_reserved_name(backend, caller, account_id, &m).await?;
-    if region_state {
-        // "Default: `null`."
-        m.entry("regionState").or_insert(Value::Null);
-    }
+    Ok(region)
+}
 
-    if !m.contains_key("displayName") {
-        let name = backend
-            .avatar_display_name(caller, account_id, &user_id)
-            .await
-            .map_err(|e| server_fail_value_from_backend(&e))?;
-        m.insert("displayName".to_owned(), json!(name));
-    }
-    // "The server sets ... `position` (to the region's `spawnPosition`),
-    // `orientation` (to the region's `spawnOrientation`)".
+/// Fill the properties the server sets on an avatar that enters `region`
+/// as `user_id`.
+///
+/// "The server sets ... `position` (to the region's `spawnPosition`),
+/// `orientation` (to the region's `spawnOrientation`)".
+fn fill_entry_fields(m: &mut Map<String, Value>, region: &SceneRegion, user_id: &str) {
     m.insert("position".to_owned(), json!(region.spawn_position));
     m.insert("orientation".to_owned(), json!(region.spawn_orientation));
-    if let Some(q) = normalized_quaternion(&m, "orientation") {
+    if let Some(q) = normalized_quaternion(m, "orientation") {
         m.insert("orientation".to_owned(), q);
     }
     for key in ["visualRef", "visualType", "worldState"] {
@@ -636,17 +672,6 @@ async fn enter_region<B: SceneBackend>(
     m.insert("userId".to_owned(), json!(user_id));
     m.insert("joinedAt".to_owned(), json!(now_utc_string()));
     m.insert("leftAt".to_owned(), Value::Null);
-    let mut avatar: SceneAvatar = serde_json::from_value(Value::Object(m))
-        .map_err(|e| invalid(&[], &format!("invalid SceneAvatar: {e}")))?;
-    let (_, stored) = backend
-        .create_object(caller, account_id, create_id, move |id: &Id| {
-            avatar.id = id.clone();
-            avatar
-        })
-        .await
-        .map_err(backend_set_error_value)?;
-    jmap_server::serialize_value(stored)
-        .map_err(|e| jmap_server::server_fail_value_from_backend(&e))
 }
 
 /// One §Updating Avatar State, §Leaving a Region or §Re-entering a Region.
@@ -673,100 +698,24 @@ async fn update_avatar<B: SceneBackend>(
             &SetError::new(SetErrorType::InvalidPatch).with_description(e.to_string()),
         )
     })?;
-    // "The avatar id does not exist or caller lacks access to the
-    // containing region": `notFound`.
-    let avatar: SceneAvatar = fetch_one(backend, caller, account_id, id)
-        .await?
-        .ok_or_else(not_found)?;
-    if !backend
-        .may_access_region(caller, account_id, &avatar.region_id)
-        .await
-        .map_err(|e| server_fail_value_from_backend(&e))?
-    {
-        return Err(not_found());
-    }
-    // "A hidden avatar is treated as if it did not exist: ... a
-    // `SceneAvatar/set` update of it returns `notFound`" (jmap-chat-spec
-    // 93f2258 §Avatar Visibility).
-    if avatar_view(backend, caller, account_id, &avatar)
-        .await
-        .map_err(|e| server_fail_value_from_backend(&e))?
-        == AvatarView::Hidden
-    {
-        return Err(not_found());
-    }
-
+    let avatar = visible_avatar(backend, caller, account_id, id).await?;
     let Value::Object(mut result) = jmap_server::serialize_value(&avatar)
         .map_err(|e| jmap_server::server_fail_value_from_backend(&e))?
     else {
         unreachable!("a SceneAvatar serializes as a JSON object")
     };
-    // A server-set or immutable property sent with its stored value is not
-    // a change (RFC 8620 §5.3), so it does not count against an eject
-    // ("an eject update patches no other property", 77c3474 L2524). A
-    // changed one stays, so another user's patch with it is `forbidden`.
-    let read_only =
-        |k: &str| SceneAvatar::SERVER_SET.contains(&k) || SceneAvatar::IMMUTABLE.contains(&k);
-    let top = |k: &str| k.split('/').next().unwrap_or(k).to_owned();
-    let patched: Vec<String> = patch
-        .as_map()
-        .iter()
-        .filter(|(k, v)| !(read_only(k) && result.get(*k).unwrap_or(&Value::Null) == *v))
-        .map(|(k, _)| top(k))
-        .collect();
+    let patched = patched_properties(&patch, &result);
     let touched = |k: &str| patched.iter().any(|p| p == k);
     let left_to = patch.as_map().get("leftAt").cloned();
-
-    let touches_region_state = touched(REGION_STATE);
-    if touches_region_state && !region_state_supported(backend, caller, account_id).await? {
-        return Err(invalid(
-            &[REGION_STATE],
-            "regionState needs supportsAvatarRegionState",
-        ));
-    }
-    // The owner-or-admin rule for `regionState`, asked only when the patch
-    // changes it.
-    let manages_region_state = async || -> Result<bool, Value> {
-        let region: SceneRegion = fetch_one(backend, caller, account_id, &avatar.region_id)
-            .await?
-            .ok_or_else(not_found)?;
-        may_manage_region_state(backend, caller, account_id, &region).await
-    };
-
-    let user_id = backend
-        .caller_user_id(caller, account_id)
-        .await
-        .map_err(|e| server_fail_value_from_backend(&e))?;
-    if avatar.user_id != user_id {
-        // "Users MUST NOT update other users' avatars. Exception: region
-        // owners and administrators may set `leftAt` on another user's
-        // avatar to eject them, and may change its `regionState`; such an
-        // update patches no other property" (jmap-chat-spec 93f2258).
-        // Re-entry (`leftAt: null`) is not an eject.
-        let touches_left = touched("leftAt");
-        let shape = (touches_left || touches_region_state)
-            && patched
-                .iter()
-                .all(|p| EJECT_PROPERTIES.contains(&&**p) || p == REGION_STATE)
-            && (!touches_left || left_to.as_ref().is_some_and(|v| !v.is_null()));
-        let allowed = shape
-            && (!touches_left
-                || backend
-                    .may_eject_avatar(caller, account_id, &avatar)
-                    .await
-                    .map_err(|e| server_fail_value_from_backend(&e))?)
-            && (!touches_region_state || manages_region_state().await?);
-        if !allowed {
-            return Err(forbidden("Users MUST NOT update other users' avatars."));
-        }
-    } else if touches_region_state && !manages_region_state().await? {
-        // "The avatar's user cannot change `regionState` unless that user
-        // is also the region owner or an administrator; the server returns
-        // `forbidden`."
-        return Err(forbidden(
-            "regionState is kept by the region; only its owner or an admin may change it",
-        ));
-    }
+    check_avatar_update_permission(
+        backend,
+        caller,
+        account_id,
+        &avatar,
+        &patched,
+        left_to.as_ref(),
+    )
+    .await?;
 
     // After the ownership check, so another user's avatar is `forbidden`
     // whatever the patch holds (§Avatar Permissions).
@@ -786,68 +735,11 @@ async fn update_avatar<B: SceneBackend>(
     }
     let mut echo = Map::new();
     if left_to.as_ref().is_some_and(Value::is_null) {
-        // §Re-entering a Region: "A user who has left (has a non-null
-        // `leftAt`) re-enters the same region by updating their existing
-        // SceneAvatar record to set `leftAt` to `null`."
-        if avatar.left_at.is_none() {
-            return Err(invalid(
-                &["leftAt"],
-                "the avatar is present; only a departed avatar re-enters",
-            ));
-        }
-        // "The server sets `joinedAt` to the current time, `position` to
-        // the region's `spawnPosition`, and `orientation` to the region's
-        // `spawnOrientation`."
-        let spawn = present_in(
-            patched.iter().map(String::as_str),
-            &["position", "orientation"],
-        );
-        if !spawn.is_empty() {
-            return Err(invalid(
-                &spawn,
-                "re-entry sets position and orientation from the region's spawn point",
-            ));
-        }
-        // The caller passed `may_access_region` above, so lost access is
-        // already `notFound`, as is a region that no longer exists. A
-        // ban or cooldown is `forbidden`, as for a create.
-        let region: SceneRegion = fetch_one(backend, caller, account_id, &avatar.region_id)
-            .await?
-            .ok_or_else(not_found)?;
-        if !backend
-            .may_enter_region(caller, account_id, &region)
-            .await
-            .map_err(|e| server_fail_value_from_backend(&e))?
-        {
-            return Err(forbidden("The caller may not enter this region."));
-        }
-        let mut set = Map::new();
-        set.insert("joinedAt".to_owned(), json!(now_utc_string()));
-        set.insert("position".to_owned(), json!(region.spawn_position));
-        set.insert("orientation".to_owned(), json!(region.spawn_orientation));
-        if let Some(q) = normalized_quaternion(&set, "orientation") {
-            set.insert("orientation".to_owned(), q);
-        }
+        let set = reentry_fields(backend, caller, account_id, &avatar, &patched).await?;
         patch.as_map_mut().extend(set.clone());
         echo = set;
     } else if touched("leftAt") {
-        // "The server MUST return `invalidProperties` naming `leftAt` if
-        // the avatar has already left (`leftAt` is non-null)."
-        if avatar.left_at.is_some() {
-            return Err(invalid(&["leftAt"], "the avatar has already left"));
-        }
-        if !left_to
-            .as_ref()
-            .and_then(Value::as_str)
-            .is_some_and(utc_date_shaped)
-        {
-            return Err(invalid(&["leftAt"], "leftAt must be a UTCDate or null"));
-        }
-        // §Leaving a Region: "The server records its own current time as
-        // `leftAt`; the value the client supplies only signals the intent
-        // to leave." RFC 8620 §5.3 echoes a value "changed in a way not
-        // explicitly requested by the client".
-        let now = json!(now_utc_string());
+        let now = leave_stamp(&avatar, left_to.as_ref())?;
         patch.as_map_mut().insert("leftAt".to_owned(), now.clone());
         echo.insert("leftAt".to_owned(), now);
     }
@@ -866,7 +758,7 @@ async fn update_avatar<B: SceneBackend>(
         && let Some(q) = normalized_quaternion(&result, "orientation")
     {
         let map = patch.as_map_mut();
-        map.retain(|k, _| top(k) != "orientation");
+        map.retain(|k, _| top_level(k) != "orientation");
         map.insert("orientation".to_owned(), q.clone());
         echo.insert("orientation".to_owned(), q);
     }
@@ -880,6 +772,211 @@ async fn update_avatar<B: SceneBackend>(
         None if echo.is_empty() => Ok(Value::Null),
         None => Ok(Value::Object(echo)),
     }
+}
+
+/// The top-level property a patch key `k` names.
+fn top_level(k: &str) -> String {
+    k.split('/').next().unwrap_or(k).to_owned()
+}
+
+/// Load the avatar `id` for an update. "The avatar id does not exist or
+/// caller lacks access to the containing region": `notFound`.
+///
+/// "A hidden avatar is treated as if it did not exist: ... a
+/// `SceneAvatar/set` update of it returns `notFound`" (jmap-chat-spec
+/// 93f2258 §Avatar Visibility).
+async fn visible_avatar<B: SceneBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    id: &Id,
+) -> Result<SceneAvatar, Value> {
+    let avatar: SceneAvatar = fetch_one(backend, caller, account_id, id)
+        .await?
+        .ok_or_else(not_found)?;
+    if !backend
+        .may_access_region(caller, account_id, &avatar.region_id)
+        .await
+        .map_err(|e| server_fail_value_from_backend(&e))?
+    {
+        return Err(not_found());
+    }
+    if avatar_view(backend, caller, account_id, &avatar)
+        .await
+        .map_err(|e| server_fail_value_from_backend(&e))?
+        == AvatarView::Hidden
+    {
+        return Err(not_found());
+    }
+    Ok(avatar)
+}
+
+/// The top-level properties `patch` changes on the avatar stored as
+/// `stored`.
+///
+/// A server-set or immutable property sent with its stored value is not
+/// a change (RFC 8620 §5.3), so it does not count against an eject
+/// ("an eject update patches no other property", 77c3474 L2524). A
+/// changed one stays, so another user's patch with it is `forbidden`.
+fn patched_properties(patch: &PatchObject, stored: &Map<String, Value>) -> Vec<String> {
+    let read_only =
+        |k: &str| SceneAvatar::SERVER_SET.contains(&k) || SceneAvatar::IMMUTABLE.contains(&k);
+    patch
+        .as_map()
+        .iter()
+        .filter(|(k, v)| !(read_only(k) && stored.get(*k).unwrap_or(&Value::Null) == *v))
+        .map(|(k, _)| top_level(k))
+        .collect()
+}
+
+/// The owner-or-admin rule for `regionState` on `avatar`'s region, asked
+/// only when a patch changes it.
+async fn manages_region_state<B: SceneBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    avatar: &SceneAvatar,
+) -> Result<bool, Value> {
+    let region: SceneRegion = fetch_one(backend, caller, account_id, &avatar.region_id)
+        .await?
+        .ok_or_else(not_found)?;
+    may_manage_region_state(backend, caller, account_id, &region).await
+}
+
+/// Check that the caller may make the changes `patched` (the properties
+/// [`patched_properties`] found, `left_to` the patched `leftAt`) to
+/// `avatar`: `regionState` needs the capability and the owner-or-admin
+/// rule, and another user's avatar takes only an eject or a `regionState`
+/// change.
+async fn check_avatar_update_permission<B: SceneBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    avatar: &SceneAvatar,
+    patched: &[String],
+    left_to: Option<&Value>,
+) -> Result<(), Value> {
+    let touched = |k: &str| patched.iter().any(|p| p == k);
+    let touches_region_state = touched(REGION_STATE);
+    if touches_region_state && !region_state_supported(backend, caller, account_id).await? {
+        return Err(invalid(
+            &[REGION_STATE],
+            "regionState needs supportsAvatarRegionState",
+        ));
+    }
+
+    let user_id = backend
+        .caller_user_id(caller, account_id)
+        .await
+        .map_err(|e| server_fail_value_from_backend(&e))?;
+    if avatar.user_id != user_id {
+        // "Users MUST NOT update other users' avatars. Exception: region
+        // owners and administrators may set `leftAt` on another user's
+        // avatar to eject them, and may change its `regionState`; such an
+        // update patches no other property" (jmap-chat-spec 93f2258).
+        // Re-entry (`leftAt: null`) is not an eject.
+        let touches_left = touched("leftAt");
+        let shape = (touches_left || touches_region_state)
+            && patched
+                .iter()
+                .all(|p| EJECT_PROPERTIES.contains(&&**p) || p == REGION_STATE)
+            && (!touches_left || left_to.is_some_and(|v| !v.is_null()));
+        let allowed = shape
+            && (!touches_left
+                || backend
+                    .may_eject_avatar(caller, account_id, avatar)
+                    .await
+                    .map_err(|e| server_fail_value_from_backend(&e))?)
+            && (!touches_region_state
+                || manages_region_state(backend, caller, account_id, avatar).await?);
+        if !allowed {
+            return Err(forbidden("Users MUST NOT update other users' avatars."));
+        }
+    } else if touches_region_state
+        && !manages_region_state(backend, caller, account_id, avatar).await?
+    {
+        // "The avatar's user cannot change `regionState` unless that user
+        // is also the region owner or an administrator; the server returns
+        // `forbidden`."
+        return Err(forbidden(
+            "regionState is kept by the region; only its owner or an admin may change it",
+        ));
+    }
+    Ok(())
+}
+
+/// The properties the server sets when `avatar` re-enters its region
+/// (`patched` are the properties the patch changes).
+///
+/// §Re-entering a Region: "A user who has left (has a non-null
+/// `leftAt`) re-enters the same region by updating their existing
+/// `SceneAvatar` record to set `leftAt` to `null`." "The server sets
+/// `joinedAt` to the current time, `position` to the region's
+/// `spawnPosition`, and `orientation` to the region's
+/// `spawnOrientation`."
+async fn reentry_fields<B: SceneBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    avatar: &SceneAvatar,
+    patched: &[String],
+) -> Result<Map<String, Value>, Value> {
+    if avatar.left_at.is_none() {
+        return Err(invalid(
+            &["leftAt"],
+            "the avatar is present; only a departed avatar re-enters",
+        ));
+    }
+    let spawn = present_in(
+        patched.iter().map(String::as_str),
+        &["position", "orientation"],
+    );
+    if !spawn.is_empty() {
+        return Err(invalid(
+            &spawn,
+            "re-entry sets position and orientation from the region's spawn point",
+        ));
+    }
+    // The caller passed `may_access_region` above, so lost access is
+    // already `notFound`, as is a region that no longer exists. A
+    // ban or cooldown is `forbidden`, as for a create.
+    let region: SceneRegion = fetch_one(backend, caller, account_id, &avatar.region_id)
+        .await?
+        .ok_or_else(not_found)?;
+    if !backend
+        .may_enter_region(caller, account_id, &region)
+        .await
+        .map_err(|e| server_fail_value_from_backend(&e))?
+    {
+        return Err(forbidden("The caller may not enter this region."));
+    }
+    let mut set = Map::new();
+    set.insert("joinedAt".to_owned(), json!(now_utc_string()));
+    set.insert("position".to_owned(), json!(region.spawn_position));
+    set.insert("orientation".to_owned(), json!(region.spawn_orientation));
+    if let Some(q) = normalized_quaternion(&set, "orientation") {
+        set.insert("orientation".to_owned(), q);
+    }
+    Ok(set)
+}
+
+/// The `leftAt` the server records when `avatar` leaves or is ejected,
+/// `left_to` being the patched value.
+///
+/// "The server MUST return `invalidProperties` naming `leftAt` if the
+/// avatar has already left (`leftAt` is non-null)." §Leaving a Region:
+/// "The server records its own current time as `leftAt`; the value the
+/// client supplies only signals the intent to leave." RFC 8620 §5.3
+/// echoes a value "changed in a way not explicitly requested by the
+/// client".
+fn leave_stamp(avatar: &SceneAvatar, left_to: Option<&Value>) -> Result<Value, Value> {
+    if avatar.left_at.is_some() {
+        return Err(invalid(&["leftAt"], "the avatar has already left"));
+    }
+    if !left_to.and_then(Value::as_str).is_some_and(utc_date_shaped) {
+        return Err(invalid(&["leftAt"], "leftAt must be a UTCDate or null"));
+    }
+    Ok(json!(now_utc_string()))
 }
 
 #[cfg(test)]
