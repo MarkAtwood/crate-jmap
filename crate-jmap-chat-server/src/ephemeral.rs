@@ -59,6 +59,17 @@ pub enum IdScope {
     Only(Vec<Id>),
 }
 
+impl IdScope {
+    /// Whether `id` is in scope: always for [`IdScope::All`], otherwise
+    /// when it is listed.
+    pub fn covers(&self, id: &Id) -> bool {
+        match self {
+            Self::All => true,
+            Self::Only(ids) => ids.contains(id),
+        }
+    }
+}
+
 impl From<Option<&Vec<Id>>> for IdScope {
     /// `None` (absent or JSON `null`) maps to [`IdScope::All`]: "An absent
     /// `chatIds` or `contactIds` is equivalent to `null`"

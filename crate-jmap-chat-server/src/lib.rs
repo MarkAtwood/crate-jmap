@@ -16,6 +16,14 @@
 //! # }
 //! ```
 //!
+//! # `websocket` feature (ephemeral events over RFC 8887)
+//!
+//! Enable `websocket` for the `websocket` module: the `jmap-websocket`
+//! extension handler for `ChatStreamEnable` / `ChatStreamDisable`
+//! (draft-atwood-jmap-chat-wss-00) and the server-wide hub the deployment
+//! publishes events to. Off by default, so a deployment without the WebSocket
+//! transport does not pull in `jmap-websocket`.
+//!
 //! # `memory` feature (reference implementation)
 //!
 //! Enable the `memory` feature to expose the `memory::MemoryBackend`
@@ -95,6 +103,8 @@ mod push;
 mod space;
 #[cfg(feature = "testkit")]
 pub mod testkit;
+#[cfg(feature = "websocket")]
+pub mod websocket;
 
 pub use backend::{
     AttachmentBlob, ChatAccessPolicy, ChatBackend, ChatEvents, ChatLimits, ChatMessageLifecycle,

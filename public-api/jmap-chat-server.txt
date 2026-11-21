@@ -264,6 +264,50 @@ pub async fn jmap_chat_server::testkit::state_advances_after_create<B: jmap_chat
 pub async fn jmap_chat_server::testkit::top_level_object_value_replaces_property<B: jmap_chat_server::testkit::ConformanceBackend>(B)
 pub async fn jmap_chat_server::testkit::unread_count_in_full_get<B: jmap_chat_server::testkit::ConformanceBackend>(B)
 pub async fn jmap_chat_server::testkit::unread_reply_count_without_read_position<K: jmap_chat_server::testkit::ConformanceBackend>(K)
+pub mod jmap_chat_server::websocket
+pub struct jmap_chat_server::websocket::ChatEventHub
+impl jmap_chat_server::websocket::ChatEventHub
+pub fn jmap_chat_server::websocket::ChatEventHub::new(usize) -> Self
+pub fn jmap_chat_server::websocket::ChatEventHub::publish_presence(&self, jmap_chat_types::ephemeral::ChatPresenceEvent)
+pub fn jmap_chat_server::websocket::ChatEventHub::publish_typing(&self, jmap_chat_types::ephemeral::ChatTypingEvent)
+impl core::clone::Clone for jmap_chat_server::websocket::ChatEventHub
+pub fn jmap_chat_server::websocket::ChatEventHub::clone(&self) -> jmap_chat_server::websocket::ChatEventHub
+impl core::fmt::Debug for jmap_chat_server::websocket::ChatEventHub
+pub fn jmap_chat_server::websocket::ChatEventHub::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct jmap_chat_server::websocket::ChatStreamHandler<B: jmap_chat_server::ChatBackend>
+impl<B: jmap_chat_server::ChatBackend> jmap_chat_server::websocket::ChatStreamHandler<B>
+pub fn jmap_chat_server::websocket::ChatStreamHandler<B>::companions(&self) -> jmap_chat_server::CompanionStreams
+pub fn jmap_chat_server::websocket::ChatStreamHandler<B>::new(alloc::sync::Arc<B>, <B as jmap_server::backend::JmapAccounts>::CallerCtx, impl core::iter::traits::collect::IntoIterator<Item = jmap_types::id::Id>, &jmap_chat_server::websocket::ChatEventHub) -> Self
+pub fn jmap_chat_server::websocket::ChatStreamHandler<B>::on_subscription_change(self, impl core::ops::function::FnMut(&jmap_chat_server::EphemeralSubscription) + core::marker::Send + 'static) -> Self
+pub fn jmap_chat_server::websocket::ChatStreamHandler<B>::subscription(&self) -> jmap_chat_server::EphemeralSubscription
+pub fn jmap_chat_server::websocket::ChatStreamHandler<B>::with_companions(self, jmap_chat_server::CompanionStreams) -> Self
+pub fn jmap_chat_server::websocket::ChatStreamHandler<B>::with_limits(self, jmap_chat_server::websocket::ChatStreamLimits) -> Self
+impl<B: jmap_chat_server::ChatBackend> core::fmt::Debug for jmap_chat_server::websocket::ChatStreamHandler<B>
+pub fn jmap_chat_server::websocket::ChatStreamHandler<B>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<B: jmap_chat_server::ChatBackend> core::ops::drop::Drop for jmap_chat_server::websocket::ChatStreamHandler<B>
+pub fn jmap_chat_server::websocket::ChatStreamHandler<B>::drop(&mut self)
+impl<B: jmap_chat_server::ChatBackend> jmap_websocket::server::extension::ExtensionHandler for jmap_chat_server::websocket::ChatStreamHandler<B>
+pub async fn jmap_chat_server::websocket::ChatStreamHandler<B>::close(&mut self)
+pub async fn jmap_chat_server::websocket::ChatStreamHandler<B>::handle(&mut self, jmap_websocket::server::extension::ExtensionMessage) -> core::result::Result<(), jmap_types::error::JmapError>
+pub fn jmap_chat_server::websocket::ChatStreamHandler<B>::message_types(&self) -> &[&str]
+pub fn jmap_chat_server::websocket::ChatStreamHandler<B>::start(&mut self, jmap_websocket::server::extension::ExtensionSender)
+pub struct jmap_chat_server::websocket::ChatStreamLimits
+impl jmap_chat_server::websocket::ChatStreamLimits
+pub fn jmap_chat_server::websocket::ChatStreamLimits::presence_window(self, core::option::Option<core::time::Duration>) -> Self
+pub fn jmap_chat_server::websocket::ChatStreamLimits::presence_window_value(&self) -> core::option::Option<core::time::Duration>
+pub fn jmap_chat_server::websocket::ChatStreamLimits::typing_window(self, core::option::Option<core::time::Duration>) -> Self
+pub fn jmap_chat_server::websocket::ChatStreamLimits::typing_window_value(&self) -> core::option::Option<core::time::Duration>
+impl core::clone::Clone for jmap_chat_server::websocket::ChatStreamLimits
+pub fn jmap_chat_server::websocket::ChatStreamLimits::clone(&self) -> jmap_chat_server::websocket::ChatStreamLimits
+impl core::cmp::Eq for jmap_chat_server::websocket::ChatStreamLimits
+impl core::cmp::PartialEq for jmap_chat_server::websocket::ChatStreamLimits
+pub fn jmap_chat_server::websocket::ChatStreamLimits::eq(&self, &jmap_chat_server::websocket::ChatStreamLimits) -> bool
+impl core::default::Default for jmap_chat_server::websocket::ChatStreamLimits
+pub fn jmap_chat_server::websocket::ChatStreamLimits::default() -> Self
+impl core::fmt::Debug for jmap_chat_server::websocket::ChatStreamLimits
+pub fn jmap_chat_server::websocket::ChatStreamLimits::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for jmap_chat_server::websocket::ChatStreamLimits
+impl core::marker::StructuralPartialEq for jmap_chat_server::websocket::ChatStreamLimits
 pub macro jmap_chat_server::chat_backend_conformance!
 #[non_exhaustive] pub enum jmap_chat_server::DidAuthRejection
 pub jmap_chat_server::DidAuthRejection::DocumentIdMismatch
@@ -326,6 +370,8 @@ impl core::marker::StructuralPartialEq for jmap_chat_server::GroupUpdateAction
 #[non_exhaustive] pub enum jmap_chat_server::IdScope
 pub jmap_chat_server::IdScope::All
 pub jmap_chat_server::IdScope::Only(alloc::vec::Vec<jmap_types::id::Id>)
+impl jmap_chat_server::IdScope
+pub fn jmap_chat_server::IdScope::covers(&self, &jmap_types::id::Id) -> bool
 impl core::clone::Clone for jmap_chat_server::IdScope
 pub fn jmap_chat_server::IdScope::clone(&self) -> jmap_chat_server::IdScope
 impl core::cmp::Eq for jmap_chat_server::IdScope

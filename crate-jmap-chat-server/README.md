@@ -62,6 +62,40 @@ name listed in the [Registered methods](#registered-methods) section below.
 Each request's `CallerCtx` value is forwarded into the handler closure (see
 [CallerCtx](#callerctx) below).
 
+### WebSocket ephemeral events (`websocket` feature)
+
+`websocket::ChatStreamHandler` is a `jmap-websocket` extension handler for
+`ChatStreamEnable` and `ChatStreamDisable` (draft-atwood-jmap-chat-wss-00).
+Keep one `ChatEventHub` for the server, publish every typing and presence
+event to it once per recipient account, and register one handler per
+connection next to advertising `urn:ietf:params:jmap:chat:websocket`:
+
+```rust,ignore
+use jmap_chat_server::websocket::{ChatEventHub, ChatStreamHandler};
+
+let hub = ChatEventHub::new(256); // server-wide
+// Per connection: the caller and the accounts whose events it receives.
+let chat = ChatStreamHandler::new(Arc::clone(&backend), caller, [account_id], &hub);
+let connection = connection.with_extension(chat);
+
+// Wherever typing and presence happen:
+hub.publish_typing(typing_event);     // accountId = the recipient's account
+hub.publish_presence(presence_event);
+```
+
+- The handler checks each event at delivery time: the `chatIds` /
+  `contactIds` scope, then `should_deliver_typing` or `project_presence`.
+- `ChatStreamLimits` (default: the draft's) drops typing events over one
+  per sender per Chat per 3 s, and holds the latest presence event over
+  one per contact per 30 s until the window reopens. Limits count per
+  connection.
+- `"vtc"` and `"scene"` in `dataTypes` are recognized only with
+  `with_companions`; `jmap-chat-vtc-server::link_vtc_stream` and
+  `jmap-chat-scene-server::link_scene_stream` set that and connect the
+  companion handler.
+- Close the connection when its credentials expire; the handler cannot
+  tell.
+
 ## Registered methods
 
 `register_chat_handlers` installs handlers for all of the following:

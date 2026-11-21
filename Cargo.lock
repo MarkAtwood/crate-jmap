@@ -2038,11 +2038,17 @@ dependencies = [
 name = "jmap-chat-scene-server"
 version = "0.6.0"
 dependencies = [
+ "futures",
+ "jmap-chat-scene-server",
+ "jmap-chat-server",
  "jmap-scene-server",
  "jmap-scene-types",
+ "jmap-server",
  "jmap-types",
+ "jmap-websocket",
  "serde_json",
  "tokio",
+ "tokio-tungstenite",
 ]
 
 [[package]]
@@ -2050,6 +2056,7 @@ name = "jmap-chat-server"
 version = "0.6.0"
 dependencies = [
  "base64",
+ "futures",
  "getrandom 0.3.4",
  "http",
  "jmap-chat-server",
@@ -2063,10 +2070,12 @@ dependencies = [
  "jmap-search",
  "jmap-server",
  "jmap-types",
+ "jmap-websocket",
  "serde",
  "serde_json",
  "subtle",
  "tokio",
+ "tokio-tungstenite",
  "ulid",
 ]
 
@@ -2121,14 +2130,18 @@ dependencies = [
 name = "jmap-chat-vtc-server"
 version = "0.6.0"
 dependencies = [
+ "futures",
  "jmap-chat-server",
  "jmap-chat-types",
+ "jmap-chat-vtc-server",
  "jmap-server",
  "jmap-types",
  "jmap-vtc-server",
  "jmap-vtc-types",
+ "jmap-websocket",
  "serde_json",
  "tokio",
+ "tokio-tungstenite",
 ]
 
 [[package]]
@@ -2705,15 +2718,18 @@ dependencies = [
 name = "jmap-scene-server"
 version = "0.6.0"
 dependencies = [
+ "futures",
  "jmap-object-history-server",
  "jmap-object-history-types",
  "jmap-scene-server",
  "jmap-scene-types",
  "jmap-server",
  "jmap-types",
+ "jmap-websocket",
  "serde",
  "serde_json",
  "tokio",
+ "tokio-tungstenite",
  "ulid",
 ]
 
@@ -3016,15 +3032,18 @@ dependencies = [
 name = "jmap-vtc-server"
 version = "0.6.0"
 dependencies = [
+ "futures",
  "jmap-object-history-server",
  "jmap-object-history-types",
  "jmap-server",
  "jmap-types",
  "jmap-vtc-server",
  "jmap-vtc-types",
+ "jmap-websocket",
  "serde",
  "serde_json",
  "tokio",
+ "tokio-tungstenite",
  "ulid",
 ]
 
