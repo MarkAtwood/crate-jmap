@@ -1,17 +1,17 @@
 <!--
-Draft for Mark to approve; to be posted at https://support.stalw.art
+Posted 2026-11-21 by Mark (via the Discourse API) as https://support.stalw.art/t/2474
 (Issues, category 6) with the user API key in rbw. crate-jmap decisions
 67/68; bd JMAP-cyub.5. Captured 2026-11-21 against Stalwart 1.1.1
 (image digest in scripts/stalwart-up.sh), account id `b`. Forum searched
 first: notJSON and createdIds are not reported; isSubscribed's default
-was discussed in topics 1509 and 2073 (both treat false as intended), but
-not against RFC 8621's SHOULD. RFC text checked: RFC 8620 lines 1091,
+was discussed in topics 1509 and 2073 (both treat false as intended);
+Mark dropped it from this report (Stalwart chose it deliberately). RFC text checked: RFC 8620 lines 1091,
 929-931, 986-991; RFC 8621 lines 696-701.
 -->
 
-**Title:** JMAP: notJSON, createdIds handling, and the isSubscribed default for new Mailboxes
+**Title:** JMAP: notRequest instead of notJSON, and createdIds handling
 
-Stalwart 1.1.1, official Docker image, default RocksDB store, JMAP over HTTP. Three small conformance points found with crate-jmap's interop tests.
+Stalwart 1.1.1, official Docker image, default RocksDB store, JMAP over HTTP. Two small conformance points found with crate-jmap's interop tests.
 
 **1. A body that isn't JSON gets notRequest, not notJSON (RFC 8620 §3.6.1).**
 
@@ -46,13 +46,5 @@ HTTP/1.1 400 Bad Request
 ```
 
 `{"k":"zz9x"}` works.
-
-**3. New Mailboxes default to isSubscribed: false (RFC 8621 §2).**
-
-```json
-["Mailbox/set",{"accountId":"b","create":{"m":{"name":"Interop Test"}}},"c0"]
-```
-
-returns `"isSubscribed":false` in `created`, and Mailbox/get agrees. RFC 8621 §2 says isSubscribed "SHOULD default to false for Mailboxes in shared accounts the user has access to and true for any new Mailboxes created by the user themself." Topic 2073 shows `false` is the current default on purpose; raising it here only because it differs from the SHOULD, and because IMAP clients that list subscribed folders don't show Mailboxes created over JMAP (topic 1509).
 
 Found with crate-jmap's interop tests: https://github.com/MarkAtwood/crate-jmap
