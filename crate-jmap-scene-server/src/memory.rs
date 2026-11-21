@@ -67,7 +67,7 @@
 //!
 //! [`SceneBackend::avatar_view`] follows per-account rules: `hide_avatar`
 //! hides one avatar from one viewer, `withhold_avatar` withholds an
-//! [`AvatarRedaction`](crate::AvatarRedaction)'s properties, and
+//! [`AvatarRedaction`]'s properties, and
 //! `reveal_avatar` undoes either. Each advances the account's SceneAvatar
 //! state. The avatar's own user, the region owner and the admins always
 //! see it in full. `SceneAvatar/query` leaves hidden avatars out and
@@ -191,7 +191,7 @@ struct AvatarRules {
     withheld: HashMap<(String, Id), AvatarRedaction>,
 }
 
-/// One SceneAvatar state of an account with [`AvatarRules`]: what every
+/// One `SceneAvatar` state of an account with [`AvatarRules`]: what every
 /// caller's view at that state is computed from.
 #[derive(Clone)]
 struct AvatarSnapshot {
@@ -234,7 +234,7 @@ struct Inner {
     rate_limited: HashSet<String>,
     /// Interactions [`SceneBackend::accept_interaction`] accepted, in order.
     interactions: Vec<SceneInteractionEvent>,
-    /// UserIds whose region events [`SceneBackend::accept_region_event`]
+    /// User ids whose region events [`SceneBackend::accept_region_event`]
     /// refuses as over the rate.
     region_event_limited: HashSet<String>,
     /// Region events [`SceneBackend::accept_region_event`] accepted, in
@@ -252,7 +252,7 @@ struct Inner {
     /// is set, and from then on answers `SceneAvatar/changes` from each
     /// caller's view.
     avatar_rules: HashMap<String, AvatarRules>,
-    /// Account → one snapshot per SceneAvatar state since the first rule:
+    /// Account → one snapshot per `SceneAvatar` state since the first rule:
     /// the state, the stored avatars and the rules then in force.
     avatar_views: HashMap<String, Vec<AvatarSnapshot>>,
     /// Whether [`SceneBackend::supports_observe`] answers `true`.
@@ -313,7 +313,7 @@ impl Inner {
     }
 
     /// Record the account's current avatars and rules under its current
-    /// SceneAvatar state, once the account has avatar rules.
+    /// `SceneAvatar` state, once the account has avatar rules.
     fn snapshot_avatars(&mut self, account_id: &Id) {
         let Some(rules) = self.avatar_rules.get(account_id.as_ref()).cloned() else {
             return;
@@ -333,8 +333,8 @@ impl Inner {
     }
 
     /// Change the account's avatar rules with `change`, then advance the
-    /// SceneAvatar state: "Whenever the caller's view changes, the server
-    /// advances the SceneAvatar state string". The first rule also records
+    /// `SceneAvatar` state: "Whenever the caller's view changes, the server
+    /// advances the `SceneAvatar` state string". The first rule also records
     /// the view before it, so `/changes` from that state still works.
     fn change_avatar_rules(&mut self, account_id: &Id, change: impl FnOnce(&mut AvatarRules)) {
         if !self.avatar_rules.contains_key(account_id.as_ref()) {
@@ -475,7 +475,7 @@ impl Inner {
     /// Set each of `regions`' `activeAvatarCount` to its number of avatars
     /// with `leftAt` `null`, and, for a region with the observer
     /// properties, its `observerCount` (see [`Self::observer_count`]), and
-    /// advance the SceneRegion state once if any count changed.
+    /// advance the `SceneRegion` state once if any count changed.
     fn recount(&mut self, account_id: &Id, regions: &[Id]) {
         let mut changed = Vec::new();
         for region in regions {

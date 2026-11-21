@@ -8,13 +8,16 @@ pub fn jmap_scene_server::memory::MemoryBackend::new() -> Self
 impl<C: jmap_server::caller::MemoryCaller> jmap_scene_server::memory::MemoryBackend<C>
 pub fn jmap_scene_server::memory::MemoryBackend<C>::advertise(&self, &jmap_types::id::Id, &str)
 pub fn jmap_scene_server::memory::MemoryBackend<C>::register_account(&self, &jmap_types::id::Id, jmap_scene_types::capability::SceneCapability)
+pub fn jmap_scene_server::memory::MemoryBackend<C>::set_supports_observe(&self, bool)
 pub fn jmap_scene_server::memory::MemoryBackend<C>::with_account(self, &jmap_types::id::Id, jmap_scene_types::capability::SceneCapability) -> Self
 impl<C: jmap_server::caller::MemoryCaller> jmap_scene_server::memory::MemoryBackend<C>
 pub fn jmap_scene_server::memory::MemoryBackend<C>::set_history_clock_for_test(&self, i64)
 pub fn jmap_scene_server::memory::MemoryBackend<C>::with_object_history(self, jmap_object_history_types::ObjectHistoryAccountCapability, jmap_object_history_server::log::HistoryRetention) -> Self
 impl<C: jmap_server::caller::MemoryCaller> jmap_scene_server::SceneBackend for jmap_scene_server::memory::MemoryBackend<C>
 pub async fn jmap_scene_server::memory::MemoryBackend<C>::accept_interaction(&self, &C, &jmap_types::id::Id, &jmap_scene_types::event::SceneInteractionEvent) -> core::result::Result<bool, jmap_scene_server::memory::MemoryError>
+pub async fn jmap_scene_server::memory::MemoryBackend<C>::accept_region_event(&self, &C, &jmap_types::id::Id, &jmap_scene_types::event::SceneRegionEvent) -> core::result::Result<bool, jmap_scene_server::memory::MemoryError>
 pub fn jmap_scene_server::memory::MemoryBackend<C>::avatar_display_name(&self, &Self::CallerCtx, &jmap_types::id::Id, &str) -> impl core::future::future::Future<Output = core::result::Result<alloc::string::String, Self::Error>> + core::marker::Send
+pub async fn jmap_scene_server::memory::MemoryBackend<C>::avatar_view(&self, &C, &jmap_types::id::Id, &jmap_scene_types::avatar::SceneAvatar) -> core::result::Result<jmap_scene_server::AvatarView, jmap_scene_server::memory::MemoryError>
 pub async fn jmap_scene_server::memory::MemoryBackend<C>::blob_size(&self, &C, &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<core::option::Option<u64>, jmap_scene_server::memory::MemoryError>
 pub async fn jmap_scene_server::memory::MemoryBackend<C>::caller_user_id(&self, &C, &jmap_types::id::Id) -> core::result::Result<alloc::string::String, jmap_scene_server::memory::MemoryError>
 pub async fn jmap_scene_server::memory::MemoryBackend<C>::channel_in_space(&self, &C, &jmap_types::id::Id, &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<bool, jmap_scene_server::memory::MemoryError>
@@ -29,11 +32,15 @@ pub async fn jmap_scene_server::memory::MemoryBackend<C>::may_eject_avatar(&self
 pub async fn jmap_scene_server::memory::MemoryBackend<C>::may_enter_region(&self, &C, &jmap_types::id::Id, &jmap_scene_types::region::SceneRegion) -> core::result::Result<bool, jmap_scene_server::memory::MemoryError>
 pub async fn jmap_scene_server::memory::MemoryBackend<C>::may_modify_asset(&self, &C, &jmap_types::id::Id, &jmap_scene_types::asset::SceneAsset) -> core::result::Result<bool, jmap_scene_server::memory::MemoryError>
 pub async fn jmap_scene_server::memory::MemoryBackend<C>::may_modify_object(&self, &C, &jmap_types::id::Id, &jmap_scene_types::object::SceneObject) -> core::result::Result<bool, jmap_scene_server::memory::MemoryError>
+pub async fn jmap_scene_server::memory::MemoryBackend<C>::may_observe_region(&self, &C, &jmap_types::id::Id, &jmap_scene_types::region::SceneRegion) -> core::result::Result<bool, jmap_scene_server::memory::MemoryError>
 pub async fn jmap_scene_server::memory::MemoryBackend<C>::may_see_region_avatars(&self, &C, &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<bool, jmap_scene_server::memory::MemoryError>
 pub async fn jmap_scene_server::memory::MemoryBackend<C>::may_update_region(&self, &C, &jmap_types::id::Id, &jmap_scene_types::region::SceneRegion) -> core::result::Result<bool, jmap_scene_server::memory::MemoryError>
+pub async fn jmap_scene_server::memory::MemoryBackend<C>::observer_accounts(&self, &C, &jmap_types::id::Id) -> core::result::Result<alloc::vec::Vec<jmap_types::id::Id>, jmap_scene_server::memory::MemoryError>
 pub async fn jmap_scene_server::memory::MemoryBackend<C>::region_binding(&self, &C, &jmap_types::id::Id, jmap_scene_server::BindingProperty, &jmap_types::id::Id) -> core::result::Result<jmap_scene_server::BindingTarget, jmap_scene_server::memory::MemoryError>
 pub async fn jmap_scene_server::memory::MemoryBackend<C>::reserved_display_names(&self, &C, &jmap_types::id::Id) -> core::result::Result<alloc::vec::Vec<alloc::string::String>, jmap_scene_server::memory::MemoryError>
 pub async fn jmap_scene_server::memory::MemoryBackend<C>::scene_capability(&self, &C, &jmap_types::id::Id) -> core::result::Result<jmap_scene_types::capability::SceneCapability, jmap_scene_server::memory::MemoryError>
+pub async fn jmap_scene_server::memory::MemoryBackend<C>::set_observing(&self, &C, &jmap_types::id::Id, &jmap_types::id::Id, bool) -> core::result::Result<(), jmap_scene_server::memory::MemoryError>
+pub fn jmap_scene_server::memory::MemoryBackend<C>::supports_observe(&self, &C) -> bool
 pub fn jmap_scene_server::memory::MemoryBackend<C>::supports_type<O: jmap_types::backend::JmapObject>(&self, &C, &jmap_types::id::Id) -> bool
 pub async fn jmap_scene_server::memory::MemoryBackend<C>::update_object<O: jmap_types::backend::SetObject + core::marker::Send + core::marker::Sync>(&self, &C, &jmap_types::id::Id, &jmap_types::id::Id, <O as jmap_types::backend::SetObject>::Patch) -> core::result::Result<core::option::Option<O>, jmap_server::backend::BackendSetError<jmap_scene_server::memory::MemoryError>>
 impl<C: jmap_server::caller::MemoryCaller> jmap_server::backend::JmapAccounts for jmap_scene_server::memory::MemoryBackend<C>
@@ -128,6 +135,19 @@ impl core::fmt::Debug for jmap_scene_server::websocket::SceneStreamLimits
 pub fn jmap_scene_server::websocket::SceneStreamLimits::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Copy for jmap_scene_server::websocket::SceneStreamLimits
 impl core::marker::StructuralPartialEq for jmap_scene_server::websocket::SceneStreamLimits
+#[non_exhaustive] pub enum jmap_scene_server::AvatarView
+pub jmap_scene_server::AvatarView::Full
+pub jmap_scene_server::AvatarView::Hidden
+pub jmap_scene_server::AvatarView::Redacted(jmap_scene_server::AvatarRedaction)
+impl core::clone::Clone for jmap_scene_server::AvatarView
+pub fn jmap_scene_server::AvatarView::clone(&self) -> jmap_scene_server::AvatarView
+impl core::cmp::PartialEq for jmap_scene_server::AvatarView
+pub fn jmap_scene_server::AvatarView::eq(&self, &jmap_scene_server::AvatarView) -> bool
+impl core::default::Default for jmap_scene_server::AvatarView
+pub fn jmap_scene_server::AvatarView::default() -> jmap_scene_server::AvatarView
+impl core::fmt::Debug for jmap_scene_server::AvatarView
+pub fn jmap_scene_server::AvatarView::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_scene_server::AvatarView
 #[non_exhaustive] pub enum jmap_scene_server::BindingProperty
 pub jmap_scene_server::BindingProperty::ActiveCallId
 pub jmap_scene_server::BindingProperty::ChannelId
@@ -193,10 +213,28 @@ impl core::hash::Hash for jmap_scene_server::SceneEvent
 pub fn jmap_scene_server::SceneEvent::hash<__H: core::hash::Hasher>(&self, &mut __H)
 impl core::marker::Copy for jmap_scene_server::SceneEvent
 impl core::marker::StructuralPartialEq for jmap_scene_server::SceneEvent
+#[non_exhaustive] pub struct jmap_scene_server::AvatarRedaction
+pub jmap_scene_server::AvatarRedaction::orientation: core::option::Option<jmap_scene_types::coordinates::Orientation>
+pub jmap_scene_server::AvatarRedaction::position: core::option::Option<jmap_scene_types::coordinates::Position>
+pub jmap_scene_server::AvatarRedaction::region_state_keys: alloc::vec::Vec<alloc::string::String>
+pub jmap_scene_server::AvatarRedaction::world_state_keys: alloc::vec::Vec<alloc::string::String>
+impl jmap_scene_server::AvatarRedaction
+pub fn jmap_scene_server::AvatarRedaction::apply(&self, &mut jmap_scene_types::avatar::SceneAvatar)
+pub fn jmap_scene_server::AvatarRedaction::withheld(&self) -> alloc::vec::Vec<&'static str>
+impl core::clone::Clone for jmap_scene_server::AvatarRedaction
+pub fn jmap_scene_server::AvatarRedaction::clone(&self) -> jmap_scene_server::AvatarRedaction
+impl core::cmp::PartialEq for jmap_scene_server::AvatarRedaction
+pub fn jmap_scene_server::AvatarRedaction::eq(&self, &jmap_scene_server::AvatarRedaction) -> bool
+impl core::default::Default for jmap_scene_server::AvatarRedaction
+pub fn jmap_scene_server::AvatarRedaction::default() -> jmap_scene_server::AvatarRedaction
+impl core::fmt::Debug for jmap_scene_server::AvatarRedaction
+pub fn jmap_scene_server::AvatarRedaction::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_scene_server::AvatarRedaction
 pub struct jmap_scene_server::SceneEphemeralSubscription
 impl jmap_scene_server::SceneEphemeralSubscription
 pub fn jmap_scene_server::SceneEphemeralSubscription::filter(&self) -> core::option::Option<&jmap_scene_server::SceneStreamFilter>
 pub fn jmap_scene_server::SceneEphemeralSubscription::replace_with(&mut self, &jmap_scene_types::stream::SceneStreamEnable) -> core::result::Result<(), jmap_types::error::JmapError>
+pub fn jmap_scene_server::SceneEphemeralSubscription::replace_with_observe(&mut self, &jmap_scene_types::stream::SceneStreamEnable) -> core::result::Result<(), jmap_types::error::JmapError>
 impl core::clone::Clone for jmap_scene_server::SceneEphemeralSubscription
 pub fn jmap_scene_server::SceneEphemeralSubscription::clone(&self) -> jmap_scene_server::SceneEphemeralSubscription
 impl core::cmp::Eq for jmap_scene_server::SceneEphemeralSubscription
@@ -210,6 +248,7 @@ impl core::marker::StructuralPartialEq for jmap_scene_server::SceneEphemeralSubs
 pub struct jmap_scene_server::SceneStreamFilter
 impl jmap_scene_server::SceneStreamFilter
 pub fn jmap_scene_server::SceneStreamFilter::includes(&self, &str) -> bool
+pub fn jmap_scene_server::SceneStreamFilter::observes(&self) -> bool
 pub fn jmap_scene_server::SceneStreamFilter::region_ids(&self) -> &jmap_scene_server::RegionScope
 impl core::clone::Clone for jmap_scene_server::SceneStreamFilter
 pub fn jmap_scene_server::SceneStreamFilter::clone(&self) -> jmap_scene_server::SceneStreamFilter
@@ -223,7 +262,9 @@ pub const jmap_scene_server::GLTF_BINARY: &str
 pub const jmap_scene_server::SCENE_DATA_TYPES: &[&str]
 pub trait jmap_scene_server::SceneBackend: jmap_server::backend::JmapBackend
 pub fn jmap_scene_server::SceneBackend::accept_interaction(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_scene_types::event::SceneInteractionEvent) -> impl core::future::future::Future<Output = core::result::Result<bool, Self::Error>> + core::marker::Send
+pub fn jmap_scene_server::SceneBackend::accept_region_event(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_scene_types::event::SceneRegionEvent) -> impl core::future::future::Future<Output = core::result::Result<bool, Self::Error>> + core::marker::Send
 pub fn jmap_scene_server::SceneBackend::avatar_display_name(&self, &Self::CallerCtx, &jmap_types::id::Id, &str) -> impl core::future::future::Future<Output = core::result::Result<alloc::string::String, Self::Error>> + core::marker::Send
+pub fn jmap_scene_server::SceneBackend::avatar_view(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_scene_types::avatar::SceneAvatar) -> impl core::future::future::Future<Output = core::result::Result<jmap_scene_server::AvatarView, Self::Error>> + core::marker::Send
 pub fn jmap_scene_server::SceneBackend::blob_size(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<core::option::Option<u64>, Self::Error>> + core::marker::Send
 pub fn jmap_scene_server::SceneBackend::caller_user_id(&self, &Self::CallerCtx, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<alloc::string::String, Self::Error>> + core::marker::Send
 pub fn jmap_scene_server::SceneBackend::channel_in_space(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<bool, Self::Error>> + core::marker::Send
@@ -238,16 +279,22 @@ pub fn jmap_scene_server::SceneBackend::may_eject_avatar(&self, &Self::CallerCtx
 pub fn jmap_scene_server::SceneBackend::may_enter_region(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_scene_types::region::SceneRegion) -> impl core::future::future::Future<Output = core::result::Result<bool, Self::Error>> + core::marker::Send
 pub fn jmap_scene_server::SceneBackend::may_modify_asset(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_scene_types::asset::SceneAsset) -> impl core::future::future::Future<Output = core::result::Result<bool, Self::Error>> + core::marker::Send
 pub fn jmap_scene_server::SceneBackend::may_modify_object(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_scene_types::object::SceneObject) -> impl core::future::future::Future<Output = core::result::Result<bool, Self::Error>> + core::marker::Send
+pub fn jmap_scene_server::SceneBackend::may_observe_region(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_scene_types::region::SceneRegion) -> impl core::future::future::Future<Output = core::result::Result<bool, Self::Error>> + core::marker::Send
 pub fn jmap_scene_server::SceneBackend::may_see_region_avatars(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<bool, Self::Error>> + core::marker::Send
 pub fn jmap_scene_server::SceneBackend::may_update_region(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_scene_types::region::SceneRegion) -> impl core::future::future::Future<Output = core::result::Result<bool, Self::Error>> + core::marker::Send
+pub fn jmap_scene_server::SceneBackend::observer_accounts(&self, &Self::CallerCtx, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<alloc::vec::Vec<jmap_types::id::Id>, Self::Error>> + core::marker::Send
 pub fn jmap_scene_server::SceneBackend::region_binding(&self, &Self::CallerCtx, &jmap_types::id::Id, jmap_scene_server::BindingProperty, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<jmap_scene_server::BindingTarget, Self::Error>> + core::marker::Send
 pub fn jmap_scene_server::SceneBackend::reserved_display_names(&self, &Self::CallerCtx, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<alloc::vec::Vec<alloc::string::String>, Self::Error>> + core::marker::Send
 pub fn jmap_scene_server::SceneBackend::scene_capability(&self, &Self::CallerCtx, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<jmap_scene_types::capability::SceneCapability, Self::Error>> + core::marker::Send
+pub fn jmap_scene_server::SceneBackend::set_observing(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id, bool) -> impl core::future::future::Future<Output = core::result::Result<(), Self::Error>> + core::marker::Send
+pub fn jmap_scene_server::SceneBackend::supports_observe(&self, &Self::CallerCtx) -> bool
 pub fn jmap_scene_server::SceneBackend::supports_type<O: jmap_types::backend::JmapObject>(&self, &Self::CallerCtx, &jmap_types::id::Id) -> bool
 pub fn jmap_scene_server::SceneBackend::update_object<O: jmap_types::backend::SetObject + core::marker::Send + core::marker::Sync>(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id, <O as jmap_types::backend::SetObject>::Patch) -> impl core::future::future::Future<Output = core::result::Result<core::option::Option<O>, jmap_server::backend::BackendSetError<Self::Error>>> + core::marker::Send
 impl<C: jmap_server::caller::MemoryCaller> jmap_scene_server::SceneBackend for jmap_scene_server::memory::MemoryBackend<C>
 pub async fn jmap_scene_server::memory::MemoryBackend<C>::accept_interaction(&self, &C, &jmap_types::id::Id, &jmap_scene_types::event::SceneInteractionEvent) -> core::result::Result<bool, jmap_scene_server::memory::MemoryError>
+pub async fn jmap_scene_server::memory::MemoryBackend<C>::accept_region_event(&self, &C, &jmap_types::id::Id, &jmap_scene_types::event::SceneRegionEvent) -> core::result::Result<bool, jmap_scene_server::memory::MemoryError>
 pub fn jmap_scene_server::memory::MemoryBackend<C>::avatar_display_name(&self, &Self::CallerCtx, &jmap_types::id::Id, &str) -> impl core::future::future::Future<Output = core::result::Result<alloc::string::String, Self::Error>> + core::marker::Send
+pub async fn jmap_scene_server::memory::MemoryBackend<C>::avatar_view(&self, &C, &jmap_types::id::Id, &jmap_scene_types::avatar::SceneAvatar) -> core::result::Result<jmap_scene_server::AvatarView, jmap_scene_server::memory::MemoryError>
 pub async fn jmap_scene_server::memory::MemoryBackend<C>::blob_size(&self, &C, &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<core::option::Option<u64>, jmap_scene_server::memory::MemoryError>
 pub async fn jmap_scene_server::memory::MemoryBackend<C>::caller_user_id(&self, &C, &jmap_types::id::Id) -> core::result::Result<alloc::string::String, jmap_scene_server::memory::MemoryError>
 pub async fn jmap_scene_server::memory::MemoryBackend<C>::channel_in_space(&self, &C, &jmap_types::id::Id, &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<bool, jmap_scene_server::memory::MemoryError>
@@ -262,11 +309,15 @@ pub async fn jmap_scene_server::memory::MemoryBackend<C>::may_eject_avatar(&self
 pub async fn jmap_scene_server::memory::MemoryBackend<C>::may_enter_region(&self, &C, &jmap_types::id::Id, &jmap_scene_types::region::SceneRegion) -> core::result::Result<bool, jmap_scene_server::memory::MemoryError>
 pub async fn jmap_scene_server::memory::MemoryBackend<C>::may_modify_asset(&self, &C, &jmap_types::id::Id, &jmap_scene_types::asset::SceneAsset) -> core::result::Result<bool, jmap_scene_server::memory::MemoryError>
 pub async fn jmap_scene_server::memory::MemoryBackend<C>::may_modify_object(&self, &C, &jmap_types::id::Id, &jmap_scene_types::object::SceneObject) -> core::result::Result<bool, jmap_scene_server::memory::MemoryError>
+pub async fn jmap_scene_server::memory::MemoryBackend<C>::may_observe_region(&self, &C, &jmap_types::id::Id, &jmap_scene_types::region::SceneRegion) -> core::result::Result<bool, jmap_scene_server::memory::MemoryError>
 pub async fn jmap_scene_server::memory::MemoryBackend<C>::may_see_region_avatars(&self, &C, &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<bool, jmap_scene_server::memory::MemoryError>
 pub async fn jmap_scene_server::memory::MemoryBackend<C>::may_update_region(&self, &C, &jmap_types::id::Id, &jmap_scene_types::region::SceneRegion) -> core::result::Result<bool, jmap_scene_server::memory::MemoryError>
+pub async fn jmap_scene_server::memory::MemoryBackend<C>::observer_accounts(&self, &C, &jmap_types::id::Id) -> core::result::Result<alloc::vec::Vec<jmap_types::id::Id>, jmap_scene_server::memory::MemoryError>
 pub async fn jmap_scene_server::memory::MemoryBackend<C>::region_binding(&self, &C, &jmap_types::id::Id, jmap_scene_server::BindingProperty, &jmap_types::id::Id) -> core::result::Result<jmap_scene_server::BindingTarget, jmap_scene_server::memory::MemoryError>
 pub async fn jmap_scene_server::memory::MemoryBackend<C>::reserved_display_names(&self, &C, &jmap_types::id::Id) -> core::result::Result<alloc::vec::Vec<alloc::string::String>, jmap_scene_server::memory::MemoryError>
 pub async fn jmap_scene_server::memory::MemoryBackend<C>::scene_capability(&self, &C, &jmap_types::id::Id) -> core::result::Result<jmap_scene_types::capability::SceneCapability, jmap_scene_server::memory::MemoryError>
+pub async fn jmap_scene_server::memory::MemoryBackend<C>::set_observing(&self, &C, &jmap_types::id::Id, &jmap_types::id::Id, bool) -> core::result::Result<(), jmap_scene_server::memory::MemoryError>
+pub fn jmap_scene_server::memory::MemoryBackend<C>::supports_observe(&self, &C) -> bool
 pub fn jmap_scene_server::memory::MemoryBackend<C>::supports_type<O: jmap_types::backend::JmapObject>(&self, &C, &jmap_types::id::Id) -> bool
 pub async fn jmap_scene_server::memory::MemoryBackend<C>::update_object<O: jmap_types::backend::SetObject + core::marker::Send + core::marker::Sync>(&self, &C, &jmap_types::id::Id, &jmap_types::id::Id, <O as jmap_types::backend::SetObject>::Patch) -> core::result::Result<core::option::Option<O>, jmap_server::backend::BackendSetError<jmap_scene_server::memory::MemoryError>>
 pub async fn jmap_scene_server::handle_scene_asset_changes<B: jmap_scene_server::SceneBackend>(&B, &<B as jmap_server::backend::JmapAccounts>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
@@ -285,6 +336,7 @@ pub async fn jmap_scene_server::handle_scene_object_interact<B: jmap_scene_serve
 pub async fn jmap_scene_server::handle_scene_object_query<B: jmap_scene_server::SceneBackend>(&B, &<B as jmap_server::backend::JmapAccounts>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
 pub async fn jmap_scene_server::handle_scene_object_query_changes<B: jmap_scene_server::SceneBackend>(&B, &<B as jmap_server::backend::JmapAccounts>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
 pub async fn jmap_scene_server::handle_scene_object_set<B: jmap_scene_server::SceneBackend>(&B, &<B as jmap_server::backend::JmapAccounts>::CallerCtx, &alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_types::id::Id>, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub async fn jmap_scene_server::handle_scene_region_broadcast<B: jmap_scene_server::SceneBackend>(&B, &<B as jmap_server::backend::JmapAccounts>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
 pub async fn jmap_scene_server::handle_scene_region_changes<B: jmap_scene_server::SceneBackend>(&B, &<B as jmap_server::backend::JmapAccounts>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
 pub async fn jmap_scene_server::handle_scene_region_get<B: jmap_scene_server::SceneBackend>(&B, &<B as jmap_server::backend::JmapAccounts>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
 pub async fn jmap_scene_server::handle_scene_region_query<B: jmap_scene_server::SceneBackend>(&B, &<B as jmap_server::backend::JmapAccounts>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>

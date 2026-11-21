@@ -20,7 +20,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SceneRegionBroadcast {
-    /// "The SceneRegion the event is about."
+    /// "The `SceneRegion` the event is about."
     pub region_id: Id,
     /// "The event name, in reverse-domain notation (e.g.,
     /// `\"com.example.game.round-start\"`). This specification defines no

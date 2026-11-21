@@ -69,7 +69,7 @@ pub enum BindingTarget {
 }
 
 /// What [`SceneBackend::avatar_view`] lets a caller see of one
-/// SceneAvatar (draft-atwood-jmap-scene-00 at jmap-chat-spec 93f2258,
+/// `SceneAvatar` (draft-atwood-jmap-scene-00 at jmap-chat-spec 93f2258,
 /// §Avatar Visibility): "The server hides an avatar from a caller as a
 /// whole, or withholds some of its properties".
 #[non_exhaustive]
@@ -87,7 +87,7 @@ pub enum AvatarView {
     Hidden,
 }
 
-/// The properties of one SceneAvatar withheld from a caller
+/// The properties of one `SceneAvatar` withheld from a caller
 /// (jmap-chat-spec 93f2258 §Avatar Visibility): "Only `position`,
 /// `orientation`, `worldState`, and `regionState` can be withheld."
 ///
@@ -145,7 +145,7 @@ impl AvatarRedaction {
         }
     }
 
-    /// The SceneAvatar property names this redaction withholds, in the
+    /// The `SceneAvatar` property names this redaction withholds, in the
     /// order `position`, `orientation`, `worldState`, `regionState`.
     pub fn withheld(&self) -> Vec<&'static str> {
         [
@@ -180,7 +180,7 @@ impl AvatarRedaction {
 /// server MAY report an object hidden from the caller in `notFound` from
 /// `/get`". Unlike draft-atwood-jmap-graph-00, Scene does not ask `/changes`
 /// to omit what the caller may not read, with one exception: a backend
-/// that hides SceneAvatars or withholds their properties to protect
+/// that hides `SceneAvatar` records or withholds their properties to protect
 /// information ([`Self::avatar_view`]) SHOULD answer `SceneAvatar/changes`
 /// from the caller's view (jmap-chat-spec 93f2258 §Avatar Visibility).
 /// `get_changes` receives the caller for that.
@@ -765,7 +765,7 @@ pub trait SceneBackend: JmapBackend {
 
     /// What the caller may see of `avatar`, another user's avatar
     /// (draft-atwood-jmap-scene-00 at jmap-chat-spec 93f2258, §Avatar
-    /// Visibility): "A server MAY also limit which SceneAvatar records, and
+    /// Visibility): "A server MAY also limit which `SceneAvatar` records, and
     /// which of their properties, each caller sees: for example, to keep
     /// opponents' positions from players during a competitive round". The
     /// rule is deployment-defined.
@@ -844,7 +844,7 @@ pub trait SceneBackend: JmapBackend {
     /// deployment-defined policy: "A server MAY also decline observers of
     /// a region for deployment-defined policy reasons even when
     /// `allowObservers` is `true`" (jmap-chat-spec 93f2258
-    /// §SceneStreamEnable).
+    /// §`SceneStreamEnable`).
     ///
     /// Asked for a region the caller has access to, when a
     /// `SceneStreamEnable` with `observe: true` lists it (`false` makes it
@@ -869,7 +869,7 @@ pub trait SceneBackend: JmapBackend {
     /// `observe: true` may name, for a connection whose own account is
     /// `own_account_id`: "An id listed in `regionIds` matches in every
     /// account the user can access" (draft-atwood-jmap-scene-wss-00
-    /// §SceneStreamEnable).
+    /// §`SceneStreamEnable`).
     ///
     /// The `websocket` handler looks each listed region up in each of
     /// these accounts to decide which regions are observed and which are
@@ -909,7 +909,7 @@ pub trait SceneBackend: JmapBackend {
     /// with an avatar, loses access, or `allowObservers` changes (`false`
     /// stops delivery, so it counts no one). "Like `activeAvatarCount`, a
     /// change to it is a change to the SceneRegion": record the region as
-    /// updated and advance the SceneRegion state, so push sends a
+    /// updated and advance the `SceneRegion` state, so push sends a
     /// `StateChange`.
     ///
     /// # Default implementation

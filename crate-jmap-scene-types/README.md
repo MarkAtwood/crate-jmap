@@ -20,12 +20,23 @@ simulation.
 | `SceneObject`, `PhysicsMode` | §SceneObject |
 | `SceneAvatar` | §SceneAvatar |
 | `SceneInteraction`, `SceneObjectInteractRequest`, `SceneObjectInteractResponse` | §SceneObject/interact |
+| `SceneRegionBroadcast`, `SceneRegionBroadcastRequest`, `SceneRegionBroadcastResponse` | §SceneRegion/broadcast (jmap-chat-spec 93f2258) |
 | `query::*` filters and comparators, `WithinRadius`, `WithinBounds` | §…/query, §Spatial Filters |
-| `JMAP_SCENE_WEBSOCKET_URI` | scene-wss §Capability |
-| `SceneEvent`, `SceneAvatarEvent`, `SceneObjectEvent`, `SceneInteractionEvent`, `AvatarEventKind`, `ObjectEventKind` | scene-wss §Ephemeral Event Types |
+| `JMAP_SCENE_WEBSOCKET_URI`, `SceneWebSocketCapability` | scene-wss §Capability |
+| `SceneEvent`, `SceneAvatarEvent`, `SceneObjectEvent`, `SceneInteractionEvent`, `SceneRegionEvent`, `AvatarEventKind`, `ObjectEventKind` | scene-wss §Ephemeral Event Types |
 | `SceneStreamMessage`, `SceneStreamEnable`, `SceneStreamDisable`, `SCENE_EVENT_TYPES` | scene-wss §Scene Stream Control Messages |
 
-The session-level capability values are `{}` and have no type.
+The session-level `urn:ietf:params:jmap:scene` value is `{}` and has no
+type; the `urn:ietf:params:jmap:scene:websocket` value is
+`SceneWebSocketCapability` (`{}`, or `{"supportsObserve": true}`).
+
+The optional features of jmap-chat-spec 93f2258 are fields that are
+absent unless the server supports them: `SceneCapability`'s
+`supports_region_broadcast` and `supports_avatar_region_state`,
+`SceneRegion`'s `allow_observers` and `observer_count`,
+`SceneAvatar::region_state` (absent and `null` kept apart),
+`SceneStreamEnable::observe` and
+`SceneRegionFilterCondition::world_state_equals`.
 
 ## What it's for
 

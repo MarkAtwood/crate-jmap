@@ -21,6 +21,7 @@ trait.
 | `handle_scene_object_set` | §SceneObject/set: create, update, recursive destroy and §SetError Conditions |
 | `handle_scene_object_query`, `handle_scene_object_query_changes` | §SceneObject/query, §Spatial Filters, §SceneObject/queryChanges |
 | `handle_scene_object_interact` | §SceneObject/interact: `notFound`, `forbidden`, `rateLimit` and `invalidProperties`; accepted interactions go to `SceneBackend::accept_interaction` |
+| `handle_scene_region_broadcast` | §SceneRegion/broadcast (jmap-chat-spec 93f2258): `unknownMethod` without `supportsRegionBroadcast`; `notFound`, `forbidden` (owner or admin only), `rateLimit` and `invalidProperties`; accepted events go to `SceneBackend::accept_region_event` |
 | `handle_scene_avatar_get`, `handle_scene_avatar_changes` | §SceneAvatar/get, §SceneAvatar/changes (RFC 8620 §5.1, §5.2) |
 | `handle_scene_avatar_set` | §SceneAvatar/set: enter, update, leave, re-enter, eject and §SetError Conditions |
 | `handle_scene_avatar_query`, `handle_scene_avatar_query_changes` | §SceneAvatar/query, §SceneAvatar/queryChanges |
@@ -30,8 +31,9 @@ trait.
 | `query::avatar_matches`, `query::compare_avatars` | §SceneAvatar/query filter, spatial filters and sort |
 | `SceneBackend` | storage, capability objects, blob sizes, permission and binding hooks |
 | `BindingTarget` | what a `chatId`/`spaceId`/`channelId`/`activeCallId` references |
+| `AvatarView`, `AvatarRedaction` | §Avatar Visibility: what `SceneBackend::avatar_view` lets a caller see of another user's avatar |
 | `memory::MemoryBackend` (`memory` feature) | in-memory reference backend; accounts with `with_account` / `register_account`, companion capabilities with `advertise` |
-| `register_scene_handlers` | wires the `SceneAsset/*`, `SceneRegion/*`, `SceneObject/*` (including `SceneObject/interact`) and `SceneAvatar/*` methods |
+| `register_scene_handlers` | wires the `SceneAsset/*`, `SceneRegion/*`, `SceneObject/*` (including `SceneObject/interact`), `SceneAvatar/*` and `SceneRegion/broadcast` methods |
 
 ## What it's for
 
@@ -64,9 +66,11 @@ list `model/gltf-binary` in its `supportedVisualTypes`.
 for `SceneStreamEnable`, `SceneStreamDisable` and client-sent
 `SceneInteractionEvent` frames (draft-atwood-jmap-scene-wss-00). Keep one
 `SceneEventHub`, publish every Scene event to it (the interactions
-`SceneObject/interact` accepts included), and register one handler per
-connection next to advertising `urn:ietf:params:jmap:scene:websocket` as
-`{}`:
+`SceneObject/interact` accepts and the region events `SceneRegion/broadcast`
+accepts included), and register one handler per connection next to
+advertising `urn:ietf:params:jmap:scene:websocket` as `{}`, or as
+`{"supportsObserve": true}` when `SceneBackend::supports_observe` is
+`true`:
 
 ```rust,ignore
 use jmap_scene_server::websocket::{SceneEventHub, SceneStreamHandler};
@@ -86,10 +90,21 @@ hub.publish(avatar_event); // accountId = the region's hosting account
 - `SceneStreamLimits` (default: the draft's) keeps two `"updated"`
   `SceneObjectEvent`s per object per second, sending the latest held one
   when the window reopens.
-- Observer subscriptions (`observe`, `supportsObserve`) are not
-  implemented; the member is ignored.
+- Observer subscriptions (`observe: true`, jmap-chat-spec 93f2258) are
+  recognized only when `SceneBackend::supports_observe` is `true`. They
+  need `regionIds` (else `invalidArguments`); a listed region the user can
+  access whose `allowObservers` is `false`, or that
+  `may_observe_region` declines, makes the whole message a `forbidden`
+  RequestError with a `regionIds` member, and the subscription stays as
+  it was. Inaccessible and missing regions are kept silently. The
+  observed regions are reported to `SceneBackend::set_observing` and
+  released on the next enable, disable or close, so the backend keeps
+  `observerCount`. `observer_accounts` names the accounts a `regionIds`
+  entry is looked up in (default: the connection's own).
 - `chat_alias()` is the `ChatStreamEnable` `"scene"` switch;
-  `jmap-chat-scene-server::link_scene_stream` drives it.
+  `jmap-chat-scene-server::link_scene_stream` drives it. While it is on,
+  an event the alias path refuses still reaches the connection's own
+  observer subscription, once.
 
 ## How it works
 
@@ -126,7 +141,12 @@ ended call is `invalidProperties`, an inaccessible one `forbidden`. The
 `may_update_region` and destroy `may_destroy_region` (owner or admin in
 `MemoryBackend`). On destroy the backend removes the region's SceneObjects
 and SceneAvatars. `/query` defaults to `createdAt` descending, and an
-`accessPolicy` filter value outside the three is `invalidArguments`.
+`accessPolicy` filter value outside the three is `invalidArguments`, as
+is a `worldStateEquals` filter that is not an object of String, Number
+or Boolean values. With `SceneBackend::supports_observe`, a create
+stores `allowObservers` (default `true`) and `observerCount` `0`;
+without it, `allowObservers` is `invalidProperties`. `observerCount` is
+server-set.
 
 A SceneObject create needs `mayCreateObject`, a `regionId` naming an
 existing region the caller can access (else `invalidProperties` naming
@@ -176,9 +196,14 @@ and a `position` or `orientation` in the same patch is
 and `orientation` to the region's spawn point, and `update_object`
 applies `maxAvatarsPerRegion` (`overQuota`), the auto-eject from other
 regions and the `activeAvatarCount` update in the same atomic step. On
-another user's avatar only an eject (`leftAt`, optionally `worldState`)
-is allowed, and only when `may_eject_avatar` agrees; anything else is
-`forbidden`. Destroy is always `forbidden`. `/query` defaults to
+another user's avatar only an eject (`leftAt`) and, on accounts with
+`supportsAvatarRegionState`, a change to `regionState` are allowed: the
+eject when `may_eject_avatar` agrees, `regionState` when
+`may_update_region` does (owner or admin); anything else is `forbidden`.
+The avatar's own user cannot change `regionState` or create with a
+non-null one unless they are the region owner or an admin; without the
+capability `regionState` is `invalidProperties`. Another user's avatar
+that `avatar_view` hides is `notFound` for `/get` and for an update. Destroy is always `forbidden`. `/query` defaults to
 `joinedAt` ascending and returns `invalidArguments` without `regionId` in
 every condition, for a `withinRadius.radius` <= 0 or a `withinBounds`
 `max` below `min`.

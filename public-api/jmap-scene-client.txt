@@ -29,6 +29,7 @@ pub jmap_scene_client::SceneWsFrame::Avatar(jmap_scene_types::event::SceneAvatar
 pub jmap_scene_client::SceneWsFrame::Interaction(jmap_scene_types::event::SceneInteractionEvent)
 pub jmap_scene_client::SceneWsFrame::Object(jmap_scene_types::event::SceneObjectEvent)
 pub jmap_scene_client::SceneWsFrame::Other(jmap_base_client::ws::WsFrame)
+pub jmap_scene_client::SceneWsFrame::Region(jmap_scene_types::event::SceneRegionEvent)
 impl core::clone::Clone for jmap_scene_client::SceneWsFrame
 pub fn jmap_scene_client::SceneWsFrame::clone(&self) -> jmap_scene_client::SceneWsFrame
 impl core::fmt::Debug for jmap_scene_client::SceneWsFrame
@@ -68,6 +69,7 @@ pub async fn jmap_scene_client::SessionClient::scene_object_query<C: serde_core:
 pub async fn jmap_scene_client::SessionClient::scene_object_query_changes<C: serde_core::ser::Serialize>(&self, &jmap_types::id::State, core::option::Option<u64>, core::option::Option<&jmap_types::query::Filter<C>>, core::option::Option<&[jmap_scene_types::query::SceneObjectComparator]>, core::option::Option<&jmap_types::id::Id>, core::option::Option<bool>) -> core::result::Result<jmap_types::methods::QueryChangesResponse, jmap_base_client::error::ClientError>
 pub async fn jmap_scene_client::SessionClient::scene_object_set(&self, core::option::Option<serde_json::value::Value>, core::option::Option<alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_types::patch::PatchObject>>, core::option::Option<alloc::vec::Vec<jmap_types::id::Id>>, core::option::Option<&jmap_types::id::State>, core::option::Option<jmap_base_client::conditional::SetOptions>) -> core::result::Result<jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
 impl jmap_scene_client::SessionClient
+pub async fn jmap_scene_client::SessionClient::scene_region_broadcast(&self, alloc::collections::btree::map::BTreeMap<alloc::string::String, jmap_scene_types::broadcast::SceneRegionBroadcast>) -> core::result::Result<jmap_scene_types::broadcast::SceneRegionBroadcastResponse, jmap_base_client::error::ClientError>
 pub async fn jmap_scene_client::SessionClient::scene_region_changes(&self, &jmap_types::id::State, core::option::Option<u64>) -> core::result::Result<jmap_types::methods::ChangesResponse, jmap_base_client::error::ClientError>
 pub async fn jmap_scene_client::SessionClient::scene_region_get(&self, core::option::Option<&[jmap_types::id::Id]>, core::option::Option<&[&str]>) -> core::result::Result<jmap_types::methods::GetResponse<jmap_scene_types::region::SceneRegion>, jmap_base_client::error::ClientError>
 pub async fn jmap_scene_client::SessionClient::scene_region_query<C: serde_core::ser::Serialize>(&self, core::option::Option<&jmap_types::query::Filter<C>>, core::option::Option<&[jmap_scene_types::query::SceneRegionComparator]>, &jmap_base_client::query::QueryParams) -> core::result::Result<jmap_types::methods::QueryResponse, jmap_base_client::error::ClientError>
@@ -93,4 +95,5 @@ pub async fn jmap_base_client::ws::WsSession::send_scene_interaction(&mut self, 
 pub async fn jmap_base_client::ws::WsSession::send_scene_stream_disable(&mut self) -> core::result::Result<(), jmap_base_client::error::ClientError>
 pub async fn jmap_base_client::ws::WsSession::send_scene_stream_enable(&mut self, &jmap_base_client::request::Session, &jmap_scene_types::stream::SceneStreamEnable) -> core::result::Result<(), jmap_base_client::error::ClientError>
 pub fn jmap_scene_client::parse_scene_ws_frame(jmap_base_client::ws::WsFrame) -> jmap_scene_client::SceneWsFrame
+pub fn jmap_scene_client::supports_scene_observe(&jmap_base_client::request::Session) -> bool
 pub fn jmap_scene_client::supports_scene_websocket(&jmap_base_client::request::Session) -> bool

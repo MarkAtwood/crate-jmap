@@ -43,6 +43,10 @@ let nearby = sc
 `scene_object_interact` calls `SceneObject/interact` (§SceneObject/interact)
 and reports which interactions the server accepted; the WebSocket
 `SceneInteractionEvent` frame below returns no result.
+`scene_region_broadcast` calls `SceneRegion/broadcast` (jmap-chat-spec
+93f2258) the same way, for a region owner or admin on an account whose
+capability has `supportsRegionBroadcast`. `scene_region_query` takes the
+typed `worldStateEquals` filter of `SceneRegionFilterCondition`.
 
 ## What it's for
 
@@ -80,9 +84,11 @@ to a `jmap_base_client::WsSession`. `send_scene_stream_enable` and
 (`ClientError::InvalidArgument`) unless it advertises
 `urn:ietf:params:jmap:scene:websocket`, as the guide's "clients MUST NOT
 send `SceneStreamEnable`" requires;
+an observer subscription (`observe: true`) also needs the capability's
+`supportsObserve` (`supports_scene_observe`);
 `send_scene_interaction` submits a `SceneInteractionEvent`.
-`next_scene_frame` yields `SceneAvatarEvent`, `SceneObjectEvent` and
-`SceneInteractionEvent` frames typed. Every other frame (`StateChange`,
+`next_scene_frame` yields `SceneAvatarEvent`, `SceneObjectEvent`,
+`SceneInteractionEvent` and `SceneRegionEvent` frames typed. Every other frame (`StateChange`,
 `Response`, a `RequestError` rejecting a `SceneStreamEnable`, VTC or Chat
 events, unrecognized `@type`s, and Scene events that do not parse) arrives
 unchanged as `SceneWsFrame::Other`.

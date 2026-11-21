@@ -117,7 +117,7 @@ fn prepare_query(mut args: Value) -> Result<Value, JmapError> {
 /// the defined values), the server MUST return `invalidArguments`" and
 /// "If `worldStateEquals` is not an object, or one of its values is not a
 /// String, Number, or Boolean, the server MUST return `invalidArguments`"
-/// (jmap-chat-spec 93f2258), in every condition of a FilterOperator tree.
+/// (jmap-chat-spec 93f2258), in every condition of a `FilterOperator` tree.
 fn check_filter_values(filter: &Value) -> Result<(), JmapError> {
     if let Some(Value::Array(conditions)) = filter.get("conditions") {
         return conditions.iter().try_for_each(check_filter_values);

@@ -4,7 +4,7 @@
 //! Region events are ephemeral: the handler changes no record or state
 //! string. The method mirrors `SceneObject/interact`. Each entry of
 //! `events` is checked on its own, in this order, and the first failure is
-//! its SetError:
+//! its `SetError`:
 //!
 //! 1. a missing or wrongly typed `regionId`, `event` or `data` is
 //!    `invalidProperties` naming it;
@@ -32,7 +32,7 @@ use jmap_server::{
 /// is `false`: "When `false`, a call to that method returns an
 /// `unknownMethod` error". Otherwise the response is `accountId`,
 /// `accepted` (the accepted client ids, or `null` if none) and
-/// `notAccepted` (client id to SetError, or `null` if none). An accepted
+/// `notAccepted` (client id to `SetError`, or `null` if none). An accepted
 /// event goes to [`SceneBackend::accept_region_event`] as a
 /// [`SceneRegionEvent`] whose `accountId` is the hosting account; extension
 /// properties of the submitted object are not copied into it.
@@ -96,7 +96,7 @@ pub async fn handle_scene_region_broadcast<B: SceneBackend>(
 }
 
 /// Check one region event and hand it to
-/// [`SceneBackend::accept_region_event`]; `Err` is its SetError JSON.
+/// [`SceneBackend::accept_region_event`]; `Err` is its `SetError` JSON.
 async fn broadcast<B: SceneBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -143,7 +143,7 @@ async fn broadcast<B: SceneBackend>(
     Ok(())
 }
 
-/// Decode one SceneRegionBroadcast: "`invalidProperties` | A property is
+/// Decode one `SceneRegionBroadcast`: "`invalidProperties` | A property is
 /// missing or has the wrong type ...; `properties` names it." An empty
 /// `event` is refused too, since it names no event.
 fn parse(raw: Value) -> Result<SceneRegionBroadcast, Value> {

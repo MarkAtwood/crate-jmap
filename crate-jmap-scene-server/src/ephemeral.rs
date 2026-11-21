@@ -435,7 +435,7 @@ async fn observable<B: SceneBackend>(
 
 /// The regions an observer subscription listing `region_ids` observes, as
 /// `(account, region)` pairs over `account_ids`, and the listed regions it
-/// is refused (jmap-chat-spec 93f2258 §SceneStreamEnable).
+/// is refused (jmap-chat-spec 93f2258 §`SceneStreamEnable`).
 ///
 /// A region that does not exist in an account or that the caller has no
 /// access to there is neither: "A listed region that the user has no
@@ -445,6 +445,7 @@ async fn observable<B: SceneBackend>(
 /// `allowObservers` is `false`, or that [`SceneBackend::may_observe_region`]
 /// declines, is refused; any other accessible region is observed. The
 /// refused ids are in request order, without duplicates.
+#[cfg(feature = "websocket")]
 pub(crate) async fn observer_regions<B: SceneBackend>(
     backend: &B,
     caller: &B::CallerCtx,

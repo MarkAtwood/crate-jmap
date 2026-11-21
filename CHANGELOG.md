@@ -45,9 +45,8 @@ wire behaviour that a conforming peer can observe.
   to every subscriber; a frame that fails is discarded without an error.
   `SceneStreamLimits`: two `"updated"` `SceneObjectEvent`s per object per
   second, the latest held for the reopened window. `SceneChatAlias` is
-  the `ChatStreamEnable` `"scene"` switch. Observer subscriptions
-  (`observe`) are not implemented; without `supportsObserve` the member
-  is ignored.
+  the `ChatStreamEnable` `"scene"` switch. Observer subscriptions are
+  in the jmap-chat-spec 93f2258 entry below.
 - **jmap-chat-vtc-server**, **jmap-chat-scene-server**: `websocket`
   feature with `link_vtc_stream` / `link_scene_stream`, which make a
   connection's `ChatStreamHandler` recognize `"vtc"` / `"scene"` and
@@ -111,8 +110,63 @@ wire behaviour that a conforming peer can observe.
   the message's `id` and the error's `extra` members; `close` runs once
   when the connection ends. Unregistered types are still answered with
   `notRequest`.
+- **jmap-scene-types**, **jmap-scene-server**, **jmap-scene-client**,
+  **jmap-chat-scene-server**: the optional Scene features of
+  jmap-chat-spec 93f2258 (bd:JMAP-24aw, decision 60). Each is off until
+  its capability field or backend hook turns it on, so existing
+  deployments behave as before.
+  - `SceneRegion/broadcast` and `SceneRegionEvent` (account capability
+    `supportsRegionBroadcast`): `SceneRegionBroadcast{,Request,Response}`,
+    `SceneRegionEvent`, `SceneEvent::Region`, `SceneEventType::Region`
+    (and `"SceneRegionEvent"` in `SCENE_EVENT_TYPES`);
+    `handle_scene_region_broadcast` (registered by
+    `register_scene_handlers`; `unknownMethod` without the capability;
+    owner or admin through `may_update_region`) and the
+    `SceneBackend::accept_region_event` hook; `should_deliver` treats a
+    region event as per-region, without visibility or blocked-sender
+    filtering; `SessionClient::scene_region_broadcast` and
+    `SceneWsFrame::Region`.
+  - Observer subscriptions: `SceneWebSocketCapability`
+    (`supportsObserve`), `SceneStreamEnable::observe`,
+    `SceneRegion::allow_observers` / `observer_count`;
+    `SceneEphemeralSubscription::replace_with_observe`,
+    `SceneStreamFilter::observes`; hooks `supports_observe`,
+    `may_observe_region`, `observer_accounts`, `set_observing`.
+    `SceneStreamHandler` refuses `observe` without `regionIds`
+    (`invalidArguments`) and with refused accessible regions (`forbidden`
+    with `regionIds`), and reports observed regions to `set_observing` on
+    enable, disable and close. `SceneRegion/set` creates regions with
+    `allowObservers: true` and `observerCount: 0`. The memory backend
+    counts observers (`set_supports_observe`). The `ChatStreamEnable`
+    `"scene"` union (`SceneStreamHandler`, `should_deliver_scene`) still
+    delivers to an observer subscription when the alias path is on.
+    Client: `supports_scene_observe`.
+  - Avatar Visibility: `SceneBackend::avatar_view` with `AvatarView` and
+    `AvatarRedaction`. Hidden avatars are `notFound` from
+    `SceneAvatar/get` and `SceneAvatar/set` update and get no
+    `SceneAvatarEvent`; redacted ones are returned redacted. The memory
+    backend applies its rules (`hide_avatar`, `withhold_avatar`,
+    `reveal_avatar`) in `/query` before filtering and answers
+    `SceneAvatar/changes` from the caller's view.
+  - `worldStateEquals` on `SceneRegion/query`
+    (`SceneRegionFilterCondition::world_state_equals`;
+    `invalidArguments` for a non-scalar value).
+  - `SceneAvatar.regionState` (account capability
+    `supportsAvatarRegionState`): `SceneAvatar::region_state`;
+    `SceneAvatar/set` lets only the region owner or an admin set or
+    change it, alone or with an eject.
+  - `SceneCapability::supports_region_broadcast` and
+    `supports_avatar_region_state`.
 
 ### Changed
+
+- **jmap-scene-server**: on a server without `supportsObserve`, a
+  `SceneRegion/set` that sets `allowObservers`, and on an account without
+  `supportsAvatarRegionState` a `SceneAvatar/set` that sets
+  `regionState`, is now `invalidProperties` (both names were stored as
+  extension properties before). `SceneStreamEnable.observe` is now a
+  typed Boolean, so a non-Boolean `observe` is `notRequest` rather than
+  ignored.
 
 - jmap-types, jmap-object-uri: a `jmap:` URI whose type name is longer
   than 255 octets is now `JmapUriError::InvalidDataType`, matching

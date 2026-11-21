@@ -57,10 +57,14 @@ let connection = connection.with_extension(chat).with_extension(scene);
 
 The `"scene"` path covers every Scene event type in every region where
 the user has an active avatar: a `SceneStreamEnable` with `regionIds` and
-`eventTypes` both `null`. Any `SceneStreamEnable` covers a subset of that,
-so the union is the `"scene"` path when it is on and the
-`SceneStreamEnable` subscription otherwise. `jmap_scene_server::should_deliver`
-decides either way, with the same access, visibility and blocked-sender
+`eventTypes` both `null`. Any `SceneStreamEnable` without `observe`
+covers a subset of that, so the union is the `"scene"` path when it is on
+and the `SceneStreamEnable` subscription otherwise. An observer
+subscription (`observe: true`, jmap-chat-spec 93f2258) also reaches
+listed regions without an avatar, and the `"scene"` path "has no observer
+form": with the path on, an event it refuses is offered to an observing
+`SceneStreamEnable` subscription as well. `jmap_scene_server::should_deliver`
+decides each way, with the same access, visibility and blocked-sender
 checks. One `bool` per event and connection means no duplicates.
 
 ## Gotchas

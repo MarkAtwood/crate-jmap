@@ -172,6 +172,7 @@ pub fn jmap_scene_types::SceneAvatarSortProperty::deserialize<D: serde_core::de:
 pub jmap_scene_types::SceneEvent::Avatar(jmap_scene_types::SceneAvatarEvent)
 pub jmap_scene_types::SceneEvent::Interaction(jmap_scene_types::SceneInteractionEvent)
 pub jmap_scene_types::SceneEvent::Object(jmap_scene_types::SceneObjectEvent)
+pub jmap_scene_types::SceneEvent::Region(jmap_scene_types::SceneRegionEvent)
 pub jmap_scene_types::SceneEvent::Unknown
 pub jmap_scene_types::SceneEvent::Unknown::payload: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
 pub jmap_scene_types::SceneEvent::Unknown::type_name: alloc::string::String
@@ -193,6 +194,7 @@ pub jmap_scene_types::SceneEventType::Avatar
 pub jmap_scene_types::SceneEventType::Interaction
 pub jmap_scene_types::SceneEventType::Object
 pub jmap_scene_types::SceneEventType::Other(alloc::string::String)
+pub jmap_scene_types::SceneEventType::Region
 impl jmap_scene_types::SceneEventType
 pub fn jmap_scene_types::SceneEventType::as_str(&self) -> &str
 impl core::clone::Clone for jmap_scene_types::SceneEventType
@@ -415,6 +417,7 @@ pub jmap_scene_types::SceneAvatar::left_at: core::option::Option<jmap_types::id:
 pub jmap_scene_types::SceneAvatar::orientation: jmap_scene_types::Orientation
 pub jmap_scene_types::SceneAvatar::position: jmap_scene_types::Position
 pub jmap_scene_types::SceneAvatar::region_id: jmap_types::id::Id
+pub jmap_scene_types::SceneAvatar::region_state: core::option::Option<core::option::Option<serde_json::map::Map<alloc::string::String, serde_json::value::Value>>>
 pub jmap_scene_types::SceneAvatar::user_id: alloc::string::String
 pub jmap_scene_types::SceneAvatar::visual_ref: core::option::Option<jmap_types::id::Id>
 pub jmap_scene_types::SceneAvatar::visual_type: core::option::Option<alloc::string::String>
@@ -525,6 +528,8 @@ pub jmap_scene_types::SceneCapability::max_regions_per_account: core::option::Op
 pub jmap_scene_types::SceneCapability::may_create_object: bool
 pub jmap_scene_types::SceneCapability::may_create_region: bool
 pub jmap_scene_types::SceneCapability::supported_visual_types: alloc::vec::Vec<alloc::string::String>
+pub jmap_scene_types::SceneCapability::supports_avatar_region_state: bool
+pub jmap_scene_types::SceneCapability::supports_region_broadcast: bool
 pub jmap_scene_types::SceneCapability::supports_scene_asset: bool
 impl core::clone::Clone for jmap_scene_types::SceneCapability
 pub fn jmap_scene_types::SceneCapability::clone(&self) -> jmap_scene_types::SceneCapability
@@ -724,6 +729,7 @@ pub jmap_scene_types::SceneRegion::access_policy: jmap_scene_types::AccessPolicy
 pub jmap_scene_types::SceneRegion::account_id: jmap_types::id::Id
 pub jmap_scene_types::SceneRegion::active_avatar_count: u64
 pub jmap_scene_types::SceneRegion::active_call_id: core::option::Option<core::option::Option<jmap_types::id::Id>>
+pub jmap_scene_types::SceneRegion::allow_observers: core::option::Option<bool>
 pub jmap_scene_types::SceneRegion::bounds: jmap_scene_types::SceneBounds
 pub jmap_scene_types::SceneRegion::channel_id: core::option::Option<core::option::Option<jmap_types::id::Id>>
 pub jmap_scene_types::SceneRegion::chat_id: core::option::Option<core::option::Option<jmap_types::id::Id>>
@@ -736,6 +742,7 @@ pub jmap_scene_types::SceneRegion::id: jmap_types::id::Id
 pub jmap_scene_types::SceneRegion::input_uri: core::option::Option<core::option::Option<alloc::string::String>>
 pub jmap_scene_types::SceneRegion::invited_user_ids: alloc::vec::Vec<alloc::string::String>
 pub jmap_scene_types::SceneRegion::name: alloc::string::String
+pub jmap_scene_types::SceneRegion::observer_count: core::option::Option<u64>
 pub jmap_scene_types::SceneRegion::owner_id: alloc::string::String
 pub jmap_scene_types::SceneRegion::simulation_uri: core::option::Option<alloc::string::String>
 pub jmap_scene_types::SceneRegion::space_id: core::option::Option<core::option::Option<jmap_types::id::Id>>
@@ -768,6 +775,60 @@ impl serde_core::ser::Serialize for jmap_scene_types::SceneRegion
 pub fn jmap_scene_types::SceneRegion::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
 impl<'de> serde_core::de::Deserialize<'de> for jmap_scene_types::SceneRegion
 pub fn jmap_scene_types::SceneRegion::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_scene_types::SceneRegionBroadcast
+pub jmap_scene_types::SceneRegionBroadcast::data: core::option::Option<serde_json::map::Map<alloc::string::String, serde_json::value::Value>>
+pub jmap_scene_types::SceneRegionBroadcast::event: alloc::string::String
+pub jmap_scene_types::SceneRegionBroadcast::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_scene_types::SceneRegionBroadcast::region_id: jmap_types::id::Id
+impl jmap_scene_types::SceneRegionBroadcast
+pub fn jmap_scene_types::SceneRegionBroadcast::new(jmap_types::id::Id, alloc::string::String) -> Self
+impl core::clone::Clone for jmap_scene_types::SceneRegionBroadcast
+pub fn jmap_scene_types::SceneRegionBroadcast::clone(&self) -> jmap_scene_types::SceneRegionBroadcast
+impl core::cmp::Eq for jmap_scene_types::SceneRegionBroadcast
+impl core::cmp::PartialEq for jmap_scene_types::SceneRegionBroadcast
+pub fn jmap_scene_types::SceneRegionBroadcast::eq(&self, &jmap_scene_types::SceneRegionBroadcast) -> bool
+impl core::fmt::Debug for jmap_scene_types::SceneRegionBroadcast
+pub fn jmap_scene_types::SceneRegionBroadcast::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_scene_types::SceneRegionBroadcast
+impl serde_core::ser::Serialize for jmap_scene_types::SceneRegionBroadcast
+pub fn jmap_scene_types::SceneRegionBroadcast::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_scene_types::SceneRegionBroadcast
+pub fn jmap_scene_types::SceneRegionBroadcast::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_scene_types::SceneRegionBroadcastRequest
+pub jmap_scene_types::SceneRegionBroadcastRequest::account_id: jmap_types::id::Id
+pub jmap_scene_types::SceneRegionBroadcastRequest::events: alloc::collections::btree::map::BTreeMap<alloc::string::String, jmap_scene_types::SceneRegionBroadcast>
+pub jmap_scene_types::SceneRegionBroadcastRequest::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+impl jmap_scene_types::SceneRegionBroadcastRequest
+pub fn jmap_scene_types::SceneRegionBroadcastRequest::new(jmap_types::id::Id, alloc::collections::btree::map::BTreeMap<alloc::string::String, jmap_scene_types::SceneRegionBroadcast>) -> Self
+impl core::clone::Clone for jmap_scene_types::SceneRegionBroadcastRequest
+pub fn jmap_scene_types::SceneRegionBroadcastRequest::clone(&self) -> jmap_scene_types::SceneRegionBroadcastRequest
+impl core::cmp::PartialEq for jmap_scene_types::SceneRegionBroadcastRequest
+pub fn jmap_scene_types::SceneRegionBroadcastRequest::eq(&self, &jmap_scene_types::SceneRegionBroadcastRequest) -> bool
+impl core::fmt::Debug for jmap_scene_types::SceneRegionBroadcastRequest
+pub fn jmap_scene_types::SceneRegionBroadcastRequest::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_scene_types::SceneRegionBroadcastRequest
+impl serde_core::ser::Serialize for jmap_scene_types::SceneRegionBroadcastRequest
+pub fn jmap_scene_types::SceneRegionBroadcastRequest::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_scene_types::SceneRegionBroadcastRequest
+pub fn jmap_scene_types::SceneRegionBroadcastRequest::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_scene_types::SceneRegionBroadcastResponse
+pub jmap_scene_types::SceneRegionBroadcastResponse::accepted: core::option::Option<alloc::vec::Vec<alloc::string::String>>
+pub jmap_scene_types::SceneRegionBroadcastResponse::account_id: jmap_types::id::Id
+pub jmap_scene_types::SceneRegionBroadcastResponse::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_scene_types::SceneRegionBroadcastResponse::not_accepted: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, jmap_types::set_error::SetError>>
+impl jmap_scene_types::SceneRegionBroadcastResponse
+pub fn jmap_scene_types::SceneRegionBroadcastResponse::new(jmap_types::id::Id) -> Self
+impl core::clone::Clone for jmap_scene_types::SceneRegionBroadcastResponse
+pub fn jmap_scene_types::SceneRegionBroadcastResponse::clone(&self) -> jmap_scene_types::SceneRegionBroadcastResponse
+impl core::cmp::PartialEq for jmap_scene_types::SceneRegionBroadcastResponse
+pub fn jmap_scene_types::SceneRegionBroadcastResponse::eq(&self, &jmap_scene_types::SceneRegionBroadcastResponse) -> bool
+impl core::fmt::Debug for jmap_scene_types::SceneRegionBroadcastResponse
+pub fn jmap_scene_types::SceneRegionBroadcastResponse::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_scene_types::SceneRegionBroadcastResponse
+impl serde_core::ser::Serialize for jmap_scene_types::SceneRegionBroadcastResponse
+pub fn jmap_scene_types::SceneRegionBroadcastResponse::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_scene_types::SceneRegionBroadcastResponse
+pub fn jmap_scene_types::SceneRegionBroadcastResponse::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 #[non_exhaustive] pub struct jmap_scene_types::SceneRegionComparator
 pub jmap_scene_types::SceneRegionComparator::collation: core::option::Option<alloc::string::String>
 pub jmap_scene_types::SceneRegionComparator::is_ascending: bool
@@ -786,6 +847,26 @@ impl serde_core::ser::Serialize for jmap_scene_types::SceneRegionComparator
 pub fn jmap_scene_types::SceneRegionComparator::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
 impl<'de> serde_core::de::Deserialize<'de> for jmap_scene_types::SceneRegionComparator
 pub fn jmap_scene_types::SceneRegionComparator::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_scene_types::SceneRegionEvent
+pub jmap_scene_types::SceneRegionEvent::account_id: jmap_types::id::Id
+pub jmap_scene_types::SceneRegionEvent::data: core::option::Option<serde_json::map::Map<alloc::string::String, serde_json::value::Value>>
+pub jmap_scene_types::SceneRegionEvent::event: alloc::string::String
+pub jmap_scene_types::SceneRegionEvent::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_scene_types::SceneRegionEvent::region_id: jmap_types::id::Id
+impl jmap_scene_types::SceneRegionEvent
+pub fn jmap_scene_types::SceneRegionEvent::new(jmap_types::id::Id, jmap_types::id::Id, alloc::string::String) -> Self
+impl core::clone::Clone for jmap_scene_types::SceneRegionEvent
+pub fn jmap_scene_types::SceneRegionEvent::clone(&self) -> jmap_scene_types::SceneRegionEvent
+impl core::cmp::Eq for jmap_scene_types::SceneRegionEvent
+impl core::cmp::PartialEq for jmap_scene_types::SceneRegionEvent
+pub fn jmap_scene_types::SceneRegionEvent::eq(&self, &jmap_scene_types::SceneRegionEvent) -> bool
+impl core::fmt::Debug for jmap_scene_types::SceneRegionEvent
+pub fn jmap_scene_types::SceneRegionEvent::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_scene_types::SceneRegionEvent
+impl serde_core::ser::Serialize for jmap_scene_types::SceneRegionEvent
+pub fn jmap_scene_types::SceneRegionEvent::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_scene_types::SceneRegionEvent
+pub fn jmap_scene_types::SceneRegionEvent::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 #[non_exhaustive] pub struct jmap_scene_types::SceneRegionFilterCondition
 pub jmap_scene_types::SceneRegionFilterCondition::access_policy: core::option::Option<jmap_scene_types::AccessPolicy>
 pub jmap_scene_types::SceneRegionFilterCondition::created_after: core::option::Option<jmap_types::id::UTCDate>
@@ -794,6 +875,7 @@ pub jmap_scene_types::SceneRegionFilterCondition::has_active_avatars: core::opti
 pub jmap_scene_types::SceneRegionFilterCondition::has_simulation_uri: core::option::Option<bool>
 pub jmap_scene_types::SceneRegionFilterCondition::name: core::option::Option<alloc::string::String>
 pub jmap_scene_types::SceneRegionFilterCondition::view_hint: core::option::Option<jmap_scene_types::ViewHint>
+pub jmap_scene_types::SceneRegionFilterCondition::world_state_equals: core::option::Option<serde_json::map::Map<alloc::string::String, serde_json::value::Value>>
 impl core::clone::Clone for jmap_scene_types::SceneRegionFilterCondition
 pub fn jmap_scene_types::SceneRegionFilterCondition::clone(&self) -> jmap_scene_types::SceneRegionFilterCondition
 impl core::cmp::Eq for jmap_scene_types::SceneRegionFilterCondition
@@ -828,6 +910,7 @@ pub fn jmap_scene_types::SceneStreamDisable::deserialize<__D>(__D) -> core::resu
 pub jmap_scene_types::SceneStreamEnable::event_types: core::option::Option<alloc::vec::Vec<jmap_scene_types::SceneEventType>>
 pub jmap_scene_types::SceneStreamEnable::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
 pub jmap_scene_types::SceneStreamEnable::id: core::option::Option<alloc::string::String>
+pub jmap_scene_types::SceneStreamEnable::observe: core::option::Option<bool>
 pub jmap_scene_types::SceneStreamEnable::region_ids: core::option::Option<alloc::vec::Vec<jmap_types::id::Id>>
 impl core::clone::Clone for jmap_scene_types::SceneStreamEnable
 pub fn jmap_scene_types::SceneStreamEnable::clone(&self) -> jmap_scene_types::SceneStreamEnable
@@ -843,6 +926,23 @@ impl serde_core::ser::Serialize for jmap_scene_types::SceneStreamEnable
 pub fn jmap_scene_types::SceneStreamEnable::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
 impl<'de> serde_core::de::Deserialize<'de> for jmap_scene_types::SceneStreamEnable
 pub fn jmap_scene_types::SceneStreamEnable::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_scene_types::SceneWebSocketCapability
+pub jmap_scene_types::SceneWebSocketCapability::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_scene_types::SceneWebSocketCapability::supports_observe: bool
+impl core::clone::Clone for jmap_scene_types::SceneWebSocketCapability
+pub fn jmap_scene_types::SceneWebSocketCapability::clone(&self) -> jmap_scene_types::SceneWebSocketCapability
+impl core::cmp::Eq for jmap_scene_types::SceneWebSocketCapability
+impl core::cmp::PartialEq for jmap_scene_types::SceneWebSocketCapability
+pub fn jmap_scene_types::SceneWebSocketCapability::eq(&self, &jmap_scene_types::SceneWebSocketCapability) -> bool
+impl core::default::Default for jmap_scene_types::SceneWebSocketCapability
+pub fn jmap_scene_types::SceneWebSocketCapability::default() -> jmap_scene_types::SceneWebSocketCapability
+impl core::fmt::Debug for jmap_scene_types::SceneWebSocketCapability
+pub fn jmap_scene_types::SceneWebSocketCapability::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_scene_types::SceneWebSocketCapability
+impl serde_core::ser::Serialize for jmap_scene_types::SceneWebSocketCapability
+pub fn jmap_scene_types::SceneWebSocketCapability::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_scene_types::SceneWebSocketCapability
+pub fn jmap_scene_types::SceneWebSocketCapability::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 #[non_exhaustive] pub struct jmap_scene_types::WithinBounds
 pub jmap_scene_types::WithinBounds::max: jmap_scene_types::Position
 pub jmap_scene_types::WithinBounds::min: jmap_scene_types::Position
