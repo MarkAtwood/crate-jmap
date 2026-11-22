@@ -123,6 +123,13 @@ const MAIL_URI: &str = "urn:ietf:params:jmap:mail";
 const SUBMISSION_URI: &str = "urn:ietf:params:jmap:submission";
 const VACATION_RESPONSE_URI: &str = "urn:ietf:params:jmap:vacationresponse";
 const BLOB_URI: &str = jmap_blob_types::JMAP_BLOB_URI;
+/// draft-ietf-jmap-metadata-05 §1.2.1: the account capability lists in
+/// `dataTypes` the types that support metadata, and "If no data type would
+/// be listed in dataTypes, the server SHOULD NOT include the capability in
+/// the account's accountCapabilities". The jig configures no backend with
+/// metadata (`with_metadata_info`), so the capability is advertised at the
+/// Session level only, with no account capability and no primary account.
+const METADATA_URI: &str = "urn:ietf:params:jmap:metadata";
 
 /// The blob account capability the jig's blob backend enforces: the
 /// memory backend's default, with `supportedTypeNames` the mail types
@@ -302,7 +309,7 @@ pub fn session_json_for(addr: SocketAddr) -> Value {
         serde_json::Map::with_capacity(ADVERTISED_CAPABILITIES.len() - 1);
     for uri in ADVERTISED_CAPABILITIES
         .iter()
-        .filter(|u| **u != "urn:ietf:params:jmap:core")
+        .filter(|u| **u != "urn:ietf:params:jmap:core" && **u != METADATA_URI)
     {
         account_capabilities.insert((*uri).to_owned(), json!({}));
     }
@@ -403,7 +410,7 @@ pub fn session_json_for(addr: SocketAddr) -> Value {
     let mut primary_accounts = serde_json::Map::with_capacity(ADVERTISED_CAPABILITIES.len() - 1);
     for uri in ADVERTISED_CAPABILITIES
         .iter()
-        .filter(|u| **u != "urn:ietf:params:jmap:core")
+        .filter(|u| **u != "urn:ietf:params:jmap:core" && **u != METADATA_URI)
     {
         primary_accounts.insert((*uri).to_owned(), Value::String(ACCOUNT_ID.to_owned()));
     }
@@ -671,6 +678,18 @@ mod tests {
     /// RFC defines them, and §1.3 puts `{}` in the Session `capabilities`
     /// for mail, submission and vacationresponse. Found by the
     /// differential tests against Stalwart (bd:JMAP-cyub.4).
+    /// draft-ietf-jmap-metadata-05 §1.2.1: no backend lists a data type
+    /// for metadata, so the account does not carry the capability (and it
+    /// has no primary account); the Session still advertises it.
+    #[test]
+    fn metadata_capability_is_session_level_only() {
+        let s = session_json();
+        assert!(s["capabilities"].get(METADATA_URI).is_some(), "{s}");
+        let caps = &s["accounts"][ACCOUNT_ID]["accountCapabilities"];
+        assert!(caps.get(METADATA_URI).is_none(), "{caps}");
+        assert!(s["primaryAccounts"].get(METADATA_URI).is_none(), "{s}");
+    }
+
     #[test]
     fn mail_account_capabilities_have_rfc_8621_properties() {
         let s = session_json();
