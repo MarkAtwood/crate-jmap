@@ -273,7 +273,9 @@ pub struct SetResponse<T> {
     /// it as `sinceState` or `ifInState`. A `Foo/changes` from it fails
     /// (typically `cannotCalculateChanges`). Re-fetch the current state
     /// with `Foo/get` instead. Serializing such a response writes
-    /// `"newState": ""`.
+    /// `"newState": ""`. This placeholder is a recorded exception to the
+    /// workspace rule against in-band sentinels (decision 72), kept so that
+    /// tolerating such servers is not an API break.
     #[serde(default = "absent_new_state")]
     pub new_state: State,
     /// Successfully created objects, keyed by caller-supplied creation id.

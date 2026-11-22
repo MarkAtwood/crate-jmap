@@ -1197,6 +1197,10 @@ to stop API debt from piling up between breaking-change sweeps.
 2. **No in-band sentinels.** Do not encode "absent", "unknown" or "not
    yet assigned" as a magic value of the normal type (`"placeholder"`,
    `""`, `0`, `-1`). Use `Option`, an enum variant or a distinct type.
+   One recorded exception (decision 72): `jmap_types::SetResponse::new_state`
+   is `""` when a server omits `newState`, to tolerate Stalwart without an
+   API break. Do not change it to `Option` without a new decision, and do
+   not copy the pattern elsewhere.
 3. **Params structs past four arguments.** A `pub fn` or trait method
    that needs more than about four non-`self` arguments takes a params
    struct instead, `#[non_exhaustive]` when it may gain fields.
