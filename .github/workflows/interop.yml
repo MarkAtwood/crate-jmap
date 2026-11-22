@@ -27,12 +27,15 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: podman --version
-      - name: start Stalwart
-        run: scripts/stalwart-up.sh
-      - name: cargo test (interop)
-        run: |
-          . target/interop/stalwart.env
-          cargo test -p jmap-interop -- --ignored --nocapture
-      - name: stop Stalwart
+      # Starts Stalwart, runs every interop test binary (--no-fail-fast),
+      # writes the full output to target/interop/logs/, names each failing
+      # test, and always stops the container.
+      - name: interop tests against Stalwart
+        run: scripts/interop-test.sh
+      - name: keep the log
         if: always()
-        run: scripts/stalwart-down.sh
+        uses: actions/upload-artifact@v4
+        with:
+          name: interop-log
+          path: target/interop/logs/
+          if-no-files-found: warn

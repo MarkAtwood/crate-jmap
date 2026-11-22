@@ -14,6 +14,16 @@ container. Nothing in this workspace links, vendors or copies its code.
 Needs podman (rootless works), curl and jq.
 
 ```sh
+scripts/interop-test.sh
+```
+
+`scripts/interop-test.sh` starts a fresh Stalwart, runs every interop test
+binary even after a failure, keeps the full output (with the commit and the
+Stalwart image) in `target/interop/logs/<UTC timestamp>.log`, prints the
+name of each failing test, and always removes the container. The manual
+steps it wraps:
+
+```sh
 scripts/stalwart-up.sh
 . target/interop/stalwart.env
 cargo test -p jmap-interop -- --ignored
