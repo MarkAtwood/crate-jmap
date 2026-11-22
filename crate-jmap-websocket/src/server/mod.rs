@@ -29,6 +29,9 @@
 //!   source.
 //! - A binary message closes the connection with status 1003, or is
 //!   ignored ([`BinaryFrames`], §4.3.1).
+//! - A message the WebSocket library refused for its size
+//!   ([`Inbound::TooBig`]) closes the connection with status 1009
+//!   ([`CLOSE_MESSAGE_TOO_BIG`]).
 //! - A message whose `@type` an [`ExtensionHandler`] registered
 //!   ([`Connection::with_extension`]) goes to that handler, for the
 //!   extension message types the JMAP Chat, VTC and Scene WebSocket
@@ -72,6 +75,11 @@ use crate::{
 /// RFC 6455 §7.4.1: 1003 Unsupported Data).
 pub const CLOSE_UNSUPPORTED_DATA: u16 = 1003;
 
+/// The WebSocket close status for a message over the WebSocket library's
+/// size cap ([`Inbound::TooBig`]; RFC 6455 §7.4.1: 1009, "a message that
+/// is too big for it to process").
+pub const CLOSE_MESSAGE_TOO_BIG: u16 = 1009;
+
 // ---------------------------------------------------------------------------
 // Messages in and out
 // ---------------------------------------------------------------------------
@@ -90,6 +98,14 @@ pub enum Inbound {
     Binary,
     /// A Close frame: the client is ending the connection.
     Close,
+    /// The WebSocket library refused a message over its size cap while
+    /// reading it (tokio-tungstenite: `Error::Capacity`). The driver
+    /// closes the connection with [`CLOSE_MESSAGE_TOO_BIG`].
+    ///
+    /// Cap the library at `maxSizeRequest`
+    /// ([`ConnectionConfig::max_size_request`]), so that an oversized
+    /// message is refused before it is buffered whole.
+    TooBig,
 }
 
 /// A WebSocket message the driver sends.
@@ -174,8 +190,15 @@ impl ConnectionConfig {
 
     /// `maxSizeRequest` in octets, or `None` for no check here: a longer
     /// text message gets a `limit` error naming it, unparsed, so with
-    /// `requestId: null`. Also cap the message size in the WebSocket
-    /// library, which reads the whole message before the driver sees it.
+    /// `requestId: null`.
+    ///
+    /// Also cap the message size in the WebSocket library, which reads the
+    /// whole message before the driver sees it. With feature `tungstenite`,
+    /// `tungstenite::accept_with_config` and `tungstenite::websocket_config`
+    /// set its cap to this value. A message over the library's cap closes
+    /// the connection with 1009 ([`Inbound::TooBig`]) instead of getting
+    /// the `limit` error; the error then answers only messages under the
+    /// library's cap and over this one.
     #[must_use]
     pub fn max_size_request(mut self, max: Option<usize>) -> Self {
         self.max_size_request = max;
@@ -733,8 +756,10 @@ impl<H: RequestHandler, P: PushSource> Connection<H, P> {
     /// stream ends, or the deployment closes it.
     ///
     /// Returns `Ok` after a Close, the end of `incoming`, a binary
-    /// message under [`BinaryFrames::Close`] (after sending the Close), or
-    /// a [`CloseHandle::close`] (after sending its Close).
+    /// message under [`BinaryFrames::Close`] (after sending the Close), an
+    /// [`Inbound::TooBig`] (after sending a Close with
+    /// [`CLOSE_MESSAGE_TOO_BIG`]), or a [`CloseHandle::close`] (after
+    /// sending its Close).
     /// Requests still running then are dropped; method calls the
     /// [`Dispatcher`] already started still finish (see
     /// [`Dispatcher::dispatch`], Cancellation). Before returning, by any
@@ -836,6 +861,14 @@ impl<H: RequestHandler, P: PushSource> Connection<H, P> {
                                     return Ok(());
                                 }
                             },
+                            Inbound::TooBig => {
+                                let close = Outbound::Close {
+                                    code: CLOSE_MESSAGE_TOO_BIG,
+                                    reason: "message too big".to_owned(),
+                                };
+                                send(&mut outgoing, close).await?;
+                                return Ok(());
+                            }
                             Inbound::Close => return Ok(()),
                         };
                         let parsed = parse_message(&text, &config, |ty| extensions.handles(ty));

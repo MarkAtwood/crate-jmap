@@ -12,7 +12,39 @@ wire behaviour that a conforming peer can observe.
 
 ## [Unreleased]
 
+### Added
+
+- **jmap-websocket**: tokio-tungstenite size caps derived from the
+  connection's `maxSizeRequest`: `tungstenite::websocket_config(&ConnectionConfig)`
+  returns tungstenite's `WebSocketConfig` with `max_message_size` and
+  `max_frame_size` set to `maxSizeRequest` (tungstenite's own caps when
+  it is `None`), for a deployment that calls
+  `accept_hdr_async_with_config` itself; `tungstenite::accept_with_config(stream, &ConnectionConfig)`
+  is `accept` with those caps. `server::Inbound::TooBig` (a message the
+  WebSocket library refused for its size) makes the driver send a Close
+  with the new `server::CLOSE_MESSAGE_TOO_BIG` (1009, Message Too Big,
+  RFC 6455 §7.4.1) and return `Ok(())`; `tungstenite::serve` maps
+  tungstenite's `Error::Capacity(MessageTooLong)` to it instead of
+  ending with `ConnectionError::Receive` and no Close.
+
 ### Changed
+
+- **BREAKING** (wire behaviour only) **jmap-websocket**:
+  `tungstenite::accept` now caps tungstenite's message and frame size
+  at 10 000 000 octets, the default `ConnectionConfig`'s
+  `maxSizeRequest`, instead of tungstenite's defaults (64 MiB per
+  message, 16 MiB per frame). tungstenite reads a whole message before
+  the driver checks `maxSizeRequest`, so any authenticated client could
+  make the server hold up to 64 MiB per connection, more than six times
+  the advertised limit; the same issue was reported against Stalwart
+  (support.stalw.art topic 2469). A larger message is now refused while
+  it arrives and the connection closes with 1009. A deployment that
+  advertises a `maxSizeRequest` above 10 000 000 and uses `accept` must
+  switch to `accept_with_config` with its `ConnectionConfig`; no source
+  change otherwise.
+- **jmap-testjig**: `GET /ws` caps each message and frame at the
+  advertised `maxSizeRequest` (axum's `WebSocketUpgrade` defaulted to
+  64 MiB / 16 MiB) and closes an oversized message with 1009.
 
 - **jmap-types**, **jmap-base-client**: a `Foo/set` response without
   `newState`, which RFC 8620 §5.3 requires but Stalwart 1.1.1 leaves out

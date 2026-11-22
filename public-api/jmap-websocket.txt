@@ -43,6 +43,7 @@ pub fn jmap_websocket::server::ExtensionSendError::fmt(&self, &mut core::fmt::Fo
 pub jmap_websocket::server::Inbound::Binary
 pub jmap_websocket::server::Inbound::Close
 pub jmap_websocket::server::Inbound::Text(alloc::string::String)
+pub jmap_websocket::server::Inbound::TooBig
 impl core::clone::Clone for jmap_websocket::server::Inbound
 pub fn jmap_websocket::server::Inbound::clone(&self) -> jmap_websocket::server::Inbound
 impl core::cmp::Eq for jmap_websocket::server::Inbound
@@ -189,6 +190,7 @@ impl core::fmt::Debug for jmap_websocket::server::PushHub
 pub fn jmap_websocket::server::PushHub::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl jmap_websocket::server::PushSource for jmap_websocket::server::PushHub
 pub fn jmap_websocket::server::PushHub::subscribe(&mut self, &jmap_websocket::WebSocketPushEnable) -> futures_core::stream::BoxStream<'static, jmap_websocket::WsStateChange>
+pub const jmap_websocket::server::CLOSE_MESSAGE_TOO_BIG: u16
 pub const jmap_websocket::server::CLOSE_UNSUPPORTED_DATA: u16
 pub const jmap_websocket::server::MAX_CLOSE_REASON_LEN: usize
 pub trait jmap_websocket::server::ExtensionHandler: core::marker::Send + 'static
@@ -217,10 +219,12 @@ pub fn jmap_websocket::server::request_error(&jmap_types::error::JmapError, core
 pub fn jmap_websocket::server::state_change_for_response(&jmap_types::wire::JmapResponse) -> core::option::Option<jmap_types::push::StateChange>
 pub mod jmap_websocket::tungstenite
 pub async fn jmap_websocket::tungstenite::accept<S>(S) -> core::result::Result<tokio_tungstenite::WebSocketStream<S>, tungstenite::error::Error> where S: tokio::io::async_read::AsyncRead + tokio::io::async_write::AsyncWrite + core::marker::Unpin
+pub async fn jmap_websocket::tungstenite::accept_with_config<S>(S, &jmap_websocket::server::ConnectionConfig) -> core::result::Result<tokio_tungstenite::WebSocketStream<S>, tungstenite::error::Error> where S: tokio::io::async_read::AsyncRead + tokio::io::async_write::AsyncWrite + core::marker::Unpin
 pub fn jmap_websocket::tungstenite::inbound(tungstenite::protocol::message::Message) -> core::option::Option<jmap_websocket::server::Inbound>
 pub fn jmap_websocket::tungstenite::negotiate_jmap(&tungstenite::handshake::server::Request, tungstenite::handshake::server::Response) -> core::result::Result<tungstenite::handshake::server::Response, tungstenite::handshake::server::ErrorResponse>
 pub fn jmap_websocket::tungstenite::outbound(jmap_websocket::server::Outbound) -> tungstenite::protocol::message::Message
 pub async fn jmap_websocket::tungstenite::serve<H, P, S>(jmap_websocket::server::Connection<H, P>, tokio_tungstenite::WebSocketStream<S>) -> core::result::Result<(), jmap_websocket::server::ConnectionError> where H: jmap_websocket::server::RequestHandler, P: jmap_websocket::server::PushSource, S: tokio::io::async_read::AsyncRead + tokio::io::async_write::AsyncWrite + core::marker::Unpin
+pub fn jmap_websocket::tungstenite::websocket_config(&jmap_websocket::server::ConnectionConfig) -> tungstenite::protocol::WebSocketConfig
 #[non_exhaustive] pub enum jmap_websocket::ClientMessage
 pub jmap_websocket::ClientMessage::PushDisable(jmap_websocket::WebSocketPushDisable)
 pub jmap_websocket::ClientMessage::PushEnable(jmap_websocket::WebSocketPushEnable)

@@ -351,6 +351,22 @@ async fn binary_closes_with_1003() {
     h.task.await.unwrap().unwrap();
 }
 
+/// RFC 6455 §7.4.1: 1009 "indicates that an endpoint is terminating the
+/// connection because it has received a message that is too big for it
+/// to process". Nothing else is sent, and `run` ends cleanly.
+#[tokio::test]
+async fn too_big_closes_with_1009() {
+    let mut h = start(cfg(), None);
+    h.to_server.send(Ok(Inbound::TooBig)).unwrap();
+    let m = h.from_server.recv().await.unwrap();
+    assert!(matches!(m, Outbound::Close { code: 1009, .. }), "{m:?}");
+    h.task.await.unwrap().unwrap();
+    assert!(
+        h.from_server.recv().await.is_none(),
+        "nothing after the Close"
+    );
+}
+
 /// §4.3.1: "the endpoint can either ignore the frame".
 #[tokio::test]
 async fn binary_can_be_ignored() {

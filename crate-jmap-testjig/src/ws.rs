@@ -22,6 +22,11 @@
 //! `dataTypes` filtering, push enable / disable and the binary-frame
 //! close (1003) are the driver's; see `jmap-websocket`.
 //!
+//! The upgrade caps each message and frame at `maxSizeRequest`
+//! (`MAX_REQUEST_BYTES`), so axum refuses a bigger message while it
+//! arrives instead of buffering it; the driver then closes with 1009
+//! (Message Too Big, RFC 6455 §7.4.1).
+//!
 //! # Permission posture
 //!
 //! Same as the rest of the testjig — single hardcoded account,
@@ -92,8 +97,15 @@ pub async fn get_ws(
     match upgrade {
         Ok(upgrade) => {
             let lang = crate::locale::choose(accept_language);
+            // axum reads a whole message before the driver sees it; cap
+            // it, and each frame, at the advertised maxSizeRequest so a
+            // client cannot make the jig buffer more (axum's own caps are
+            // tungstenite's 64 MiB / 16 MiB). A message over the cap is
+            // closed with 1009 (see `incoming`).
             upgrade
                 .protocols([JMAP_SUBPROTOCOL])
+                .max_message_size(MAX_REQUEST_BYTES)
+                .max_frame_size(MAX_REQUEST_BYTES)
                 .on_upgrade(move |socket| handle_socket(socket, state, lang))
         }
         Err(rejection) => crate::http::problem(
@@ -121,7 +133,12 @@ async fn handle_socket(socket: WebSocket, state: AppState, lang: crate::locale::
         .max_concurrent_requests(MAX_CONCURRENT_REQUESTS);
 
     let (sink, stream) = socket.split();
-    let incoming = stream.filter_map(|m| future::ready(m.map(inbound).transpose()));
+    let incoming = stream.filter_map(|m| {
+        future::ready(match m {
+            Ok(m) => inbound(m).map(Ok),
+            Err(e) => Some(inbound_error(e)),
+        })
+    });
     let outgoing = sink.with(|m: Outbound| future::ready(Ok::<_, axum::Error>(outbound(m))));
     futures::pin_mut!(incoming, outgoing);
 
@@ -154,6 +171,26 @@ fn inbound(message: Message) -> Option<Inbound> {
         Message::Binary(_) => Some(Inbound::Binary),
         Message::Close(_) => Some(Inbound::Close),
         Message::Ping(_) | Message::Pong(_) => None,
+    }
+}
+
+/// The driver's view of an axum receive error: a message over the size
+/// cap set on the upgrade is [`Inbound::TooBig`], which the driver closes
+/// with 1009 (RFC 6455 §7.4.1); any other error stays an error.
+///
+/// The downcast needs axum and this crate to resolve the same
+/// tokio-tungstenite; `tests/ws_size_limit.rs` fails if they split.
+fn inbound_error(error: axum::Error) -> Result<Inbound, axum::Error> {
+    use tokio_tungstenite::tungstenite::Error as WsError;
+    use tokio_tungstenite::tungstenite::error::CapacityError;
+
+    let inner = error.into_inner();
+    match inner.downcast::<WsError>() {
+        Ok(ws) if matches!(*ws, WsError::Capacity(CapacityError::MessageTooLong { .. })) => {
+            Ok(Inbound::TooBig)
+        }
+        Ok(ws) => Err(axum::Error::new(*ws)),
+        Err(other) => Err(axum::Error::new(other)),
     }
 }
 

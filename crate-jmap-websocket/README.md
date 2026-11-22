@@ -40,7 +40,11 @@ Feature `server` (module `server`):
   `maxConcurrentRequests`, binary-message policy, extension queue size.
 
 Feature `tungstenite`: `tungstenite::serve` runs a `Connection` over a
-tokio-tungstenite `WebSocketStream`.
+tokio-tungstenite `WebSocketStream`. `tungstenite::accept` and
+`accept_with_config` do the handshake with the `jmap` subprotocol check
+and tungstenite's message and frame size capped at `maxSizeRequest`;
+`websocket_config` gives that `WebSocketConfig` for a handshake that
+authenticates in its callback.
 
 ## What it's for
 
@@ -59,17 +63,23 @@ jmap-websocket = { version = "0.6", features = ["tungstenite"] }
 
 ```rust,no_run
 use std::sync::Arc;
-use jmap_websocket::server::{Connection, DispatcherHandler, PushHub};
+use jmap_websocket::server::{Connection, ConnectionConfig, DispatcherHandler, PushHub};
 use jmap_websocket::jmap_server::Dispatcher;
 use jmap_websocket::jmap_types::State;
+use jmap_websocket::tokio_tungstenite::accept_hdr_async_with_config;
+use jmap_websocket::tungstenite::{negotiate_jmap, websocket_config};
 
 # async fn run(tcp: tokio::net::TcpStream, dispatcher: Arc<Dispatcher<()>>, hub: PushHub)
 #     -> Result<(), Box<dyn std::error::Error>> {
-// Authenticate and check `offers_jmap` in the handshake callback, and
-// answer with `Sec-WebSocket-Protocol: jmap` (RFC 8887 §4.1, §4.2).
-let ws = jmap_websocket::tokio_tungstenite::accept_async(tcp).await?;
+// The limits the Session's core capability advertises.
+let config = ConnectionConfig::default().max_size_request(Some(10_000_000));
+// Authenticate in the handshake callback, then `negotiate_jmap` checks
+// the `jmap` subprotocol and echoes it (RFC 8887 §4.1, §4.2).
+// `websocket_config` caps tungstenite's message size at maxSizeRequest.
+let ws = accept_hdr_async_with_config(tcp, negotiate_jmap, Some(websocket_config(&config)))
+    .await?;
 let handler = Arc::new(DispatcherHandler::new(dispatcher, (), || State::from("s0")));
-let connection = Connection::new(handler).with_push(hub);
+let connection = Connection::new(handler).with_push(hub).with_config(config);
 jmap_websocket::tungstenite::serve(connection, ws).await?;
 # Ok(()) }
 ```
@@ -187,6 +197,24 @@ jmap_websocket::tungstenite::serve(connection, ws).await
 
 - The handshake is not done here: authentication (§4.1), TLS (§5.1) and
   the `jmap` subprotocol echo (§4.2) are the deployment's.
+- The WebSocket library reads a whole message before the driver checks
+  `maxSizeRequest`, so cap the library too, or one client can make the
+  server hold the library's own cap per connection (64 MiB for
+  tungstenite, against a 10 MB `maxSizeRequest`). `tungstenite::accept`
+  caps at the default `ConnectionConfig`'s 10 000 000 octets; with
+  another `maxSizeRequest` use `accept_with_config`, or pass
+  `websocket_config(&config)` to `accept_hdr_async_with_config`. An axum
+  deployment sets `WebSocketUpgrade::max_message_size` and
+  `max_frame_size`, and maps the capacity error to `Inbound::TooBig`
+  (see `jmap-testjig`'s `ws.rs`). The frame cap equals the message cap:
+  most clients send a message as one frame.
+- A message over the library's cap closes the connection with 1009
+  (Message Too Big, RFC 6455 §7.4.1), not with a `limit` RequestError:
+  RFC 8887 does not say `maxSizeRequest` applies per WebSocket message,
+  and the library refuses it before it is a whole message. The `limit`
+  RequestError still answers a message under the library's cap and over
+  `maxSizeRequest`, when the two differ. `serve` sends the Close and
+  returns without reading the rest of the message.
 - A binary message closes the connection with 1003 by default
   (`BinaryFrames::Ignore` to drop it instead); RFC 8887 does not answer
   it with a RequestError.

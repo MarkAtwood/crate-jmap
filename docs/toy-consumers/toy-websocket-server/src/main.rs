@@ -3,7 +3,8 @@
 //! tokio-tungstenite client that enables push, creates a TaskList and
 //! waits for the StateChange. The connection also carries
 //! jmap-chat-server's `ChatStreamHandler` extension: the client enables
-//! presence events and receives one the server publishes.
+//! presence events and receives one the server publishes. A second
+//! connection sends a message over `maxSizeRequest` and gets Close 1009.
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -14,7 +15,10 @@ use jmap_chat_types::ChatPresenceEvent;
 use jmap_tasks_server::memory::MemoryBackend;
 use jmap_types::{Id, State};
 use jmap_websocket::jmap_server::Dispatcher;
-use jmap_websocket::server::{Connection, DispatcherHandler, PublishingHandler, PushHub};
+use jmap_websocket::server::{
+    CLOSE_MESSAGE_TOO_BIG, Connection, ConnectionConfig, DispatcherHandler, PublishingHandler,
+    PushHub,
+};
 use serde_json::{Value, json};
 use tokio::net::TcpListener;
 use tokio_tungstenite::tungstenite::Message;
@@ -22,6 +26,8 @@ use tokio_tungstenite::tungstenite::client::IntoClientRequest as _;
 use tokio_tungstenite::tungstenite::http::HeaderValue;
 
 const ACCOUNT: &str = "alice";
+/// The `maxSizeRequest` the toy serves with, in octets.
+const MAX_SIZE_REQUEST: usize = 1_000_000;
 
 #[tokio::main]
 async fn main() {
@@ -40,27 +46,54 @@ async fn main() {
     let addr = listener.local_addr().expect("addr");
     let (server_dispatcher, server_hub) = (Arc::clone(&dispatcher), hub.clone());
     let chat = ChatStreamHandler::new(chat_backend, Id::from(ACCOUNT), [alice.clone()], &chat_hub);
+    // The same maxSizeRequest caps tungstenite (so an oversized message
+    // is refused while it arrives, with Close 1009) and the driver.
+    let config = ConnectionConfig::default().max_size_request(Some(MAX_SIZE_REQUEST));
     tokio::spawn(async move {
+        // The first connection carries the Tasks and Chat checks.
         let (tcp, _) = listener.accept().await.expect("accept");
         // A real deployment authenticates here; this toy trusts loopback.
-        let ws = jmap_websocket::tungstenite::accept(tcp).await.expect("handshake");
+        let ws = jmap_websocket::tungstenite::accept_with_config(tcp, &config)
+            .await
+            .expect("handshake");
         let handler = PublishingHandler::new(
-            DispatcherHandler::new(server_dispatcher, Id::from(ACCOUNT), || State::from("s0")),
+            DispatcherHandler::new(
+                Arc::clone(&server_dispatcher),
+                Id::from(ACCOUNT),
+                || State::from("s0"),
+            ),
             server_hub.clone(),
         );
         let connection = Connection::new(Arc::new(handler))
+            .with_config(config.clone())
             .with_push(server_hub)
             .with_extension(chat);
+        tokio::spawn(async move {
+            jmap_websocket::tungstenite::serve(connection, ws).await.expect("serve");
+        });
+
+        // The second one gets a message over maxSizeRequest.
+        let (tcp, _) = listener.accept().await.expect("accept");
+        let ws = jmap_websocket::tungstenite::accept_with_config(tcp, &config)
+            .await
+            .expect("handshake");
+        let handler =
+            DispatcherHandler::new(server_dispatcher, Id::from(ACCOUNT), || State::from("s0"));
+        let connection = Connection::new(Arc::new(handler)).with_config(config);
         jmap_websocket::tungstenite::serve(connection, ws).await.expect("serve");
     });
 
     // Client.
-    let mut request = format!("ws://{addr}/jmap/ws").into_client_request().expect("request");
-    request
-        .headers_mut()
-        .insert("Sec-WebSocket-Protocol", HeaderValue::from_static("jmap"));
-    let (mut ws, response) = tokio_tungstenite::connect_async(request).await.expect("connect");
-    assert_eq!(response.headers()["Sec-WebSocket-Protocol"], "jmap");
+    let connect = move || async move {
+        let mut request = format!("ws://{addr}/jmap/ws").into_client_request().expect("request");
+        request
+            .headers_mut()
+            .insert("Sec-WebSocket-Protocol", HeaderValue::from_static("jmap"));
+        let (ws, response) = tokio_tungstenite::connect_async(request).await.expect("connect");
+        assert_eq!(response.headers()["Sec-WebSocket-Protocol"], "jmap");
+        ws
+    };
+    let mut ws = connect().await;
 
     let send = |v: Value| Message::Text(v.to_string().into());
     ws.send(send(json!({ "@type": "WebSocketPushEnable", "dataTypes": ["TaskList"] })))
@@ -140,4 +173,19 @@ async fn main() {
         }
     }
     println!("toy-websocket-server: ChatPresenceEvent delivered");
+
+    // A message one octet over maxSizeRequest: Close 1009 (RFC 6455
+    // §7.4.1), not a RequestError, because tungstenite refuses it.
+    let mut ws = connect().await;
+    ws.send(Message::Text("x".repeat(MAX_SIZE_REQUEST + 1).into()))
+        .await
+        .expect("oversized message");
+    let msg = tokio::time::timeout(Duration::from_secs(5), ws.next())
+        .await
+        .expect("timed out")
+        .expect("closed")
+        .expect("ws error");
+    let Message::Close(Some(frame)) = msg else { panic!("expected Close, got {msg:?}") };
+    assert_eq!(u16::from(frame.code), CLOSE_MESSAGE_TOO_BIG, "{frame:?}");
+    println!("toy-websocket-server: oversized message closed with {}", frame.code);
 }
