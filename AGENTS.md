@@ -1490,6 +1490,13 @@ the missing-`newState` handling in `jmap-types` `SetResponse` and
 `jmap-base-client` `extract_response` (decision 67); the interop crate
 records each known deviation with `known_divergence`.
 
+Version stability (decision 73): spec or peer variation must not force a
+version bump. When tolerating it, choose the non-breaking representation
+when the trade-off is close (decision 72), and design new public types so
+a property becoming optional, or a new option, is not an API break:
+`#[non_exhaustive]`, `extra` maps, `Other(String)` variants, and accessor
+methods instead of `pub` fields where a field's presence may change.
+
 ## Email and mailing lists
 
 - **`fm`** is the Fastmail CLI for Mark's mail, as in the IETF and mimid
