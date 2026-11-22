@@ -1,6 +1,6 @@
 [package]
 name = "jmap-emailpush"
-version = "0.6.1"
+version = "0.6.2"
 authors.workspace = true
 repository.workspace = true
 edition.workspace = true

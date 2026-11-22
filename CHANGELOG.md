@@ -12,6 +12,12 @@ wire behaviour that a conforming peer can observe.
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-11-22
+
+A patch release on the 0.6 line: a security fix and other fixes, plus
+additions only; no change to existing public API (decisions 69, 72-74).
+Upgrade if you serve JMAP over WebSocket with `jmap-websocket`.
+
 ### Security
 
 - **jmap-websocket**:
