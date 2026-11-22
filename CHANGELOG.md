@@ -12,6 +12,24 @@ wire behaviour that a conforming peer can observe.
 
 ## [Unreleased]
 
+### Security
+
+- **jmap-websocket**:
+  `tungstenite::accept` now caps tungstenite's message and frame size
+  at 10 000 000 octets, the default `ConnectionConfig`'s
+  `maxSizeRequest`, instead of tungstenite's defaults (64 MiB per
+  message, 16 MiB per frame). tungstenite reads a whole message before
+  the driver checks `maxSizeRequest`, so any authenticated client could
+  make the server hold up to 64 MiB per connection, more than six times
+  the advertised limit; the same issue was reported against Stalwart
+  (support.stalw.art topic 2469). A larger message is now refused while
+  it arrives and the connection closes with 1009. A deployment that
+  advertises a `maxSizeRequest` above 10 000 000 and uses `accept` must
+  switch to `accept_with_config` with its `ConnectionConfig`; no source
+  change otherwise.
+  Shipped in a patch release as a security fix (decision 69): the
+  old default let one client pin 64 MiB per connection.
+
 ### Added
 
 - **jmap-websocket**: tokio-tungstenite size caps derived from the
@@ -29,19 +47,6 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
-- **BREAKING** (wire behaviour only) **jmap-websocket**:
-  `tungstenite::accept` now caps tungstenite's message and frame size
-  at 10 000 000 octets, the default `ConnectionConfig`'s
-  `maxSizeRequest`, instead of tungstenite's defaults (64 MiB per
-  message, 16 MiB per frame). tungstenite reads a whole message before
-  the driver checks `maxSizeRequest`, so any authenticated client could
-  make the server hold up to 64 MiB per connection, more than six times
-  the advertised limit; the same issue was reported against Stalwart
-  (support.stalw.art topic 2469). A larger message is now refused while
-  it arrives and the connection closes with 1009. A deployment that
-  advertises a `maxSizeRequest` above 10 000 000 and uses `accept` must
-  switch to `accept_with_config` with its `ConnectionConfig`; no source
-  change otherwise.
 - **jmap-testjig**: `GET /ws` caps each message and frame at the
   advertised `maxSizeRequest` (axum's `WebSocketUpgrade` defaulted to
   64 MiB / 16 MiB) and closes an oversized message with 1009.
