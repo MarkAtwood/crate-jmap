@@ -56,10 +56,19 @@ const KNOWN: &[(&str, Verdict)] = &[
         ),
     ),
     (
-        "request/createdIds echoed",
+        "request/empty createdIds echoed",
         Verdict::Deviation(
-            "RFC 8620 §3.4: createdIds given in the Request is returned and \"MUST include all \
-             creation ids passed in the original createdIds parameter\"",
+            "RFC 8620 §3.3: \"If given in the request, the response will also include a \
+             createdIds property\", so an empty createdIds is echoed as {} \
+             (support.stalw.art t/2474)",
+        ),
+    ),
+    (
+        "request/createdIds with '-' accepted",
+        Verdict::Deviation(
+            "RFC 8620 §1.2: '-' and '_' are valid Id characters, so a createdIds value such as \
+             \"zz9-x\" is accepted and echoed (RFC 8620 §3.4), not refused as notRequest \
+             (support.stalw.art t/2474)",
         ),
     ),
     (
@@ -619,7 +628,18 @@ async fn request_facts(s: &Server) -> Facts {
         "echo.sessionState == Session.state",
         json!(body["sessionState"] == s.session["state"]),
     );
-    // RFC 8620 §3.3: createdIds is echoed only when the request had it.
+    // RFC 8620 §3.3: createdIds is echoed whenever the request had it,
+    // even when empty.
+    let (_, body) = s
+        .post(
+            json!({"using": [CORE], "methodCalls": [["Core/echo", {}, "e"]],
+                   "createdIds": {}})
+            .to_string(),
+        )
+        .await;
+    f.put("empty createdIds echoed", body["createdIds"].clone());
+    // RFC 8620 §1.2: '-' is a valid Id character, so this request is
+    // valid and its createdIds comes back unchanged (§3.4).
     let (_, body) = s
         .post(
             json!({"using": [CORE], "methodCalls": [["Core/echo", {}, "e"]],
@@ -627,7 +647,7 @@ async fn request_facts(s: &Server) -> Facts {
             .to_string(),
         )
         .await;
-    f.put("createdIds echoed", body["createdIds"].clone());
+    f.put("createdIds with '-' accepted", body["createdIds"].clone());
     f
 }
 

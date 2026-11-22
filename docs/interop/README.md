@@ -126,7 +126,8 @@ run). Known for Stalwart v1.1.1:
 | RFC 8620 §3.6.1 | an unsupported `using` capability is `unknownCapability` | `notRequest` (400, problem details) |
 | RFC 8620 §5.3 | every `/set` response has `oldState` (`String\|null`) and `newState` | `Identity/set` has no `oldState`; `Identity/set` and `EmailSubmission/set` without a change omit both; a successful `EmailSubmission/set` create has no `oldState` |
 | RFC 8620 §3.6.1 | a body that does not parse as I-JSON is `notJSON` | `notRequest` |
-| RFC 8620 §3.4 | `createdIds` given in the Request is returned, with every creation id passed in | no `createdIds` in the Response |
+| RFC 8620 §3.3 | an empty `createdIds` in the Request is echoed as `{}` | no `createdIds` in the Response (support.stalw.art t/2474) |
+| RFC 8620 §1.2, §3.4 | a `createdIds` value containing `-` (a valid Id character) is accepted and echoed | the whole Request is refused with `notRequest` (t/2474) |
 | RFC 8621 §2 | `isSubscribed` SHOULD default to `true` for a Mailbox the user creates | `false` |
 
 Differences the RFCs allow, found by the differential tests:
