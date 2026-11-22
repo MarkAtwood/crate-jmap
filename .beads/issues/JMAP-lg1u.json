@@ -1,0 +1,12 @@
+{
+  "id": "JMAP-lg1u",
+  "title": "purple-jmap: libpurple protocol plugin for JMAP Chat, for Adium (and Pidgin)",
+  "description": "Mark 2026-11-22: write purple-jmap, a libpurple protocol plugin that speaks JMAP Chat (draft-atwood-jmap-chat-00, with chat-wss for live events) to a JMAP Chat server such as a crate-jmap deployment, so Adium users (and Pidgin, BitlBee, Spectrum2) can use JMAP Chat.\n\nPrior art to follow: purple-mimi (repo /data/PROJECT/purple-mimi, started 2026-11-22; design in /data/PROJECT/mimid/docs/design/purple-mimi.md, decisions PQ1-PQ12): one Rust library with a C ABI under thin C glue for libpurple 2.14 (and later 3). purple-jmap would build on crate-jmap's jmap-chat-client and jmap-websocket client side instead of an MLS engine. Coordinate with the mimid session so the two plugins share glue patterns (and code, if it makes sense).\n\nAdium specifics, to verify in the design step (not assumed): Adium is macOS-only and ships its own libpurple build; check its current release and maintenance state, which libpurple version it bundles, how third-party protocols load (Adium plugin bundle with Objective-C wrapper around the prpl), code-signing/notarization on current macOS, and whether a build for Apple silicon is feasible. If Adium is not viable, say so and fall back to Pidgin/libpurple 2.\n\nChildren: design note first (scope, architecture, Adium viability, auth, live events, mapping of Chat/Space/Message to libpurple conversations and buddy list), then implementation beads from it. Repo: likely a new MarkAtwood/purple-jmap, like purple-mimi; Mark to confirm.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "epic",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-22T03:06:28.219331105Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-22T03:06:28.219331105Z"
+}
