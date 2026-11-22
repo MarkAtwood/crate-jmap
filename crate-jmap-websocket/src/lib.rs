@@ -14,16 +14,34 @@
 //!   [`WsResponse`], [`WsRequestError`] and [`WsStateChange`] from the
 //!   server ([`ServerMessage`]).
 //!
-//! Feature `server`: [`server::Connection`], a session driver that turns
-//! incoming text frames into [`jmap_server::Dispatcher`] calls and writes
-//! the answers and push notifications back, over any `Stream` and `Sink`
-//! of messages, so it fits axum, tokio-tungstenite or another stack. Also
-//! [`server::PushHub`], an in-memory state-change source with `pushState`
-//! replay, and [`server::ExtensionHandler`], the hook for the extension
-//! message types of the JMAP Chat, VTC and Scene WebSocket drafts.
+// The `server` items exist only with that feature: link them only then,
+// so `cargo doc` with default features has no broken links.
+#![cfg_attr(
+    feature = "server",
+    doc = "Feature `server`: [`server::Connection`], a session driver that turns
+incoming text frames into [`jmap_server::Dispatcher`] calls and writes
+the answers and push notifications back, over any `Stream` and `Sink`
+of messages, so it fits axum, tokio-tungstenite or another stack. Also
+[`server::PushHub`], an in-memory state-change source with `pushState`
+replay, and [`server::ExtensionHandler`], the hook for the extension
+message types of the JMAP Chat, VTC and Scene WebSocket drafts.
+"
+)]
+#![cfg_attr(
+    not(feature = "server"),
+    doc = "Feature `server`: `server::Connection`, a session driver that turns
+incoming text frames into `jmap_server::Dispatcher` calls and writes
+the answers and push notifications back, over any `Stream` and `Sink`
+of messages, so it fits axum, tokio-tungstenite or another stack. Also
+`server::PushHub`, an in-memory state-change source with `pushState`
+replay, and `server::ExtensionHandler`, the hook for the extension
+message types of the JMAP Chat, VTC and Scene WebSocket drafts.
+"
+)]
 //!
 //! Feature `tungstenite`: `tungstenite::serve` runs a connection over a
-//! tokio-tungstenite `WebSocketStream`.
+//! tokio-tungstenite `WebSocketStream`; `tungstenite::accept_with_config`
+//! caps tungstenite's message size at `maxSizeRequest`.
 //!
 //! The authenticated HTTP request that opens the WebSocket, and the TLS
 //! under it (RFC 8887 §4.1, §5.1), are the deployment's.
