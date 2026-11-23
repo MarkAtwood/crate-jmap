@@ -34,7 +34,7 @@ pub(crate) const CHAT_PUSH: &str = "chatPush";
 /// (draft-atwood-jmap-chat-push-00 §`ChatPushConfig`). `unreadCount` is a
 /// `ChatMessagePush` property, not an entry field, so it is rejected like
 /// any unknown name.
-const ENTRY_PROPERTIES: [&str; 13] = [
+const ENTRY_PROPERTIES: [&str; 12] = [
     "messageId",
     "chatId",
     "chatKind",
@@ -46,13 +46,12 @@ const ENTRY_PROPERTIES: [&str; 13] = [
     "sentAt",
     "hasMention",
     "mentionScopes",
-    "encrypted",
     "bodySnippet",
 ];
 
 /// The `ChatMessageEntry` fields sent when `properties` is absent
 /// (draft-atwood-jmap-chat-push-00 §`ChatPushConfig`).
-const DEFAULT_ENTRY_PROPERTIES: [&str; 10] = [
+const DEFAULT_ENTRY_PROPERTIES: [&str; 9] = [
     "messageId",
     "chatId",
     "chatKind",
@@ -61,7 +60,6 @@ const DEFAULT_ENTRY_PROPERTIES: [&str; 10] = [
     "sentAt",
     "hasMention",
     "mentionScopes",
-    "encrypted",
     "bodySnippet",
 ];
 
@@ -293,11 +291,16 @@ pub struct BuiltPush {
 /// updates" (draft-atwood-jmap-chat-push-00, jmap-chat-spec 77c3474 L150).
 /// `None` leaves it out.
 ///
-/// The entry holds exactly the fields in `cfg.properties`, or the default
-/// set when it is absent. §`ChatPushConfig`: "The `properties` list is
-/// authoritative: the server returns exactly the requested fields." Each
+/// `cfg.properties` is an upper bound, or the default set when it is
+/// absent: §`ChatPushConfig` says the server "MUST NOT include a
+/// `ChatMessageEntry` field the list does not name, and includes a field
+/// the list does name only where that field's own rules allow it". Each
 /// field is derived as §`ChatMessageEntry` says, with these exceptions:
 ///
+/// - `encrypted` is NOT governed by `properties` and is present in every
+///   entry, because without it a client cannot tell an absent
+///   `bodySnippet`, `hasMention` or `mentionScopes` caused by encryption
+///   from one it did not request (§`ChatMessageEntry`).
 /// - `encrypted` comes from `bodyType`: `false` for `text/plain`,
 ///   `text/markdown` and `application/jmap-chat-rich`, otherwise `true`
 ///   (§End-to-End Encrypted Deployments). An encrypted entry never has
@@ -393,7 +396,6 @@ pub fn build_chat_message_push(
         .mention_scopes
         .take()
         .filter(|_| wanted("mentionScopes"));
-    entry.encrypted = entry.encrypted.take().filter(|_| wanted("encrypted"));
     entry.body_snippet = entry.body_snippet.take().filter(|_| wanted("bodySnippet"));
 
     let urgency = cfg

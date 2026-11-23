@@ -159,25 +159,36 @@ fn sorted(v: &[&str]) -> Vec<String> {
     v
 }
 
-/// draft-atwood-jmap-chat-push-00 §ChatPushConfig (push:121): "The
-/// `properties` list is authoritative: the server returns exactly the
-/// requested fields." A client using this crate's own types must still be
-/// able to read such a payload (plan decision D3).
+/// draft-atwood-jmap-chat-push-00 §ChatPushConfig: the `properties` list
+/// is an upper bound, so the server "MUST NOT include a
+/// `ChatMessageEntry` field the list does not name" -- but `encrypted`
+/// "is not governed by this list and is present in every entry".
+///
+/// So the narrowest entry a client can ask for holds two keys, not one.
+/// A client using this crate's own types must still be able to read it
+/// (plan decision D3).
 #[test]
-fn properties_message_id_only_gives_exactly_one_key() {
+fn properties_names_one_field_and_encrypted_comes_anyway() {
     let cfg = config(json!({ "properties": ["messageId"] }));
     let built = build(&cfg, NOBODY, &plain("hello"), &group_chat(), &bob(), None);
     let entry = entry_json(&built.payload);
-    assert_eq!(keys(&entry), vec!["messageId".to_owned()]);
+    assert_eq!(keys(&entry), sorted(&["encrypted", "messageId"]));
     assert_eq!(entry["messageId"], json!("msg-1"));
+    assert_eq!(
+        entry["encrypted"],
+        json!(false),
+        "text/plain is not encrypted"
+    );
 
     let wire = serde_json::to_value(&built.payload).expect("serialize");
     let parsed: ChatMessagePush =
-        serde_json::from_value(wire).expect("client deserializes a one-key entry");
+        serde_json::from_value(wire).expect("client deserializes a narrow entry");
     assert_eq!(parsed.messages.len(), 1);
     assert_eq!(parsed.messages[0].message_id, Some(id("msg-1")));
     assert_eq!(parsed.messages[0].chat_id, None);
-    assert_eq!(parsed.messages[0].encrypted, None);
+    // Present whatever `properties` said, so the client can always tell
+    // an encryption-caused absence from an unrequested one.
+    assert_eq!(parsed.messages[0].encrypted, Some(false));
 }
 
 /// draft-atwood-jmap-chat-push-00 §ChatPushConfig (push:121): "If absent,
@@ -233,7 +244,9 @@ fn requested_chat_name_and_space_id_for_channel() {
     let cfg = config(json!({ "properties": ["chatName", "spaceId"] }));
     let built = build(&cfg, NOBODY, &plain("hi"), &channel_chat(), &bob(), None);
     let entry = entry_json(&built.payload);
-    assert_eq!(keys(&entry), sorted(&["chatName", "spaceId"]));
+    // `encrypted` is unconditional (§ChatMessageEntry), so it joins
+    // whatever `properties` names.
+    assert_eq!(keys(&entry), sorted(&["chatName", "encrypted", "spaceId"]));
     assert_eq!(entry["chatName"], json!("general"));
     assert_eq!(entry["spaceId"], json!(SPACE));
 }
@@ -273,18 +286,23 @@ fn requested_space_name_for_channel() {
     let cfg = config(json!({ "properties": ["spaceName"] }));
     let built = build_with_space(&cfg, &channel_chat(), &acme_space());
     let entry = entry_json(&built.payload);
-    assert_eq!(keys(&entry), vec!["spaceName".to_owned()]);
+    assert_eq!(keys(&entry), sorted(&["encrypted", "spaceName"]));
     assert_eq!(entry["spaceName"], json!("ACME Corp"));
 }
 
-/// draft-atwood-jmap-chat-push-00 §ChatMessageEntry (push:166-167):
-/// `spaceName` is "Absent for other kinds."
+/// draft-atwood-jmap-chat-push-00 §ChatMessageEntry: `spaceName` is
+/// "Absent for other kinds."
+///
+/// This test is why `properties` had to become an upper bound: the field
+/// is requested here and still absent, which the earlier "returns
+/// exactly the requested fields" could not account for. The corrected
+/// §ChatPushConfig names this case.
 #[test]
 fn space_name_absent_for_group_even_when_requested() {
     let cfg = config(json!({ "properties": ["spaceName", "chatName"] }));
     let built = build_with_space(&cfg, &group_chat(), &acme_space());
     let entry = entry_json(&built.payload);
-    assert_eq!(keys(&entry), vec!["chatName".to_owned()]);
+    assert_eq!(keys(&entry), sorted(&["chatName", "encrypted"]));
 }
 
 /// draft-atwood-jmap-chat-push-00 §ChatMessagePush (push:142): "The server
@@ -702,7 +720,8 @@ fn unread_count_is_a_top_level_member() {
             "@type": "ChatMessagePush",
             "accountId": ACCOUNT,
             "state": "s42",
-            "messages": [{ "messageId": "msg-1" }],
+            // `encrypted` rides along unasked (§ChatMessageEntry).
+            "messages": [{ "messageId": "msg-1", "encrypted": false }],
             "unreadCount": 7,
         })
     );
