@@ -28,6 +28,11 @@ wire behaviour that a conforming peer can observe.
   so a deployment that names a third party's relay discloses its
   clients' addresses to that third party, and one whose clients and
   their peers all name the same third party discloses who spoke to whom.
+- **jmap-vtc-types**: `VtcEventType::CallSignal`, so a client can name
+  `"VTCCallSignal"` in a `VTCStreamEnable`'s `eventTypes` and have it
+  recognized rather than fall into `Other`. The event was added without
+  its filter vocabulary, which left the filter blind to it; the
+  vocabulary test against the draft's own wording caught that.
 - **jmap-vtc-types**: `VtcCallSignal`, the ephemeral event carrying one
   call signalling message from another participant, and `CallSignalKind`
   (`offer`, `answer`, `candidate`, and `Other` for a kind a later

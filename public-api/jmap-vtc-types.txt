@@ -639,6 +639,7 @@ pub fn jmap_vtc_types::VtcEvent::deserialize<D: serde_core::de::Deserializer<'de
 #[non_exhaustive] pub enum jmap_vtc_types::VtcEventType
 pub jmap_vtc_types::VtcEventType::ActiveSpeaker
 pub jmap_vtc_types::VtcEventType::CallEnd
+pub jmap_vtc_types::VtcEventType::CallSignal
 pub jmap_vtc_types::VtcEventType::GatewaySignal
 pub jmap_vtc_types::VtcEventType::MediaState
 pub jmap_vtc_types::VtcEventType::Other(alloc::string::String)

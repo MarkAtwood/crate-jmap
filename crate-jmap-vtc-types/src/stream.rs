@@ -10,8 +10,8 @@ use jmap_types::{Id, impl_string_enum};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::event::{
-    ACTIVE_SPEAKER, CALL_END, GATEWAY_SIGNAL, MEDIA_STATE, PARTICIPANT, RECORDING_STATE, RING,
-    UNMUTE_REQUEST,
+    ACTIVE_SPEAKER, CALL_END, CALL_SIGNAL, GATEWAY_SIGNAL, MEDIA_STATE, PARTICIPANT,
+    RECORDING_STATE, RING, UNMUTE_REQUEST,
 };
 
 /// The recognized values of [`VtcStreamEnable::event_types`]
@@ -24,6 +24,7 @@ pub const VTC_EVENT_TYPES: &[&str] = &[
     RING,
     CALL_END,
     GATEWAY_SIGNAL,
+    CALL_SIGNAL,
     PARTICIPANT,
     MEDIA_STATE,
     ACTIVE_SPEAKER,
@@ -48,6 +49,8 @@ pub enum VtcEventType {
     CallEnd,
     /// `"VTCGatewaySignal"`.
     GatewaySignal,
+    /// `"VTCCallSignal"`.
+    CallSignal,
     /// `"VTCParticipantEvent"`.
     Participant,
     /// `"VTCMediaStateEvent"`.
@@ -71,6 +74,7 @@ impl_string_enum!(VtcEventType, "a VTCStreamEnable eventTypes string",
     "VTCRingEvent" => Ring,
     "VTCCallEndEvent" => CallEnd,
     "VTCGatewaySignal" => GatewaySignal,
+    "VTCCallSignal" => CallSignal,
     "VTCParticipantEvent" => Participant,
     "VTCMediaStateEvent" => MediaState,
     "VTCActiveSpeakerEvent" => ActiveSpeaker,
@@ -319,17 +323,21 @@ mod tests {
 
     #[test]
     fn event_types_vocabulary_matches_draft() {
-        // Oracle: draft-atwood-jmap-vtc-wss-00 L149-153 "Recognized values
-        // are: `\"VTCRingEvent\"`, `\"VTCCallEndEvent\"`,
-        // `\"VTCGatewaySignal\"`, `\"VTCParticipantEvent\"`,
+        // Oracle: draft-atwood-jmap-vtc-wss-00 §VTCStreamEnable
+        // "Recognized values are: `\"VTCRingEvent\"`,
+        // `\"VTCCallEndEvent\"`, `\"VTCGatewaySignal\"`,
+        // `\"VTCCallSignal\"`, `\"VTCParticipantEvent\"`,
         // `\"VTCMediaStateEvent\"`, `\"VTCActiveSpeakerEvent\"`,
         // `\"VTCUnmuteRequestEvent\"`, and `\"VTCRecordingStateEvent\"`."
+        // The list is in the draft's order, and VTCCallSignal sits where
+        // the draft puts it, beside the other signal.
         assert_eq!(
             VTC_EVENT_TYPES,
             [
                 "VTCRingEvent",
                 "VTCCallEndEvent",
                 "VTCGatewaySignal",
+                "VTCCallSignal",
                 "VTCParticipantEvent",
                 "VTCMediaStateEvent",
                 "VTCActiveSpeakerEvent",
