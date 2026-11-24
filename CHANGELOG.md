@@ -14,6 +14,20 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-vtc-types**: `VtcIceServer` and `VtcCapability::ice_servers`,
+  the STUN and TURN servers a deployment offers its own clients for NAT
+  traversal, in the order a client should try them. The fields are those
+  of WebRTC's `RTCIceServer`, so a browser client passes the object
+  through unchanged. Absent when the deployment offers none, which is
+  not the same as a call needing none.
+
+  This is configuration from a server to its own clients and is never
+  negotiated between the two ends of a call: each end offers the
+  candidates its own servers gave it and the ends agree on a working
+  pair by ICE. A relay learns the addresses of the clients that use it,
+  so a deployment that names a third party's relay discloses its
+  clients' addresses to that third party, and one whose clients and
+  their peers all name the same third party discloses who spoke to whom.
 - **jmap-vtc-types**: `VtcCallSignal`, the ephemeral event carrying one
   call signalling message from another participant, and `CallSignalKind`
   (`offer`, `answer`, `candidate`, and `Other` for a kind a later

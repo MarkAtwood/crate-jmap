@@ -106,6 +106,40 @@ impl_string_enum!(GatewayProtocol, "a VTC gateway protocol string",
 /// assert!(cap.supports_recording_pause); // absent: the default, `true`
 /// # Ok::<(), serde_json::Error>(())
 /// ```
+/// One STUN or TURN server a deployment offers its own clients
+/// ([`VtcCapability::ice_servers`]). The fields are those of WebRTC's
+/// `RTCIceServer`, so a browser client passes them through unchanged.
+///
+/// A TURN server relays media, so it sees the addresses of whoever
+/// relays through it and that encrypted bytes flow between them. A
+/// deployment that points its clients at a third party's relay gives
+/// that third party those addresses; one that runs its own tells it
+/// nothing it did not already know, since its clients connect to it
+/// anyway.
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VtcIceServer {
+    /// The server's URLs, as `stun:` or `turn:`/`turns:` URIs
+    /// (RFC 7064, RFC 7065). Several name one server reached more than
+    /// one way, as UDP and TCP.
+    pub urls: Vec<String>,
+    /// The username a TURN server needs, absent for STUN.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub username: Option<String>,
+    /// The credential a TURN server needs, absent for STUN. A
+    /// deployment that issues short-lived credentials puts the current
+    /// one here, and a client asks again when it expires.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub credential: Option<String>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
+}
+
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -168,6 +202,17 @@ pub struct VtcCapability {
     /// Protocol gateways available for this deployment.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub gateways: Option<Vec<VtcGateway>>,
+    /// The STUN and TURN servers this deployment offers its own clients
+    /// for NAT traversal, in the order a client should try them. Absent
+    /// when the deployment offers none, which is not the same as a call
+    /// needing none: a client may have its own.
+    ///
+    /// This is configuration from a provider to its own clients, never
+    /// negotiated between the two ends of a call: each end offers the
+    /// candidates its own provider's servers gave it and the ends agree
+    /// on a working pair by ICE, having agreed on nothing beforehand.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ice_servers: Option<Vec<VtcIceServer>>,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
@@ -307,6 +352,43 @@ mod tests {
                 "metadata": {"registrar": "sip.example.com", "transport": "tls"}
             }]
         })
+    }
+
+    /// `iceServers` round-trips with the fields of WebRTC's
+    /// `RTCIceServer`, and a STUN entry stays free of the credential
+    /// fields a TURN entry needs rather than carrying them as null.
+    #[test]
+    fn ice_servers_round_trip() {
+        let raw = json!({
+            "iceServers": [
+                {"urls": ["stun:stun.example.com:3478"]},
+                {
+                    "urls": [
+                        "turn:turn.example.com:3478",
+                        "turn:turn.example.com:3478?transport=tcp"
+                    ],
+                    "username": "u",
+                    "credential": "c"
+                }
+            ]
+        });
+        let mut object = sample();
+        object
+            .as_object_mut()
+            .unwrap()
+            .extend(raw.as_object().unwrap().clone());
+        let cap: VtcCapability = serde_json::from_value(object.clone()).unwrap();
+        let servers = cap.ice_servers.as_deref().expect("iceServers");
+        assert_eq!(servers.len(), 2);
+        assert!(servers[0].username.is_none() && servers[0].credential.is_none());
+        assert_eq!(servers[1].urls.len(), 2);
+        assert_eq!(servers[1].credential.as_deref(), Some("c"));
+        assert_eq!(serde_json::to_value(&cap).unwrap(), object);
+
+        // Absent when the deployment offers none, not an empty list.
+        let none: VtcCapability = serde_json::from_value(sample()).unwrap();
+        assert!(none.ice_servers.is_none());
+        assert!(!serde_json::to_value(&none).unwrap()["iceServers"].is_array());
     }
 
     #[test]

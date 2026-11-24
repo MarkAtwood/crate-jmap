@@ -17,7 +17,7 @@
 //!
 //! ## Public surface
 //!
-//! - [`JMAP_VTC_URI`], [`VtcCapability`], [`VtcGateway`],
+//! - [`JMAP_VTC_URI`], [`VtcCapability`], [`VtcGateway`], [`VtcIceServer`],
 //!   [`VtcDialInEntry`], [`MediaKind`], [`GatewayProtocol`] — the
 //!   capability and its gateways (draft §Capability, §`VTCGateway`).
 //! - [`VtcMediaState`], [`VtcCallPolicy`] — embedded types.
@@ -90,7 +90,7 @@ mod wire;
 pub use call::{CallEndReason, CallState, CallType, VtcCall, VtcCallPolicy, VtcMediaState};
 pub use capability::{
     GatewayProtocol, JMAP_VTC_URI, JMAP_VTC_WEBSOCKET_URI, MediaKind, VtcCapability,
-    VtcDialInEntry, VtcGateway,
+    VtcDialInEntry, VtcGateway, VtcIceServer,
 };
 pub use event::{
     CallSignalKind, ParticipantEventKind, RingEndReason, SignalDirection, VtcActiveSpeakerEvent,
