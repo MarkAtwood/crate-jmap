@@ -23,6 +23,12 @@
 //! Ending a call, by `VTCCall/set` or by the server through [`end_call`],
 //! also ends its breakout rooms and stops its active recordings and
 //! livestreams.
+//! `VTCCall/signal` relays one session description or ICE candidate to
+//! the call's other participants, and `VTCCall/exportMediaSecret` hands a
+//! client the call's shared media secret for the epoch its key agreement
+//! is in; both are the backend's to carry out
+//! ([`VtcBackend::signal_call`], [`VtcBackend::export_media_secret`]) and
+//! both answer `notFound` from a backend that does not offer them.
 //! [`expire_ring`] applies the ring timeout when the deployment's timer
 //! fires.
 //! The `VTCParticipant/*` methods: joining, gateway dial-out, answering
@@ -88,10 +94,14 @@ pub mod query;
 #[cfg(feature = "websocket")]
 pub mod websocket;
 
-pub use backend::{MediaEffect, StatefulObject, VtcBackend, call_already_active_on_chat};
+pub use backend::{
+    CallSignalRequest, EpochMoved, MediaEffect, MediaSecret, StatefulObject, VtcBackend,
+    call_already_active_on_chat,
+};
 pub use call::{
-    RING_TIMEOUT, end_call, expire_ring, handle_vtc_call_changes, handle_vtc_call_get,
-    handle_vtc_call_query, handle_vtc_call_query_changes, handle_vtc_call_set,
+    RING_TIMEOUT, end_call, expire_ring, handle_vtc_call_changes,
+    handle_vtc_call_export_media_secret, handle_vtc_call_get, handle_vtc_call_query,
+    handle_vtc_call_query_changes, handle_vtc_call_set, handle_vtc_call_signal,
 };
 pub use ephemeral::{CallScope, VtcEphemeralSubscription, VtcStreamFilter, should_deliver};
 pub use history::register_vtc_handlers_with_history;
@@ -163,6 +173,11 @@ where
     reg!("VTCCall/set", handle_vtc_call_set, ids);
     reg!("VTCCall/query", handle_vtc_call_query);
     reg!("VTCCall/queryChanges", handle_vtc_call_query_changes);
+    reg!("VTCCall/signal", handle_vtc_call_signal);
+    reg!(
+        "VTCCall/exportMediaSecret",
+        handle_vtc_call_export_media_secret
+    );
     reg!("VTCParticipant/get", handle_vtc_participant_get);
     reg!("VTCParticipant/changes", handle_vtc_participant_changes);
     reg!("VTCParticipant/set", handle_vtc_participant_set, ids);

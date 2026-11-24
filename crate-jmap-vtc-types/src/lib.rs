@@ -93,9 +93,9 @@ pub use capability::{
     VtcDialInEntry, VtcGateway,
 };
 pub use event::{
-    ParticipantEventKind, RingEndReason, SignalDirection, VtcActiveSpeakerEvent, VtcCallEndEvent,
-    VtcEvent, VtcGatewaySignal, VtcMediaStateEvent, VtcParticipantEvent, VtcRecordingStateEvent,
-    VtcRingEvent, VtcUnmuteRequestEvent,
+    CallSignalKind, ParticipantEventKind, RingEndReason, SignalDirection, VtcActiveSpeakerEvent,
+    VtcCallEndEvent, VtcCallSignal, VtcEvent, VtcGatewaySignal, VtcMediaStateEvent,
+    VtcParticipantEvent, VtcRecordingStateEvent, VtcRingEvent, VtcUnmuteRequestEvent,
 };
 pub use participant::{CallResponse, CallRole, JoinMethod, LobbyState, VtcParticipant};
 pub use push::VtcCallPush;

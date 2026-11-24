@@ -40,6 +40,27 @@ impl_string_enum!(RingEndReason, "a VTC ring end reason string",
     "failed" => Failed,
 );
 
+/// The `signal` of a [`VtcCallSignal`], and of the `VTCCall/signal`
+/// method that sends one.
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum CallSignalKind {
+    /// `"offer"`: an SDP offer, in `sdp`.
+    Offer,
+    /// `"answer"`: an SDP answer, in `sdp`.
+    Answer,
+    /// `"candidate"`: one ICE candidate, in `candidate`.
+    Candidate,
+    /// A value not recognized by this version of the library.
+    Other(String),
+}
+
+impl_string_enum!(CallSignalKind, "a VTC call signal kind string",
+    "offer" => Offer,
+    "answer" => Answer,
+    "candidate" => Candidate,
+);
+
 /// The `direction` of a [`VtcGatewaySignal`].
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -149,6 +170,47 @@ pub struct VtcGatewaySignal {
     /// Inbound or outbound.
     pub direction: SignalDirection,
     /// Time the signal was generated.
+    pub timestamp: UTCDate,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
+}
+
+/// One call signalling message from another participant of a call,
+/// relayed by the server without interpretation (draft-atwood-jmap-vtc-00
+/// §`VTCCallSignal`).
+///
+/// Ephemeral: never a stored object, never returned by a `/get` or a
+/// `/query`, and not replayed to a client that was not connected when it
+/// arrived.
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VtcCallSignal {
+    /// The id of the call's hosting account, "the account that contains
+    /// the `VTCCall` and its `VTCParticipant` records" (draft-atwood-jmap-vtc-wss-00
+    /// §Event Types); usually not the recipient's personal account.
+    pub account_id: Id,
+    /// The call.
+    pub call_id: Id,
+    /// The participant that sent it. The server sets this from the
+    /// sender it authenticated, not from anything the sender asserted,
+    /// so a participant cannot signal as another.
+    pub participant_id: Id,
+    /// Which signal it is. A client ignores a kind it does not know.
+    pub signal: CallSignalKind,
+    /// The session description, for [`CallSignalKind::Offer`] and
+    /// [`CallSignalKind::Answer`]; `None` otherwise.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sdp: Option<String>,
+    /// The ICE candidate, for [`CallSignalKind::Candidate`]; `None`
+    /// otherwise. The members of WebRTC's `RTCIceCandidateInit`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub candidate: Option<serde_json::Map<String, serde_json::Value>>,
+    /// Time the server accepted the message the signal arrived in.
     pub timestamp: UTCDate,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
@@ -305,6 +367,8 @@ pub enum VtcEvent {
     CallEnd(VtcCallEndEvent),
     /// `"VTCGatewaySignal"`.
     GatewaySignal(VtcGatewaySignal),
+    /// `"VTCCallSignal"`.
+    CallSignal(VtcCallSignal),
     /// `"VTCParticipantEvent"`.
     Participant(VtcParticipantEvent),
     /// `"VTCMediaStateEvent"`.
@@ -327,6 +391,7 @@ pub enum VtcEvent {
 pub(crate) const RING: &str = "VTCRingEvent";
 pub(crate) const CALL_END: &str = "VTCCallEndEvent";
 pub(crate) const GATEWAY_SIGNAL: &str = "VTCGatewaySignal";
+pub(crate) const CALL_SIGNAL: &str = "VTCCallSignal";
 pub(crate) const PARTICIPANT: &str = "VTCParticipantEvent";
 pub(crate) const MEDIA_STATE: &str = "VTCMediaStateEvent";
 pub(crate) const ACTIVE_SPEAKER: &str = "VTCActiveSpeakerEvent";
@@ -341,6 +406,7 @@ impl VtcEvent {
             VtcEvent::Ring(_) => RING,
             VtcEvent::CallEnd(_) => CALL_END,
             VtcEvent::GatewaySignal(_) => GATEWAY_SIGNAL,
+            VtcEvent::CallSignal(_) => CALL_SIGNAL,
             VtcEvent::Participant(_) => PARTICIPANT,
             VtcEvent::MediaState(_) => MEDIA_STATE,
             VtcEvent::ActiveSpeaker(_) => ACTIVE_SPEAKER,
@@ -357,6 +423,7 @@ impl Serialize for VtcEvent {
             VtcEvent::Ring(e) => serde_json::to_value(e),
             VtcEvent::CallEnd(e) => serde_json::to_value(e),
             VtcEvent::GatewaySignal(e) => serde_json::to_value(e),
+            VtcEvent::CallSignal(e) => serde_json::to_value(e),
             VtcEvent::Participant(e) => serde_json::to_value(e),
             VtcEvent::MediaState(e) => serde_json::to_value(e),
             VtcEvent::ActiveSpeaker(e) => serde_json::to_value(e),
@@ -380,6 +447,7 @@ impl<'de> Deserialize<'de> for VtcEvent {
             RING => VtcEvent::Ring(from_map::<_, D>(map)?),
             CALL_END => VtcEvent::CallEnd(from_map::<_, D>(map)?),
             GATEWAY_SIGNAL => VtcEvent::GatewaySignal(from_map::<_, D>(map)?),
+            CALL_SIGNAL => VtcEvent::CallSignal(from_map::<_, D>(map)?),
             PARTICIPANT => VtcEvent::Participant(from_map::<_, D>(map)?),
             MEDIA_STATE => VtcEvent::MediaState(from_map::<_, D>(map)?),
             ACTIVE_SPEAKER => VtcEvent::ActiveSpeaker(from_map::<_, D>(map)?),
@@ -515,6 +583,62 @@ mod tests {
         assert!(
             matches!(ev, VtcEvent::UnmuteRequest(ref e) if e.requested_by == "user:bob@example.com")
         );
+    }
+
+    /// Oracle: draft-atwood-jmap-vtc-00 §`VTCCallSignal`'s field list.
+    /// An offer and an answer carry `sdp` and no `candidate`; a
+    /// candidate the reverse, and each absent field stays absent rather
+    /// than becoming null, so the round trip is byte-identical.
+    #[test]
+    fn call_signal_round_trips_with_only_its_own_payload() {
+        let ev = round_trip(json!({
+            "@type": "VTCCallSignal",
+            "accountId": "A1",
+            "callId": "01J4XKZQN4MWVT8PPBEHTJ3AB",
+            "participantId": "01J4XS5WR2VAYY4WWHKNYZ9MC0",
+            "signal": "offer",
+            "sdp": "v=0\r\no=- 1 1 IN IP4 127.0.0.1\r\ns=-\r\nt=0 0\r\n",
+            "timestamp": "2026-11-23T12:00:00Z"
+        }));
+        let VtcEvent::CallSignal(offer) = &ev else {
+            panic!("{ev:?}");
+        };
+        assert_eq!(offer.signal, CallSignalKind::Offer);
+        assert!(offer.sdp.is_some() && offer.candidate.is_none());
+
+        let ev = round_trip(json!({
+            "@type": "VTCCallSignal",
+            "accountId": "A1",
+            "callId": "01J4XKZQN4MWVT8PPBEHTJ3AB",
+            "participantId": "01J4XS5WR2VAYY4WWHKNYZ9MC0",
+            "signal": "candidate",
+            "candidate": {
+                "candidate": "candidate:1 1 UDP 2130706431 192.0.2.1 50000 typ host",
+                "sdpMid": "0",
+                "sdpMLineIndex": 0
+            },
+            "timestamp": "2026-11-23T12:00:01Z"
+        }));
+        let VtcEvent::CallSignal(candidate) = &ev else {
+            panic!("{ev:?}");
+        };
+        assert_eq!(candidate.signal, CallSignalKind::Candidate);
+        assert!(candidate.sdp.is_none() && candidate.candidate.is_some());
+
+        // A kind this version does not know keeps its wire value, so a
+        // client can ignore it by name rather than fail to parse.
+        let ev = round_trip(json!({
+            "@type": "VTCCallSignal",
+            "accountId": "A1",
+            "callId": "01J4XKZQN4MWVT8PPBEHTJ3AB",
+            "participantId": "01J4XS5WR2VAYY4WWHKNYZ9MC0",
+            "signal": "rollback",
+            "timestamp": "2026-11-23T12:00:02Z"
+        }));
+        let VtcEvent::CallSignal(other) = &ev else {
+            panic!("{ev:?}");
+        };
+        assert_eq!(other.signal, CallSignalKind::Other("rollback".to_owned()));
     }
 
     #[test]

@@ -13,9 +13,104 @@ use jmap_server::{
 };
 
 use jmap_vtc_types::{
-    CallState, LivestreamState, RecordingState, VtcCall, VtcCapability, VtcEvent, VtcLivestream,
-    VtcRecording, VtcRecordingStateEvent,
+    CallSignalKind, CallState, LivestreamState, RecordingState, VtcCall, VtcCapability, VtcEvent,
+    VtcLivestream, VtcRecording, VtcRecordingStateEvent,
 };
+
+/// One call signalling message a client asked to relay
+/// ([`VtcBackend::signal_call`]).
+///
+/// The handler has checked that `signal` and the payload agree, so a
+/// backend reads the one its `signal` names.
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CallSignalRequest {
+    /// Which signal it is.
+    pub signal: CallSignalKind,
+    /// The session description, for `Offer` and `Answer`.
+    pub sdp: Option<String>,
+    /// The ICE candidate, for `Candidate`: the members of WebRTC's
+    /// `RTCIceCandidateInit`.
+    pub candidate: Option<serde_json::Map<String, serde_json::Value>>,
+}
+
+impl CallSignalRequest {
+    /// A signal of `kind` carrying `sdp`.
+    pub fn sdp(kind: CallSignalKind, sdp: impl Into<String>) -> Self {
+        Self {
+            signal: kind,
+            sdp: Some(sdp.into()),
+            candidate: None,
+        }
+    }
+
+    /// One ICE candidate.
+    pub fn candidate(candidate: serde_json::Map<String, serde_json::Value>) -> Self {
+        Self {
+            signal: CallSignalKind::Candidate,
+            sdp: None,
+            candidate: Some(candidate),
+        }
+    }
+}
+
+/// A call's shared media secret for one epoch
+/// ([`VtcBackend::export_media_secret`]).
+///
+/// `Debug` prints no part of the secret, and the type implements neither
+/// `Display` nor `Serialize`, so it cannot reach a log by accident;
+/// [`MediaSecret::expose_secret`] is the only way to read it.
+#[derive(Clone, PartialEq, Eq)]
+pub struct MediaSecret {
+    epoch: u64,
+    secret: Vec<u8>,
+}
+
+impl MediaSecret {
+    /// The secret of `epoch`.
+    pub fn new(epoch: u64, secret: Vec<u8>) -> Self {
+        Self { epoch, secret }
+    }
+
+    /// The epoch of the call's key agreement this secret belongs to.
+    /// Every participant of that epoch derives the same secret, and the
+    /// next epoch has another.
+    pub fn epoch(&self) -> u64 {
+        self.epoch
+    }
+
+    /// The secret's bytes. Input keying material for the media layer's
+    /// key schedule, never a media key. Never log them.
+    pub fn expose_secret(&self) -> &[u8] {
+        &self.secret
+    }
+}
+
+impl std::fmt::Debug for MediaSecret {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "MediaSecret {{ epoch: {}, secret: <redacted> }}",
+            self.epoch
+        )
+    }
+}
+
+/// The call's key agreement has moved past the epoch the client named
+/// ([`VtcBackend::export_media_secret`]).
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct EpochMoved {
+    /// The epoch the call is in now.
+    pub epoch: u64,
+}
+
+impl EpochMoved {
+    /// The call is in `epoch` now.
+    pub fn new(epoch: u64) -> Self {
+        Self { epoch }
+    }
+}
 
 /// A VTC record whose `state` follows a draft-atwood-jmap-vtc-00 state
 /// machine: `VTCCall` (§State Machine), `VTCRecording` (§Pausing,
@@ -508,6 +603,100 @@ pub trait VtcBackend: JmapBackend {
         account_id: &jmap_types::Id,
         event: VtcEvent,
     ) -> impl std::future::Future<Output = ()> + Send;
+
+    /// Relays one call signalling message to the call's other
+    /// participants (draft-atwood-jmap-vtc-00 §`VTCCall/signal`).
+    ///
+    /// The backend chooses the channel. The draft describes one for a
+    /// call that has a room of its own in a federated messaging
+    /// protocol, where the room is already ordered, authenticated and
+    /// end-to-end encrypted between exactly the call's participants, but
+    /// nothing here requires that: a backend relaying through its own
+    /// media plane or its own transport implements this the same way.
+    /// What the backend owes its clients is that each relayed signal
+    /// reaches the call's other participants and nobody else, and that
+    /// the `participantId` it puts on the resulting
+    /// [`VtcCallSignal`](jmap_vtc_types::VtcCallSignal) is the sender it
+    /// authenticated rather than one the sender asserted.
+    ///
+    /// `sdp` carries the session description for
+    /// [`CallSignalKind::Offer`](jmap_vtc_types::CallSignalKind::Offer)
+    /// and `Answer`; `candidate` carries one ICE candidate for
+    /// `Candidate`. The handler has already refused a `signal` whose
+    /// payload does not match it.
+    ///
+    /// # Default implementation
+    ///
+    /// Returns `notFound`, as a backend with no channel to relay
+    /// through must: `VTCCall/signal` is then a method the deployment
+    /// does not offer, and a client that tried learns so rather than
+    /// waiting for a call that never connects.
+    ///
+    /// # Errors
+    ///
+    /// The backend's, and a [`SetError`](jmap_types::SetError) for a
+    /// call it will not relay in.
+    fn signal_call(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        call_id: &jmap_types::Id,
+        signal: &CallSignalRequest,
+    ) -> impl std::future::Future<Output = Result<(), BackendSetError<Self::Error>>> + Send {
+        let _ = (caller, account_id, call_id, signal);
+        async {
+            Err(BackendSetError::SetError(Box::new(
+                SetError::new(SetErrorType::NotFound)
+                    .with_description("this deployment relays no call signalling"),
+            )))
+        }
+    }
+
+    /// The call's shared media secret for the epoch its key agreement is
+    /// in (draft-atwood-jmap-vtc-00 §`VTCCall/exportMediaSecret`).
+    ///
+    /// A backend that derives a per-epoch secret every participant of a
+    /// call computes for itself answers this; one that distributes media
+    /// keys some other way does not. The returned secret is INPUT KEYING
+    /// MATERIAL for the media layer's own key schedule and never a media
+    /// encryption key: the handler passes it to the client with that
+    /// requirement, and a backend MUST NOT return a value it would be
+    /// unsafe to use that way. A backend MUST NOT retain the secret after
+    /// answering, MUST NOT put one in a push payload or an ephemeral
+    /// event, and SHOULD refuse a caller that is not a participant.
+    ///
+    /// `epoch` is the epoch the client believes the call is in. When it
+    /// is `Some` and the call has moved on, the backend answers
+    /// `Ok(Err(EpochMoved))` with the epoch the call is in now, as
+    /// [`VtcBackend::update_object_if`] answers a state mismatch, and
+    /// the handler turns that into `stateMismatch`, so that a client
+    /// cannot use a secret for an epoch that has ended without noticing.
+    ///
+    /// # Default implementation
+    ///
+    /// Returns `notFound`, as for [`VtcBackend::signal_call`].
+    ///
+    /// # Errors
+    ///
+    /// The backend's, and a [`SetError`](jmap_types::SetError) for a
+    /// call whose secret it will not export.
+    fn export_media_secret(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        call_id: &jmap_types::Id,
+        epoch: Option<u64>,
+    ) -> impl std::future::Future<
+        Output = Result<Result<MediaSecret, EpochMoved>, BackendSetError<Self::Error>>,
+    > + Send {
+        let _ = (caller, account_id, call_id, epoch);
+        async {
+            Err(BackendSetError::SetError(Box::new(
+                SetError::new(SetErrorType::NotFound)
+                    .with_description("this deployment exports no call media secret"),
+            )))
+        }
+    }
 
     /// `true` if the caller is a moderator on `call`
     /// (draft-atwood-jmap-vtc-00 §Moderator Actions on VTCCall): its

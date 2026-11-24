@@ -27,13 +27,14 @@ use jmap_vtc_types::{
     CallEndReason, CallResponse, CallState, CallType, MediaKind, RingEndReason, VtcCall,
     VtcCallEndEvent, VtcCapability, VtcEvent, VtcParticipant,
 };
-use jmap_vtc_types::{VtcCallComparator, VtcCallFilter};
+use jmap_vtc_types::{CallSignalKind, VtcCallComparator, VtcCallFilter};
 use serde::Deserialize;
 use serde_json::{Map, Value, json};
 use std::collections::BTreeMap;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use crate::VtcBackend;
+use crate::backend::CallSignalRequest;
 use crate::helpers::{
     SetAccumulators, default_sort, enforce_max_objects_in_set, extract_account_id, fetch_one,
     finalize_set_response, forbidden, invalid, peek_filter, reject_unsupported_sort, state_refused,
@@ -1283,4 +1284,213 @@ async fn end_cascade<B: VtcBackend>(
     stop_recordings(backend, caller, account_id, &call.id).await?;
     stop_livestreams(backend, caller, account_id, &call.id).await?;
     Ok(result)
+}
+
+/// Handle `VTCCall/signal` (draft-atwood-jmap-vtc-00 §`VTCCall/signal`):
+/// relay one session description or ICE candidate to the call's other
+/// participants.
+///
+/// Not a standard JMAP method. It carries no record and changes no state,
+/// so there is no `/get` to read the result from and no state string to
+/// compare; the relay is [`VtcBackend::signal_call`]'s, and a backend
+/// with no channel to relay through answers `notFound` by default.
+///
+/// A client holding a call sends these over the WebSocket transport
+/// (draft-atwood-jmap-vtc-wss-00), since trickled ICE candidates arrive
+/// faster than an HTTP round trip each.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   when `callId` is missing or not a valid Id, when `signal` is missing
+///   or not a string, or when `signal` and the payload do not agree: an
+///   `"offer"` or `"answer"` carries `sdp` and no `candidate`, a
+///   `"candidate"` the reverse, and a kind this library does not know
+///   carries neither, since nothing can be made of it;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `forbidden`, `notFound` or another `SetError` type as the backend's
+///   refusal names it;
+/// - `serverFail` when the backend fails.
+pub async fn handle_vtc_call_signal<B: VtcBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    args: Value,
+) -> Result<HandlerOutput, JmapError> {
+    let (account_id, args) = extract_account_id(args)?;
+    if !backend
+        .account_exists(caller, &account_id)
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?
+    {
+        return Err(JmapError::account_not_found());
+    }
+    let call_id = args
+        .get("callId")
+        .and_then(Value::as_str)
+        .filter(|id| !id.is_empty())
+        .map(|id| Id::from(id.to_owned()))
+        .ok_or_else(|| JmapError::invalid_arguments("callId is required and must be a string"))?;
+    let kind = match args.get("signal").and_then(Value::as_str) {
+        Some(signal) => CallSignalKind::from(signal),
+        None => {
+            return Err(JmapError::invalid_arguments(
+                "signal is required and must be a string",
+            ));
+        }
+    };
+    let sdp = match args.get("sdp") {
+        None | Some(Value::Null) => None,
+        Some(Value::String(sdp)) => Some(sdp.clone()),
+        Some(_) => return Err(JmapError::invalid_arguments("sdp must be a string or null")),
+    };
+    let candidate = match args.get("candidate") {
+        None | Some(Value::Null) => None,
+        Some(Value::Object(map)) => Some(map.clone()),
+        Some(_) => {
+            return Err(JmapError::invalid_arguments(
+                "candidate must be an object or null",
+            ));
+        }
+    };
+    // The payload a kind does not take is a mistake rather than an extra:
+    // a client that sends an offer with no SDP has a call that will not
+    // connect, and saying so here is the only chance to tell it.
+    let wanted = match kind {
+        CallSignalKind::Offer | CallSignalKind::Answer => (true, false),
+        CallSignalKind::Candidate => (false, true),
+        _ => (false, false),
+    };
+    if (sdp.is_some(), candidate.is_some()) != wanted {
+        return Err(JmapError::invalid_arguments(
+            "signal and its payload do not agree",
+        ));
+    }
+    let request = CallSignalRequest {
+        signal: kind,
+        sdp,
+        candidate,
+    };
+    match backend
+        .signal_call(caller, &account_id, &call_id, &request)
+        .await
+    {
+        Ok(()) => Ok(HandlerOutput::new(json!({
+            "accountId": account_id.as_ref(),
+            "callId": call_id.as_ref(),
+        }))),
+        Err(error) => Err(signal_refusal(error)),
+    }
+}
+
+/// Handle `VTCCall/exportMediaSecret` (draft-atwood-jmap-vtc-00
+/// §`VTCCall/exportMediaSecret`): the call's shared media secret for the
+/// epoch its key agreement is in.
+///
+/// Not a standard JMAP method. It returns key material rather than a
+/// record, and its result MUST NOT be cached or logged by anything that
+/// handles ordinary method responses. The secret is input keying material
+/// for the media layer's own key schedule and never a media encryption
+/// key.
+///
+/// # Errors
+///
+/// Returns a method-level [`JmapError`]:
+///
+/// - `invalidArguments` when `accountId` is missing or not a valid Id,
+///   when `callId` is missing or not a valid Id, or when `epoch` is
+///   present and not a non-negative integer;
+/// - `accountNotFound` when the backend does not know `accountId`;
+/// - `stateMismatch`, with the epoch the call is in now, when `epoch`
+///   names an epoch the call has moved past;
+/// - `forbidden`, `notFound` or another `SetError` type as the backend's
+///   refusal names it;
+/// - `serverFail` when the backend fails.
+pub async fn handle_vtc_call_export_media_secret<B: VtcBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    args: Value,
+) -> Result<HandlerOutput, JmapError> {
+    let (account_id, args) = extract_account_id(args)?;
+    if !backend
+        .account_exists(caller, &account_id)
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?
+    {
+        return Err(JmapError::account_not_found());
+    }
+    let call_id = args
+        .get("callId")
+        .and_then(Value::as_str)
+        .filter(|id| !id.is_empty())
+        .map(|id| Id::from(id.to_owned()))
+        .ok_or_else(|| JmapError::invalid_arguments("callId is required and must be a string"))?;
+    let epoch = match args.get("epoch") {
+        None | Some(Value::Null) => None,
+        Some(value) => Some(
+            value
+                .as_u64()
+                .ok_or_else(|| JmapError::invalid_arguments("epoch must be a whole number"))?,
+        ),
+    };
+    match backend
+        .export_media_secret(caller, &account_id, &call_id, epoch)
+        .await
+    {
+        Ok(Ok(secret)) => Ok(HandlerOutput::new(json!({
+            "accountId": account_id.as_ref(),
+            "callId": call_id.as_ref(),
+            "epoch": secret.epoch(),
+            "mediaSecret": base64_of(secret.expose_secret()),
+        }))),
+        // As a /set answers a state precondition: the client named an
+        // epoch that has ended, and learns which one is current rather
+        // than keying media from a secret nobody else is using.
+        Ok(Err(moved)) => {
+            let mut error = JmapError::state_mismatch();
+            error.description = Some(format!("the call is in epoch {}", moved.epoch));
+            Err(error)
+        }
+        Err(error) => Err(signal_refusal(error)),
+    }
+}
+
+/// The secret as the method returns it: standard base64 with padding
+/// (RFC 4648 §4), which draft-atwood-jmap-vtc-00
+/// §`VTCCall/exportMediaSecret` names.
+fn base64_of(bytes: &[u8]) -> String {
+    use base64::Engine;
+    base64::engine::general_purpose::STANDARD.encode(bytes)
+}
+
+/// A backend's refusal of `VTCCall/signal` or
+/// `VTCCall/exportMediaSecret` as a method-level error.
+///
+/// Neither method is a `/set`, so there is no per-object `notCreated`
+/// map to put a [`SetError`] in: the refusal is the whole answer. A
+/// `forbidden` refusal keeps its meaning, and every other type becomes
+/// `invalidArguments` carrying the backend's own description, which is
+/// what tells a caller whether the call is unknown or the deployment
+/// simply does not offer the method — the two reach here as the same
+/// `notFound`.
+fn signal_refusal<E: std::fmt::Display>(error: BackendSetError<E>) -> JmapError {
+    match error {
+        BackendSetError::Other(e) => server_fail_from_backend(&e),
+        BackendSetError::SetError(set) => match set.error_type {
+            SetErrorType::Forbidden => JmapError::forbidden(),
+            other => JmapError::invalid_arguments(set.description.clone().unwrap_or_else(|| {
+                format!(
+                    "the call refuses this: {}",
+                    serde_json::to_value(&other)
+                        .ok()
+                        .and_then(|v| v.as_str().map(str::to_owned))
+                        .unwrap_or_else(|| "unknown".to_owned())
+                )
+            })),
+        },
+        // BackendSetError is #[non_exhaustive]: a variant added later is
+        // an error this function has not been taught to read.
+        other => server_fail_from_backend(&other),
+    }
 }

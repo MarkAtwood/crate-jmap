@@ -35,6 +35,9 @@ jmap-vtc-types = { workspace = true }
 jmap-server = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+# draft-atwood-jmap-vtc-00 §VTCCall/exportMediaSecret returns the
+# secret as standard base64.
+base64 = "0.22"
 ulid = { version = "1", optional = true }
 jmap-object-history-server = { workspace = true, optional = true }
 jmap-object-history-types = { workspace = true }

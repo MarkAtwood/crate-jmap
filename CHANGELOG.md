@@ -12,6 +12,37 @@ wire behaviour that a conforming peer can observe.
 
 ## [Unreleased]
 
+### Added
+
+- **jmap-vtc-types**: `VtcCallSignal`, the ephemeral event carrying one
+  call signalling message from another participant, and `CallSignalKind`
+  (`offer`, `answer`, `candidate`, and `Other` for a kind a later
+  revision adds). `VtcEvent` gains a `CallSignal` variant, which encodes
+  and decodes as `"@type": "VTCCallSignal"`.
+- **jmap-vtc-server**: `VTCCall/signal` and `VTCCall/exportMediaSecret`
+  (draft-atwood-jmap-vtc-00), registered by `register_vtc_handlers`, with
+  `handle_vtc_call_signal` and `handle_vtc_call_export_media_secret`
+  exported for a consumer that registers handlers itself. A call with an
+  ordered, authenticated, end-to-end encrypted channel between exactly
+  its participants can carry its own WebRTC signalling, and a call whose
+  participants each derive a per-epoch shared secret can key its media
+  without distributing one.
+
+  `VtcBackend` gains `signal_call` and `export_media_secret`, both with
+  default implementations that refuse, so a backend that relays no
+  signalling or exports no secret is unaffected and both methods answer
+  that the deployment does not offer them. The supporting types are
+  `CallSignalRequest`, `MediaSecret` (which redacts its `Debug` and
+  implements neither `Display` nor `Serialize`) and `EpochMoved`, which
+  `export_media_secret` returns as `Ok(Err(..))` for a client that named
+  an epoch the call has moved past, as `update_object_if` reports a state
+  mismatch; the handler answers `stateMismatch` naming the current epoch.
+
+  The handlers own the argument checking: a `signal` whose kind and
+  payload disagree is `invalidArguments` and never reaches the backend,
+  because a client that sends an offer with no session description has a
+  call that will not connect.
+
 ## [0.6.2] - 2026-11-22
 
 A patch release on the 0.6 line: a security fix and other fixes, plus

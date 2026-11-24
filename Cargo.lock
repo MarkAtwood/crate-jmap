@@ -3047,6 +3047,7 @@ dependencies = [
 name = "jmap-vtc-server"
 version = "0.6.2"
 dependencies = [
+ "base64",
  "futures",
  "jmap-object-history-server",
  "jmap-object-history-types",
