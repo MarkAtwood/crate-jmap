@@ -186,6 +186,24 @@ pub struct VtcGatewaySignal {
 /// Ephemeral: never a stored object, never returned by a `/get` or a
 /// `/query`, and not replayed to a client that was not connected when it
 /// arrived.
+///
+/// # Applying one
+///
+/// A relay that orders what it accepts delivers an offer before the
+/// answer to it, so a client needs no sequence numbers of its own.
+/// ARRIVAL ORDER IS NOT PROCESSING ORDER: applying a session
+/// description is asynchronous, waiting on the user's permission to use
+/// a microphone or camera and on the media layer, so a candidate that
+/// arrived after an offer can reach a client that has not finished
+/// applying it. A client holds such a candidate until the remote
+/// description is set and then applies what it held, and discards
+/// none: the candidates it discards are the routes its call then fails
+/// to find. Applying candidates as they arrive works on a fast machine
+/// and fails intermittently on a slow one.
+///
+/// A server may deliver a signal more than once. A second copy of an
+/// offer already applied is ignored rather than applied again, and a
+/// repeated candidate is harmless.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
